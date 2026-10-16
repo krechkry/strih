@@ -1,0 +1,28 @@
+name: Strih
+options:
+  bundleIdPrefix: cz.krechler
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  Strih:
+    type: application
+    platform: iOS
+    sources: [Strih]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.strih
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Střih"
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Střih saves exported videos to your library."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Střih imports videos you pick to edit them."
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
