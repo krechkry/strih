@@ -107,7 +107,7 @@ private struct RulerView: View {
     let half: CGFloat
 
     var body: some View {
-        Canvas { ctx, size in
+        SwiftUI.Canvas { ctx, size in
             // pick a label step that keeps labels ~70pt apart
             let steps: [Double] = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300]
             let step = steps.first { CGFloat($0) * pxPerSec >= 70 } ?? 600

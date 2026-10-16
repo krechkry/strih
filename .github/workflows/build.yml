@@ -9,7 +9,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Pick newest Xcode
         run: |
@@ -48,7 +48,7 @@ jobs:
           cp -R build/Release-iphoneos/Strih.app Payload/
           zip -qry Strih.ipa Payload
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Strih-ipa
           path: Strih.ipa
