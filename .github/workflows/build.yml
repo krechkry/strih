@@ -25,16 +25,22 @@ jobs:
 
       - name: Build (unsigned)
         run: |
-          set -o pipefail
+          echo "::notice::$(xcodebuild -version | tr '\n' ' ')"
+          FAILED=0
           xcodebuild -project Strih.xcodeproj -target Strih -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/build" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build 2>&1 | tee build.log | grep -E "error:|warning: .*(deprecated|Sendable)|BUILD (SUCCEEDED|FAILED)" || true
-          test -d build/Release-iphoneos/Strih.app
-
-      - name: Show errors
-        if: failure()
-        run: grep -E "error:" build.log | sort -u | head -80
+            build > build.log 2>&1 || FAILED=1
+          # Errors become one annotation (readable through the API, raw logs are not)
+          ERR=$(grep -E ": error:" build.log | sed "s#$PWD/##" | sort -u | head -60 | awk '{printf "%s%%0A", $0}')
+          [ -n "$ERR" ] && echo "::error title=Compile errors::$ERR"
+          WARN=$(grep -E ": warning:" build.log | grep -v "/build/" | sed "s#$PWD/##" | sort -u | head -40 | awk '{printf "%s%%0A", $0}')
+          [ -n "$WARN" ] && echo "::warning title=Warnings::$WARN"
+          tail -3 build.log
+          if [ "$FAILED" = 1 ] || [ ! -f build/Release-iphoneos/Strih.app/Strih ]; then
+            [ -z "$ERR" ] && echo "::error title=Build failed::$(tail -30 build.log | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
 
       - name: Package .ipa
         run: |
