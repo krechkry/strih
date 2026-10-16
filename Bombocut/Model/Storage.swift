@@ -99,7 +99,7 @@ enum Media {
     static func probe(_ url: URL) async throws -> (duration: Double, size: CGSize) {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-            throw NSError(domain: "Strih", code: 1, userInfo: [NSLocalizedDescriptionKey: "No video track in this file."])
+            throw NSError(domain: "Bombocut", code: 1, userInfo: [NSLocalizedDescriptionKey: "No video track in this file."])
         }
         let (range, natural, transform) = try await track.load(.timeRange, .naturalSize, .preferredTransform)
         let r = natural.applying(transform)

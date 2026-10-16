@@ -111,6 +111,6 @@ enum CompositionBuilder {
     }
 
     static func err(_ s: String) -> NSError {
-        NSError(domain: "Strih", code: 2, userInfo: [NSLocalizedDescriptionKey: s])
+        NSError(domain: "Bombocut", code: 2, userInfo: [NSLocalizedDescriptionKey: s])
     }
 }

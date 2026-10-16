@@ -34,7 +34,7 @@ final class Exporter: @unchecked Sendable {
         let duration = max(built.duration, 0.01)
 
         let out = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Strih_\(Int(Date().timeIntervalSince1970)).mp4")
+            .appendingPathComponent("Bombocut_\(Int(Date().timeIntervalSince1970)).mp4")
         try? FileManager.default.removeItem(at: out)
 
         // Reader
@@ -109,10 +109,10 @@ final class Exporter: @unchecked Sendable {
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             let group = DispatchGroup()
             pump(input: vIn, output: vOut, reader: reader, group: group,
-                 queue: DispatchQueue(label: "strih.export.video")) { t in progress(min(1, t / duration)) }
+                 queue: DispatchQueue(label: "bombocut.export.video")) { t in progress(min(1, t / duration)) }
             if let aIn, let aOut {
                 pump(input: aIn, output: aOut, reader: reader, group: group,
-                     queue: DispatchQueue(label: "strih.export.audio"), onTime: nil)
+                     queue: DispatchQueue(label: "bombocut.export.audio"), onTime: nil)
             }
             group.notify(queue: .global()) { cont.resume() }
         }

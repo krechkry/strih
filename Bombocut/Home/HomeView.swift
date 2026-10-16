@@ -38,7 +38,7 @@ struct HomeView: View {
                 .padding(16)
             }
             .background(Theme.bg)
-            .navigationTitle("Střih")
+            .navigationTitle("Bombocut")
             .navigationDestination(item: $openProject) { p in
                 EditorView(project: p, store: store)
                     .toolbar(.hidden, for: .navigationBar)

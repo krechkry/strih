@@ -27,7 +27,7 @@ jobs:
         run: |
           echo "::notice::$(xcodebuild -version | tr '\n' ' ')"
           FAILED=0
-          xcodebuild -project Strih.xcodeproj -target Strih -configuration Release -sdk iphoneos \
+          xcodebuild -project Bombocut.xcodeproj -target Bombocut -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/build" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build > build.log 2>&1 || FAILED=1
@@ -37,7 +37,7 @@ jobs:
           WARN=$(grep -E ": warning:" build.log | grep -v "/build/" | sed "s#$PWD/##" | sort -u | head -40 | awk '{printf "%s%%0A", $0}')
           [ -n "$WARN" ] && echo "::warning title=Warnings::$WARN"
           tail -3 build.log
-          if [ "$FAILED" = 1 ] || [ ! -f build/Release-iphoneos/Strih.app/Strih ]; then
+          if [ "$FAILED" = 1 ] || [ ! -f build/Release-iphoneos/Bombocut.app/Bombocut ]; then
             [ -z "$ERR" ] && echo "::error title=Build failed::$(tail -30 build.log | awk '{printf "%s%%0A", $0}')"
             exit 1
           fi
@@ -45,11 +45,11 @@ jobs:
       - name: Package .ipa
         run: |
           mkdir -p Payload
-          cp -R build/Release-iphoneos/Strih.app Payload/
-          zip -qry Strih.ipa Payload
+          cp -R build/Release-iphoneos/Bombocut.app Payload/
+          zip -qry Bombocut.ipa Payload
 
       - uses: actions/upload-artifact@v5
         with:
-          name: Strih-ipa
-          path: Strih.ipa
+          name: Bombocut-ipa
+          path: Bombocut.ipa
           retention-days: 30

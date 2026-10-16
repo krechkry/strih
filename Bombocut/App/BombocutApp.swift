@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 
 @main
-struct StrihApp: App {
+struct BombocutApp: App {
     @StateObject private var store = ProjectStore()
 
     init() {

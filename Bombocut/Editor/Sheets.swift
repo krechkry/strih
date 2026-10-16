@@ -315,7 +315,7 @@ struct ExportSheet: View {
             Image(systemName: saved ? "checkmark.circle.fill" : "film")
                 .font(.system(size: 54))
                 .foregroundStyle(Theme.accent)
-            Text(saved ? "Saved to Photos" : "Export finished").font(.title3.weight(.semibold))
+            Text(saved ? "Big up! Saved to Photos" : "Export finished").font(.title3.weight(.semibold))
             if let note { Text(note).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center) }
             ShareLink(item: url) {
                 Label("Share file", systemImage: "square.and.arrow.up")

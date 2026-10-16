@@ -1,4 +1,4 @@
-# Střih
+# Bombocut
 
 A no-nonsense iPhone video editor. Edits-style layout, CapCut-grade speed retiming, on-device Czech/Slovak/English captions, full export control. No AI gimmicks, no filter packs.
 
@@ -10,12 +10,12 @@ Target: iPhone 16 Pro, iOS 18+.
 2. Install XcodeGen: `brew install xcodegen`
 3. Unzip, then in Terminal:
    ```
-   cd strih
+   cd strih   # (the repo folder)
    xcodegen
-   open Strih.xcodeproj
+   open Bombocut.xcodeproj
    ```
 4. Xcode → Settings → Accounts → add your Apple ID.
-5. Click the **Strih** target → Signing & Capabilities → pick your Team. If the bundle id is taken, change `cz.krechler.strih` to anything unique.
+5. Click the **Bombocut** target → Signing & Capabilities → pick your Team. If the bundle id is taken, change `cz.krechler.bombocut` to anything unique.
 6. Plug in the iPhone. On the phone: Settings → Privacy & Security → **Developer Mode** → on (it restarts).
 7. Pick the iPhone at the top of Xcode and press ▶ Run.
 8. First launch only: on the phone, Settings → General → VPN & Device Management → trust your developer profile.
