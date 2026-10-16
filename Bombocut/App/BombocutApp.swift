@@ -20,6 +20,15 @@ struct BombocutApp: App {
     }
 }
 
+/// Screenshot robot: `-demo home|editor|selected|export|canvas` opens a demo project in that state.
+enum Demo {
+    static let mode: String? = {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-demo"), i + 1 < a.count else { return nil }
+        return a[i + 1]
+    }()
+}
+
 enum Theme {
     static let accent = Color(red: 0.894, green: 1.0, blue: 0.353)   // #E4FF5A
     static let bg = Color(red: 0.05, green: 0.055, blue: 0.063)

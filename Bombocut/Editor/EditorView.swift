@@ -28,6 +28,7 @@ struct EditorView: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .onDisappear { model.tearDown() }
+        .task { await demoSetup() }
         .sheet(item: $sheet) { s in
             switch s {
             case .export: ExportSheet(project: model.project).presentationDetents([.large])
@@ -141,6 +142,18 @@ struct EditorView: View {
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
         .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
+    }
+
+    private func demoSetup() async {
+        guard let mode = Demo.mode else { return }
+        try? await Task.sleep(for: .seconds(2.5))
+        model.scrub(to: min(2.2, model.duration))
+        switch mode {
+        case "selected": model.selectedClipID = model.project.clips.dropFirst().first?.id ?? model.project.clips.first?.id
+        case "export": sheet = .export
+        case "canvas": sheet = .canvas
+        default: break
+        }
     }
 
     private func add(_ items: [PhotosPickerItem]) async {

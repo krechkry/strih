@@ -50,6 +50,7 @@ struct HomeView: View {
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
+            .task { await runDemoIfRequested() }
             .onChange(of: pickerItems) { _, items in
                 guard !items.isEmpty else { return }
                 pickerItems = []
@@ -96,6 +97,23 @@ struct HomeView: View {
         .padding(16)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line))
+    }
+
+    private func runDemoIfRequested() async {
+        guard let mode = Demo.mode else { return }
+        var p = store.projects.first
+        if p == nil {
+            let urls = ["demo1.mp4", "demo2.mp4", "demo3.mp4"].map { Paths.mediaURL($0) }
+                .filter { FileManager.default.fileExists(atPath: $0.path) }
+            let (clips, size) = await Media.makeClips(from: urls)
+            guard !clips.isEmpty else { return }
+            var np = Project(name: "PVP street edit")
+            np.clips = clips
+            np.canvas = Media.canvas(for: size)
+            store.save(np)
+            p = np
+        }
+        if mode != "home", let p { openProject = p }
     }
 
     private func importFromPhotos(_ items: [PhotosPickerItem]) async {
