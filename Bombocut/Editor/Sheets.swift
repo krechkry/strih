@@ -244,7 +244,7 @@ struct ExportSheet: View {
                 } label: {
                     VStack(spacing: 3) {
                         Text("Export").font(.headline)
-                        Text("\(outSize.w) × \(outSize.h) · \(String(format: "%g", fps)) fps · \(String(format: "%.1f", mbps)) Mbps · \(effectiveHEVC ? "HEVC" : "H.264")")
+                        Text(verbatim: "\(outSize.w) × \(outSize.h) · \(String(format: "%g", fps)) fps · \(String(format: "%.1f", mbps)) Mbps · \(effectiveHEVC ? "HEVC" : "H.264")")
                             .font(.caption)
                     }
                     .foregroundStyle(.black)
@@ -348,22 +348,21 @@ struct ChipRow<V: Equatable>: View {
     let pick: (V) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 66), spacing: 8)], spacing: 8) {
                 ForEach(items.indices, id: \.self) { i in
                     let on = items[i].1 == selected
                     Button { pick(items[i].1) } label: {
                         Text(items[i].0)
                             .font(.subheadline.weight(on ? .bold : .regular))
                             .foregroundStyle(on ? .black : .white)
-                            .padding(.horizontal, 12).frame(height: 32)
+                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity).frame(height: 32)
                             .background(on ? Theme.accent : Theme.panel2, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
-            }
-            .padding(.vertical, 2)
         }
+        .padding(.vertical, 2)
         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
     }
 }
