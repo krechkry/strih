@@ -36,10 +36,10 @@ enum EffectsRenderer {
         guard e.hasColor else { return img }
         var out = img
         if e.exposure != 0 {
-            out = out.applyingFilter("CIExposureAdjust", ["inputEV": e.exposure * 2])
+            out = out.applyingFilter("CIExposureAdjust", parameters: ["inputEV": e.exposure * 2])
         }
         if e.contrast != 0 || e.saturation != 0 {
-            out = out.applyingFilter("CIColorControls", [
+            out = out.applyingFilter("CIColorControls", parameters: [
                 "inputContrast": 1 + e.contrast * 0.5,
                 "inputSaturation": 1 + e.saturation,
                 "inputBrightness": 0,
@@ -47,13 +47,13 @@ enum EffectsRenderer {
         }
         if e.temperature != 0 || e.tint != 0 {
             // Telling Core Image the scene was lit by a bluer light warms the picture, and vice versa.
-            out = out.applyingFilter("CITemperatureAndTint", [
+            out = out.applyingFilter("CITemperatureAndTint", parameters: [
                 "inputNeutral": CIVector(x: 6500 + e.temperature * 3000, y: e.tint * 60),
                 "inputTargetNeutral": CIVector(x: 6500, y: 0),
             ])
         }
         if e.highlights != 0 || e.shadows != 0 {
-            out = out.applyingFilter("CIToneCurve", [
+            out = out.applyingFilter("CIToneCurve", parameters: [
                 "inputPoint0": CIVector(x: 0, y: 0),
                 "inputPoint1": CIVector(x: 0.25, y: 0.25 + e.shadows * 0.12),
                 "inputPoint2": CIVector(x: 0.5, y: 0.5),
@@ -72,7 +72,7 @@ enum EffectsRenderer {
         if e.aberration > 0 { out = aberration(out, amount: e.aberration, size: size) }
         if e.vignette > 0 {
             let r = hypot(size.width, size.height) / 2
-            out = out.applyingFilter("CIVignetteEffect", [
+            out = out.applyingFilter("CIVignetteEffect", parameters: [
                 "inputCenter": CIVector(x: size.width / 2, y: size.height / 2),
                 "inputRadius": r * (1.05 - 0.45 * e.vignette),
                 "inputIntensity": e.vignette,
@@ -88,7 +88,7 @@ enum EffectsRenderer {
         let k = CGFloat(amount) * 0.01
         let cx = size.width / 2, cy = size.height / 2
         func channel(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> CIImage {
-            img.applyingFilter("CIColorMatrix", [
+            img.applyingFilter("CIColorMatrix", parameters: [
                 "inputRVector": CIVector(x: r, y: 0, z: 0, w: 0),
                 "inputGVector": CIVector(x: 0, y: g, z: 0, w: 0),
                 "inputBVector": CIVector(x: 0, y: 0, z: b, w: 0),
@@ -103,8 +103,8 @@ enum EffectsRenderer {
         let r = scaled(channel(1, 0, 0), 1 + 2 * k)
         let g = scaled(channel(0, 1, 0), 1 + k)
         let b = channel(0, 0, 1)
-        let rg = r.applyingFilter("CIAdditionCompositing", [kCIInputBackgroundImageKey: g])
-        return b.applyingFilter("CIAdditionCompositing", [kCIInputBackgroundImageKey: rg])
+        let rg = r.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: g])
+        return b.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: rg])
     }
 
     /// Monochrome noise that changes every frame, soft-light blended.
@@ -118,14 +118,14 @@ enum EffectsRenderer {
             .transformed(by: CGAffineTransform(translationX: -ox, y: -oy))
             .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             .cropped(to: rect)
-            .applyingFilter("CIColorMatrix", [
+            .applyingFilter("CIColorMatrix", parameters: [
                 "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
                 "inputGVector": CIVector(x: 1, y: 0, z: 0, w: 0),
                 "inputBVector": CIVector(x: 1, y: 0, z: 0, w: 0),
                 "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
             ])
-        let blended = mono.applyingFilter("CISoftLightBlendMode", [kCIInputBackgroundImageKey: img])
-        return img.applyingFilter("CIDissolveTransition", [
+        let blended = mono.applyingFilter("CISoftLightBlendMode", parameters: [kCIInputBackgroundImageKey: img])
+        return img.applyingFilter("CIDissolveTransition", parameters: [
             kCIInputTargetImageKey: blended,
             "inputTime": min(1, amount * 0.85),
         ])

@@ -45,7 +45,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var image = EffectsRenderer.color(CIImage(cvPixelBuffer: src), look.effects)
             image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform, in: size)
             if look.opacity < 0.999 {
-                image = image.applyingFilter("CIColorMatrix", ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, look.opacity))])
+                image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, look.opacity))])
             }
             let bg = CIImage(color: .black).cropped(to: frame)
             image = image.composited(over: bg).cropped(to: frame)
