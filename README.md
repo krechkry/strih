@@ -24,36 +24,41 @@ With a free Apple ID the app stops opening after 7 days; just press Run again. A
 
 The code was written without access to a Mac, so the first build may show a few compile errors. Paste them back to Claude and they'll get fixed.
 
-## Stage 1 (this build)
+## Updating (after the one-time setup)
 
-- Projects list, import from Photos (in pick order, original quality) or Files (FX30 footage etc.)
-- Edits-style editor: preview on top, fixed center playhead, filmstrip timeline
-- Swipe to scrub, pinch to zoom, tap a clip to select
-- Trim by dragging the yellow clip edges (preview shows the frame you're on)
-- Split at playhead, duplicate, move left/right, delete, per-clip volume, fit/fill
-- Canvas: 9:16, 16:9, 1:1, 4:5, 4:3, 3:4, 2.39:1, 21:9 or any custom ratio
-- Undo/redo for everything, autosave
-- Export: 144p to 4K or any custom resolution, frame rates 12 to 120 or custom, bitrate (auto or manual), H.264 or HEVC, saves straight to Photos plus share sheet
-- iPhone HDR footage is converted to standard SDR (HDR export can come later)
+```
+~/strih/update.sh      # pulls the newest code, regenerates the project, keeps your signing team
+```
+Then press ▶ in Xcode.
 
-## Roadmap
+## What's in it
 
-**Stage 2: Speed**
-- Constant speed 0.1x to 100x
-- Custom speed curve: draggable points on a graph, no presets
-- Pitch correction on/off
+**Editing**
+- Projects list, import from Photos (pick order, original quality) or Files
+- Edits-style editor: preview on top, fixed center playhead, filmstrip timeline, pinch to zoom
+- Ripple trim like DaVinci trim mode: clips stay glued, two-up trim viewer, +/− badge, cut/added band
+- Split, duplicate, move, delete, volume, fit/fill, undo/redo, autosave
+- Canvas: 9:16, 4:5, 1:1, 4:3, 16:9, 2.39:1
 
-**Stage 3: Keyframes + effects**
-- Keyframes for position, scale, rotation, opacity with easing
-- Color adjustments: exposure, contrast, saturation, temperature, tint, highlights, shadows
-- Vignette, chromatic aberration, dynamic (animated) grain, all keyframable
+**Preview**
+- Drag / pinch / twist the clip under the playhead, with snapping (center, edges, 100%, fill, straight angles)
+- Double-tap for fullscreen: tap = play/pause, double-tap = exit, no UI while playing (for screen recording)
 
-**Stage 4: Captions**
-- Czech, Slovak, English, transcribed on the phone (WhisperKit, offline)
-- First launch asks which caption languages you want and downloads only that model
-- 3 built-in templates, plus your own templates with font, colors, outline, box, position, words per line and simple timed animations (pop, fade, slide, word highlight, typewriter)
-- Same short-line cutting and Czech typography rules as Titulky
+**Speed**
+- Constant 0.1x to 100x, custom curve with draggable points (no presets), keep pitch on/off per clip
 
-**Stage 5: Stabilization + tracking**
-- Stabilization with strength slider and auto crop
-- Subject tracking: draw a box around anything, then keep it framed or pin captions/elements to it
+**Keyframes + effects**
+- Exposure, contrast, saturation, temperature, tint, highlights, shadows, vignette, chromatic aberration, animated grain, opacity
+- Keyframes for all of that plus move/scale/rotate, smooth or linear easing; diamonds on the timeline
+
+**Captions (on device)**
+- Czech, Slovak, English with WhisperKit; first launch asks which languages and downloads only the needed model
+- Word timings, Titulky line cutting (no dangling Czech prepositions), editable text
+- Templates: Clean, Punch, Box + your own; animations: fade, pop, slide up, word highlight, word by word, typewriter
+
+**Stabilize + track**
+- Stabilization from measured camera shake, strength slider, automatic zoom to hide edges
+- Draw a box around a subject, track it, keep it centered or in place (auto reframe 16:9 → 9:16)
+
+**Export**
+- 144p to 4K or any custom size, 12 to 120 fps or custom, auto or manual bitrate, H.264 / HEVC, straight to Photos
