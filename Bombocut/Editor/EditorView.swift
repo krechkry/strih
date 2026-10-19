@@ -303,15 +303,18 @@ struct EditorView: View {
             model.selectedClipID = c.id
             model.scrub(to: model.project.clipStarts[2] + 1.5)
             if mode == "stabilize" {
-                let path = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map {
-                    PathSample(t: $0, x: 0.02 * sin($0 * 9) + 0.01 * $0, y: 0.015 * cos($0 * 13))
+                let path: [PathSample] = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map { (t: Double) -> PathSample in
+                    let x: Double = 0.02 * Foundation.sin(t * 9.0) + 0.01 * t
+                    let y: Double = 0.015 * Foundation.cos(t * 13.0)
+                    return PathSample(t: t, x: x, y: y)
                 }
                 model.mutateLook { p in p.clips[2].stabilization = Stabilization(strength: 0.6, path: path) }
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .stabilize
             } else if mode == "track" {
-                let samples = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map {
-                    TrackSample(t: $0, x: 0.3 + 0.08 * $0, y: 0.5, w: 0.22, h: 0.4)
+                let samples: [TrackSample] = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map { (t: Double) -> TrackSample in
+                    let x: Double = 0.3 + 0.08 * t
+                    return TrackSample(t: t, x: x, y: 0.5, w: 0.22, h: 0.4)
                 }
                 model.mutateLook { p in p.clips[2].tracking = Tracking(samples: samples, mode: .center, smooth: 0.5) }
                 try? await Task.sleep(for: .seconds(0.6))

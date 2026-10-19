@@ -185,25 +185,35 @@ struct PreviewArea: View {
             let c = model.project.clips[i]
             let t = model.lookAtPlayhead(i).transform
             let base = c.baseFraction(canvasAspect: model.project.canvas.aspect)
-            let bw = base.width * canvas.width * t.scale, bh = base.height * canvas.height * t.scale
-            let pos: CGPoint = {
-                switch tr.mode {
-                case .center: return CGPoint(x: canvas.width / 2, y: canvas.height / 2)
-                default:
-                    let p = tr.mode == .inPlace ? (tr.samples.first.map { ($0.x, $0.y) } ?? (box.x, box.y)) : (box.x, box.y)
-                    let q = CGPoint(x: (p.0 - 0.5) * bw, y: (p.1 - 0.5) * bh)
-                    let cs = cos(t.rotation), sn = sin(t.rotation)
-                    return CGPoint(x: canvas.width / 2 + t.x * canvas.width + q.x * cs - q.y * sn,
-                                   y: canvas.height / 2 + t.y * canvas.height + q.x * sn + q.y * cs)
-                }
-            }()
+            let bw: CGFloat = base.width * canvas.width * CGFloat(t.scale)
+            let bh: CGFloat = base.height * canvas.height * CGFloat(t.scale)
+            let pos = Self.trackedPosition(tr: tr, box: box, t: t, bw: bw, bh: bh, canvas: canvas)
             Rectangle()
                 .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                .frame(width: box.w * bw, height: box.h * bh)
+                .frame(width: CGFloat(box.w) * bw, height: CGFloat(box.h) * bh)
                 .rotationEffect(.radians(t.rotation))
                 .position(pos)
                 .allowsHitTesting(false)
         }
+    }
+
+    /// Where the tracked box sits on the canvas (follow modes move the picture, not the box).
+    private static func trackedPosition(tr: Tracking, box: TrackSample, t: ClipTransform,
+                                        bw: CGFloat, bh: CGFloat, canvas: CGSize) -> CGPoint {
+        if tr.mode == .center { return CGPoint(x: canvas.width / 2, y: canvas.height / 2) }
+        var px: Double = box.x
+        var py: Double = box.y
+        if tr.mode == .inPlace, let first = tr.samples.first {
+            px = first.x
+            py = first.y
+        }
+        let qx: CGFloat = CGFloat(px - 0.5) * bw
+        let qy: CGFloat = CGFloat(py - 0.5) * bh
+        let cs: CGFloat = CGFloat(Foundation.cos(t.rotation))
+        let sn: CGFloat = CGFloat(Foundation.sin(t.rotation))
+        let cx: CGFloat = canvas.width / 2 + CGFloat(t.x) * canvas.width
+        let cy: CGFloat = canvas.height / 2 + CGFloat(t.y) * canvas.height
+        return CGPoint(x: cx + qx * cs - qy * sn, y: cy + qx * sn + qy * cs)
     }
 
     /// Snap guides while dragging.
