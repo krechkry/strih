@@ -50,6 +50,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let bg = CIImage(color: .black).cropped(to: frame)
             image = image.composited(over: bg).cropped(to: frame)
             image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+            if let caps = CaptionStore.shared.current, let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+                image = text.composited(over: image).cropped(to: frame)
+            }
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
             request.finish(withComposedVideoFrame: out)
         }

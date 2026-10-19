@@ -89,12 +89,14 @@ final class EditorModel: ObservableObject {
             .store(in: &cancellables)
 
         LookStore.shared.update(project.clips)
+        CaptionStore.shared.update(project.captions)
         rebuild()
         Task { await fillMissingAspects() }
     }
 
     func tearDown() {
         LookStore.shared.clear()
+        CaptionStore.shared.update(nil)
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
@@ -208,6 +210,7 @@ final class EditorModel: ObservableObject {
         if let id = selectedClipID, !project.clips.contains(where: { $0.id == id }) { selectedClipID = nil }
         currentTime = min(currentTime, duration)
         LookStore.shared.update(project.clips)
+        CaptionStore.shared.update(project.captions)
         rebuild()
     }
 
@@ -230,6 +233,7 @@ final class EditorModel: ObservableObject {
     /// Pushes the current looks to the compositor and redraws the paused frame.
     private func publishLook() {
         LookStore.shared.update(project.clips)
+        CaptionStore.shared.update(project.captions)
         refreshFrame()
     }
 
@@ -513,6 +517,36 @@ final class EditorModel: ObservableObject {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty else { return }
         mutate { $0.name = n }
+    }
+
+    // MARK: Captions
+
+    func setCaptions(_ c: Captions?) {
+        mutateLook { $0.captions = c }
+    }
+
+    /// Live edit (typing, sliders): one undo step for the whole gesture.
+    private var liveSnapshot: Project?
+    func liveEditBegan() {
+        if liveSnapshot == nil { liveSnapshot = project }
+    }
+
+    func editCaptions(_ change: (inout Captions) -> Void) {
+        guard var c = project.captions else { return }
+        change(&c)
+        project.captions = c
+        publishLook()
+    }
+
+    func liveEditEnded() {
+        if let s = liveSnapshot, s != project { pushUndo(s) }
+        liveSnapshot = nil
+        commitLook()
+    }
+
+    func seekToCue(_ cue: CaptionCue) {
+        pause()
+        scrub(to: cue.start + 0.01)
     }
 
     // MARK: Speed

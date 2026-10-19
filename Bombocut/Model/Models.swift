@@ -274,12 +274,13 @@ struct Project: Identifiable, Codable, Hashable {
     var modified = Date()
     var canvas = Canvas()
     var clips: [Clip] = []
+    var captions: Captions?
 
     var duration: Double { clips.reduce(0) { $0 + $1.duration } }
 
     init(name: String) { self.name = name }
 
-    enum CodingKeys: String, CodingKey { case id, name, created, modified, canvas, clips }
+    enum CodingKeys: String, CodingKey { case id, name, created, modified, canvas, clips, captions }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -289,6 +290,7 @@ struct Project: Identifiable, Codable, Hashable {
         modified = try c.decodeIfPresent(Date.self, forKey: .modified) ?? Date()
         canvas = try c.decodeIfPresent(Canvas.self, forKey: .canvas) ?? Canvas()
         clips = try c.decodeIfPresent([Clip].self, forKey: .clips) ?? []
+        captions = try c.decodeIfPresent(Captions.self, forKey: .captions)
     }
 
     /// Timeline start time of each clip.

@@ -28,6 +28,7 @@ struct TimelineView: View {
                     .allowsHitTesting(false)
 
                 ScrollView(.horizontal, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 2) {
                         ForEach(model.project.clips) { clip in
                             ClipTile(clip: clip,
@@ -40,6 +41,10 @@ struct TimelineView: View {
                                      onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) })
                                 .zIndex(clip.id == model.selectedClipID ? 1 : 0)
                         }
+                    }
+                    if let caps = model.project.captions {
+                        CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime)
+                    }
                     }
                     .padding(.leading, max(0, half + shift))
                     .padding(.trailing, half)
@@ -291,5 +296,32 @@ struct ClipTile: View {
                         onTrim(leading, .ended, 0)
                     }
             )
+    }
+}
+
+/// Thin row of caption blocks under the clips.
+private struct CaptionLane: View {
+    let captions: Captions
+    let pxPerSec: CGFloat
+    let currentTime: Double
+
+    var body: some View {
+        let total = (captions.cues.last?.end ?? 0)
+        ZStack(alignment: .topLeading) {
+            Color.clear.frame(width: CGFloat(total) * pxPerSec, height: 18)
+            ForEach(captions.cues) { cue in
+                let on = currentTime >= cue.start && currentTime < cue.end
+                Text(cue.text.replacingOccurrences(of: "\n", with: " "))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(on ? .black : .white.opacity(0.85))
+                    .lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .frame(width: max(4, CGFloat(cue.end - cue.start) * pxPerSec - 1), height: 18, alignment: .leading)
+                    .background(on ? Theme.accent : Theme.accent.opacity(0.22), in: RoundedRectangle(cornerRadius: 4))
+                    .clipped()
+                    .offset(x: CGFloat(cue.start) * pxPerSec)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

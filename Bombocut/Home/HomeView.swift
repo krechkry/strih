@@ -11,11 +11,16 @@ struct HomeView: View {
     @State private var openProject: Project?
     @State private var renaming: Project?
     @State private var renameText = ""
+    @AppStorage("onboarded") private var onboarded = false
+    @State private var showSetup = false
+    @State private var showSettings = false
+    @ObservedObject private var speech = SpeechModels.shared
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    downloadBanner
                     newProjectCard
                     if !store.projects.isEmpty {
                         Text("Projects")
@@ -39,6 +44,22 @@ struct HomeView: View {
             }
             .background(Theme.bg)
             .navigationTitle("Bombocut")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
+                        .tint(.white)
+                }
+            }
+            .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
+                LanguageSetupView(firstLaunch: true).presentationDetents([.large])
+            }
+            .sheet(isPresented: $showSettings) {
+                LanguageSetupView().presentationDetents([.large])
+            }
+            .onAppear {
+                if Demo.mode == "setup" { showSetup = true }
+                else if Demo.mode == nil && !onboarded { showSetup = true }
+            }
             .navigationDestination(item: $openProject) { p in
                 EditorView(project: p, store: store)
                     .toolbar(.hidden, for: .navigationBar)
@@ -68,6 +89,25 @@ struct HomeView: View {
                 Button("Save") { if let r = renaming { store.rename(r, to: renameText) } }
                 Button("Cancel", role: .cancel) {}
             }
+        }
+    }
+
+    @ViewBuilder
+    private var downloadBanner: some View {
+        let downloading = SpeechModel.allCases.compactMap { m -> Double? in
+            if case .downloading(let f) = speech.state(m) { return f }
+            return nil
+        }.first
+        if let f = downloading {
+            HStack(spacing: 12) {
+                Image(systemName: "waveform.badge.mic").foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Downloading speech model \(Int(f * 100)) %").font(.subheadline.weight(.bold))
+                    ProgressView(value: f).tint(Theme.accent)
+                }
+            }
+            .padding(14)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
         }
     }
 

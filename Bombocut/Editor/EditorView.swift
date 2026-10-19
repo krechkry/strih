@@ -24,7 +24,7 @@ struct EditorView: View {
                     .frame(maxHeight: .infinity)
                 transport
                 TimelineView(model: model)
-                    .frame(height: 112)
+                    .frame(height: model.project.captions == nil ? 112 : 136)
                 toolbar
             }
             .background(Theme.bg.ignoresSafeArea())
@@ -46,6 +46,7 @@ struct EditorView: View {
             case .volume: VolumeSheet(model: model).presentationDetents([.height(200)])
             case .speed: SpeedSheet(model: model).presentationDetents([.height(470)])
             case .adjust: AdjustSheet(model: model).presentationDetents([.height(300)])
+            case .captions: CaptionsSheet(model: model).presentationDetents([.height(470), .large])
             }
         }
         .onChange(of: addItems) { _, items in
@@ -195,6 +196,7 @@ struct EditorView: View {
                     }
                     .tint(Theme.pickerTint)
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
+                    ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
                     ToolButton(icon: "aspectratio", label: "Canvas") { sheet = .canvas }
                 }
             }
@@ -272,6 +274,22 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .adjust
             }
+        case "captions", "captionstyle", "captionsframe":
+            let text = "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark v Karlíně a natočíme nový díl. Robin jede první, pak zbytek party. To je ono!"
+            var t = 0.3
+            let words = text.split(separator: " ").map { w -> CaptionWord in
+                defer { t += 0.36 }
+                return CaptionWord(text: String(w), start: t, end: t + 0.32)
+            }
+            let tpl = CaptionTemplate.builtIns[mode == "captionsframe" ? 1 : 0]
+            var caps = Captions(language: "cs", words: words, cues: [], style: tpl.style, templateID: tpl.id)
+            caps.recut()
+            model.setCaptions(caps)
+            model.scrub(to: mode == "captionsframe" ? 2.05 : 1.2)
+            if mode != "captionsframe" {
+                try? await Task.sleep(for: .seconds(0.6))
+                sheet = .captions
+            }
         case "fullscreen":
             model.fullscreen = true
         case "export", "done":
@@ -285,7 +303,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust
+    case export, canvas, volume, speed, adjust, captions
     var id: String { rawValue }
 }
 
