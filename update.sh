@@ -16,5 +16,5 @@ if [ ! -f Config/Local.xcconfig ]; then
 fi
 
 git pull --ff-only
-xcodegen generate --quiet
+xcodegen generate
 echo "Up to date. Press ▶ in Xcode."
