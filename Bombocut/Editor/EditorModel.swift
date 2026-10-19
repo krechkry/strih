@@ -379,7 +379,7 @@ final class EditorModel: ObservableObject {
 
     /// The look of clip i at the playhead.
     func lookAtPlayhead(_ i: Int) -> Look {
-        project.clips[i].lookState.look(atSource: sourceTime(i))
+        project.clips[i].look(atSource: sourceTime(i))
     }
 
     /// Index of the keyframe of clip i sitting under the playhead (within about a frame).
@@ -409,7 +409,7 @@ final class EditorModel: ObservableObject {
         if let k = c.keyframes.firstIndex(where: { abs(rt.local(atSource: $0.t) - here) < 0.025 }) {
             change(&c.keyframes[k].look)
         } else {
-            var l = c.lookState.look(atSource: s)
+            var l = c.look(atSource: s)
             change(&l)
             c.keyframes.append(Keyframe(t: s, look: l))
             c.keyframes.sort { $0.t < $1.t }
@@ -780,7 +780,7 @@ final class EditorModel: ObservableObject {
         selectedClipID = c.id
         liveGen += 1
         let src = c.retime.source(atLocal: currentTime - hit.start)
-        let look = c.lookState.look(atSource: src)
+        let look = c.look(atSource: src)
         liveStart = look.transform
         lastGuides = []
         let keepFrame = live?.clipID == c.id ? live?.frame : nil

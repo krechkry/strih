@@ -75,12 +75,15 @@ final class SpeechModels: ObservableObject {
 
     init() {
         for m in SpeechModel.allCases {
-            if let p = UserDefaults.standard.string(forKey: "model.\(m.rawValue)"),
-               FileManager.default.fileExists(atPath: (p as NSString).appendingPathComponent("AudioEncoder.mlmodelc")) {
-                states[m] = .ready(URL(fileURLWithPath: p))
-            } else {
-                states[m] = .missing
+            // stored relative to the models folder: the app's container path changes between installs
+            if let rel = UserDefaults.standard.string(forKey: "model.\(m.rawValue)") {
+                let url = Self.base.appendingPathComponent(rel, isDirectory: true)
+                if FileManager.default.fileExists(atPath: url.appendingPathComponent("AudioEncoder.mlmodelc").path) {
+                    states[m] = .ready(url)
+                    continue
+                }
             }
+            states[m] = .missing
         }
     }
 
@@ -108,7 +111,8 @@ final class SpeechModels: ObservableObject {
         tasks[m] = task
         do {
             let url = try await task.value
-            UserDefaults.standard.set(url.path, forKey: "model.\(m.rawValue)")
+            let rel = url.standardizedFileURL.path.replacingOccurrences(of: Self.base.standardizedFileURL.path + "/", with: "")
+            UserDefaults.standard.set(rel, forKey: "model.\(m.rawValue)")
             states[m] = .ready(url)
             tasks[m] = nil
             return url

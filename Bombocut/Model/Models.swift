@@ -177,6 +177,11 @@ struct Clip: Identifiable, Codable, Hashable {
     var stabilization: Stabilization?
     var tracking: Tracking?
 
+    /// Look at a source time (keyframes / static only; cheap, for the UI).
+    func look(atSource s: Double) -> Look {
+        LookState(fill: fill, look: staticLook, keyframes: keyframes).look(atSource: s)
+    }
+
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(), track: tracking?.curve())
