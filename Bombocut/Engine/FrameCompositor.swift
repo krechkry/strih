@@ -40,10 +40,14 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let info = instr.info
             let t = request.compositionTime.seconds
             let state = LookStore.shared.state(info.clipID) ?? info.state
-            let look = state.look(atSource: info.retime.source(atLocal: t - info.start))
+            let srcT = info.retime.source(atLocal: t - info.start)
+            let look = state.look(atSource: srcT)
 
             var image = EffectsRenderer.color(CIImage(cvPixelBuffer: src), look.effects)
-            image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform, in: size)
+            image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
+                               stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
+                               follow: state.track.map { ($0.at(srcT), $0.start, $0.mode) },
+                               in: size)
             if look.opacity < 0.999 {
                 image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, look.opacity))])
             }
@@ -58,23 +62,46 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
     }
 
-    /// Rotates the source upright, fits or fills it into the frame, then applies the clip's
-    /// move / scale / rotate around the canvas center. Matches the SwiftUI live preview exactly.
+    /// Rotates the source upright, removes camera shake, fits or fills it into the frame, applies the clip's
+    /// move / scale / rotate around the canvas center, then (if tracking) shifts so the subject stays put.
+    /// The SwiftUI live preview uses the same math.
     static func place(_ input: CIImage, prefTransform: CGAffineTransform, fill: Bool, transform t: ClipTransform,
+                      stab: (x: Double, y: Double, crop: Double)? = nil,
+                      follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode)? = nil,
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
-        let sx = size.width / e.width, sy = size.height / e.height
+        let w = e.width, h = e.height
+
+        // stabilization: shift by the correction, zoom in just enough to hide the edges
+        var stabT = CGAffineTransform.identity
+        if let st = stab {
+            stabT = CGAffineTransform(translationX: st.x * w - w / 2, y: st.y * h - h / 2)
+                .concatenating(CGAffineTransform(scaleX: st.crop, y: st.crop))
+                .concatenating(CGAffineTransform(translationX: w / 2, y: h / 2))
+            img = img.transformed(by: stabT).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
+        }
+
+        let sx = size.width / w, sy = size.height / h
         let s = fill ? max(sx, sy) : min(sx, sy)
-        let w = e.width * s, h = e.height * s
-        img = img.transformed(by: CGAffineTransform(scaleX: s, y: s))
-        img = img.transformed(by: CGAffineTransform(translationX: -w / 2, y: -h / 2))
-        if abs(t.scale - 1) > 1e-6 { img = img.transformed(by: CGAffineTransform(scaleX: t.scale, y: t.scale)) }
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
-        if abs(t.rotation) > 1e-6 { img = img.transformed(by: CGAffineTransform(rotationAngle: -t.rotation)) }
-        return img.transformed(by: CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
-                                                     y: size.height / 2 - t.y * size.height))
+        var m = CGAffineTransform(scaleX: s, y: s)
+            .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
+            .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
+            .concatenating(CGAffineTransform(rotationAngle: -t.rotation))
+            .concatenating(CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
+                                             y: size.height / 2 - t.y * size.height))
+
+        if let f = follow, f.mode != .off {
+            func onCanvas(_ u: Double, _ v: Double) -> CGPoint {
+                CGPoint(x: u * w, y: (1 - v) * h).applying(stabT).applying(m)
+            }
+            let now = onCanvas(f.now.x, f.now.y)
+            let target = f.mode == .center ? CGPoint(x: size.width / 2, y: size.height / 2) : onCanvas(f.start.x, f.start.y)
+            m = m.concatenating(CGAffineTransform(translationX: target.x - now.x, y: target.y - now.y))
+        }
+        return img.transformed(by: m)
     }
 
     static func orientation(for t: CGAffineTransform) -> CGImagePropertyOrientation {

@@ -93,6 +93,8 @@ struct LookState: Hashable {
     var fill: Bool
     var look: Look
     var keyframes: [Keyframe]
+    var stab: StabCurve? = nil
+    var track: TrackCurve? = nil
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }

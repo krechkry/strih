@@ -47,7 +47,12 @@ struct EditorView: View {
             case .speed: SpeedSheet(model: model).presentationDetents([.height(470)])
             case .adjust: AdjustSheet(model: model).presentationDetents([.height(300)])
             case .captions: CaptionsSheet(model: model).presentationDetents([.height(470), .large])
+            case .stabilize: StabilizeSheet(model: model).presentationDetents([.height(280)])
+            case .track: TrackSheet(model: model).presentationDetents([.height(300)])
             }
+        }
+        .onChange(of: model.openTrackSheet) { _, open in
+            if open { model.openTrackSheet = false; sheet = .track }
         }
         .onChange(of: addItems) { _, items in
             guard !items.isEmpty else { return }
@@ -177,6 +182,8 @@ struct EditorView: View {
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
+                    ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
+                    ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: clip.fill ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                label: clip.fill ? "Fit" : "Fill") { model.toggleFill() }
@@ -290,6 +297,28 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .captions
             }
+        case "stabilize", "track", "trackpick":
+            guard clips.count > 2 else { break }
+            let c = clips[2]
+            model.selectedClipID = c.id
+            model.scrub(to: model.project.clipStarts[2] + 1.5)
+            if mode == "stabilize" {
+                let path = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map {
+                    PathSample(t: $0, x: 0.02 * sin($0 * 9) + 0.01 * $0, y: 0.015 * cos($0 * 13))
+                }
+                model.mutateLook { p in p.clips[2].stabilization = Stabilization(strength: 0.6, path: path) }
+                try? await Task.sleep(for: .seconds(0.6))
+                sheet = .stabilize
+            } else if mode == "track" {
+                let samples = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map {
+                    TrackSample(t: $0, x: 0.3 + 0.08 * $0, y: 0.5, w: 0.22, h: 0.4)
+                }
+                model.mutateLook { p in p.clips[2].tracking = Tracking(samples: samples, mode: .center, smooth: 0.5) }
+                try? await Task.sleep(for: .seconds(0.6))
+                sheet = .track
+            } else {
+                model.trackPick = true
+            }
         case "fullscreen":
             model.fullscreen = true
         case "export", "done":
@@ -303,7 +332,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions
+    case export, canvas, volume, speed, adjust, captions, stabilize, track
     var id: String { rawValue }
 }
 

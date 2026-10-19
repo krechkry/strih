@@ -20,6 +20,12 @@ struct TrimView {
 
 enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
 
+/// A running stabilization / tracking analysis.
+struct AnalysisState {
+    var title: String
+    var progress: Double
+}
+
 /// Live move / scale / rotate while fingers are on the preview.
 struct LiveTransform {
     var clipID: UUID
@@ -46,6 +52,10 @@ final class EditorModel: ObservableObject {
     @Published var trimView: TrimView?
     @Published var live: LiveTransform?
     @Published var fullscreen = false
+    @Published private(set) var analysis: AnalysisState?
+    @Published var trackPick = false
+    @Published var openTrackSheet = false
+    private var analysisTask: Task<Void, Never>?
 
     /// True while the user drags the timeline, so playback time doesn't fight the scroll.
     var isScrubbing = false
@@ -549,6 +559,120 @@ final class EditorModel: ObservableObject {
         scrub(to: cue.start + 0.01)
     }
 
+    // MARK: Stabilization & tracking
+
+    /// Live change to the selected clip (sliders); pair with liveEditBegan / liveEditEnded.
+    func editClip(_ change: (inout Clip) -> Void) {
+        guard let i = selectedIndex else { return }
+        change(&project.clips[i])
+        publishLook()
+    }
+
+    func cancelAnalysis() {
+        analysisTask?.cancel()
+        analysisTask = nil
+        analysis = nil
+    }
+
+    func analyzeStabilization() {
+        guard let i = selectedIndex, analysis == nil else { return }
+        pause()
+        let c = project.clips[i]
+        let id = c.id
+        let strength = c.stabilization?.strength ?? 0.6
+        analysis = AnalysisState(title: "Analyzing shake", progress: 0)
+        analysisTask = Task {
+            let flag = CancelFlag()
+            await withTaskCancellationHandler {
+                do {
+                    let path = try await Task.detached(priority: .userInitiated) {
+                        try await Analyzer.cameraPath(file: c.mediaFile, from: c.inPoint, to: c.outPoint, progress: { f in
+                            Task { @MainActor in self.analysis?.progress = f }
+                        }, isCancelled: { flag.isSet })
+                    }.value
+                    guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
+                    mutateLook { $0.clips[j].stabilization = Stabilization(strength: strength, path: path) }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } catch {
+                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                }
+            } onCancel: { flag.set() }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
+
+    func removeStabilization() {
+        guard let i = selectedIndex else { return }
+        mutateLook { $0.clips[i].stabilization = nil }
+    }
+
+    /// Enter "draw a box around the subject" mode on the preview.
+    func startTrackPick() {
+        guard let hit = project.clipIndex(at: currentTime) else { return }
+        pause()
+        if selectedIndex == nil || !playheadInSelected { selectedClipID = project.clips[hit.index].id }
+        trackPick = true
+    }
+
+    /// The box was drawn on the preview (canvas points); map it to the source and track forward from here.
+    func runTracking(canvasRect r: CGRect, canvas: CGSize) {
+        guard let i = selectedIndex, analysis == nil, canvas.width > 0 else { return }
+        trackPick = false
+        let c = project.clips[i]
+        let id = c.id
+        let t = lookAtPlayhead(i).transform
+        let base = c.baseFraction(canvasAspect: project.canvas.aspect)
+        let bw = base.width * canvas.width, bh = base.height * canvas.height
+        func toSource(_ p: CGPoint) -> CGPoint {
+            var q = CGPoint(x: p.x - (canvas.width / 2 + t.x * canvas.width), y: p.y - (canvas.height / 2 + t.y * canvas.height))
+            let cs = cos(-t.rotation), sn = sin(-t.rotation)
+            q = CGPoint(x: q.x * cs - q.y * sn, y: q.x * sn + q.y * cs)
+            return CGPoint(x: q.x / t.scale / bw + 0.5, y: q.y / t.scale / bh + 0.5)
+        }
+        let corners = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                       CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.maxY)].map(toSource)
+        let xs = corners.map(\.x), ys = corners.map(\.y)
+        let x0 = max(0, xs.min()!), x1 = min(1, xs.max()!), y0 = max(0, ys.min()!), y1 = min(1, ys.max()!)
+        guard x1 - x0 > 0.01, y1 - y0 > 0.01 else { return }
+        let box = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
+        let from = sourceTime(i)
+        let mode = c.tracking?.mode ?? .center
+        let smooth = c.tracking?.smooth ?? 0.5
+
+        analysis = AnalysisState(title: "Tracking", progress: 0)
+        analysisTask = Task {
+            let flag = CancelFlag()
+            await withTaskCancellationHandler {
+                do {
+                    let samples = try await Task.detached(priority: .userInitiated) {
+                        try await Analyzer.track(file: c.mediaFile, from: from, to: c.outPoint, box: box, progress: { f in
+                            Task { @MainActor in self.analysis?.progress = f }
+                        }, isCancelled: { flag.isSet })
+                    }.value
+                    guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
+                    mutateLook { $0.clips[j].tracking = Tracking(samples: samples, mode: mode == .off ? .center : mode, smooth: smooth) }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    openTrackSheet = true
+                } catch {
+                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                }
+            } onCancel: { flag.set() }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
+
+    func setFollow(_ m: FollowMode) {
+        guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
+        mutateLook { $0.clips[i].tracking?.mode = m }
+    }
+
+    func removeTracking() {
+        guard let i = selectedIndex else { return }
+        mutateLook { $0.clips[i].tracking = nil }
+    }
+
     // MARK: Speed
 
     func setSpeed(_ v: Double) {
@@ -744,4 +868,12 @@ final class EditorModel: ObservableObject {
         guard let i = project.clips.firstIndex(where: { $0.id == c.id }) else { return c.transform }
         return lookAtPlayhead(i).transform
     }
+}
+
+/// Thread-safe cancel flag handed to background analysis.
+final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func set() { lock.lock(); value = true; lock.unlock() }
 }

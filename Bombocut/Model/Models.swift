@@ -174,7 +174,13 @@ struct Clip: Identifiable, Codable, Hashable {
         get { Look(transform: transform, opacity: opacity, effects: effects) }
         set { transform = newValue.transform; opacity = newValue.opacity; effects = newValue.effects }
     }
-    var lookState: LookState { LookState(fill: fill, look: staticLook, keyframes: keyframes) }
+    var stabilization: Stabilization?
+    var tracking: Tracking?
+
+    var lookState: LookState {
+        LookState(fill: fill, look: staticLook, keyframes: keyframes,
+                  stab: stabilization?.curve(), track: tracking?.curve())
+    }
 
     var retime: Retime { Retime(self) }
     /// Length on the timeline.
@@ -190,7 +196,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
-        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes
+        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking
     }
 
     init(from d: Decoder) throws {
@@ -210,6 +216,8 @@ struct Clip: Identifiable, Codable, Hashable {
         opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
         effects = try c.decodeIfPresent(Effects.self, forKey: .effects) ?? Effects()
         keyframes = try c.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? []
+        stabilization = try c.decodeIfPresent(Stabilization.self, forKey: .stabilization)
+        tracking = try c.decodeIfPresent(Tracking.self, forKey: .tracking)
     }
 
     /// Part of the curve between normalized positions u0 and u1, renormalized to 0...1 (used by split).

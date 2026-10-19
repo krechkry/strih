@@ -9,6 +9,8 @@ struct PreviewArea: View {
     @ObservedObject var model: EditorModel
     @GestureState private var gestureOn = false
     @State private var began = false
+    @State private var pickStart: CGPoint?
+    @State private var pickRect: CGRect?
 
     var body: some View {
         GeometryReader { geo in
@@ -21,17 +23,20 @@ struct PreviewArea: View {
                 media(canvas)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 selectionBox(canvas)
+                trackedBox(canvas)
                 guides(canvas)
                 readout
+                if model.trackPick { pickOverlay(canvas) }
+                if let a = model.analysis { analysisOverlay(a) }
             }
             .frame(width: w, height: h)
             .contentShape(Rectangle())
-            .gesture(transformGesture(canvas))
+            .gesture(transformGesture(canvas), including: model.trackPick || model.analysis != nil ? .subviews : .all)
             .onTapGesture(count: 2) {
-                guard !model.project.clips.isEmpty else { return }
+                guard !model.project.clips.isEmpty, !model.trackPick else { return }
                 withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
             }
-            .onTapGesture { model.togglePlay() }
+            .onTapGesture { if !model.trackPick && model.analysis == nil { model.togglePlay() } }
             .onChange(of: gestureOn) { old, new in
                 if old && !new {
                     began = false
@@ -94,6 +99,109 @@ struct PreviewArea: View {
                 .frame(width: base.width * canvas.width * t.scale, height: base.height * canvas.height * t.scale)
                 .rotationEffect(.radians(t.rotation))
                 .offset(x: t.x * canvas.width, y: t.y * canvas.height)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// Draw a box around the subject to track.
+    private func pickOverlay(_ canvas: CGSize) -> some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { v in
+                            let a = v.startLocation, b = v.location
+                            pickRect = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+                        }
+                )
+            if let r = pickRect, r.width > 4 {
+                Rectangle()
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, dash: [8, 5]))
+                    .background(Theme.accent.opacity(0.12))
+                    .frame(width: r.width, height: r.height)
+                    .position(x: r.midX, y: r.midY)
+                    .allowsHitTesting(false)
+            }
+            VStack {
+                Text("Draw a box around the subject")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14).padding(.vertical, 7)
+                    .background(Theme.accent, in: Capsule())
+                    .padding(.top, 12)
+                    .allowsHitTesting(false)
+                Spacer()
+                HStack(spacing: 10) {
+                    Button {
+                        pickRect = nil
+                        model.trackPick = false
+                    } label: {
+                        Text("Cancel").font(.headline.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 20).frame(height: 44)
+                            .background(Theme.panel2, in: Capsule())
+                    }
+                    Button {
+                        if let r = pickRect { model.runTracking(canvasRect: r, canvas: canvas) }
+                        pickRect = nil
+                    } label: {
+                        Text("Track").font(.headline.weight(.bold)).foregroundStyle(.black)
+                            .padding(.horizontal, 24).frame(height: 44)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .disabled((pickRect?.width ?? 0) < 12 || (pickRect?.height ?? 0) < 12)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 14)
+            }
+        }
+        .frame(width: canvas.width, height: canvas.height)
+        .onAppear {
+            if Demo.mode == "trackpick" {
+                pickRect = CGRect(x: canvas.width * 0.3, y: canvas.height * 0.35, width: canvas.width * 0.35, height: canvas.height * 0.25)
+            }
+        }
+    }
+
+    private func analysisOverlay(_ a: AnalysisState) -> some View {
+        VStack(spacing: 10) {
+            Text("\(a.title) \(Int(a.progress * 100)) %").font(.headline.weight(.bold))
+            ProgressView(value: a.progress).tint(Theme.accent).frame(width: 180)
+            Button { model.cancelAnalysis() } label: {
+                Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.8))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// The tracked subject, shown while the clip is selected and paused.
+    @ViewBuilder
+    private func trackedBox(_ canvas: CGSize) -> some View {
+        if let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil,
+           let tr = model.project.clips[i].tracking, model.playheadInSelected,
+           let box = tr.box(at: model.sourceTime(i)) {
+            let c = model.project.clips[i]
+            let t = model.lookAtPlayhead(i).transform
+            let base = c.baseFraction(canvasAspect: model.project.canvas.aspect)
+            let bw = base.width * canvas.width * t.scale, bh = base.height * canvas.height * t.scale
+            let pos: CGPoint = {
+                switch tr.mode {
+                case .center: return CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+                default:
+                    let p = tr.mode == .inPlace ? (tr.samples.first.map { ($0.x, $0.y) } ?? (box.x, box.y)) : (box.x, box.y)
+                    let q = CGPoint(x: (p.0 - 0.5) * bw, y: (p.1 - 0.5) * bh)
+                    let cs = cos(t.rotation), sn = sin(t.rotation)
+                    return CGPoint(x: canvas.width / 2 + t.x * canvas.width + q.x * cs - q.y * sn,
+                                   y: canvas.height / 2 + t.y * canvas.height + q.x * sn + q.y * cs)
+                }
+            }()
+            Rectangle()
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                .frame(width: box.w * bw, height: box.h * bh)
+                .rotationEffect(.radians(t.rotation))
+                .position(pos)
                 .allowsHitTesting(false)
         }
     }

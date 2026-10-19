@@ -389,3 +389,119 @@ struct ChipRow<V: Equatable>: View {
         .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
     }
 }
+
+// MARK: Stabilize
+
+struct StabilizeSheet: View {
+    @ObservedObject var model: EditorModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Stabilize").font(.title3.weight(.heavy))
+            if let i = model.selectedIndex {
+                let c = model.project.clips[i]
+                if let st = c.stabilization {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Strength").font(.headline.weight(.bold))
+                        Spacer()
+                        Text("\(Int((st.strength * 100).rounded()))").font(.system(size: 26, weight: .heavy).monospacedDigit())
+                            .foregroundStyle(Theme.accent)
+                    }
+                    Slider(value: Binding(get: { st.strength }, set: { v in
+                        model.editClip { $0.stabilization?.strength = v }
+                    }), in: 0...1, onEditingChanged: { e in
+                        if e { model.liveEditBegan() } else { model.liveEditEnded() }
+                    })
+                    if let curve = st.curve() {
+                        Text("Zoom \(Int((curve.crop * 100).rounded())) % to hide the moving edges")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
+                    HStack(spacing: 10) {
+                        Button { model.analyzeStabilization(); dismiss() } label: {
+                            Label("Analyze again", systemImage: "arrow.clockwise").font(.subheadline.weight(.bold))
+                                .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                        }
+                        Button(role: .destructive) { model.removeStabilization() } label: {
+                            Label("Remove", systemImage: "trash").font(.subheadline.weight(.bold))
+                                .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+                } else {
+                    Text("Bombocut measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    Button { model.analyzeStabilization(); dismiss() } label: {
+                        Label("Analyze & stabilize", systemImage: "gyroscope")
+                            .font(.headline.weight(.bold)).foregroundStyle(.black)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationBackground(Theme.panel)
+    }
+}
+
+// MARK: Track
+
+struct TrackSheet: View {
+    @ObservedObject var model: EditorModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Track subject").font(.title3.weight(.heavy))
+            if let i = model.selectedIndex, let tr = model.project.clips[i].tracking {
+                Text("Follow").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                HStack(spacing: 8) {
+                    ForEach(FollowMode.allCases, id: \.self) { m in
+                        Button { model.setFollow(m) } label: {
+                            Text(m.title).font(.subheadline.weight(.bold))
+                                .foregroundStyle(tr.mode == m ? .black : .white)
+                                .padding(.horizontal, 14).frame(height: 38)
+                                .background(tr.mode == m ? Theme.accent : Theme.panel2, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Slider(value: Binding(get: { tr.smooth }, set: { v in
+                    model.editClip { $0.tracking?.smooth = v }
+                }), in: 0...1, onEditingChanged: { e in
+                    if e { model.liveEditBegan() } else { model.liveEditEnded() }
+                })
+                HStack(spacing: 10) {
+                    Button { dismiss(); model.startTrackPick() } label: {
+                        Label("New box", systemImage: "viewfinder").font(.subheadline.weight(.bold))
+                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                    }
+                    Button(role: .destructive) { model.removeTracking() } label: {
+                        Label("Remove", systemImage: "trash").font(.subheadline.weight(.bold))
+                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+            } else {
+                Text("Pause on a frame where the subject is visible, draw a box around it, and Bombocut follows it to the end of the clip. Great for turning 16:9 footage into 9:16.")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                Button { dismiss(); model.startTrackPick() } label: {
+                    Label("Select subject", systemImage: "viewfinder")
+                        .font(.headline.weight(.bold)).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationBackground(Theme.panel)
+    }
+}
