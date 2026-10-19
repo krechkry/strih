@@ -68,6 +68,9 @@ final class ThumbnailCache: ObservableObject {
 @MainActor
 final class FrameGrabber {
     private var generators: [String: AVAssetImageGenerator] = [:]
+    private let maxSize: CGFloat
+
+    init(maxSize: CGFloat = 1080) { self.maxSize = maxSize }
 
     func grab(file: String, at t: Double, completion: @escaping (UIImage) -> Void) {
         let gen: AVAssetImageGenerator
@@ -76,7 +79,7 @@ final class FrameGrabber {
         } else {
             gen = AVAssetImageGenerator(asset: AVURLAsset(url: Paths.mediaURL(file)))
             gen.appliesPreferredTrackTransform = true
-            gen.maximumSize = CGSize(width: 1080, height: 1080)
+            gen.maximumSize = CGSize(width: maxSize, height: maxSize)
             gen.requestedTimeToleranceBefore = CMTime(seconds: 0.03, preferredTimescale: 600)
             gen.requestedTimeToleranceAfter = CMTime(seconds: 0.03, preferredTimescale: 600)
             generators[file] = gen

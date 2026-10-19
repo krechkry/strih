@@ -2,6 +2,35 @@ import AVFoundation
 import Combine
 import SwiftUI
 
+/// Active edge trim (ripple: neighbours always stay glued to the edited clip).
+struct TrimState: Equatable {
+    var id: UUID
+    var leading: Bool          // true = head (left edge), false = tail (right edge)
+    var startDuration: Double  // clip length when the drag began
+    var atLimit = false        // ran out of source media
+}
+
+/// Two-up trim viewer: the frames on both sides of the edit point.
+struct TrimView {
+    var leading: Bool
+    var left: UIImage?
+    var right: UIImage?
+    var delta: Double = 0      // timeline seconds, + = clip got longer
+}
+
+enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
+
+/// Live move / scale / rotate while fingers are on the preview.
+struct LiveTransform {
+    var clipID: UUID
+    var frame: UIImage?
+    var t: ClipTransform
+    var fill: Bool
+    var aspect: Double
+    var guides: Set<Guide> = []
+    var active = true
+}
+
 /// Everything the editor screen works with: the project, playback, selection, undo.
 @MainActor
 final class EditorModel: ObservableObject {
@@ -10,10 +39,13 @@ final class EditorModel: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published var selectedClipID: UUID?
     @Published var pxPerSec: CGFloat = 60
-    @Published var trimPreview: UIImage?
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
     @Published private(set) var buildError: String?
+    @Published private(set) var trim: TrimState?
+    @Published var trimView: TrimView?
+    @Published var live: LiveTransform?
+    @Published var fullscreen = false
 
     /// True while the user drags the timeline, so playback time doesn't fight the scroll.
     var isScrubbing = false
@@ -25,11 +57,17 @@ final class EditorModel: ObservableObject {
     private var timeObserver: Any?
     private var cancellables = Set<AnyCancellable>()
     private var buildTask: Task<Void, Never>?
-    private let grabber = FrameGrabber()
-    private var trimSnapshot: Project?
-    private var trimOriginal: Clip?
     private var seekTarget: Double?
     private var seeking = false
+
+    private let edgeGrabber = FrameGrabber()
+    private let neighborGrabber = FrameGrabber()
+    private let liveGrabber = FrameGrabber(maxSize: 1600)
+    private var trimSnapshot: Project?
+    private var trimOriginal: Clip?
+    private var liveStart: ClipTransform?
+    private var liveGen = 0
+    private var clearLiveGen: Int?
 
     var duration: Double { project.duration }
     var selectedIndex: Int? { project.clips.firstIndex { $0.id == selectedClipID } }
@@ -51,6 +89,7 @@ final class EditorModel: ObservableObject {
             .store(in: &cancellables)
 
         rebuild()
+        Task { await fillMissingAspects() }
     }
 
     func tearDown() {
@@ -63,12 +102,16 @@ final class EditorModel: ObservableObject {
     // MARK: Playback
 
     func togglePlay() {
-        if isPlaying { player.pause(); return }
+        if isPlaying { pause(); return }
         if currentTime >= duration - 0.05 { scrub(to: 0) }
         player.play()
+        isPlaying = true      // flip immediately so UI (fullscreen bar) reacts on the same tap
     }
 
-    func pause() { player.pause() }
+    func pause() {
+        player.pause()
+        isPlaying = false
+    }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
     func scrub(to t: Double) {
@@ -85,6 +128,13 @@ final class EditorModel: ObservableObject {
         player.seek(to: CMTime(seconds: t, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
             Task { @MainActor in self?.chaseSeek() }
         }
+    }
+
+    func previewSelected() {
+        guard let i = selectedIndex else { return }
+        scrub(to: project.clipStarts[i])
+        player.play()
+        isPlaying = true
     }
 
     // MARK: Rebuilding the player item
@@ -119,8 +169,17 @@ final class EditorModel: ObservableObject {
                 if Task.isCancelled { return }
                 scrub(to: min(keep, max(0, built.duration - 0.001)))
                 if wasPlaying { player.play() }
+                // A committed transform keeps its live overlay until the new frame is on screen.
+                if let gen = clearLiveGen {
+                    clearLiveGen = nil
+                    try? await Task.sleep(for: .milliseconds(220))
+                    if liveGen == gen, live?.active == false { live = nil }
+                }
             } catch {
-                if !Task.isCancelled { buildError = error.localizedDescription }
+                if !Task.isCancelled {
+                    buildError = error.localizedDescription
+                    if live?.active == false { live = nil }
+                }
             }
         }
     }
@@ -153,6 +212,7 @@ final class EditorModel: ObservableObject {
         guard let prev = undoStack.popLast() else { return }
         redoStack.append(project)
         project = prev
+        live = nil
         commit()
     }
 
@@ -160,7 +220,24 @@ final class EditorModel: ObservableObject {
         guard let next = redoStack.popLast() else { return }
         undoStack.append(project)
         project = next
+        live = nil
         commit()
+    }
+
+    /// Older projects have no stored source aspect; look it up once (no undo step, no rebuild).
+    private func fillMissingAspects() async {
+        let files = Set(project.clips.filter { $0.aspect == nil }.map(\.mediaFile))
+        guard !files.isEmpty else { return }
+        var found: [String: Double] = [:]
+        for f in files {
+            if let info = try? await Media.probe(Paths.mediaURL(f)), info.size.height > 0 {
+                found[f] = info.size.width / info.size.height
+            }
+        }
+        for i in project.clips.indices where project.clips[i].aspect == nil {
+            project.clips[i].aspect = found[project.clips[i].mediaFile]
+        }
+        store.save(project)
     }
 
     // MARK: Clip operations
@@ -172,18 +249,23 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    /// Splits the selected clip (or the one under the playhead) at the playhead.
+    /// Splits the clip under the playhead at the playhead.
     func split() {
         let t = currentTime
         guard let hit = project.clipIndex(at: t) else { return }
         let i = hit.index
         let c = project.clips[i]
-        let local = (t - hit.start) * c.speed
-        guard local > 0.05, local < (c.outPoint - c.inPoint) - 0.05 else { return }
+        let src = c.retime.source(atLocal: t - hit.start)
+        guard src - c.inPoint > 0.05, c.outPoint - src > 0.05 else { return }
         var a = c, b = c
-        a.outPoint = c.inPoint + local
+        a.outPoint = src
         b.id = UUID()
-        b.inPoint = a.outPoint
+        b.inPoint = src
+        if c.hasCurve {
+            let u = (src - c.inPoint) / (c.outPoint - c.inPoint)
+            a.speedCurve = c.subCurve(0, u)
+            b.speedCurve = c.subCurve(u, 1)
+        }
         mutate { p in
             p.clips[i] = a
             p.clips.insert(b, at: i + 1)
@@ -213,17 +295,15 @@ final class EditorModel: ObservableObject {
         scrub(to: project.clipStarts[j])
     }
 
-    func moveClip(from: Int, to: Int) {
-        guard from != to, project.clips.indices.contains(from) else { return }
-        mutate { p in
-            let c = p.clips.remove(at: from)
-            p.clips.insert(c, at: min(max(0, to), p.clips.count))
-        }
-    }
-
     func toggleFill() {
         guard let i = selectedIndex else { return }
         mutate { $0.clips[i].fill.toggle() }
+    }
+
+    func resetTransform() {
+        guard let i = selectedIndex else { return }
+        live = nil
+        mutate { $0.clips[i].transform = ClipTransform() }
     }
 
     func setVolume(_ v: Double, live: Bool) {
@@ -257,28 +337,86 @@ final class EditorModel: ObservableObject {
         mutate { $0.name = n }
     }
 
-    // MARK: Trimming
+    // MARK: Speed
 
-    func trimBegan(_ id: UUID) {
-        player.pause()
-        trimSnapshot = project
-        trimOriginal = project.clips.first { $0.id == id }
+    func setSpeed(_ v: Double) {
+        guard let i = selectedIndex else { return }
+        let v = min(max(v, 0.1), 100)
+        guard project.clips[i].hasCurve || abs(project.clips[i].speed - v) > 1e-6 else { return }
+        mutate {
+            $0.clips[i].speed = v
+            $0.clips[i].speedCurve = nil
+        }
     }
 
-    /// delta = seconds of timeline movement from where the drag started.
+    func setCurve(_ pts: [SpeedPoint]) {
+        guard let i = selectedIndex, project.clips[i].speedCurve != pts else { return }
+        mutate { $0.clips[i].speedCurve = pts }
+    }
+
+    func setPitch(_ on: Bool) {
+        guard let i = selectedIndex, project.clips[i].pitchCorrect != on else { return }
+        mutate { $0.clips[i].pitchCorrect = on }
+    }
+
+    // MARK: Ripple trim
+
+    func trimBegan(_ id: UUID, leading: Bool) {
+        pause()
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
+        let c = project.clips[i]
+        trimSnapshot = project
+        trimOriginal = c
+        selectedClipID = id
+        trim = TrimState(id: id, leading: leading, startDuration: c.duration)
+        trimView = TrimView(leading: leading)
+
+        // Static side of the edit: the neighbour's frame at the cut.
+        if leading, i > 0 {
+            let p = project.clips[i - 1]
+            neighborGrabber.grab(file: p.mediaFile, at: max(p.inPoint, p.outPoint - 0.04)) { [weak self] img in
+                self?.trimView?.left = img
+            }
+        } else if !leading, i + 1 < project.clips.count {
+            let n = project.clips[i + 1]
+            neighborGrabber.grab(file: n.mediaFile, at: n.inPoint) { [weak self] img in
+                self?.trimView?.right = img
+            }
+        }
+        grabEdge(c, leading: leading)
+    }
+
+    /// delta = seconds of timeline movement of the dragged edge since the drag began.
     func trimChanged(_ id: UUID, leading: Bool, delta: Double) {
         guard let o = trimOriginal, let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         var c = project.clips[i]
-        let srcDelta = delta * o.speed
+        let rt = o.retime
+        var hitLimit = false
         if leading {
-            c.inPoint = min(max(0, o.inPoint + srcDelta), o.outPoint - 0.1)
+            let srcDelta = delta * rt.speed(atLocal: 0)
+            let target = o.inPoint + srcDelta
+            c.inPoint = min(max(0, target), o.outPoint - 0.1)
+            hitLimit = target < 0
         } else {
-            c.outPoint = max(min(o.sourceDuration, o.outPoint + srcDelta), o.inPoint + 0.1)
+            let srcDelta = delta * rt.speed(atLocal: rt.outDuration)
+            let target = o.outPoint + srcDelta
+            c.outPoint = max(min(o.sourceDuration, target), o.inPoint + 0.1)
+            hitLimit = target > o.sourceDuration
         }
         project.clips[i] = c
-        grabber.grab(file: c.mediaFile, at: leading ? c.inPoint : max(c.inPoint, c.outPoint - 0.04)) { [weak self] img in
-            guard let self, self.trimSnapshot != nil else { return }
-            self.trimPreview = img
+        if hitLimit && trim?.atLimit == false {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        }
+        trim?.atLimit = hitLimit
+        trimView?.delta = c.duration - o.duration
+        grabEdge(c, leading: leading)
+    }
+
+    private func grabEdge(_ c: Clip, leading: Bool) {
+        let t = leading ? c.inPoint : max(c.inPoint, c.outPoint - 0.04)
+        edgeGrabber.grab(file: c.mediaFile, at: t) { [weak self] img in
+            guard let self, self.trimView != nil else { return }
+            if leading { self.trimView?.right = img } else { self.trimView?.left = img }
         }
     }
 
@@ -286,11 +424,108 @@ final class EditorModel: ObservableObject {
         if let s = trimSnapshot, s != project { pushUndo(s) }
         trimSnapshot = nil
         trimOriginal = nil
-        trimPreview = nil
+        trim = nil
+        trimView = nil
         if let i = project.clips.firstIndex(where: { $0.id == id }) {
             let start = project.clipStarts[i]
             currentTime = leading ? start : start + project.clips[i].duration - 0.001
         }
         commit()
+    }
+
+    // MARK: Move / scale / rotate on the preview
+
+    private var lastGuides: Set<Guide> = []
+
+    func transformBegan() {
+        guard !fullscreen, trim == nil, let hit = project.clipIndex(at: currentTime) else { return }
+        pause()
+        let c = project.clips[hit.index]
+        selectedClipID = c.id
+        liveGen += 1
+        liveStart = c.transform
+        lastGuides = []
+        let keepFrame = live?.clipID == c.id ? live?.frame : nil
+        live = LiveTransform(clipID: c.id, frame: keepFrame, t: c.transform, fill: c.fill,
+                             aspect: c.aspect ?? project.canvas.aspect)
+        let src = c.retime.source(atLocal: currentTime - hit.start)
+        liveGrabber.grab(file: c.mediaFile, at: src) { [weak self] img in
+            guard let self, self.live?.clipID == c.id else { return }
+            self.live?.frame = img
+        }
+    }
+
+    func transformChanged(translation: CGSize, magnification: Double, rotation: Double, canvas: CGSize) {
+        guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
+        let w = canvas.width, h = canvas.height
+        let th: CGFloat = 7
+        var t = s0
+        t.x = s0.x + translation.width / w
+        t.y = s0.y + translation.height / h
+        t.scale = min(max(s0.scale * magnification, 0.05), 20)
+        t.rotation = s0.rotation + rotation
+        var guides = Set<Guide>()
+
+        // Rotation snaps to straight angles.
+        let quarter = Double.pi / 2
+        let turns = (t.rotation / quarter).rounded()
+        if abs(t.rotation - turns * quarter) < 5 * .pi / 180 {
+            t.rotation = turns * quarter
+            guides.insert(.angle)
+        }
+
+        // Scale snaps to 100% and to the size where the clip exactly fills / fits the canvas.
+        let A = project.canvas.aspect
+        let base = Clip.baseFraction(aspect: l.aspect, fill: l.fill, canvasAspect: A)
+        let other = Clip.baseFraction(aspect: l.aspect, fill: !l.fill, canvasAspect: A)
+        let otherScale = other.width / max(base.width, 1e-6)
+        for target in [1.0, otherScale] where abs(t.scale - target) < 0.035 * target {
+            t.scale = target
+            guides.insert(.scale)
+        }
+
+        // Position snaps: canvas center, and canvas edges when the clip is upright.
+        if abs(t.x * w) < th { t.x = 0; guides.insert(.centerX) }
+        if abs(t.y * h) < th { t.y = 0; guides.insert(.centerY) }
+        if guides.contains(.angle) {
+            var bw = base.width * w * t.scale, bh = base.height * h * t.scale
+            if Int(turns) % 2 != 0 { swap(&bw, &bh) }
+            if !guides.contains(.centerX) {
+                let left = w / 2 + t.x * w - bw / 2
+                if abs(left) < th { t.x = (bw / 2 - w / 2) / w; guides.insert(.left) }
+                else if abs(left + bw - w) < th { t.x = (w / 2 - bw / 2) / w; guides.insert(.right) }
+            }
+            if !guides.contains(.centerY) {
+                let top = h / 2 + t.y * h - bh / 2
+                if abs(top) < th { t.y = (bh / 2 - h / 2) / h; guides.insert(.top) }
+                else if abs(top + bh - h) < th { t.y = (h / 2 - bh / 2) / h; guides.insert(.bottom) }
+            }
+        }
+
+        if !guides.subtracting(lastGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
+        lastGuides = guides
+        l.t = t
+        l.guides = guides
+        live = l
+    }
+
+    func transformEnded() {
+        guard var l = live, l.active else { return }
+        liveStart = nil
+        l.active = false
+        l.guides = []
+        live = l
+        guard let i = project.clips.firstIndex(where: { $0.id == l.clipID }), project.clips[i].transform != l.t else {
+            live = nil
+            return
+        }
+        clearLiveGen = liveGen
+        mutate { $0.clips[i].transform = l.t }
+    }
+
+    /// The transform currently shown for a clip (live while dragging, stored otherwise).
+    func shownTransform(_ c: Clip) -> ClipTransform {
+        if let l = live, l.clipID == c.id { return l.t }
+        return c.transform
     }
 }

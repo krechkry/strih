@@ -2,62 +2,38 @@ import SwiftUI
 
 // MARK: Canvas (aspect ratio)
 
+/// One row of shapes. Tap one and the sheet slides away.
 struct CanvasSheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.dismiss) private var dismiss
-    @State private var customW = ""
-    @State private var customH = ""
 
-    private let presets: [(String, Double, Double)] = [
-        ("9:16", 9, 16), ("16:9", 16, 9), ("1:1", 1, 1), ("4:5", 4, 5),
-        ("4:3", 4, 3), ("3:4", 3, 4), ("2.39:1", 2.39, 1), ("21:9", 21, 9),
-    ]
+    private let presets: [(Double, Double)] = [(9, 16), (4, 5), (1, 1), (4, 3), (16, 9), (2.39, 1)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Canvas").font(.headline)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                ForEach(presets, id: \.0) { p in
-                    let on = abs(model.project.canvas.aspect - p.1 / p.2) < 0.005
-                    Button {
-                        model.setCanvas(Canvas(ratioW: p.1, ratioH: p.2))
-                    } label: {
-                        VStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(on ? Theme.accent : .white.opacity(0.6), lineWidth: 1.5)
-                                .aspectRatio(p.1 / p.2, contentMode: .fit)
-                                .frame(height: 26)
-                            Text(p.0).font(.caption.weight(.semibold))
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 62)
-                        .background(on ? Theme.accent.opacity(0.12) : Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
-                    }
-                    .buttonStyle(.plain)
+        HStack(spacing: 10) {
+            ForEach(presets.indices, id: \.self) { i in
+                let p = presets[i]
+                let on = abs(model.project.canvas.aspect - p.0 / p.1) < 0.005
+                Button {
+                    if !on { model.setCanvas(Canvas(ratioW: p.0, ratioH: p.1)) }
+                    dismiss()
+                } label: {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(on ? Theme.accent.opacity(0.25) : Color.clear)
+                        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(on ? Theme.accent : .white.opacity(0.8), lineWidth: 2))
+                        .aspectRatio(p.0 / p.1, contentMode: .fit)
+                        .frame(width: 34, height: 34)
+                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .background(on ? Theme.accent.opacity(0.1) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(.plain)
             }
-            HStack(spacing: 8) {
-                Text("Custom").foregroundStyle(Theme.muted)
-                TextField("W", text: $customW).keyboardType(.decimalPad).frame(width: 64)
-                Text(":")
-                TextField("H", text: $customH).keyboardType(.decimalPad).frame(width: 64)
-                Spacer()
-                Button("Apply") {
-                    if let w = Double(customW.replacingOccurrences(of: ",", with: ".")),
-                       let h = Double(customH.replacingOccurrences(of: ",", with: ".")), w > 0, h > 0 {
-                        model.setCanvas(Canvas(ratioW: w, ratioH: h))
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .foregroundStyle(.black)
-            }
-            .textFieldStyle(.roundedBorder)
         }
-        .padding(20)
+        .padding(.horizontal, 16)
+        .padding(.top, 20)
+        .frame(maxHeight: .infinity, alignment: .top)
         .presentationBackground(Theme.panel)
-        .onAppear {
-            customW = String(format: "%g", model.project.canvas.ratioW)
-            customH = String(format: "%g", model.project.canvas.ratioH)
-        }
+        .presentationDragIndicator(.hidden)
     }
 }
 
@@ -139,7 +115,8 @@ struct ExportSheet: View {
     private var estimatedMB: Double { (mbps * 1_000_000 + 192_000) * project.duration / 8 / 1_000_000 }
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            header
             Group {
                 switch phase {
                 case .setup: setupForm
@@ -148,21 +125,44 @@ struct ExportSheet: View {
                 case .failed(let msg): failedView(msg)
                 }
             }
-            .navigationTitle("Export")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if case .exporting = phase {
-                        EmptyView()
-                    } else {
-                        Button("Close") { dismiss() }
-                    }
-                }
-            }
+            .frame(maxHeight: .infinity)
         }
         .interactiveDismissDisabled(isExporting)
         .presentationBackground(Theme.panel)
         .onDisappear { if isExporting { exporter.cancel() } }
+        .onAppear {
+            if Demo.mode == "done" { phase = .done(URL(fileURLWithPath: "/dev/null"), saved: true, note: nil) }
+        }
+    }
+
+    private var header: some View {
+        ZStack {
+            Text("Export").font(.headline.weight(.bold))
+            HStack {
+                if case .setup = phase {
+                    Button("Close") { dismiss() }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                } else if case .failed = phase {
+                    Button("Close") { dismiss() }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                Spacer()
+                if case .setup = phase {
+                    Button { start() } label: {
+                        Text("Export")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 16).frame(height: 34)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .frame(height: 60)
     }
 
     private var isExporting: Bool { if case .exporting = phase { return true }; return false }
@@ -310,22 +310,45 @@ struct ExportSheet: View {
     }
 
     private func doneView(_ url: URL, _ saved: Bool, _ note: String?) -> some View {
-        VStack(spacing: 18) {
-            Spacer()
-            Image(systemName: saved ? "checkmark.circle.fill" : "film")
-                .font(.system(size: 54))
-                .foregroundStyle(Theme.accent)
-            Text(saved ? "Big up! Saved to Photos" : "Export finished").font(.title3.weight(.semibold))
-            if let note { Text(note).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center) }
+        VStack(spacing: 14) {
+            Spacer(minLength: 0)
+            DancingBomb()
+                .frame(width: 240, height: 240)
+            Text("Big up!").font(.system(size: 34, weight: .heavy))
+            Text(saved ? "Saved to Photos" : (note ?? "Export finished"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.center)
             ShareLink(item: url) {
-                Label("Share file", systemImage: "square.and.arrow.up")
-                    .frame(maxWidth: 240, minHeight: 46)
-                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background(Theme.panel2, in: Circle())
             }
-            Button("Done") { dismiss() }.padding(.top, 4)
-            Spacer()
+            .padding(.top, 6)
+            Spacer(minLength: 0)
+            HStack(spacing: 12) {
+                Button { phase = .setup } label: {
+                    Text("Back")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
+                }
+                Button { dismiss() } label: {
+                    Text("OK")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .padding(24)
+        .padding(.horizontal, 24)
     }
 
     private func failedView(_ msg: String) -> some View {

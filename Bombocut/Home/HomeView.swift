@@ -83,6 +83,7 @@ struct HomeView: View {
                         .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12))
                         .foregroundStyle(.black)
                 }
+                .tint(Theme.pickerTint)
                 Button { showFiles = true } label: {
                     Label("Files", systemImage: "folder")
                         .font(.body.weight(.semibold))

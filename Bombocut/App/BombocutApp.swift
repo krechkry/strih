@@ -16,6 +16,7 @@ struct BombocutApp: App {
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
+                .fontWeight(.medium)
         }
     }
 }
@@ -36,6 +37,8 @@ enum Theme {
     static let panel2 = Color(red: 0.12, green: 0.125, blue: 0.14)
     static let line = Color.white.opacity(0.09)
     static let muted = Color.white.opacity(0.5)
+    /// The system Photos picker draws white numbers on the tint color, so it gets iOS blue instead of lime.
+    static let pickerTint = Color(red: 0.04, green: 0.52, blue: 1.0)
 }
 
 enum Fmt {
@@ -45,6 +48,19 @@ enum Fmt {
         let m = Int(t) / 60
         let s = t - Double(m * 60)
         return String(format: "%d:%04.1f", m, s)
+    }
+
+    /// 2x, 0.5x, 0.25x, 12x
+    static func speed(_ v: Double) -> String {
+        if v >= 10 { return String(format: "%.0fx", v) }
+        if v >= 1 { return String(format: "%gx", (v * 10).rounded() / 10) }
+        return String(format: "%gx", (v * 100).rounded() / 100)
+    }
+
+    /// +0.40s / −1.25s
+    static func delta(_ d: Double) -> String {
+        let sign = d >= 0 ? "+" : "\u{2212}"
+        return sign + String(format: "%.2fs", abs(d))
     }
 
     static func duration(_ t: Double) -> String {

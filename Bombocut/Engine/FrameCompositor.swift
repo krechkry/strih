@@ -44,16 +44,23 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
     }
 
-    /// Rotates the source upright and scales it to fit or fill the output frame, centered.
+    /// Rotates the source upright, fits or fills it into the frame, then applies the clip's
+    /// move / scale / rotate around the canvas center. Matches the SwiftUI live preview exactly.
     static func place(_ input: CIImage, info: ClipRenderInfo, in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: info.transform))
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let sx = size.width / e.width, sy = size.height / e.height
         let s = info.fill ? max(sx, sy) : min(sx, sy)
+        let w = e.width * s, h = e.height * s
+        let t = info.clipTransform
         img = img.transformed(by: CGAffineTransform(scaleX: s, y: s))
-        let tx = (size.width - e.width * s) / 2, ty = (size.height - e.height * s) / 2
-        return img.transformed(by: CGAffineTransform(translationX: tx, y: ty))
+        img = img.transformed(by: CGAffineTransform(translationX: -w / 2, y: -h / 2))
+        if abs(t.scale - 1) > 1e-6 { img = img.transformed(by: CGAffineTransform(scaleX: t.scale, y: t.scale)) }
+        // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
+        if abs(t.rotation) > 1e-6 { img = img.transformed(by: CGAffineTransform(rotationAngle: -t.rotation)) }
+        return img.transformed(by: CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
+                                                     y: size.height / 2 - t.y * size.height))
     }
 
     static func orientation(for t: CGAffineTransform) -> CGImagePropertyOrientation {

@@ -11,6 +11,9 @@ targets:
     type: application
     platform: iOS
     sources: [Bombocut]
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut

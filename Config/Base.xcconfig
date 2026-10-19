@@ -1,0 +1,3 @@
+// Shared build settings. Your personal signing team lives in Local.xcconfig (not committed),
+// so pulling new code and regenerating the project never loses it.
+#include? "Local.xcconfig"

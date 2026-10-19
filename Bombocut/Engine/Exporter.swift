@@ -60,6 +60,7 @@ final class Exporter: @unchecked Sendable {
                 AVLinearPCMIsNonInterleaved: false,
             ])
             o.audioMix = built.audioMix
+            o.audioTimePitchAlgorithm = .spectral
             reader.add(o)
             aOut = o
         }

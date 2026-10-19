@@ -116,7 +116,9 @@ enum Media {
                 continue
             }
             if first == nil { first = info.size }
-            clips.append(Clip(mediaFile: url.lastPathComponent, sourceDuration: info.duration))
+            var c = Clip(mediaFile: url.lastPathComponent, sourceDuration: info.duration)
+            if info.size.height > 0 { c.aspect = info.size.width / info.size.height }
+            clips.append(c)
         }
         return (clips, first)
     }

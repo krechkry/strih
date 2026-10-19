@@ -5,10 +5,10 @@ import CoreImage
 struct ClipRenderInfo {
     var transform: CGAffineTransform   // source preferredTransform (rotation)
     var fill: Bool
+    var clipTransform: ClipTransform   // user move / scale / rotate
 }
 
 /// One instruction per clip. The custom compositor reads `info` for every frame.
-/// Later stages add keyframes, effects, stabilization and caption layers here.
 final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @unchecked Sendable {
     let timeRange: CMTimeRange
     let enablePostProcessing: Bool = false
@@ -36,6 +36,8 @@ struct BuiltComposition {
 }
 
 enum CompositionBuilder {
+    static let timescale: CMTimeScale = 60000
+
     static func frameDuration(fps: Double) -> CMTime {
         // NTSC rates get exact 1001-based durations
         for (rate, ts) in [(23.976, 24000), (29.97, 30000), (59.94, 60000)] where abs(fps - rate) < 0.01 {
@@ -44,57 +46,95 @@ enum CompositionBuilder {
         return CMTime(value: 1, timescale: CMTimeScale(max(1, fps.rounded())))
     }
 
+    private static func time(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: timescale) }
+
+    /// Appends empty time so the next insert lands exactly at `t`.
+    private static func pad(_ track: AVMutableCompositionTrack, to t: CMTime) {
+        let end = track.segments.isEmpty ? CMTime.zero : track.timeRange.end
+        if end < t { track.insertEmptyTimeRange(CMTimeRange(start: end, end: t)) }
+    }
+
     static func build(project: Project, renderSize: CGSize, fps: Double) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
         guard let vTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
-              let aTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+              let keepTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid),
+              let variTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         else { throw err("Could not create tracks.") }
 
-        let audioParams = AVMutableAudioMixInputParameters(track: aTrack)
-        audioParams.audioTimePitchAlgorithm = .spectral
-        var instructions: [ClipInstruction] = []
+        // Two audio tracks: one keeps pitch when retimed, one shifts pitch like tape (varispeed).
+        let keepParams = AVMutableAudioMixInputParameters(track: keepTrack)
+        keepParams.audioTimePitchAlgorithm = .spectral
+        let variParams = AVMutableAudioMixInputParameters(track: variTrack)
+        variParams.audioTimePitchAlgorithm = .varispeed
+
+        var placed: [(start: CMTime, end: CMTime, info: ClipRenderInfo)] = []
         var cursor = CMTime.zero
 
         for clip in project.clips {
             let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
             guard let src = try await asset.loadTracks(withMediaType: .video).first else { continue }
-            let (transform, srcRange) = try await src.load(.preferredTransform, .timeRange)
+            let (prefTransform, srcRange) = try await src.load(.preferredTransform, .timeRange)
+            let srcAudio = try await asset.loadTracks(withMediaType: .audio).first
+            let audioRange = try await srcAudio?.load(.timeRange)
 
-            var range = CMTimeRange(start: CMTime(seconds: clip.inPoint, preferredTimescale: 600),
-                                    end: CMTime(seconds: clip.outPoint, preferredTimescale: 600))
-            range = range.intersection(srcRange)
-            guard range.duration.seconds > 0.01 else { continue }
+            let aTrack = clip.pitchCorrect ? keepTrack : variTrack
+            let params = clip.pitchCorrect ? keepParams : variParams
+            let clipStart = cursor
+            var audioVolumeSet = false
 
-            try vTrack.insertTimeRange(range, of: src, at: cursor)
-            if let a = try await asset.loadTracks(withMediaType: .audio).first {
-                let aRange = try await range.intersection(a.load(.timeRange))
-                if aRange.duration.seconds > 0.01 {
-                    try? aTrack.insertTimeRange(aRange, of: a, at: cursor + (aRange.start - range.start))
+            for seg in clip.retime.segs {
+                let r = CMTimeRange(start: time(seg.src0), duration: time(seg.srcLen)).intersection(srcRange)
+                guard r.duration.seconds > 0.0005 else { continue }
+                let ratio = seg.outLen / max(seg.srcLen, 1e-9)
+                let outDur = time(r.duration.seconds * ratio)
+
+                try vTrack.insertTimeRange(r, of: src, at: cursor)
+                if outDur != r.duration {
+                    vTrack.scaleTimeRange(CMTimeRange(start: cursor, duration: r.duration), toDuration: outDur)
                 }
-            }
-            audioParams.setVolume(Float(clip.volume), at: cursor)
 
-            var placed = CMTimeRange(start: cursor, duration: range.duration)
-            if abs(clip.speed - 1) > 0.001 {
-                // stage 2 turns this into curve-aware retiming; constant speed already works
-                let newDur = CMTimeMultiplyByFloat64(range.duration, multiplier: 1 / clip.speed)
-                vTrack.scaleTimeRange(placed, toDuration: newDur)
-                aTrack.scaleTimeRange(placed, toDuration: newDur)
-                placed = CMTimeRange(start: cursor, duration: newDur)
+                if let srcAudio, let audioRange {
+                    let ar = r.intersection(audioRange)
+                    if ar.duration.seconds > 0.0005 {
+                        let at = cursor + time((ar.start - r.start).seconds * ratio)
+                        pad(aTrack, to: at)
+                        if (try? aTrack.insertTimeRange(ar, of: srcAudio, at: at)) != nil {
+                            let aOut = time(ar.duration.seconds * ratio)
+                            if aOut != ar.duration {
+                                aTrack.scaleTimeRange(CMTimeRange(start: at, duration: ar.duration), toDuration: aOut)
+                            }
+                            if !audioVolumeSet {
+                                params.setVolume(Float(clip.volume), at: clipStart)
+                                audioVolumeSet = true
+                            }
+                        }
+                    }
+                }
+                cursor = cursor + outDur
             }
 
-            instructions.append(ClipInstruction(timeRange: placed, trackID: vTrack.trackID,
-                                                info: ClipRenderInfo(transform: transform, fill: clip.fill)))
-            cursor = cursor + placed.duration
+            if cursor > clipStart {
+                placed.append((clipStart, cursor,
+                               ClipRenderInfo(transform: prefTransform, fill: clip.fill, clipTransform: clip.transform)))
+            }
         }
 
-        guard !instructions.isEmpty else { throw err("Nothing to play.") }
+        guard !placed.isEmpty else { throw err("Nothing to play.") }
 
+        var mixParams: [AVAudioMixInputParameters] = []
+        for (track, p) in [(keepTrack, keepParams), (variTrack, variParams)] {
+            if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
+        }
         let mix = AVMutableAudioMix()
-        if aTrack.segments.isEmpty {
-            comp.removeTrack(aTrack)
-        } else {
-            mix.inputParameters = [audioParams]
+        mix.inputParameters = mixParams
+
+        // Instructions must cover the whole composition without gaps.
+        let total = max(cursor, comp.duration)
+        var instructions: [ClipInstruction] = []
+        for (i, p) in placed.enumerated() {
+            let end = i == placed.count - 1 ? total : p.end
+            instructions.append(ClipInstruction(timeRange: CMTimeRange(start: p.start, end: end),
+                                                trackID: vTrack.trackID, info: p.info))
         }
 
         let vc = AVMutableVideoComposition()
