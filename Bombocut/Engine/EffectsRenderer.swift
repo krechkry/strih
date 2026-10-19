@@ -119,15 +119,17 @@ enum EffectsRenderer {
             .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             .cropped(to: rect)
             .applyingFilter("CIColorMatrix", parameters: [
-                "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
-                "inputGVector": CIVector(x: 1, y: 0, z: 0, w: 0),
-                "inputBVector": CIVector(x: 1, y: 0, z: 0, w: 0),
+                // gray noise squeezed around mid-gray so even 100% stays filmic
+                "inputRVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
                 "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+                "inputBiasVector": CIVector(x: 0.2, y: 0.2, z: 0.2, w: 0),
             ])
         let blended = mono.applyingFilter("CISoftLightBlendMode", parameters: [kCIInputBackgroundImageKey: img])
         return img.applyingFilter("CIDissolveTransition", parameters: [
             kCIInputTargetImageKey: blended,
-            "inputTime": min(1, amount * 0.85),
+            "inputTime": min(1, amount * 0.6),
         ])
     }
 
