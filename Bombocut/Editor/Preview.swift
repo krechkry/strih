@@ -75,7 +75,7 @@ struct PreviewArea: View {
                     model.transformBegan()
                 }
                 model.transformChanged(translation: v.first?.first?.translation ?? .zero,
-                                       magnification: v.first?.second?.magnification ?? 1,
+                                       magnification: Double(v.first?.second?.magnification ?? 1),
                                        rotation: v.second?.rotation.radians ?? 0,
                                        canvas: canvas)
             }

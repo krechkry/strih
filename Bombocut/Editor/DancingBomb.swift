@@ -3,7 +3,7 @@ import SwiftUI
 /// The Bombocut mascot doing a little victory dance (drawn live, no GIF needed).
 struct DancingBomb: View {
     var body: some View {
-        TimelineView(.animation) { ctx in
+        SwiftUI.TimelineView(.animation) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
             SwiftUI.Canvas { g, size in
                 DancingBomb.draw(g, size: size, t: t)
@@ -54,9 +54,10 @@ struct DancingBomb: View {
         // arms waving
         for side in [-1.0, 1.0] {
             let wave = 0.5 + 0.55 * sin(beat + (side > 0 ? .pi : 0))
-            let a = side < 0 ? .pi + wave : -wave
+            let a: Double = side < 0 ? Double.pi + wave : -wave
             let shoulder = CGPoint(x: side * rx * 0.92, y: -ry * 0.05)
-            let hand = CGPoint(x: shoulder.x + cos(a) * r * 0.62, y: shoulder.y + sin(a) * r * 0.62)
+            let hand = CGPoint(x: shoulder.x + CGFloat(Foundation.cos(a)) * r * 0.62,
+                               y: shoulder.y + CGFloat(Foundation.sin(a)) * r * 0.62)
             var arm = Path()
             arm.move(to: shoulder)
             arm.addLine(to: hand)
