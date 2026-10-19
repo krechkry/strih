@@ -164,7 +164,17 @@ struct Clip: Identifiable, Codable, Hashable {
     var speedCurve: [SpeedPoint]?  // custom curve, overrides constant speed
     var pitchCorrect: Bool = true  // keep pitch when sped up / slowed down
     var transform = ClipTransform()
+    var opacity = 1.0
+    var effects = Effects()
+    var keyframes: [Keyframe] = [] // sorted by source time; when present they drive the look
     var aspect: Double?            // source width / height, upright
+
+    /// Look used when the clip has no keyframes.
+    var staticLook: Look {
+        get { Look(transform: transform, opacity: opacity, effects: effects) }
+        set { transform = newValue.transform; opacity = newValue.opacity; effects = newValue.effects }
+    }
+    var lookState: LookState { LookState(fill: fill, look: staticLook, keyframes: keyframes) }
 
     var retime: Retime { Retime(self) }
     /// Length on the timeline.
@@ -180,7 +190,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
-        case speedCurve, pitchCorrect, transform, aspect
+        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes
     }
 
     init(from d: Decoder) throws {
@@ -197,6 +207,9 @@ struct Clip: Identifiable, Codable, Hashable {
         pitchCorrect = try c.decodeIfPresent(Bool.self, forKey: .pitchCorrect) ?? true
         transform = try c.decodeIfPresent(ClipTransform.self, forKey: .transform) ?? ClipTransform()
         aspect = try c.decodeIfPresent(Double.self, forKey: .aspect)
+        opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
+        effects = try c.decodeIfPresent(Effects.self, forKey: .effects) ?? Effects()
+        keyframes = try c.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? []
     }
 
     /// Part of the curve between normalized positions u0 and u1, renormalized to 0...1 (used by split).

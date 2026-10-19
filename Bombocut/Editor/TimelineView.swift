@@ -36,6 +36,7 @@ struct TimelineView: View {
                                      selected: clip.id == model.selectedClipID,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      onTap: { select(clip.id) },
+                                     onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) })
                                 .zIndex(clip.id == model.selectedClipID ? 1 : 0)
                         }
@@ -147,6 +148,7 @@ struct ClipTile: View {
     let selected: Bool
     let trim: TrimState?
     let onTap: () -> Void
+    let onKeyframe: (Keyframe) -> Void
     let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double) -> Void
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
@@ -204,6 +206,18 @@ struct ClipTile: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(alignment: .bottomLeading) {
+            ForEach(clip.keyframes) { kf in
+                Image(systemName: "diamond.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .shadow(color: .black.opacity(0.8), radius: 1.5)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+                    .offset(x: CGFloat(rt.local(atSource: kf.t)) * pxPerSec - 11, y: -2)
+                    .onTapGesture { onKeyframe(kf) }
+            }
+        }
         .overlay(alignment: .leading) {
             if let tr = trim { trimBand(tr, width: w) }
         }

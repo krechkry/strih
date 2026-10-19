@@ -37,23 +37,34 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             let size = request.renderContext.size
             let frame = CGRect(origin: .zero, size: size)
-            let image = Self.place(CIImage(cvPixelBuffer: src), info: instr.info, in: size)
+            let info = instr.info
+            let t = request.compositionTime.seconds
+            let state = LookStore.shared.state(info.clipID) ?? info.state
+            let look = state.look(atSource: info.retime.source(atLocal: t - info.start))
+
+            var image = EffectsRenderer.color(CIImage(cvPixelBuffer: src), look.effects)
+            image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform, in: size)
+            if look.opacity < 0.999 {
+                image = image.applyingFilter("CIColorMatrix", ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, look.opacity))])
+            }
             let bg = CIImage(color: .black).cropped(to: frame)
-            context.render(image.composited(over: bg).cropped(to: frame), to: out, bounds: frame, colorSpace: outSpace)
+            image = image.composited(over: bg).cropped(to: frame)
+            image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+            context.render(image, to: out, bounds: frame, colorSpace: outSpace)
             request.finish(withComposedVideoFrame: out)
         }
     }
 
     /// Rotates the source upright, fits or fills it into the frame, then applies the clip's
     /// move / scale / rotate around the canvas center. Matches the SwiftUI live preview exactly.
-    static func place(_ input: CIImage, info: ClipRenderInfo, in size: CGSize) -> CIImage {
-        var img = input.oriented(orientation(for: info.transform))
+    static func place(_ input: CIImage, prefTransform: CGAffineTransform, fill: Bool, transform t: ClipTransform,
+                      in size: CGSize) -> CIImage {
+        var img = input.oriented(orientation(for: prefTransform))
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let sx = size.width / e.width, sy = size.height / e.height
-        let s = info.fill ? max(sx, sy) : min(sx, sy)
+        let s = fill ? max(sx, sy) : min(sx, sy)
         let w = e.width * s, h = e.height * s
-        let t = info.clipTransform
         img = img.transformed(by: CGAffineTransform(scaleX: s, y: s))
         img = img.transformed(by: CGAffineTransform(translationX: -w / 2, y: -h / 2))
         if abs(t.scale - 1) > 1e-6 { img = img.transformed(by: CGAffineTransform(scaleX: t.scale, y: t.scale)) }

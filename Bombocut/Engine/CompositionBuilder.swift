@@ -4,8 +4,10 @@ import CoreImage
 /// Per-clip data the compositor needs to draw a frame.
 struct ClipRenderInfo {
     var transform: CGAffineTransform   // source preferredTransform (rotation)
-    var fill: Bool
-    var clipTransform: ClipTransform   // user move / scale / rotate
+    var clipID: UUID
+    var start: Double                  // where the clip starts in the composition (seconds)
+    var retime: Retime                 // composition time -> source time
+    var state: LookState               // fallback if the live LookStore has nothing for this clip
 }
 
 /// One instruction per clip. The custom compositor reads `info` for every frame.
@@ -115,7 +117,8 @@ enum CompositionBuilder {
 
             if cursor > clipStart {
                 placed.append((clipStart, cursor,
-                               ClipRenderInfo(transform: prefTransform, fill: clip.fill, clipTransform: clip.transform)))
+                               ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: clipStart.seconds,
+                                              retime: clip.retime, state: clip.lookState)))
             }
         }
 

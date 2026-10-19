@@ -88,11 +88,13 @@ final class EditorModel: ObservableObject {
             .sink { [weak self] status in self?.isPlaying = status != .paused }
             .store(in: &cancellables)
 
+        LookStore.shared.update(project.clips)
         rebuild()
         Task { await fillMissingAspects() }
     }
 
     func tearDown() {
+        LookStore.shared.clear()
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
@@ -205,7 +207,53 @@ final class EditorModel: ObservableObject {
         canRedo = !redoStack.isEmpty
         if let id = selectedClipID, !project.clips.contains(where: { $0.id == id }) { selectedClipID = nil }
         currentTime = min(currentTime, duration)
+        LookStore.shared.update(project.clips)
         rebuild()
+    }
+
+    /// Edits that only change how clips look (effects, keyframes, transform, fit/fill):
+    /// undoable, saved, and shown instantly without rebuilding the video.
+    func mutateLook(_ change: (inout Project) -> Void) {
+        pushUndo(project)
+        change(&project)
+        commitLook()
+    }
+
+    private func commitLook() {
+        project.modified = Date()
+        store.save(project)
+        canUndo = !undoStack.isEmpty
+        canRedo = !redoStack.isEmpty
+        publishLook()
+    }
+
+    /// Pushes the current looks to the compositor and redraws the paused frame.
+    private func publishLook() {
+        LookStore.shared.update(project.clips)
+        refreshFrame()
+    }
+
+    private var refreshPending = false
+    private func refreshFrame() {
+        guard !refreshPending else { return }
+        refreshPending = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(25))
+            refreshPending = false
+            guard !isPlaying, let item = player.currentItem,
+                  let vc = item.videoComposition?.mutableCopy() as? AVVideoComposition else {
+                if clearLiveGen != nil, live?.active == false { live = nil }
+                clearLiveGen = nil
+                return
+            }
+            item.videoComposition = vc
+            scrub(to: currentTime)
+            if let gen = clearLiveGen {
+                clearLiveGen = nil
+                try? await Task.sleep(for: .milliseconds(180))
+                if liveGen == gen, live?.active == false { live = nil }
+            }
+        }
     }
 
     func undo() {
@@ -297,13 +345,143 @@ final class EditorModel: ObservableObject {
 
     func toggleFill() {
         guard let i = selectedIndex else { return }
-        mutate { $0.clips[i].fill.toggle() }
+        mutateLook { $0.clips[i].fill.toggle() }
     }
 
     func resetTransform() {
         guard let i = selectedIndex else { return }
         live = nil
-        mutate { $0.clips[i].transform = ClipTransform() }
+        let s = sourceTime(i)
+        mutateLook { p in Self.applyLook(&p.clips[i], atSource: s) { $0.transform = ClipTransform() } }
+    }
+
+    // MARK: Looks and keyframes
+
+    /// Source time under the playhead for clip i (clamped to the clip).
+    func sourceTime(_ i: Int) -> Double {
+        let c = project.clips[i]
+        return c.retime.source(atLocal: currentTime - project.clipStarts[i])
+    }
+
+    /// The look of clip i at the playhead.
+    func lookAtPlayhead(_ i: Int) -> Look {
+        project.clips[i].lookState.look(atSource: sourceTime(i))
+    }
+
+    /// Index of the keyframe of clip i sitting under the playhead (within about a frame).
+    func keyframeAtPlayhead(_ i: Int) -> Int? {
+        let c = project.clips[i]
+        let rt = c.retime
+        let here = currentTime - project.clipStarts[i]
+        return c.keyframes.firstIndex { abs(rt.local(atSource: $0.t) - here) < 0.025 }
+    }
+
+    var playheadInSelected: Bool {
+        guard let i = selectedIndex else { return false }
+        let start = project.clipStarts[i]
+        return currentTime >= start - 0.001 && currentTime <= start + project.clips[i].duration + 0.001
+    }
+
+    /// Changes the look at source time s: the static look, the keyframe there, or a new keyframe.
+    static func applyLook(_ c: inout Clip, atSource s: Double, _ change: (inout Look) -> Void) {
+        if c.keyframes.isEmpty {
+            var l = c.staticLook
+            change(&l)
+            c.staticLook = l
+            return
+        }
+        let rt = c.retime
+        let here = rt.local(atSource: s)
+        if let k = c.keyframes.firstIndex(where: { abs(rt.local(atSource: $0.t) - here) < 0.025 }) {
+            change(&c.keyframes[k].look)
+        } else {
+            var l = c.lookState.look(atSource: s)
+            change(&l)
+            c.keyframes.append(Keyframe(t: s, look: l))
+            c.keyframes.sort { $0.t < $1.t }
+        }
+    }
+
+    private var lookSnapshot: Project?
+
+    /// Slider drag started.
+    func lookEditBegan() {
+        pause()
+        lookSnapshot = project
+        if let i = selectedIndex, !playheadInSelected { scrub(to: project.clipStarts[i] + 0.01) }
+    }
+
+    /// Live slider change (no undo step until the drag ends).
+    func editLook(_ change: (inout Look) -> Void) {
+        guard let i = selectedIndex else { return }
+        let s = sourceTime(i)
+        Self.applyLook(&project.clips[i], atSource: s, change)
+        publishLook()
+    }
+
+    func lookEditEnded() {
+        if let s = lookSnapshot, s != project { pushUndo(s) }
+        lookSnapshot = nil
+        commitLook()
+    }
+
+    func resetParam(_ p: LookParam) {
+        guard let i = selectedIndex else { return }
+        let s = sourceTime(i)
+        mutateLook { pr in Self.applyLook(&pr.clips[i], atSource: s) { p.set(&$0, p.neutral) } }
+    }
+
+    func resetAllLook() {
+        guard let i = selectedIndex else { return }
+        mutateLook { p in
+            p.clips[i].keyframes = []
+            p.clips[i].effects = Effects()
+            p.clips[i].opacity = 1
+        }
+    }
+
+    /// Diamond button: add a keyframe at the playhead, or remove the one that is there.
+    func toggleKeyframe() {
+        guard let i = selectedIndex else { return }
+        if !playheadInSelected { scrub(to: project.clipStarts[i] + 0.01) }
+        pause()
+        let s = sourceTime(i)
+        if let k = keyframeAtPlayhead(i) {
+            mutateLook { p in
+                let removed = p.clips[i].keyframes.remove(at: k)
+                // last one gone: keep the picture as it was
+                if p.clips[i].keyframes.isEmpty { p.clips[i].staticLook = removed.look }
+            }
+        } else {
+            let look = lookAtPlayhead(i)
+            mutateLook { p in
+                p.clips[i].keyframes.append(Keyframe(t: s, look: look))
+                p.clips[i].keyframes.sort { $0.t < $1.t }
+            }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+
+    func setEase(_ e: Ease) {
+        guard let i = selectedIndex, let k = keyframeAtPlayhead(i) else { return }
+        mutateLook { $0.clips[i].keyframes[k].ease = e }
+    }
+
+    func jump(toKeyframe kf: Keyframe, in clipID: UUID) {
+        guard let i = project.clips.firstIndex(where: { $0.id == clipID }) else { return }
+        pause()
+        selectedClipID = clipID
+        scrub(to: project.clipStarts[i] + project.clips[i].retime.local(atSource: kf.t))
+    }
+
+    /// Jump to the previous / next keyframe of the selected clip.
+    func stepKeyframe(_ dir: Int) {
+        guard let i = selectedIndex else { return }
+        let c = project.clips[i]
+        let start = project.clipStarts[i]
+        let times = c.keyframes.map { start + c.retime.local(atSource: $0.t) }
+        let target = dir > 0 ? times.first { $0 > currentTime + 0.03 } : times.last { $0 < currentTime - 0.03 }
+        if let target { pause(); scrub(to: target) }
     }
 
     func setVolume(_ v: Double, live: Bool) {
@@ -443,15 +621,16 @@ final class EditorModel: ObservableObject {
         let c = project.clips[hit.index]
         selectedClipID = c.id
         liveGen += 1
-        liveStart = c.transform
+        let src = c.retime.source(atLocal: currentTime - hit.start)
+        let look = c.lookState.look(atSource: src)
+        liveStart = look.transform
         lastGuides = []
         let keepFrame = live?.clipID == c.id ? live?.frame : nil
-        live = LiveTransform(clipID: c.id, frame: keepFrame, t: c.transform, fill: c.fill,
+        live = LiveTransform(clipID: c.id, frame: keepFrame, t: look.transform, fill: c.fill,
                              aspect: c.aspect ?? project.canvas.aspect)
-        let src = c.retime.source(atLocal: currentTime - hit.start)
         liveGrabber.grab(file: c.mediaFile, at: src) { [weak self] img in
             guard let self, self.live?.clipID == c.id else { return }
-            self.live?.frame = img
+            self.live?.frame = EffectsRenderer.still(img, look.effects)
         }
     }
 
@@ -515,17 +694,20 @@ final class EditorModel: ObservableObject {
         l.active = false
         l.guides = []
         live = l
-        guard let i = project.clips.firstIndex(where: { $0.id == l.clipID }), project.clips[i].transform != l.t else {
+        guard let i = project.clips.firstIndex(where: { $0.id == l.clipID }), lookAtPlayhead(i).transform != l.t else {
             live = nil
             return
         }
         clearLiveGen = liveGen
-        mutate { $0.clips[i].transform = l.t }
+        let s = sourceTime(i)
+        let t = l.t
+        mutateLook { p in Self.applyLook(&p.clips[i], atSource: s) { $0.transform = t } }
     }
 
-    /// The transform currently shown for a clip (live while dragging, stored otherwise).
+    /// The transform currently shown for a clip (live while dragging, keyframed or stored otherwise).
     func shownTransform(_ c: Clip) -> ClipTransform {
         if let l = live, l.clipID == c.id { return l.t }
-        return c.transform
+        guard let i = project.clips.firstIndex(where: { $0.id == c.id }) else { return c.transform }
+        return lookAtPlayhead(i).transform
     }
 }

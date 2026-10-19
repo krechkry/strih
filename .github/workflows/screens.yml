@@ -55,7 +55,7 @@ jobs:
           mkdir -p "$DATA/Documents/Media"
           cp demo/*.mp4 "$DATA/Documents/Media/"
           mkdir -p shots
-          for m in home editor selected trim speed fullscreen canvas export done; do
+          for m in home editor selected trim speed look adjust fullscreen canvas export done; do
             xcrun simctl launch $UDID cz.krechler.bombocut -demo $m
             sleep 10
             xcrun simctl io $UDID screenshot shots/$m.png

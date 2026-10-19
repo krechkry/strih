@@ -45,6 +45,7 @@ struct EditorView: View {
             case .canvas: CanvasSheet(model: model).presentationDetents([.height(108)])
             case .volume: VolumeSheet(model: model).presentationDetents([.height(200)])
             case .speed: SpeedSheet(model: model).presentationDetents([.height(470)])
+            case .adjust: AdjustSheet(model: model).presentationDetents([.height(300)])
             }
         }
         .onChange(of: addItems) { _, items in
@@ -112,18 +113,57 @@ struct EditorView: View {
             .tint(.white)
             .disabled(model.project.clips.isEmpty)
             Spacer()
-            Button { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true } } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.body.weight(.semibold))
-                    .frame(width: 40, height: 40)
+            HStack(spacing: 2) {
+                keyframeButton
+                Button { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true } } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 40)
+                }
+                .tint(.white)
+                .disabled(model.project.clips.isEmpty)
             }
-            .tint(.white)
-            .disabled(model.project.clips.isEmpty)
             .frame(minWidth: 80, alignment: .trailing)
         }
         .font(.footnote.monospacedDigit().weight(.semibold))
         .padding(.horizontal, 16)
         .frame(height: 48)
+    }
+
+    /// Tap: add / remove a keyframe at the playhead. Hold: easing, delete, jump between keyframes.
+    @ViewBuilder
+    private var keyframeButton: some View {
+        if let i = model.selectedIndex {
+            let k = model.keyframeAtPlayhead(i)
+            let has = !model.project.clips[i].keyframes.isEmpty
+            Menu {
+                if let k {
+                    let ease = model.project.clips[i].keyframes[k].ease
+                    Button { model.setEase(.smooth) } label: {
+                        if ease == .smooth { Label("Smooth", systemImage: "checkmark") } else { Text("Smooth") }
+                    }
+                    Button { model.setEase(.linear) } label: {
+                        if ease == .linear { Label("Linear", systemImage: "checkmark") } else { Text("Linear") }
+                    }
+                    Button(role: .destructive) { model.toggleKeyframe() } label: {
+                        Label("Delete keyframe", systemImage: "trash")
+                    }
+                } else {
+                    Button { model.toggleKeyframe() } label: { Label("Add keyframe", systemImage: "plus") }
+                }
+                if has {
+                    Button { model.stepKeyframe(-1) } label: { Label("Previous keyframe", systemImage: "chevron.left") }
+                    Button { model.stepKeyframe(1) } label: { Label("Next keyframe", systemImage: "chevron.right") }
+                }
+            } label: {
+                Image(systemName: k != nil ? "diamond.fill" : "diamond")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(k != nil ? Theme.accent : .white)
+                    .frame(width: 40, height: 40)
+            } primaryAction: {
+                model.toggleKeyframe()
+            }
+        }
     }
 
     // MARK: Toolbar
@@ -135,6 +175,7 @@ struct EditorView: View {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
+                    ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: clip.fill ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                label: clip.fill ? "Fit" : "Fill") { model.toggleFill() }
@@ -209,6 +250,28 @@ struct EditorView: View {
                             SpeedPoint(t: 0.72, v: 4), SpeedPoint(t: 1, v: 1)])
             try? await Task.sleep(for: .seconds(0.6))
             sheet = .speed
+        case "look", "adjust":
+            guard let first = clips.first else { break }
+            let id = first.id
+            model.selectedClipID = id
+            model.mutateLook { p in
+                guard let i = p.clips.firstIndex(where: { $0.id == id }) else { return }
+                var a = Look()
+                a.effects.temperature = 0.7
+                a.effects.contrast = 0.3
+                a.effects.vignette = 0.7
+                a.effects.grain = 0.6
+                a.effects.aberration = 0.8
+                var b = a
+                b.transform.scale = 1.6
+                b.transform.rotation = -0.2
+                p.clips[i].keyframes = [Keyframe(t: 0.5, look: a), Keyframe(t: 4.5, look: b)]
+            }
+            model.scrub(to: 2.4)
+            if mode == "adjust" {
+                try? await Task.sleep(for: .seconds(0.6))
+                sheet = .adjust
+            }
         case "fullscreen":
             model.fullscreen = true
         case "export", "done":
@@ -222,7 +285,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed
+    case export, canvas, volume, speed, adjust
     var id: String { rawValue }
 }
 
