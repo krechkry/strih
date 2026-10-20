@@ -179,7 +179,8 @@ struct StorageView: View {
             return nil
         })
         let used = Set(store.projects.flatMap { $0.clips.map(\.mediaFile) })
-        report = await Task.detached { StorageReport.scan(models: ready, usedMedia: used) }.value
+        let base = SpeechModels.base
+        report = await Task.detached { StorageReport.scan(models: ready, usedMedia: used, modelBase: base) }.value
     }
 
     static func size(_ b: Int64) -> String { ByteCountFormatter.string(fromByteCount: b, countStyle: .file) }
@@ -221,14 +222,14 @@ struct StorageReport: Sendable {
         return sum
     }
 
-    static func scan(models: [SpeechModel: URL], usedMedia: Set<String>) -> StorageReport {
+    static func scan(models: [SpeechModel: URL], usedMedia: Set<String>, modelBase: URL) -> StorageReport {
         var r = StorageReport()
         let fm = FileManager.default
 
         // voice models and anything else in their folder
         let modelPaths = models.values.map { $0.standardizedFileURL.path }
         for (m, u) in models { r.models[m] = folderSize(u) }
-        if let e = fm.enumerator(at: SpeechModels.base, includingPropertiesForKeys: [.isRegularFileKey, .totalFileAllocatedSizeKey]) {
+        if let e = fm.enumerator(at: modelBase, includingPropertiesForKeys: [.isRegularFileKey, .totalFileAllocatedSizeKey]) {
             for case let u as URL in e {
                 let v = try? u.resourceValues(forKeys: [.isRegularFileKey, .totalFileAllocatedSizeKey])
                 guard v?.isRegularFile == true else { continue }
