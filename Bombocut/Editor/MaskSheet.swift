@@ -1,43 +1,152 @@
 import SwiftUI
 
-/// Subject cut-out for the selected clip: what to find, and what happens to the background.
+/// Subject cut-out for the selected clip: what to find, its edge, what happens to the background,
+/// and the cut-out or matte as files for other apps.
 struct MaskSheet: View {
     @ObservedObject var model: EditorModel
+    @State private var exporting: MaskExporter.Mode?
+    @State private var progress = 0.0
+    @State private var result: URL?
+    @State private var failure: String?
+    @State private var exporter: MaskExporter?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Subject mask").font(.title3.weight(.heavy))
-            if let i = model.selectedIndex {
-                let m = model.project.clips[i].mask
-                HStack(spacing: 8) {
-                    pill("Off", on: m == nil) { model.mutateLook { $0.clips[i].mask = nil } }
-                    ForEach(SubjectMask.Kind.allCases, id: \.self) { k in
-                        pill(k.title, on: m?.kind == k) {
-                            model.mutateLook { p in
-                                var n = p.clips[i].mask ?? SubjectMask(blur: 0.5)
-                                n.kind = k
-                                p.clips[i].mask = n
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("Subject mask").font(.title3.weight(.heavy))
+                if let i = model.selectedIndex {
+                    let m = model.project.clips[i].mask
+                    HStack(spacing: 8) {
+                        pill("Off", on: m == nil) { model.mutateLook { $0.clips[i].mask = nil } }
+                        ForEach(SubjectMask.Kind.allCases, id: \.self) { k in
+                            pill(k.title, on: m?.kind == k) {
+                                model.mutateLook { p in
+                                    var n = p.clips[i].mask ?? SubjectMask(blur: 0.5)
+                                    n.kind = k
+                                    p.clips[i].mask = n
+                                }
                             }
                         }
                     }
+                    if let m {
+                        group("Edge") {
+                            slider("Softness", m.feather) { v in model.editClip { $0.mask?.feather = v } }
+                            slider("Shrink / grow", m.grow, range: -1...1, center: true) { v in model.editClip { $0.mask?.grow = v } }
+                            Toggle(isOn: Binding(get: { m.invert }, set: { v in model.mutateLook { $0.clips[i].mask?.invert = v } })) {
+                                Text("Invert (swap subject and background)").font(.subheadline.weight(.bold))
+                            }
+                            .tint(Theme.accent)
+                        }
+                        group("Background") {
+                            slider("Blur", m.blur) { v in model.editClip { $0.mask?.blur = v } }
+                            slider("Darken", m.dim) { v in model.editClip { $0.mask?.dim = v } }
+                            slider("Black & white", m.desaturate) { v in model.editClip { $0.mask?.desaturate = v } }
+                        }
+                        Text("Overlays set to “Behind subject” go between the background and the subject.")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ApplyRow(model: model, kind: .mask)
+                        group("Use the cut-out elsewhere") {
+                            filesRow(i)
+                        }
+                    } else {
+                        Text("Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                if let m {
-                    slider("Blur background", m.blur) { v in model.editClip { $0.mask?.blur = v } }
-                    slider("Darken background", m.dim) { v in model.editClip { $0.mask?.dim = v } }
-                    slider("Background black & white", m.desaturate) { v in model.editClip { $0.mask?.desaturate = v } }
-                    Text("Overlays set to “Behind subject” go between the background and the subject.")
-                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    ApplyRow(model: model, kind: .mask)
-                } else {
-                    Text("Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject.")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(20)
+            .padding(.bottom, 20)
+        }
+        .onDisappear { exporter?.cancel() }
+    }
+
+    // MARK: Files
+
+    @ViewBuilder
+    private func filesRow(_ i: Int) -> some View {
+        if let mode = exporting {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(mode == .cutout ? "Making the transparent video…" : "Making the matte…")
+                        .font(.subheadline.weight(.bold))
+                    Spacer()
+                    Button("Cancel") { exporter?.cancel() }.font(.subheadline.weight(.bold)).tint(.white)
+                }
+                ProgressView(value: progress).tint(Theme.accent)
+            }
+        } else if let url = result {
+            HStack(spacing: 10) {
+                ShareLink(item: url) {
+                    Label("Save or share", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                        .padding(.horizontal, 14).frame(height: 38)
+                        .background(Theme.accent, in: Capsule())
+                }
+                Button { result = nil } label: {
+                    Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 38)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    action("Transparent video", "person.crop.square.filled.and.at.rectangle") { start(.cutout, i) }
+                    action("Matte", "circle.lefthalf.filled") { start(.matte, i) }
+                }
+                Text("Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci, CapCut or Keynote. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let failure {
+                    Text(failure).font(.caption.weight(.semibold)).foregroundStyle(.red)
                 }
             }
         }
-        .padding(20)
-        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func start(_ mode: MaskExporter.Mode, _ i: Int) {
+        let clip = model.project.clips[i]
+        let ex = MaskExporter()
+        exporter = ex
+        exporting = mode
+        progress = 0
+        failure = nil
+        model.pause()
+        Task {
+            do {
+                let url = try await ex.run(clip: clip, mode: mode) { p in
+                    Task { @MainActor in progress = p }
+                }
+                result = url
+            } catch is CancellationError {
+            } catch {
+                failure = error.localizedDescription
+            }
+            exporting = nil
+            exporter = nil
+        }
+    }
+
+    // MARK: Parts
+
+    private func group<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(loc(title)).font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+            content()
+        }
+    }
+
+    private func action(_ title: String, _ icon: String, _ run: @escaping () -> Void) -> some View {
+        Button(action: run) {
+            Label(loc(title), systemImage: icon)
+                .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                .padding(.horizontal, 12).frame(height: 38)
+                .background(Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
@@ -50,14 +159,17 @@ struct MaskSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func slider(_ title: String, _ value: Double, _ set: @escaping (Double) -> Void) -> some View {
+    private func slider(_ title: String, _ value: Double, range: ClosedRange<Double> = 0...1, center: Bool = false,
+                        _ set: @escaping (Double) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 Spacer()
-                Text("\(Int((value * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
+                Text(center && value > 0.005 ? "+\(Int((value * 100).rounded()))" : "\(Int((value * 100).rounded()))")
+                    .font(.subheadline.weight(.bold).monospacedDigit())
             }
-            Slider(value: Binding(get: { value }, set: set), in: 0...1, onEditingChanged: { e in
+            Slider(value: Binding(get: { value }, set: { v in set(center && abs(v) < 0.04 ? 0 : v) }), in: range,
+                   onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })
         }
