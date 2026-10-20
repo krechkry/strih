@@ -150,6 +150,12 @@ enum Transcriber {
         case listening(Double)
     }
 
+    static let prompts: [String: String] = [
+        "cs": "Ahoj, tohle je české video. Jasně, přesně tak, jdeme na to.",
+        "sk": "Ahoj, toto je slovenské video. Jasné, presne tak, ideme na to.",
+        "en": "Hey, this is the video. Yeah, exactly, let's go.",
+    ]
+
     @MainActor
     static func run(project: Project, language: String, names: String, accurate: Bool = false,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
@@ -203,16 +209,21 @@ enum Transcriber {
     nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
                                                progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
         let pipe = try await SpeechEngine.shared.pipe(folder).pipe
-        // No VAD chunking (keeps one clock) and no generic style prompt: a prompt shifts Whisper's
-        // word alignment and its timestamps. Only names the user typed are passed as a hint.
-        var opts = DecodingOptions(task: .transcribe, language: language, temperatureFallbackCount: 3,
+        // No VAD chunking (keeps one clock). Greedy decoding only: Whisper's "fallback" re-tries a
+        // sentence at higher temperature (random sampling) when unsure, which is where made-up words came from.
+        var opts = DecodingOptions(task: .transcribe, language: language, temperature: 0, temperatureFallbackCount: 0,
                                    usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true)
+        opts.firstTokenLogProbThreshold = nil
         if let tok = pipe.tokenizer {
             opts.suppressTokens = await SpeechEngine.shared.foreignLetterTokens(language, tok)
         }
+        // A short sentence in the chosen language (plus your names) steers spelling and diacritics.
+        // Timing no longer depends on it: words are checked and re-timed afterwards.
+        var prompt = prompts[language] ?? ""
         let extra = names.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let tok = pipe.tokenizer, !extra.isEmpty {
-            opts.promptTokens = tok.encode(text: " " + extra + ".").filter { $0 < tok.specialTokens.specialTokenBegin }
+        if !extra.isEmpty { prompt = extra + ". " + prompt }
+        if let tok = pipe.tokenizer, !prompt.isEmpty {
+            opts.promptTokens = tok.encode(text: " " + prompt).filter { $0 < tok.specialTokens.specialTokenBegin }
         }
 
         let poll = Task {
@@ -619,7 +630,7 @@ enum SpellCheck {
         guard let lang = UITextChecker.availableLanguages.first(where: { $0.hasPrefix(language) }) else { return words }
         let checker = UITextChecker()
         return words.map { w in
-            guard (w.confidence ?? 0.5) < 0.9 else { return w }
+            guard (w.confidence ?? 0.5) < 0.6 else { return w }
             let core = w.text.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
             guard core.count >= 4, core.allSatisfy({ $0.isLetter }), !keep.contains(core.lowercased()) else { return w }
             let range = NSRange(location: 0, length: (core as NSString).length)

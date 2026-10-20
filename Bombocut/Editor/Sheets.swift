@@ -5,7 +5,7 @@ import SwiftUI
 /// One row of shapes. Tap one and the sheet slides away.
 struct CanvasSheet: View {
     @ObservedObject var model: EditorModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
 
     private let presets: [(Double, Double)] = [(9, 16), (4, 5), (1, 1), (4, 3), (16, 9), (2.39, 1)]
 
@@ -401,7 +401,7 @@ struct ChipRow<V: Equatable>: View {
 
 struct StabilizeSheet: View {
     @ObservedObject var model: EditorModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -459,7 +459,7 @@ struct StabilizeSheet: View {
 
 struct TrackSheet: View {
     @ObservedObject var model: EditorModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
 
     private func edgePill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {

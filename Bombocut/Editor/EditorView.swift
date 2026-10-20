@@ -19,11 +19,25 @@ struct EditorView: View {
         case .export: return 0
         case .canvas: return 124
         case .volume: return 200
-        case .speed: return 470
+        case .speed: return 490
         case .adjust: return 300
         case .captions: return 420
         case .stabilize: return 280
         case .track: return 360
+        }
+    }
+
+    @ViewBuilder
+    private func panelContent(_ s: EditorSheet) -> some View {
+        switch s {
+        case .export: EmptyView()
+        case .canvas: CanvasSheet(model: model)
+        case .volume: VolumeSheet(model: model)
+        case .speed: SpeedSheet(model: model)
+        case .adjust: AdjustSheet(model: model)
+        case .captions: CaptionsSheet(model: model)
+        case .stabilize: StabilizeSheet(model: model)
+        case .track: TrackSheet(model: model)
         }
     }
 
@@ -66,21 +80,17 @@ struct EditorView: View {
         .persistentSystemOverlays(model.fullscreen ? .hidden : .automatic)
         .onDisappear { model.tearDown() }
         .task { await demoSetup() }
-        .sheet(item: $sheet) { s in
-            Group {
-                switch s {
-                case .export: ExportSheet(project: model.project)
-                case .canvas: CanvasSheet(model: model)
-                case .volume: VolumeSheet(model: model)
-                case .speed: SpeedSheet(model: model)
-                case .adjust: AdjustSheet(model: model)
-                case .captions: CaptionsSheet(model: model)
-                case .stabilize: StabilizeSheet(model: model)
-                case .track: TrackSheet(model: model)
-                }
-            }
-            .modifier(PanelStyle(height: panelHeight(s)))
+        .sheet(item: Binding(get: { sheet == .export ? sheet : nil }, set: { sheet = $0 })) { _ in
+            ExportSheet(project: model.project).presentationDetents([.large])
         }
+        .overlay(alignment: .bottom) {
+            if let s = sheet, s != .export {
+                Panel(height: panelHeight(s), close: { sheet = nil }) { panelContent(s) }
+                    .id(s)
+                    .transition(.move(edge: .bottom))
+            }
+        }
+        .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
         .onChange(of: sheet) { _, s in model.previewScrubs = s != nil && s != .export }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
@@ -501,17 +511,51 @@ struct ToolLabel: View {
     }
 }
 
-/// Editing panels: fixed height, no dimming, the editor behind stays usable.
-private struct PanelStyle: ViewModifier {
+/// Editing panel: full width from edge to edge, fixed height, no dimming; the editor above stays usable.
+/// Drag the handle down (or pick another tool) to close.
+private struct Panel<Content: View>: View {
     let height: CGFloat
+    let close: () -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var drag: CGFloat = 0
 
-    func body(content: Content) -> some View {
-        if height == 0 {
-            content.presentationDetents([.large])
-        } else {
-            content
-                .presentationDetents([.height(height)])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(height)))
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule().fill(.white.opacity(0.3)).frame(width: 38, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 22)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture()
+                        .onChanged { v in drag = max(0, v.translation.height) }
+                        .onEnded { v in
+                            if v.translation.height > 70 || v.predictedEndTranslation.height > 160 { close() }
+                            withAnimation(.spring(duration: 0.25)) { drag = 0 }
+                        }
+                )
+            content()
+                .environment(\.closePanel, close)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: height, alignment: .top)
+        .background(
+            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
+                .fill(Theme.panel)
+                .shadow(color: .black.opacity(0.45), radius: 16, y: -2)
+        )
+        .offset(y: drag)
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+}
+
+private struct ClosePanelKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    /// Closes the editing panel this view sits in.
+    var closePanel: () -> Void {
+        get { self[ClosePanelKey.self] }
+        set { self[ClosePanelKey.self] = newValue }
     }
 }
