@@ -180,7 +180,6 @@ enum Transcriber {
         while SpeechStatus.shared.warming {
             try await Task.sleep(for: .milliseconds(300))
         }
-        if let e = SpeechStatus.shared.error { throw CompositionBuilder.err("Voice model: " + e) }
         var words = try await transcribe(audio: audio, folder: folder, language: language, names: names) { f in
             Task { @MainActor in phase(.listening(f)) }
         }
