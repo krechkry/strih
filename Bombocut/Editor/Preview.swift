@@ -36,6 +36,7 @@ struct PreviewArea: View {
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
+                if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -56,6 +57,37 @@ struct PreviewArea: View {
                     .onChanged { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false) }
                     .onEnded { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: true) }
             )
+    }
+
+    /// Slim position bar while scrubbing from a panel (like Photos, smaller).
+    private func scrubBar(_ r: ClosedRange<Double>, _ canvas: CGSize) -> some View {
+        let len = max(r.upperBound - r.lowerBound, 0.001)
+        let here = min(max(model.currentTime - r.lowerBound, 0), len)
+        return VStack {
+            Spacer()
+            VStack(spacing: 5) {
+                HStack {
+                    Text(Fmt.time(here))
+                    Spacer()
+                    Text(Fmt.time(len)).foregroundStyle(.white.opacity(0.6))
+                }
+                .font(.system(size: 11, weight: .bold).monospacedDigit())
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.white.opacity(0.3))
+                        Capsule().fill(.white).frame(width: max(3, g.size.width * here / len))
+                    }
+                }
+                .frame(height: 3)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
+            .environment(\.colorScheme, .dark)
+            .frame(width: min(canvas.width * 0.8, 260))
+            .padding(.bottom, 12)
+        }
+        .transition(.opacity)
+        .allowsHitTesting(false)
     }
 
     private func touch(_ canvas: CGSize) -> some View {

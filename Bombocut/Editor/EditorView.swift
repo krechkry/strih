@@ -81,7 +81,7 @@ struct EditorView: View {
             }
             .modifier(PanelStyle(height: panelHeight(s)))
         }
-        .onChange(of: sheet) { _, s in model.previewScrubs = s == .track }
+        .onChange(of: sheet) { _, s in model.previewScrubs = s != nil && s != .export }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
         }

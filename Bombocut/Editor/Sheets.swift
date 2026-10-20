@@ -512,7 +512,7 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text("Drag on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.")
+                Text("Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { dismiss(); model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

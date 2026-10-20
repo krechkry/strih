@@ -886,20 +886,31 @@ final class EditorModel: ObservableObject {
         mutateLook { $0.clips[i].tracking?.noBorders = on }
     }
 
-    /// While the Track panel is open, dragging on the preview scrubs through the selected clip
-    /// (to pick the frame to start from) instead of moving it.
+    /// While a bottom panel is open, dragging on the preview scrubs instead of moving the clip:
+    /// through the selected clip, or the whole timeline when nothing is selected.
     @Published var previewScrubs = false
+    /// Range being scrubbed (shown as a slim bar on the preview), nil when not scrubbing.
+    @Published private(set) var scrubRange: ClosedRange<Double>?
     private var scrubStart: Double?
     func previewScrub(dx: CGFloat, width: CGFloat, ended: Bool) {
-        guard let i = selectedIndex, width > 0 else { return }
-        let start = project.clipStarts[i], len = project.clips[i].duration
+        guard width > 0, duration > 0 else { return }
+        var lo = 0.0, hi = duration
+        if let i = selectedIndex {
+            lo = project.clipStarts[i]
+            hi = lo + project.clips[i].duration
+        }
+        let len = hi - lo
         if scrubStart == nil {
             pause()
-            scrubStart = min(max(currentTime, start), start + len)
+            scrubStart = min(max(currentTime, lo), hi)
+            scrubRange = lo...hi
         }
         let t = scrubStart! + Double(dx / width) * len
-        scrub(to: min(max(t, start), start + max(len - 1.0 / 30, 0)))
-        if ended { scrubStart = nil }
+        scrub(to: min(max(t, lo), lo + max(len - 1.0 / 30, 0)))
+        if ended {
+            scrubStart = nil
+            withAnimation(.easeOut(duration: 0.3).delay(0.5)) { scrubRange = nil }
+        }
     }
 
     func removeTracking() {
