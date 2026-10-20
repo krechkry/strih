@@ -1560,7 +1560,9 @@ final class EditorModel: ObservableObject {
         if selectedOverlayID != nil { _ = overlayTransformBegan(); return }
         if captionsSelected { captionTransformBegan(); return }
         if selectedIndex != nil && !playheadInSelected { return }
-        guard !fullscreen, trim == nil, let hit = project.clipIndex(at: currentTime) else { return }
+        guard !fullscreen, trim == nil, let found = project.clipIndex(at: currentTime) else { return }
+        // the selected clip wins at a cut between two clips
+        let hit = selectedIndex.map { (index: $0, start: project.clipStarts[$0]) } ?? (index: found.index, start: found.start)
         pause()
         let c = project.clips[hit.index]
         selectedClipID = c.id
