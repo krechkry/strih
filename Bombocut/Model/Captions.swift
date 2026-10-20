@@ -77,6 +77,8 @@ struct CaptionStyle: Codable, Hashable {
     var shadow = true
     var caps = false
     var y = 0.72                 // vertical position, 0 = top, 1 = bottom
+    var x = 0.0                  // sideways shift, fraction of the width (+ = right)
+    var rotation = 0.0           // radians, clockwise on screen
     var lines = 2
     var maxChars = 32
     var anim = CaptionAnim.fade
@@ -85,7 +87,7 @@ struct CaptionStyle: Codable, Hashable {
     init() {}
 
     enum CodingKeys: String, CodingKey {
-        case font, size, text, highlight, stroke, strokeWidth, box, boxColor, boxOpacity, shadow, caps, y, lines, maxChars, anim, punctuation
+        case font, size, text, highlight, stroke, strokeWidth, box, boxColor, boxOpacity, shadow, caps, y, x, rotation, lines, maxChars, anim, punctuation
     }
 
     init(from d: Decoder) throws {
@@ -103,6 +105,8 @@ struct CaptionStyle: Codable, Hashable {
         shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow) ?? def.shadow
         caps = try c.decodeIfPresent(Bool.self, forKey: .caps) ?? def.caps
         y = try c.decodeIfPresent(Double.self, forKey: .y) ?? def.y
+        x = try c.decodeIfPresent(Double.self, forKey: .x) ?? def.x
+        rotation = try c.decodeIfPresent(Double.self, forKey: .rotation) ?? def.rotation
         lines = try c.decodeIfPresent(Int.self, forKey: .lines) ?? def.lines
         maxChars = try c.decodeIfPresent(Int.self, forKey: .maxChars) ?? def.maxChars
         anim = try c.decodeIfPresent(CaptionAnim.self, forKey: .anim) ?? def.anim

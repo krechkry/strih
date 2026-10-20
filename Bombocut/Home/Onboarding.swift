@@ -59,7 +59,7 @@ struct OnboardingView: View {
                 .frame(width: 84, height: 84)
             VStack(alignment: .leading, spacing: 10) {
                 Text("Bombocut").font(.system(size: 44, weight: .heavy))
-                Text("A video editor for your iPhone. Subtitles are made on your iPhone, offline, in 25 languages.")
+                Text("Subtitles in 25 languages, made on your iPhone. Everything runs offline: no cloud, no account, no data collection. Just the app, your battery and your chip.")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
@@ -132,9 +132,10 @@ struct PaywallView: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     point("lock.open.fill", "Everything unlocked from day one")
-                    point("creditcard.fill", String(format: loc("Pay once, %@. No subscription, ever."), purchases.price))
+                    point("creditcard.fill", "Pay once. No subscription, ever.")
                     point("square.grid.2x2.fill", "No locked features, no ads")
-                    point("captions.bubble.fill", "Subtitles on your iPhone, offline, in 25 languages")
+                    point("captions.bubble.fill", "Subtitles in 25 languages")
+                    point("wifi.slash", "Everything runs offline on your iPhone. No cloud, no data collection.")
                     point("arrow.triangle.2.circlepath", "All updates included")
                 }
 

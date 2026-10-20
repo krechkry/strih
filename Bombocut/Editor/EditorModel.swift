@@ -629,8 +629,10 @@ final class EditorModel: ObservableObject {
 
     func rename(_ name: String) {
         let n = name.trimmingCharacters(in: .whitespaces)
-        guard !n.isEmpty else { return }
-        mutate { $0.name = n }
+        guard !n.isEmpty, n != project.name else { return }
+        project.name = n
+        project.modified = Date()
+        store.save(project)
     }
 
     // MARK: Captions
@@ -1164,6 +1166,7 @@ final class EditorModel: ObservableObject {
         overlayStart = o.transform
         overlaySnapshot = project
         overlayGuides = []
+        movingTitle = true
         return true
     }
 
@@ -1194,6 +1197,111 @@ final class EditorModel: ObservableObject {
     private func overlayTransformEnded() {
         overlayStart = nil
         overlayGuides = []
+        movingTitle = false
+        if let s = overlaySnapshot, s != project { pushUndo(s) }
+        overlaySnapshot = nil
+        commitLook()
+    }
+
+    // MARK: Titles on the preview (grabbed where you touch them, like CapCut)
+
+    /// A title (overlay or captions) is being moved: the preview shows guides and the safe zone.
+    @Published private(set) var movingTitle = false
+    @Published private(set) var movingCaptions = false
+    @Published var safeZoneFlash = false
+    private var captionStart: CaptionStyle?
+
+    enum PreviewHit { case overlay(UUID), captions }
+
+    /// The overlay or captions under a point of the preview (canvas points), topmost first.
+    func hit(_ p: CGPoint, canvas: CGSize) -> PreviewHit? {
+        guard canvas.width > 0, !project.clips.isEmpty else { return nil }
+        for o in project.overlays.reversed() where currentTime >= o.start - 0.01 && currentTime < o.end + 0.01 {
+            let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
+            let c = CGPoint(x: canvas.width / 2 + o.transform.x * canvas.width, y: canvas.height / 2 + o.transform.y * canvas.height)
+            if Self.inside(p, center: c, size: CGSize(width: base.width * o.transform.scale, height: base.height * o.transform.scale),
+                           rotation: o.transform.rotation) { return .overlay(o.id) }
+        }
+        if let b = captionBox(canvas: canvas), Self.inside(p, center: b.center, size: b.size, rotation: b.rotation) { return .captions }
+        return nil
+    }
+
+    /// Where the caption on screen sits (canvas points).
+    func captionBox(canvas: CGSize) -> (center: CGPoint, size: CGSize, rotation: Double)? {
+        guard let caps = project.captions, let cue = caps.cue(at: currentTime),
+              let img = CaptionRenderer.shared.textImage(cue.text, style: caps.style, canvas: canvas) else { return nil }
+        let st = caps.style
+        return (CGPoint(x: canvas.width / 2 + st.x * canvas.width, y: st.y * canvas.height), img.extent.size, st.rotation)
+    }
+
+    private static func inside(_ p: CGPoint, center c: CGPoint, size: CGSize, rotation: Double) -> Bool {
+        let d = CGPoint(x: p.x - c.x, y: p.y - c.y).applying(CGAffineTransform(rotationAngle: -rotation))
+        let pad: CGFloat = 14   // small titles stay easy to grab
+        return abs(d.x) <= size.width / 2 + pad && abs(d.y) <= size.height / 2 + pad
+    }
+
+    /// Tap on the preview: select an overlay (tap again for its settings), open the captions, or nothing hit.
+    func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool {
+        switch hit(p, canvas: canvas) {
+        case .overlay(let id):
+            if selectedOverlayID == id { openOverlayPanel = true } else { selectOverlay(id) }
+            UISelectionFeedbackGenerator().selectionChanged()
+            return true
+        case .captions:
+            pause()
+            openCaptions = true
+            return true
+        case nil:
+            return false
+        }
+    }
+
+    /// Shows the picked safe zone for a moment.
+    func flashSafeZone() {
+        safeZoneFlash = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.6))
+            safeZoneFlash = false
+        }
+    }
+
+    private func captionTransformBegan() {
+        guard let caps = project.captions else { return }
+        pause()
+        captionStart = caps.style
+        overlaySnapshot = project
+        overlayGuides = []
+        movingTitle = true
+        movingCaptions = true
+    }
+
+    private func captionTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
+        guard let s0 = captionStart, canvas.width > 0, project.captions != nil else { return }
+        let w = canvas.width, h = canvas.height
+        let c1 = CGPoint(x: w / 2 + s0.x * w, y: s0.y * h).applying(g)
+        var st = s0
+        st.x = (c1.x - w / 2) / w
+        st.y = min(max(c1.y / h, 0.02), 0.98)
+        st.size = min(max(s0.size * Double(hypot(g.a, g.b)), 0.02), 0.3)
+        st.rotation = s0.rotation + Double(atan2(g.b, g.a))
+        var guides = Set<Guide>()
+        let quarter = Double.pi / 2
+        let turns = (st.rotation / quarter).rounded()
+        if abs(st.rotation - turns * quarter) < 5 * .pi / 180 { st.rotation = turns * quarter; guides.insert(.angle) }
+        if abs(st.x * w) < 7 { st.x = 0; guides.insert(.centerX) }
+        if abs((st.y - 0.5) * h) < 7 { st.y = 0.5; guides.insert(.centerY) }
+        if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
+        overlayGuides = guides
+        project.captions?.style = st
+        CaptionStore.shared.update(project.captions)
+        refreshFrame()
+    }
+
+    private func captionTransformEnded() {
+        captionStart = nil
+        overlayGuides = []
+        movingTitle = false
+        movingCaptions = false
         if let s = overlaySnapshot, s != project { pushUndo(s) }
         overlaySnapshot = nil
         commitLook()
@@ -1203,7 +1311,17 @@ final class EditorModel: ObservableObject {
 
     private var lastGuides: Set<Guide> = []
 
-    func transformBegan() {
+    func transformBegan(at p: CGPoint? = nil, canvas: CGSize = .zero) {
+        if let p, let h = hit(p, canvas: canvas) {
+            switch h {
+            case .overlay(let id):
+                selectOverlay(id)
+                if overlayTransformBegan() { return }
+            case .captions:
+                captionTransformBegan()
+                if captionStart != nil { return }
+            }
+        }
         if overlayTransformBegan() { return }
         guard !fullscreen, trim == nil, let hit = project.clipIndex(at: currentTime) else { return }
         pause()
@@ -1229,6 +1347,7 @@ final class EditorModel: ObservableObject {
     /// around the fingers). The clip center follows g; scale and angle take g's scale and angle.
     func transformChanged(gesture g: CGAffineTransform, canvas: CGSize) {
         if overlayStart != nil { overlayTransformChanged(g, canvas: canvas); return }
+        if captionStart != nil { captionTransformChanged(g, canvas: canvas); return }
         guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
         let w = canvas.width, h = canvas.height
         let th: CGFloat = 7
@@ -1294,6 +1413,7 @@ final class EditorModel: ObservableObject {
 
     func transformEnded() {
         if overlayStart != nil { overlayTransformEnded(); return }
+        if captionStart != nil { captionTransformEnded(); return }
         guard var l = live, l.active else { return }
         liveStart = nil
         l.active = false

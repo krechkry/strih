@@ -52,7 +52,7 @@ struct AboutView: View {
                         }
                     }
                     .padding(.top, -14)
-                    block("Privacy", "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. It downloads the speech model once, from Hugging Face, and checks your purchase with the App Store.")
+                    block("Privacy", "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.")
                     block("Credits", nil)
                     credit("Parakeet TDT 0.6B v3", "NVIDIA. Speech recognition model. License: CC BY 4.0.")
                     credit("Parakeet Ultra", "Moondream. Further training of Parakeet TDT v3, converted to Core ML by FluidInference. License: CC BY 4.0.")

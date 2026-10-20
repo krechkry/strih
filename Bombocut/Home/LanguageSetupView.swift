@@ -100,6 +100,13 @@ struct LanguageSetupView: View {
         .padding(22)
         .background(Theme.panel.ignoresSafeArea())
         .interactiveDismissDisabled(firstLaunch)
+        .task {
+            // first time: English + the language of the country the app came from
+            guard UserDefaults.standard.string(forKey: "captionLanguages") == nil else { return }
+            let s = await CaptionLanguage.suggestedSet()
+            picked = s
+            order = CaptionLanguage.all.filter { s.contains($0.code) } + CaptionLanguage.all.filter { !s.contains($0.code) }
+        }
         .alert("Download on mobile data?", isPresented: $askCellular) {
             Button("Download anyway") { speech.startDownload(model); finish() }
             Button("Cancel", role: .cancel) {}

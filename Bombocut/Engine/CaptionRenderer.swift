@@ -69,9 +69,9 @@ final class CaptionRenderer: @unchecked Sendable {
         }
         guard var out = img else { return nil }
 
-        // place: centered horizontally, style.y from the top
+        // place: style.x from the center, style.y from the top
         let e = out.extent
-        let cx = size.width / 2, cy = size.height * (1 - style.y)
+        let cx = size.width / 2 + style.x * size.width, cy = size.height * (1 - style.y)
         out = out.transformed(by: CGAffineTransform(translationX: cx - e.width / 2 - e.minX, y: cy - e.height / 2 - e.minY))
 
         // entrance / exit animation
@@ -95,6 +95,12 @@ final class CaptionRenderer: @unchecked Sendable {
             out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
                 .concatenating(CGAffineTransform(scaleX: scale, y: scale))
                 .concatenating(CGAffineTransform(translationX: cx, y: cy - dy)))
+        }
+        if abs(style.rotation) > 0.0001 {
+            // Core Image is y-up: a clockwise turn on screen is a negative angle
+            out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                .concatenating(CGAffineTransform(rotationAngle: -style.rotation))
+                .concatenating(CGAffineTransform(translationX: cx, y: cy)))
         }
         if alpha < 0.999 {
             out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, alpha))])

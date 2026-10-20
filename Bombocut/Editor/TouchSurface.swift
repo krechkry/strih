@@ -5,9 +5,9 @@ import UIKit
 /// the point between them (like CapCut). Lifting or adding a finger never makes the clip jump.
 /// Reports one similarity transform (screen -> screen) for the whole gesture.
 struct TouchSurface: UIViewRepresentable {
-    var onTap: () -> Void
+    var onTap: (CGPoint) -> Void
     var onDoubleTap: () -> Void
-    var onBegan: () -> Void
+    var onBegan: (CGPoint) -> Void                 // where the fingers first touched
     var onChanged: (CGAffineTransform) -> Void
     var onEnded: () -> Void
 
@@ -17,7 +17,7 @@ struct TouchSurface: UIViewRepresentable {
         v.backgroundColor = .clear
         let double = UITapGestureRecognizer(target: v, action: #selector(SurfaceView.doubleTapped))
         double.numberOfTapsRequired = 2
-        let single = UITapGestureRecognizer(target: v, action: #selector(SurfaceView.tapped))
+        let single = UITapGestureRecognizer(target: v, action: #selector(SurfaceView.tapped(_:)))
         single.require(toFail: double)
         [double, single].forEach {
             $0.cancelsTouchesInView = false
@@ -36,9 +36,9 @@ struct TouchSurface: UIViewRepresentable {
     }
 
     final class SurfaceView: UIView {
-        var onTap: (() -> Void)?
+        var onTap: ((CGPoint) -> Void)?
         var onDoubleTap: (() -> Void)?
-        var onBegan: (() -> Void)?
+        var onBegan: ((CGPoint) -> Void)?
         var onChanged: ((CGAffineTransform) -> Void)?
         var onEnded: (() -> Void)?
 
@@ -51,7 +51,7 @@ struct TouchSurface: UIViewRepresentable {
         private var current = CGAffineTransform.identity
         private var active = false
 
-        @objc func tapped() { if !active { onTap?() } }
+        @objc func tapped(_ g: UITapGestureRecognizer) { if !active { onTap?(g.location(in: self)) } }
         @objc func doubleTapped() { if !active { onDoubleTap?() } }
 
         private func positions() -> [CGPoint] { touches.prefix(2).map { $0.location(in: self) } }
@@ -101,7 +101,9 @@ struct TouchSurface: UIViewRepresentable {
 
         private func begin() {
             active = true
-            onBegan?()
+            let pts = touches.prefix(2).compactMap { startPoints[$0] }
+            let n = CGFloat(max(pts.count, 1))
+            onBegan?(CGPoint(x: pts.map(\.x).reduce(0, +) / n, y: pts.map(\.y).reduce(0, +) / n))
         }
 
         override func touchesMoved(_ set: Set<UITouch>, with event: UIEvent?) {

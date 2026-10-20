@@ -78,7 +78,11 @@ struct VolumeSheet: View {
 
 struct ExportSheet: View {
     let project: Project
+    /// Name the project once it is done (nobody names it while editing).
+    var onRename: (String) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @FocusState private var naming: Bool
 
     // Remembered between exports
     @AppStorage("export.short") private var shortSide = 1080          // 0 = custom
@@ -316,6 +320,12 @@ struct ExportSheet: View {
         .frame(maxWidth: .infinity)
     }
 
+    private func saveName() {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        if !n.isEmpty { onRename(n) }
+        naming = false
+    }
+
     private func doneView(_ url: URL, _ saved: Bool, _ note: String?) -> some View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
@@ -335,6 +345,21 @@ struct ExportSheet: View {
             }
             .padding(.top, 6)
             Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Project name").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil").foregroundStyle(Theme.muted)
+                    TextField(project.name, text: $name)
+                        .font(.body.weight(.semibold))
+                        .focused($naming)
+                        .submitLabel(.done)
+                        .onSubmit { saveName() }
+                }
+                .padding(.horizontal, 14).frame(height: 48)
+                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 20)
+            .onAppear { if name.isEmpty { name = project.name } }
             HStack(spacing: 12) {
                 Button { phase = .setup } label: {
                     Text("Back")
@@ -343,7 +368,7 @@ struct ExportSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
                 }
-                Button { dismiss() } label: {
+                Button { saveName(); dismiss() } label: {
                     Text("OK")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)
@@ -356,6 +381,7 @@ struct ExportSheet: View {
             .padding(.bottom, 24)
         }
         .padding(.horizontal, 24)
+        .onDisappear { saveName() }
     }
 
     private func failedView(_ msg: String) -> some View {

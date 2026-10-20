@@ -11,6 +11,7 @@ struct EditorView: View {
     @State private var overlayItems: [PhotosPickerItem] = []
     @State private var adding = false
     @State private var renaming = false
+    @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @State private var renameText = ""
     @State private var bottomHeight: CGFloat = 0
     @ObservedObject private var speechStatus = SpeechStatus.shared
@@ -100,7 +101,7 @@ struct EditorView: View {
         .onDisappear { model.tearDown() }
         .task { await demoSetup() }
         .sheet(item: exportBinding) { _ in
-            ExportSheet(project: model.project).presentationDetents([.large])
+            ExportSheet(project: model.project) { model.rename($0) }.presentationDetents([.large])
         }
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
@@ -153,18 +154,14 @@ struct EditorView: View {
             }
             if let pill = statusPill {
                 pill
-            } else {
-                Button { renameText = model.project.name; renaming = true } label: {
-                    Text(model.project.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                }
-                .buttonStyle(.plain)
             }
             Spacer()
+            safeZoneMenu
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
-                    .font(.subheadline.weight(.bold))
+                    .font(.footnote.weight(.bold))
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 14).frame(height: 32)
+                    .padding(.horizontal, 11).frame(height: 28)
                     .background(Theme.accent, in: Capsule())
             }
             .disabled(model.project.clips.isEmpty)
@@ -173,6 +170,25 @@ struct EditorView: View {
         .tint(.white)
         .padding(.horizontal, 8)
         .frame(height: 50)
+    }
+
+    /// Which app's safe zone shows while moving titles.
+    private var safeZoneMenu: some View {
+        Menu {
+            Picker("Safe zone", selection: Binding(get: { safeZone }, set: { safeZone = $0; model.flashSafeZone() })) {
+                ForEach(SafeZone.allCases) { z in Text(loc(z.title)).tag(z) }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "rectangle.dashed")
+                Text(loc(safeZone.short))
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            }
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 10).frame(height: 28)
+            .background(Theme.panel2, in: Capsule())
+        }
     }
 
     /// Top-left status while captions are prepared in the background (you can keep editing).

@@ -126,16 +126,6 @@
         }
       }
     },
-    "A video editor for your iPhone. Subtitles are made on your iPhone, offline, in 25 languages.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Střihač videa pro tvůj iPhone. Titulky vznikají přímo v iPhonu, offline, ve 25 jazycích."
-          }
-        }
-      }
-    },
     "About": {
       "localizations": {
         "cs": {
@@ -362,16 +352,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rozmazat pozadí"
-          }
-        }
-      }
-    },
-    "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. It downloads the speech model once, from Hugging Face, and checks your purchase with the App Store.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bombocut nesbírá žádná data. Videa, titulky a projekty zůstávají v iPhonu. Jednou stáhne hlasový model z Hugging Face a nákup ověřuje přes App Store."
           }
         }
       }
@@ -986,6 +966,26 @@
         }
       }
     },
+    "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face) a k ověření nákupu v App Storu."
+          }
+        }
+      }
+    },
+    "Everything runs offline on your iPhone. No cloud, no data collection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno běží offline v iPhonu. Žádný cloud, žádné sbírání dat."
+          }
+        }
+      }
+    },
     "Everything unlocked from day one": {
       "localizations": {
         "cs": {
@@ -1400,6 +1400,16 @@
         }
       }
     },
+    "Leave it empty to keep “%@”. You can rename it after export.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nech prázdné a zůstane „%@“. Přejmenovat ho můžeš i po exportu."
+          }
+        }
+      }
+    },
     "Leftovers from stopped downloads": {
       "localizations": {
         "cs": {
@@ -1570,6 +1580,16 @@
         }
       }
     },
+    "Name your project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pojmenuj projekt"
+          }
+        }
+      }
+    },
     "Names & slang, comma separated": {
       "localizations": {
         "cs": {
@@ -1626,6 +1646,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pro tento Apple účet se nákup nenašel."
+          }
+        }
+      }
+    },
+    "No safe zone": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bez bezpečné zóny"
           }
         }
       }
@@ -1770,12 +1800,12 @@
         }
       }
     },
-    "Pay once, %@. No subscription, ever.": {
+    "Pay once. No subscription, ever.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zaplatíš jednou, %@. Žádné předplatné, nikdy."
+            "value": "Zaplatíš jednou. Žádné předplatné, nikdy."
           }
         }
       }
@@ -1886,6 +1916,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Soubory projektů"
+          }
+        }
+      }
+    },
+    "Project name": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Název projektu"
           }
         }
       }
@@ -2020,6 +2060,16 @@
         }
       }
     },
+    "Safe zone": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezpečná zóna"
+          }
+        }
+      }
+    },
     "Saturation": {
       "localizations": {
         "cs": {
@@ -2126,6 +2176,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Velikost"
+          }
+        }
+      }
+    },
+    "Skip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přeskočit"
           }
         }
       }
@@ -2250,6 +2310,16 @@
         }
       }
     },
+    "Stories": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příběhy"
+          }
+        }
+      }
+    },
     "Strength": {
       "localizations": {
         "cs": {
@@ -2290,12 +2360,22 @@
         }
       }
     },
-    "Subtitles on your iPhone, offline, in 25 languages": {
+    "Subtitles in 25 languages": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Titulky v iPhonu, offline, ve 25 jazycích"
+            "value": "Titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Subtitles in 25 languages, made on your iPhone. Everything runs offline: no cloud, no account, no data collection. Just the app, your battery and your chip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky ve 25 jazycích, vytvořené přímo v iPhonu. Všechno běží offline: žádný cloud, žádný účet, žádné sbírání dat. Jen aplikace, tvoje baterka a tvůj čip."
           }
         }
       }

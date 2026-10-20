@@ -12,6 +12,7 @@ struct PreviewArea: View {
     @State private var grab: Grab?
     @State private var grabStart: CGRect = .zero
     @State private var pulse: (icon: String, id: Int)?
+    @AppStorage("safeZone") private var safeZone = SafeZone.reels
 
     private enum Grab { case move, corner(Int), draw }
 
@@ -27,6 +28,8 @@ struct PreviewArea: View {
                 layer(canvas) { selectionBox(canvas) }
                 layer(canvas) { overlayBox(canvas) }
                 layer(canvas) { trackedBox(canvas) }
+                layer(canvas) { safeZoneLayer(canvas) }
+                layer(canvas) { captionBox(canvas) }
                 layer(canvas) { guides(canvas) }
                 layer(canvas) { readout }
                 if !model.trackPick && model.analysis == nil {
@@ -97,12 +100,12 @@ struct PreviewArea: View {
 
     private func touch(_ canvas: CGSize) -> some View {
         TouchSurface(
-            onTap: { tapPlay() },
+            onTap: { p in if !model.tapTitle(p, canvas: canvas) { tapPlay() } },
             onDoubleTap: {
                 guard !model.project.clips.isEmpty else { return }
                 withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
             },
-            onBegan: { if !model.project.clips.isEmpty { model.transformBegan() } },
+            onBegan: { p in if !model.project.clips.isEmpty { model.transformBegan(at: p, canvas: canvas) } },
             onChanged: { g in model.transformChanged(gesture: g, canvas: canvas) },
             onEnded: { model.transformEnded() }
         )
@@ -386,6 +389,47 @@ struct PreviewArea: View {
                 if g.contains(.bottom) { p.move(to: CGPoint(x: 0, y: h - 1)); p.addLine(to: CGPoint(x: w, y: h - 1)) }
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// The picked app's covered areas, dimmed, while a title moves (or right after picking one).
+    @ViewBuilder
+    private func safeZoneLayer(_ canvas: CGSize) -> some View {
+        if model.movingTitle || model.safeZoneFlash, let r = safeZone.rect(in: canvas) {
+            ZStack(alignment: .topLeading) {
+                Path { p in
+                    p.addRect(CGRect(origin: .zero, size: canvas))
+                    p.addRect(r)
+                }
+                .fill(Color.black.opacity(0.42), style: FillStyle(eoFill: true))
+                Path { p in p.addRect(r) }
+                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                Text(verbatim: safeZone.title)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.black.opacity(0.5), in: Capsule())
+                    .offset(x: r.minX + 6, y: max(2, r.minY - 20))
+            }
+            .frame(width: canvas.width, height: canvas.height)
+            .allowsHitTesting(false)
+            .transition(.opacity)
+        }
+    }
+
+    /// Dashed outline around the captions while they move.
+    @ViewBuilder
+    private func captionBox(_ canvas: CGSize) -> some View {
+        if model.movingCaptions, let b = model.captionBox(canvas: canvas) {
+            Path { p in
+                let m = CGAffineTransform(rotationAngle: b.rotation).concatenating(CGAffineTransform(translationX: b.center.x, y: b.center.y))
+                let w = b.size.width, h = b.size.height
+                p.addLines([CGPoint(x: -w / 2, y: -h / 2), CGPoint(x: w / 2, y: -h / 2),
+                            CGPoint(x: w / 2, y: h / 2), CGPoint(x: -w / 2, y: h / 2)].map { $0.applying(m) })
+                p.closeSubpath()
+            }
+            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
             .allowsHitTesting(false)
         }
     }

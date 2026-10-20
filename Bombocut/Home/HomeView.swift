@@ -12,6 +12,8 @@ struct HomeView: View {
     @State private var renaming: Project?
     @State private var deleting: Project?
     @State private var renameText = ""
+    @State private var naming: Project?        // just created: give it a name or keep the suggested one
+    @State private var newName = ""
     @AppStorage("onboarded") private var onboarded = false
     @State private var showSetup = false
     @State private var showSettings = false
@@ -102,6 +104,13 @@ struct HomeView: View {
             .alert("Import failed", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importError ?? "") }
+            .alert("Name your project", isPresented: Binding(get: { naming != nil }, set: { if !$0 && naming != nil { openNamed(false) } })) {
+                TextField(naming?.name ?? "", text: $newName)
+                Button("Save") { openNamed(true) }
+                Button("Skip", role: .cancel) { openNamed(false) }
+            } message: {
+                Text(String(format: loc("Leave it empty to keep “%@”. You can rename it after export."), naming?.name ?? ""))
+            }
             .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 TextField("Name", text: $renameText)
                 Button("Save") { if let r = renaming { store.rename(r, to: renameText) } }
@@ -207,6 +216,18 @@ struct HomeView: View {
         p.clips = clips
         p.canvas = Media.canvas(for: firstSize)
         store.save(p)
+        newName = ""
+        naming = p
+    }
+
+    private func openNamed(_ custom: Bool) {
+        guard var p = naming else { return }
+        let n = newName.trimmingCharacters(in: .whitespaces)
+        if custom && !n.isEmpty {
+            store.rename(p, to: n)
+            p.name = n
+        }
+        naming = nil
         openProject = p
     }
 }
