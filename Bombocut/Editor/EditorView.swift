@@ -473,7 +473,8 @@ struct EditorView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(loc(pk.kind.title)).font(.subheadline.weight(.heavy))
-                Text("Tap the clips to apply it to").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                Text(pk.kind.forOverlays ? "Tap the overlays to apply it to" : "Tap the clips to apply it to")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             .lineLimit(1)
             Spacer(minLength: 4)

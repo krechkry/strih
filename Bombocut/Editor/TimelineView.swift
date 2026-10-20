@@ -74,7 +74,7 @@ struct TimelineView: View {
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
-                                .overlay { if let pk = model.pick { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
+                                .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
                                 .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
@@ -623,8 +623,10 @@ struct OverlayLane: View {
                 }
             }
         }
+        .overlay { if let pk = model.pick, pk.kind.forOverlays { PickMark(source: pk.source == o.id, picked: pk.picked.contains(o.id)) } }
         .contentShape(Rectangle())
         .onTapGesture {
+            if model.pick != nil { model.togglePick(o.id); return }
             if selected { model.openOverlayPanel = true } else { model.selectOverlay(o.id) }
         }
         .gesture(HoldToDrag(

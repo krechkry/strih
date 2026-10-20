@@ -48,12 +48,12 @@ struct ApplyRow: View {
     @Environment(\.closePanel) private var close
 
     var body: some View {
-        if model.project.clips.count > 1 {
+        if (kind.forOverlays ? model.project.overlays.count : model.project.clips.count) > 1 {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Apply to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
                 HStack(spacing: 8) {
-                    button("All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
-                    button("Pick clips", "hand.tap.fill") {
+                    button(kind.forOverlays ? "All overlays" : "All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
+                    button(kind.forOverlays ? "Pick overlays" : "Pick clips", "hand.tap.fill") {
                         model.startPick(kind)
                         close()
                     }

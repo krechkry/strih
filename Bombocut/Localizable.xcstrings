@@ -236,6 +236,16 @@
         }
       }
     },
+    "All overlays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechna překrytí"
+          }
+        }
+      }
+    },
     "All updates included": {
       "localizations": {
         "cs": {
@@ -1720,6 +1730,16 @@
         }
       }
     },
+    "Look of the overlay": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vzhled překrytí"
+          }
+        }
+      }
+    },
     "Made by a tiny team": {
       "localizations": {
         "cs": {
@@ -2156,6 +2176,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyber klipy v pořadí, v jakém je chceš mít. Kvalita zůstane původní."
+          }
+        }
+      }
+    },
+    "Pick overlays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat překrytí"
           }
         }
       }
@@ -2796,6 +2826,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepnutím na čáru přidáš bod · tažením se posouváš"
+          }
+        }
+      }
+    },
+    "Tap the overlays to apply it to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na překrytí, kterým to chceš dát"
           }
         }
       }

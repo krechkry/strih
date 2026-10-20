@@ -1100,7 +1100,7 @@ final class EditorModel: ObservableObject {
     // MARK: Apply a panel's settings to other clips
 
     enum ApplyKind: String {
-        case motionBlur, adjust, speed, volume, mask
+        case motionBlur, adjust, speed, volume, mask, overlayStyle
 
         var title: String {
             switch self {
@@ -1109,8 +1109,11 @@ final class EditorModel: ObservableObject {
             case .speed: return "Speed"
             case .volume: return "Volume"
             case .mask: return "Mask"
+            case .overlayStyle: return "Look of the overlay"
             }
         }
+        /// Copies between overlays instead of clips.
+        var forOverlays: Bool { self == .overlayStyle }
         /// Changes clip lengths (captions and overlays follow, the video rebuilds).
         var retimes: Bool { self == .speed }
     }
@@ -1145,6 +1148,32 @@ final class EditorModel: ObservableObject {
             c.volume = s.volume
         case .mask:
             c.mask = s.mask
+        case .overlayStyle:
+            break
+        }
+    }
+
+    /// Text look (font, colors, size, box...), blend, opacity and "behind subject" from one overlay to another.
+    private func copyOverlay(from s: Overlay, to o: inout Overlay) {
+        if case .text = s.kind, case .text = o.kind {
+            var st = s.style
+            st.x = o.style.x
+            st.y = o.style.y
+            st.rotation = o.style.rotation
+            o.style = st
+        }
+        o.blend = s.blend
+        o.opacity = s.opacity
+        for k in o.keys.indices { o.keys[k].opacity = s.opacity }
+        o.behindSubject = s.behindSubject
+    }
+
+    private func applyOverlays(from id: UUID, to ids: Set<UUID>) {
+        guard let s = project.overlays.first(where: { $0.id == id }) else { return }
+        mutateLook { p in
+            for j in p.overlays.indices where ids.contains(p.overlays[j].id) && p.overlays[j].id != id {
+                self.copyOverlay(from: s, to: &p.overlays[j])
+            }
         }
     }
 
@@ -1168,6 +1197,12 @@ final class EditorModel: ObservableObject {
     }
 
     func applyToAll(_ kind: ApplyKind) {
+        if kind.forOverlays {
+            guard let id = selectedOverlayID else { return }
+            applyOverlays(from: id, to: Set(project.overlays.map(\.id)))
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            return
+        }
         guard let i = selectedIndex else { return }
         apply(kind, from: i, to: Set(project.clips.map(\.id)))
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -1175,13 +1210,15 @@ final class EditorModel: ObservableObject {
 
     /// Close the panel and pick clips in the timeline.
     func startPick(_ kind: ApplyKind) {
-        guard let id = selectedClipID else { return }
+        guard let id = kind.forOverlays ? selectedOverlayID : selectedClipID else { return }
         pause()
         pick = PickSession(kind: kind, source: id, picked: [])
     }
 
     func togglePick(_ id: UUID) {
         guard var p = pick, id != p.source else { return }
+        let isOverlay = project.overlays.contains { $0.id == id }
+        guard isOverlay == p.kind.forOverlays else { return }
         if p.picked.contains(id) { p.picked.remove(id) } else { p.picked.insert(id) }
         pick = p
         UISelectionFeedbackGenerator().selectionChanged()
@@ -1189,15 +1226,20 @@ final class EditorModel: ObservableObject {
 
     func pickAll() {
         guard var p = pick else { return }
-        p.picked = Set(project.clips.map(\.id)).subtracting([p.source])
+        p.picked = Set(p.kind.forOverlays ? project.overlays.map(\.id) : project.clips.map(\.id)).subtracting([p.source])
         pick = p
     }
 
     func finishPick(apply ok: Bool) {
         guard let p = pick else { return }
         pick = nil
-        guard ok, !p.picked.isEmpty, let i = project.clips.firstIndex(where: { $0.id == p.source }) else { return }
-        apply(p.kind, from: i, to: p.picked)
+        guard ok, !p.picked.isEmpty else { return }
+        if p.kind.forOverlays {
+            applyOverlays(from: p.source, to: p.picked)
+        } else {
+            guard let i = project.clips.firstIndex(where: { $0.id == p.source }) else { return }
+            apply(p.kind, from: i, to: p.picked)
+        }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 

@@ -61,6 +61,7 @@ struct OverlaySheet: View {
                                 .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                         }
                     }
+                    if model.project.overlays.count > 1 { ApplyRow(model: model, kind: .overlayStyle) }
                     HStack(spacing: 10) {
                         pill("Duplicate", on: false) { model.duplicateOverlay() }
                         pill("Delete", on: false) { model.deleteOverlay(); close() }
