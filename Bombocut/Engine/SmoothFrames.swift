@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreImage
+import QuartzCore
 import VideoToolbox
 
 /// Apple's machine-learning frame engine (iOS 26+, real devices): invents in-between frames for smooth slow
@@ -11,10 +12,36 @@ final class SmoothFrames: @unchecked Sendable {
     private let queue = DispatchQueue(label: "bombocut.smoothframes")
     private var sessions: [String: AnyObject] = [:]
 
+    /// Editor playback size (fraction of the output): steps down when the engine can't keep up with
+    /// ~30 fps on this phone, steps back up when there is room. Export always uses full size.
+    private let scaleLock = NSLock()
+    private var scaleStep = 0
+    private static let previewSteps: [CGFloat] = [0.6, 0.45, 0.33]
+    private var slowAvg = 0.0
+    var previewScale: CGFloat {
+        scaleLock.lock()
+        defer { scaleLock.unlock() }
+        return Self.previewSteps[scaleStep]
+    }
+
+    private func measured(_ seconds: Double, preview: Bool) {
+        guard preview else { return }
+        scaleLock.lock()
+        defer { scaleLock.unlock() }
+        slowAvg = slowAvg * 0.8 + seconds * 0.2
+        if slowAvg > 0.038 && scaleStep < Self.previewSteps.count - 1 {
+            scaleStep += 1
+            slowAvg = 0.025
+        } else if slowAvg < 0.014 && scaleStep > 0 {
+            scaleStep -= 1
+            slowAvg = 0.025
+        }
+    }
+
     /// Size the frame engine works at: the source fitted to the output (export) or to 60 % of it (editor
     /// playback, so it keeps up frame by frame). Never larger than the source. Even sizes only.
     static func workSize(source: CGSize, render: CGSize, preview: Bool) -> CGSize {
-        let k = preview ? 0.6 : 1.0
+        let k = preview ? shared.previewScale : 1.0
         let fit = min(1, max(render.width, render.height) * k / max(source.width, source.height, 1))
         func even(_ v: CGFloat) -> CGFloat { max(64, (v * fit / 2).rounded() * 2) }
         return CGSize(width: even(source.width), height: even(source.height))
@@ -24,11 +51,11 @@ final class SmoothFrames: @unchecked Sendable {
 
     /// A frame `phase` (0...1) of the way from `cur` to `next`.
     func interpolate(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Double, time: CMTime, work: CGSize,
-                     completion: @escaping (CIImage) -> Void) {
+                     preview: Bool = false, completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTFrameRateConversionConfiguration.isSupported {
             queue.async {
-                if let out = self.frc(cur: cur, next: next, phase: Float(phase), time: time, work: work) {
+                if let out = self.frc(cur: cur, next: next, phase: Float(phase), time: time, work: work, preview: preview) {
                     completion(out)
                 } else {
                     completion(Self.blend(cur, next, phase))
@@ -44,11 +71,11 @@ final class SmoothFrames: @unchecked Sendable {
 
     /// Blur along the movement; `strength` 0...1.
     func motionBlur(cur: CVPixelBuffer, prev: CVPixelBuffer?, next: CVPixelBuffer?, strength: Double, time: CMTime,
-                    work: CGSize, completion: @escaping (CIImage) -> Void) {
+                    work: CGSize, preview: Bool = false, completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTMotionBlurConfiguration.isSupported {
             queue.async {
-                if let out = self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time, work: work) {
+                if let out = self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time, work: work, preview: preview) {
                     completion(out)
                 } else {
                     completion(Self.average(cur, prev, next, strength))
@@ -144,7 +171,9 @@ final class SmoothFrames: @unchecked Sendable {
 
     /// Runs one request and waits for it (we are on our own serial queue).
     @available(iOS 26.0, *)
-    private func run(_ s: Session, _ params: any VTFrameProcessorParameters) -> Bool {
+    private func run(_ s: Session, _ params: any VTFrameProcessorParameters, preview: Bool) -> Bool {
+        let t0 = CACurrentMediaTime()
+        defer { measured(CACurrentMediaTime() - t0, preview: preview) }
         let done = DispatchSemaphore(value: 0)
         var ok = false
         s.processor.process(parameters: params) { _, error in
@@ -156,7 +185,7 @@ final class SmoothFrames: @unchecked Sendable {
     }
 
     @available(iOS 26.0, *)
-    private func frc(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Float, time: CMTime, work: CGSize) -> CIImage? {
+    private func frc(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Float, time: CMTime, work: CGSize, preview: Bool) -> CIImage? {
         let w = Int(work.width), h = Int(work.height)
         guard w <= 4096, h <= 4096, let s = session("frc", width: w, height: h, make: {
             VTFrameRateConversionConfiguration(frameWidth: w, frameHeight: h, usePrecomputedFlow: false,
@@ -172,13 +201,13 @@ final class SmoothFrames: @unchecked Sendable {
         guard let p = VTFrameRateConversionParameters(sourceFrame: a, nextFrame: b, opticalFlow: nil,
                                                       interpolationPhase: [min(max(phase, 0.01), 0.99)],
                                                       submissionMode: mode, destinationFrames: [dst]),
-              run(s, p) else { return nil }
+              run(s, p, preview: preview) else { return nil }
         return back(outBuf, to: cur)
     }
 
     @available(iOS 26.0, *)
     private func blur(cur: CVPixelBuffer, prev: CVPixelBuffer?, next: CVPixelBuffer?, strength: Double, time: CMTime,
-                      work: CGSize) -> CIImage? {
+                      work: CGSize, preview: Bool) -> CIImage? {
         let w = Int(work.width), h = Int(work.height)
         guard w <= 4096, h <= 4096, let s = session("blur", width: w, height: h, make: {
             VTMotionBlurConfiguration(frameWidth: w, frameHeight: h, usePrecomputedFlow: false,
@@ -198,7 +227,7 @@ final class SmoothFrames: @unchecked Sendable {
                                                   nextOpticalFlow: nil, previousOpticalFlow: nil,
                                                   motionBlurStrength: max(1, min(100, Int(strength * 100))),
                                                   submissionMode: mode, destinationFrame: dst),
-              run(s, params) else { return nil }
+              run(s, params, preview: preview) else { return nil }
         return back(outBuf, to: cur)
     }
     #endif

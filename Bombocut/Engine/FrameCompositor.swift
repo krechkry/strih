@@ -53,7 +53,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let pos = srcT * info.srcFps
             let phase = pos - pos.rounded(.down)
             if phase > 0.04 && phase < 0.96 {
-                SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime, work: work) { img in
+                SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime, work: work,
+                                                preview: info.preview) { img in
                     var image = img
                     if state.motionBlur > 0.001 {
                         image = SmoothFrames.average(src, nil, next, state.motionBlur * 0.5)
@@ -67,7 +68,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         // motion blur from the neighbouring frames
         if state.motionBlur > 0.001, blurPrev != nil || blurNext != nil {
             SmoothFrames.shared.motionBlur(cur: src, prev: blurPrev, next: blurNext, strength: state.motionBlur,
-                                           time: srcTime, work: work) { img in
+                                           time: srcTime, work: work, preview: info.preview) { img in
                 self.finish(request, instr, source: img, look: look, state: state, srcT: srcT, t: t)
             }
             return
