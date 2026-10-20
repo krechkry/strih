@@ -388,6 +388,12 @@ struct PreviewArea: View {
                 if g.contains(.right) { p.move(to: CGPoint(x: w - 1, y: 0)); p.addLine(to: CGPoint(x: w - 1, y: h)) }
                 if g.contains(.top) { p.move(to: CGPoint(x: 0, y: 1)); p.addLine(to: CGPoint(x: w, y: 1)) }
                 if g.contains(.bottom) { p.move(to: CGPoint(x: 0, y: h - 1)); p.addLine(to: CGPoint(x: w, y: h - 1)) }
+                if let r = safeZone.rect(in: canvas) {
+                    if g.contains(.safeLeft) { p.move(to: CGPoint(x: r.minX, y: 0)); p.addLine(to: CGPoint(x: r.minX, y: h)) }
+                    if g.contains(.safeRight) { p.move(to: CGPoint(x: r.maxX, y: 0)); p.addLine(to: CGPoint(x: r.maxX, y: h)) }
+                    if g.contains(.safeTop) { p.move(to: CGPoint(x: 0, y: r.minY)); p.addLine(to: CGPoint(x: w, y: r.minY)) }
+                    if g.contains(.safeBottom) { p.move(to: CGPoint(x: 0, y: r.maxY)); p.addLine(to: CGPoint(x: w, y: r.maxY)) }
+                }
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             .allowsHitTesting(false)

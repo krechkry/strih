@@ -31,14 +31,14 @@ enum SafeZone: String, CaseIterable, Identifiable {
     private var margins: (t: CGFloat, b: CGFloat, l: CGFloat, r: CGFloat)? {
         switch self {
         case .off: return nil
-        case .reels: return (220, 420, 35, 35)
-        case .tiktok: return (160, 480, 60, 150)
-        case .shorts: return (150, 400, 50, 190)
-        case .stories: return (250, 250, 35, 35)
+        case .reels: return (220, 420, 35, 150)
+        case .tiktok: return (250, 480, 60, 170)
+        case .shorts: return (250, 470, 50, 190)
+        case .stories: return (230, 300, 40, 40)
         }
     }
 
-    /// The safe area on a canvas of this size (nil = off).
+    /// The area free of the app's buttons and texts, on a canvas of this size (nil = off). Titles snap to its edges.
     func rect(in size: CGSize) -> CGRect? {
         guard let m = margins else { return nil }
         let kx = size.width / 1080, ky = size.height / 1920

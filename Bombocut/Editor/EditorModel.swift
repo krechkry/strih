@@ -18,7 +18,7 @@ struct TrimView {
     var delta: Double = 0      // timeline seconds, + = clip got longer
 }
 
-enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
+enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale, safeLeft, safeRight, safeTop, safeBottom }
 
 /// A running stabilization / tracking analysis.
 struct AnalysisState {
@@ -1428,6 +1428,23 @@ final class EditorModel: ObservableObject {
         return true
     }
 
+    /// Edges of a title snap to the picked app's safe area (when it is upright or upside down).
+    static func snapToSafeZone(_ c: inout CGPoint, size: CGSize, rotation: Double, canvas: CGSize) -> Set<Guide> {
+        let zone = SafeZone(rawValue: UserDefaults.standard.string(forKey: "safeZone") ?? "reels") ?? .reels
+        guard let r = zone.rect(in: canvas) else { return [] }
+        let turns = Int((rotation / (.pi / 2)).rounded())
+        guard abs(rotation - Double(turns) * .pi / 2) < 1e-6 else { return [] }
+        let sideways = turns % 2 != 0
+        let hw = (sideways ? size.height : size.width) / 2, hh = (sideways ? size.width : size.height) / 2
+        let th: CGFloat = 7
+        var g = Set<Guide>()
+        if abs(c.x - hw - r.minX) < th { c.x = r.minX + hw; g.insert(.safeLeft) }
+        else if abs(c.x + hw - r.maxX) < th { c.x = r.maxX - hw; g.insert(.safeRight) }
+        if abs(c.y - hh - r.minY) < th { c.y = r.minY + hh; g.insert(.safeTop) }
+        else if abs(c.y + hh - r.maxY) < th { c.y = r.maxY - hh; g.insert(.safeBottom) }
+        return g
+    }
+
     private func overlayTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
         guard let s0 = overlayStart, let i = selectedOverlayIndex, canvas.width > 0 else { return }
         let w = canvas.width, h = canvas.height
@@ -1445,6 +1462,12 @@ final class EditorModel: ObservableObject {
         if abs(t.x * w) < 7 { t.x = 0; guides.insert(.centerX) }
         if abs(t.y * h) < 7 { t.y = 0; guides.insert(.centerY) }
         if abs(t.scale - 1) < 0.035 { t.scale = 1; guides.insert(.scale) }
+        let base = OverlayRenderer.shared.baseSize(project.overlays[i], canvas: canvas, canvasAspect: project.canvas.aspect)
+        var c = CGPoint(x: w / 2 + t.x * w, y: h / 2 + t.y * h)
+        guides.formUnion(Self.snapToSafeZone(&c, size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
+                                             rotation: t.rotation, canvas: canvas))
+        t.x = (c.x - w / 2) / w
+        t.y = (c.y - h / 2) / h
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
         let now = currentTime
@@ -1538,6 +1561,13 @@ final class EditorModel: ObservableObject {
         if abs(st.rotation - turns * quarter) < 5 * .pi / 180 { st.rotation = turns * quarter; guides.insert(.angle) }
         if abs(st.x * w) < 7 { st.x = 0; guides.insert(.centerX) }
         if abs((st.y - 0.5) * h) < 7 { st.y = 0.5; guides.insert(.centerY) }
+        if let caps = project.captions, let cue = caps.cue(at: currentTime),
+           let img = CaptionRenderer.shared.textImage(cue.text, style: st, canvas: canvas) {
+            var c = CGPoint(x: w / 2 + st.x * w, y: st.y * h)
+            guides.formUnion(Self.snapToSafeZone(&c, size: img.extent.size, rotation: st.rotation, canvas: canvas))
+            st.x = (c.x - w / 2) / w
+            st.y = c.y / h
+        }
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
         project.captions?.style = st
