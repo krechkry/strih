@@ -206,10 +206,9 @@ struct EditorView: View {
                     if let u = SpeechEngine.preferredFolder { SpeechEngine.retry(u) }
                 }
             } else {
-                let step = min(st.stepIndex + 1, st.stepCount)
                 let label = st.firstTime
-                    ? "Optimizing voice model \(step)/\(st.stepCount) · \(clock)"
-                    : "Loading voice model \(step)/\(st.stepCount)"
+                    ? "Preparing voice model · \(clock)"
+                    : "Loading voice model"
                 pillView(icon: "waveform", text: label, progress: st.fraction(now: ctx.date), tint: Theme.accent) {}
             }
         }

@@ -1,48 +1,22 @@
 import AVFoundation
-import CoreML
 import Foundation
 import SwiftUI
-@preconcurrency import WhisperKit
+@preconcurrency import FluidAudio
 
-/// Which Whisper model to use and whether it is on the phone yet.
+/// The speech model: NVIDIA Parakeet TDT v3 (25 European languages incl. Czech, Slovak, English) via FluidAudio.
+/// It times every word piece itself, loads in seconds and transcribes many times faster than real time.
 enum SpeechModel: String, CaseIterable {
-    /// Czech, Slovak (and English): Whisper large-v3 turbo, compressed for iPhone.
-    case large = "openai_whisper-large-v3-v20240930_turbo_632MB"
-    /// English only: small and quick.
-    case englishSmall = "openai_whisper-small.en"
-    /// Full large-v3 (32 decoder layers instead of 4): slower, noticeably better Czech and Slovak.
-    case accurate = "openai_whisper-large-v3_947MB"
+    case parakeet = "parakeet-tdt-0.6b-v3"
 
-    var title: String {
-        switch self {
-        case .large: return "Older fast model"
-        case .englishSmall: return "English only"
-        case .accurate: return "Czech · Slovak · English"
-        }
-    }
+    static let version: AsrModelVersion = .v3
 
-    var sizeLabel: String {
-        switch self {
-        case .large: return "632 MB"
-        case .englishSmall: return "smaller download"
-        case .accurate: return "947 MB"
-        }
-    }
+    var title: String { "Czech · Slovak · English" }
+    var sizeLabel: String { "about 500 MB" }
 
-    static func needed(for languages: Set<String>) -> SpeechModel {
-        languages.contains("cs") || languages.contains("sk") ? .accurate : .englishSmall
-    }
+    static func needed(for languages: Set<String>) -> SpeechModel { .parakeet }
+    @MainActor static func needed(forLanguage l: String, accurate: Bool = true) -> SpeechModel { .parakeet }
 
-    /// English can use the small model when that's what is on the phone; Czech and Slovak need the large one.
-    @MainActor
-    static func needed(forLanguage l: String, accurate: Bool = true) -> SpeechModel {
-        // Czech and Slovak always use the full model: the fast one makes up words
-        guard l == "en" else { return .accurate }
-        let m = SpeechModels.shared
-        if m.isReady(.accurate) { return .accurate }
-        if m.isReady(.englishSmall) { return .englishSmall }
-        return Prefs.languages.contains("cs") || Prefs.languages.contains("sk") ? .accurate : .englishSmall
-    }
+    var folder: URL { AsrModels.defaultCacheDirectory(for: Self.version) }
 }
 
 enum Prefs {
@@ -53,7 +27,7 @@ enum Prefs {
     }
 }
 
-/// Downloads and tracks the speech models (stored in Application Support, excluded from iCloud backup).
+/// Downloads and tracks the speech model (Application Support, excluded from iCloud backup).
 @MainActor
 final class SpeechModels: ObservableObject {
     static let shared = SpeechModels()
@@ -66,30 +40,25 @@ final class SpeechModels: ObservableObject {
     }
 
     @Published private(set) var states: [SpeechModel: State] = [:]
-    private var tasks: [SpeechModel: Task<URL, Error>] = [:]
+    private var task: Task<URL, Error>?
 
-    static let base: URL = {
-        let u = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("SpeechModels", isDirectory: true)
-        try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
-        var v = u
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try? v.setResourceValues(values)
-        return u
-    }()
+    /// Where the old Whisper models lived (removed: Parakeet replaced them).
+    static let base: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("FluidAudio", isDirectory: true)
 
     init() {
+        refresh()
+        // free the space taken by the earlier Whisper models
+        let old = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SpeechModels", isDirectory: true)
+        if FileManager.default.fileExists(atPath: old.path) {
+            Task.detached(priority: .background) { try? FileManager.default.removeItem(at: old) }
+        }
+    }
+
+    private func refresh() {
         for m in SpeechModel.allCases {
-            // stored relative to the models folder: the app's container path changes between installs
-            if let rel = UserDefaults.standard.string(forKey: "model.\(m.rawValue)") {
-                let url = Self.base.appendingPathComponent(rel, isDirectory: true)
-                if FileManager.default.fileExists(atPath: url.appendingPathComponent("AudioEncoder.mlmodelc").path) {
-                    states[m] = .ready(url)
-                    continue
-                }
-            }
-            states[m] = .missing
+            states[m] = AsrModels.modelsExist(at: m.folder, version: SpeechModel.version) ? .ready(m.folder) : .missing
         }
     }
 
@@ -100,32 +69,33 @@ final class SpeechModels: ObservableObject {
         return false
     }
 
-    /// Downloads the model if needed; returns its folder.
     @discardableResult
     func ensure(_ m: SpeechModel) async throws -> URL {
         if case .ready(let url) = state(m) { return url }
-        if let t = tasks[m] { return try await t.value }
+        if let task { return try await task.value }
         states[m] = .downloading(0)
-        let task = Task<URL, Error> {
-            try await WhisperKit.download(variant: m.rawValue, downloadBase: Self.base) { progress in
-                let f = progress.fractionCompleted
+        let t = Task<URL, Error> {
+            try await AsrModels.download(version: SpeechModel.version) { p in
+                let f = p.fractionCompleted
                 Task { @MainActor in
                     if case .downloading = SpeechModels.shared.state(m) { SpeechModels.shared.states[m] = .downloading(f) }
                 }
             }
         }
-        tasks[m] = task
+        task = t
         do {
-            let url = try await task.value
-            let rel = url.standardizedFileURL.path.replacingOccurrences(of: Self.base.standardizedFileURL.path + "/", with: "")
-            UserDefaults.standard.set(rel, forKey: "model.\(m.rawValue)")
-            states[m] = .ready(url)
-            tasks[m] = nil
-            SpeechEngine.warm(url)
+            let url = try await t.value
+            var base = Self.base
+            var v = URLResourceValues()
+            v.isExcludedFromBackup = true
+            try? base.setResourceValues(v)
+            states[m] = .ready(m.folder)
+            task = nil
+            SpeechEngine.warm(m.folder)
             return url
         } catch {
             states[m] = .failed(error.localizedDescription)
-            tasks[m] = nil
+            task = nil
             throw error
         }
     }
@@ -135,8 +105,7 @@ final class SpeechModels: ObservableObject {
     }
 
     func delete(_ m: SpeechModel) {
-        if case .ready(let url) = state(m) { try? FileManager.default.removeItem(at: url) }
-        UserDefaults.standard.removeObject(forKey: "model.\(m.rawValue)")
+        try? FileManager.default.removeItem(at: m.folder)
         states[m] = .missing
     }
 }
@@ -150,21 +119,12 @@ enum Transcriber {
         case listening(Double)
     }
 
-    static let prompts: [String: String] = [
-        "cs": "Ahoj, tohle je české video. Jasně, přesně tak, jdeme na to.",
-        "sk": "Ahoj, toto je slovenské video. Jasné, presne tak, ideme na to.",
-        "en": "Hey, this is the video. Yeah, exactly, let's go.",
-    ]
-
     @MainActor
     static func run(project: Project, language: String, names: String, accurate: Bool = false,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
-        let model = SpeechModel.needed(forLanguage: language, accurate: accurate)
+        let model = SpeechModel.parakeet
         let models = SpeechModels.shared
-        let folder: URL
-        if case .ready(let url) = models.state(model) {
-            folder = url
-        } else {
+        if !models.isReady(model) {
             phase(.downloading(0))
             let watcher = Task { @MainActor in
                 while !Task.isCancelled {
@@ -173,7 +133,7 @@ enum Transcriber {
                 }
             }
             defer { watcher.cancel() }
-            folder = try await models.ensure(model)
+            try await models.ensure(model)
         }
 
         phase(.preparingAudio)
@@ -181,14 +141,13 @@ enum Transcriber {
         defer { try? FileManager.default.removeItem(at: audio) }
 
         phase(.loadingModel)
-        if !(await SpeechEngine.shared.isLoaded(folder)) { SpeechEngine.warm(folder) }
-        // let the step-by-step load finish (the pill shows its progress) instead of loading twice
+        if !(await SpeechEngine.shared.isLoaded) { SpeechEngine.warm(model.folder) }
         while SpeechStatus.shared.warming {
-            try await Task.sleep(for: .milliseconds(300))
+            try await Task.sleep(for: .milliseconds(200))
         }
-        var words = try await transcribe(audio: audio, folder: folder, language: language, names: names) { f in
-            Task { @MainActor in phase(.listening(f)) }
-        }
+        phase(.listening(0.1))
+        let duration = (try? await AVURLAsset(url: audio).load(.duration).seconds) ?? 0
+        var words = try await SpeechEngine.shared.transcribe(audio, duration: duration)
         let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
         words = SpellCheck.applyNames(words, typed)
         words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
@@ -207,326 +166,105 @@ enum Transcriber {
         return url
     }
 
-    nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
-                                               progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
-        let pipe = try await SpeechEngine.shared.pipe(folder).pipe
-        // Whisper's standard decoding (with its retries when unsure: without them it loops on music and
-        // silence), no VAD chunking (keeps one clock), and no prompt (a prompt makes it drop its timestamps;
-        // names you type are applied afterwards instead).
-        var opts = DecodingOptions(task: .transcribe, language: language, usePrefillPrompt: true,
-                                   skipSpecialTokens: true, wordTimestamps: true)
-        if let tok = pipe.tokenizer {
-            opts.suppressTokens = await SpeechEngine.shared.foreignLetterTokens(language, tok)
-        }
-
-        let poll = Task {
-            while !Task.isCancelled {
-                progress(min(1, max(0, pipe.progress.fractionCompleted)))
-                try? await Task.sleep(for: .milliseconds(300))
-            }
-        }
-        defer { poll.cancel() }
-
-        let speech = SpeechActivity(url: audio)
-        let results = try await pipe.transcribe(audioPath: audio.path, decodeOptions: opts)
-        let segs = results.flatMap(\.segments).map {
-            Seg(start: Double($0.start), end: Double($0.end), text: $0.text,
-                words: ($0.words ?? []).map { (w: $0.word, s: Double($0.start), e: Double($0.end), p: Double($0.probability)) })
-        }
-        return timedWords(segs, speech: speech)
-    }
-
-    struct Seg {
-        var start: Double
-        var end: Double
-        var text: String
-        var words: [(w: String, s: Double, e: Double, p: Double)]
-    }
-
-    typealias RawWord = (w: String, s: Double, e: Double, p: Double)
-
-    private static func clean(_ t: String) -> String {
-        var s = t
-        while let r = s.range(of: "<\\|[^|]*\\|>", options: .regularExpression) { s.removeSubrange(r) }
-        return s.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private static func tokens(_ seg: Seg) -> [RawWord] {
-        var words: [RawWord] = []
-        for w in seg.words {
-            let t = clean(w.w)
-            if t.isEmpty || t == "-" || t == "–" || t == "—" { continue }   // subtitle-style dialogue dashes
-            if t.allSatisfy({ ".,!?…;:".contains($0) }), !words.isEmpty {
-                words[words.count - 1].w += t   // stray punctuation joins the previous word
-                continue
-            }
-            words.append((t, w.s, w.e, w.p))
-        }
-        if words.isEmpty {
-            words = clean(seg.text).split(separator: " ").filter { $0 != "-" && $0 != "–" }.map { (String($0), 0, 0, 0.5) }
-        }
-        return words
-    }
-
-    /// Word times are believable: in order, inside the segment, not piled on one spot.
-    private static func plausible(_ words: [RawWord], in a: Double, _ b: Double) -> Bool {
-        guard let first = words.first, let last = words.last else { return false }
-        if !first.s.isFinite || !last.e.isFinite { return false }
-        var stuck = 0
-        for (i, w) in words.enumerated() {
-            if !w.s.isFinite || !w.e.isFinite || w.e < w.s - 0.01 { return false }
-            if w.s < a - 0.6 || w.e > b + 0.8 || w.e - w.s > 4 { return false }
-            if i > 0 {
-                let p = words[i - 1]
-                if w.s < p.s - 0.02 || w.s < p.e - 0.3 { return false }
-                if w.s - p.s < 0.02 { stuck += 1 }
-            }
-        }
-        if words.count > 2 && Double(stuck) > Double(words.count - 1) * 0.2 { return false }
-        let len = b - a
-        if len > 1.5 && last.e - first.s < len * 0.3 { return false }
-        return true
-    }
-
-    /// Spreads words over [a, b] by length, skipping the silent parts.
-    private static func spread(_ words: [RawWord], _ a: Double, _ b: Double, speech: SpeechActivity?) -> [RawWord] {
-        let weights = words.map { Double($0.w.count + 1) }
-        let total = max(weights.reduce(0, +), 1)
-        let voiced = speech?.voicedTimes(from: a, to: b) ?? []
-        let useVoice = voiced.count >= 5 && Double(voiced.count) * (speech?.step ?? 1) > (b - a) * 0.15
-        func at(_ f: Double) -> Double {
-            let f = min(max(f, 0), 1)
-            guard useVoice else { return a + f * (b - a) }
-            let k = min(Int(f * Double(voiced.count)), voiced.count - 1)
-            return voiced[k]
-        }
-        var acc = 0.0
-        return words.enumerated().map { i, w in
-            let s = at(acc / total)
-            acc += weights[i]
-            let e = max(at(acc / total) - 0.02, s + 0.05)
-            return (w.w, s, e, w.p)
-        }
-    }
-
-    /// Whisper's segment times are usually dependable; its word times sometimes are not (they can all
-    /// collapse to 0). Words are kept when they look right; otherwise they are spread over the segment's
-    /// speech. When the segments themselves look broken, everything is spread over the speech in the audio.
-    static func timedWords(_ input: [Seg], speech: SpeechActivity? = nil) -> [CaptionWord] {
-        let segs = input.filter { !clean($0.text).isEmpty || !$0.words.isEmpty }
-        guard !segs.isEmpty else { return [] }
-        let tok = segs.map(tokens)
-
-        // are the segment clocks sane?
-        var broken = false
-        var prevEnd = 0.0
-        var covered = 0.0
-        for s in segs {
-            if !s.start.isFinite || !s.end.isFinite || s.end <= s.start || s.start < prevEnd - 0.3 { broken = true }
-            covered += max(0, s.end - s.start)
-            prevEnd = max(prevEnd, s.end)
-        }
-        if let sp = speech, sp.voicedDuration > 2, covered < sp.voicedDuration * 0.45 { broken = true }
-        // a segment running past the end of the audio = Whisper gave no timestamps (it reports its 30 s window)
-        if let sp = speech, let last = segs.last, last.end > sp.duration + 0.5 { broken = true }
-
-        var raw: [RawWord] = []
-        if broken {
-            let all = tok.flatMap { $0 }
-            let a = speech?.firstVoice ?? 0
-            let b = max(speech?.lastVoice ?? Double(all.count) * 0.35, a + 0.5)
-            raw = spread(all, a, b, speech: speech)
-        } else {
-            for (k, s) in segs.enumerated() {
-                var words = tok[k]
-                guard !words.isEmpty else { continue }
-                // word times relative to the segment instead of absolute?
-                if s.start > 1, let l = words.last, l.e <= (s.end - s.start) + 0.6, words[0].s < s.start - 0.6 {
-                    words = words.map { ($0.w, $0.s + s.start, $0.e + s.start, $0.p) }
-                }
-                raw += plausible(words, in: s.start, s.end) ? words : spread(words, s.start, s.end, speech: speech)
-            }
-        }
-        let limit = speech?.duration ?? .greatestFiniteMagnitude
+    /// Word pieces -> words. A piece starting with a space (or SentencePiece's "▁") begins a new word;
+    /// punctuation pieces stick to the word before. Times come straight from the model.
+    static func words(from tokens: [TokenTiming], duration: Double) -> [CaptionWord] {
         var out: [CaptionWord] = []
-        for w in raw {
-            let s = min(max(w.s, out.last?.start ?? 0, 0), max(limit - 0.1, 0))
-            let e = min(max(w.e, s + 0.05), limit)
-            out.append(CaptionWord(text: w.w, start: s, end: e, confidence: w.p))
+        var conf: [Double] = []
+        let limit = duration > 0 ? duration : .greatestFiniteMagnitude
+        for t in tokens {
+            var piece = t.token.replacingOccurrences(of: "▁", with: " ")
+            let startsWord = piece.hasPrefix(" ") || out.isEmpty
+            piece = piece.trimmingCharacters(in: .whitespaces)
+            if piece.isEmpty { continue }
+            let s = min(max(t.startTime, 0), limit), e = min(max(t.endTime, t.startTime), limit)
+            let punct = piece.allSatisfy { ".,!?…;:\"'«»„“”()-–".contains($0) }
+            if startsWord && !(punct && !out.isEmpty) {
+                out.append(CaptionWord(text: piece, start: s, end: max(e, s + 0.04), confidence: Double(t.confidence)))
+                conf.append(Double(t.confidence))
+            } else if let i = out.indices.last {
+                out[i].text += piece
+                if !punct { out[i].end = max(out[i].end, e) }
+                conf[i] = min(conf[i], Double(t.confidence))
+                out[i].confidence = conf[i]
+            }
+        }
+        // never overlapping, never past the end
+        for i in out.indices.dropLast() where out[i].end > out[i + 1].start {
+            out[i].end = max(out[i].start + 0.02, out[i + 1].start)
         }
         return out
     }
 }
 
-/// Where in the audio someone is (probably) talking: short-time loudness against the clip's own level.
-struct SpeechActivity {
-    let step = 0.02
-    private(set) var voiced: [Bool] = []
-
-    init?(url: URL) {
-        guard let file = try? AVAudioFile(forReading: url) else { return nil }
-        let fmt = file.processingFormat
-        let hop = max(1, Int(fmt.sampleRate * step))
-        let chunk = AVAudioFrameCount(hop * 50)   // one second at a time
-        guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: chunk) else { return nil }
-        let chans = Int(fmt.channelCount)
-        var rms: [Float] = []
-        var sum: Float = 0
-        var count = 0
-        while file.framePosition < file.length {
-            guard (try? file.read(into: buf, frameCount: chunk)) != nil, buf.frameLength > 0,
-                  let ch = buf.floatChannelData else { break }
-            let n = Int(buf.frameLength)
-            for k in 0..<n {
-                for c in 0..<chans { sum += ch[c][k] * ch[c][k] }
-                count += 1
-                if count == hop {
-                    rms.append((sum / Float(hop * chans)).squareRoot())
-                    sum = 0
-                    count = 0
-                }
-            }
-        }
-        if count > 0 { rms.append((sum / Float(count * chans)).squareRoot()) }
-        guard !rms.isEmpty else { return nil }
-        let sorted = rms.sorted()
-        let floor = sorted[Int(Double(sorted.count - 1) * 0.1)]
-        let peak = sorted[Int(Double(sorted.count - 1) * 0.95)]
-        let th = max(floor * 2, floor + (peak - floor) * 0.18, 0.004)
-        var v = rms.map { $0 > th }
-        // close tiny gaps between syllables (< 0.2 s)
-        var k = 0
-        while k < v.count {
-            if !v[k] {
-                var e = k
-                while e < v.count && !v[e] { e += 1 }
-                if k > 0 && e < v.count && e - k < 10 { for q in k..<e { v[q] = true } }
-                k = e
-            } else { k += 1 }
-        }
-        voiced = v
-    }
-
-    var voicedDuration: Double { Double(voiced.filter { $0 }.count) * step }
-    var duration: Double { Double(voiced.count) * step }
-    var firstVoice: Double? { voiced.firstIndex(of: true).map { Double($0) * step } }
-    var lastVoice: Double? { voiced.lastIndex(of: true).map { Double($0 + 1) * step } }
-
-    /// Start times of the voiced 20 ms frames between a and b.
-    func voicedTimes(from a: Double, to b: Double) -> [Double] {
-        let i0 = max(0, Int(a / step)), i1 = min(voiced.count, Int((b / step).rounded(.up)))
-        guard i0 < i1 else { return [] }
-        return (i0..<i1).filter { voiced[$0] }.map { Double($0) * step }
-    }
-}
-
 /// Keeps the speech model loaded between caption runs and warms it up in the background
-/// when the app opens, so "Generate" starts listening right away.
+/// when the app opens, so "Generate" starts right away.
 actor SpeechEngine {
     static let shared = SpeechEngine()
-    private var loaded: (path: String, box: PipeBox)?
-    private var loading: (path: String, task: Task<PipeBox, Error>)?
+    private var asr: AsrManager?
+    private var loading: Task<AsrManager, Error>?
 
-    /// WhisperKit isn't marked Sendable; it is only ever used by one caption run at a time.
-    final class PipeBox: @unchecked Sendable {
-        let pipe: WhisperKit
-        init(_ p: WhisperKit) { pipe = p }
-    }
+    var isLoaded: Bool { asr != nil }
 
-    func pipe(_ folder: URL) async throws -> PipeBox {
-        let path = folder.path
-        if let l = loaded, l.path == path { return l.box }
-        if let l = loading, l.path == path { return try await l.task.value }
-        loaded = nil
-        let task = Task<PipeBox, Error>(priority: .userInitiated) {
-            PipeBox(try await WhisperKit(WhisperKitConfig(modelFolder: path, verbose: false, logLevel: .error,
-                                                          prewarm: false, load: true, download: false)))
+    func manager(_ folder: URL, progress: ProgressHandler? = nil) async throws -> AsrManager {
+        if let asr { return asr }
+        if let loading { return try await loading.value }
+        let t = Task<AsrManager, Error> {
+            let models = try await AsrModels.load(from: folder, version: SpeechModel.version, progressHandler: progress)
+            let m = AsrManager(config: .default)
+            try await m.loadModels(models)
+            return m
         }
-        loading = (path, task)
+        loading = t
         do {
-            let p = try await task.value
-            loaded = (path, p)
+            let m = try await t.value
+            asr = m
             loading = nil
-            return p
+            return m
         } catch {
             loading = nil
             throw error
         }
     }
 
-    func unload() {
-        loaded = nil
+    func transcribe(_ audio: URL, duration: Double) async throws -> [CaptionWord] {
+        let m = try await manager(SpeechModel.parakeet.folder)
+        var state = TdtDecoderState.make(decoderLayers: await m.decoderLayerCount)
+        let r = try await m.transcribe(audio, decoderState: &state)
+        return Transcriber.words(from: r.tokenTimings ?? [], duration: duration)
     }
 
-    func isLoaded(_ folder: URL) -> Bool { loaded?.path == folder.path }
+    func unload() {
+        asr = nil
+    }
 
-    /// Forget a load that got stuck (e.g. the app was closed halfway); the next request starts over.
     func reset() {
         loading = nil
-        loaded = nil
+        asr = nil
     }
 
-    /// Tokens containing letters that only the other language uses, so Czech stays Czech and Slovak stays Slovak.
-    private var foreignCache: [String: [Int]] = [:]
-    func foreignLetterTokens(_ language: String, _ tok: WhisperTokenizer) -> [Int] {
-        if let c = foreignCache[language] { return c }
-        let letters: Set<Character>
-        switch language {
-        case "cs": letters = ["ô", "ä", "ľ", "ĺ", "ŕ", "Ô", "Ä", "Ľ", "Ĺ", "Ŕ"]
-        case "sk": letters = ["ř", "ů", "ě", "Ř", "Ů", "Ě"]
-        default: return []
-        }
-        let limit = tok.specialTokens.specialTokenBegin
-        var out: [Int] = []
-        for id in 0..<limit {
-            let text = tok.decode(tokens: [id])
-            if text.contains(where: { letters.contains($0) }) { out.append(id) }
-        }
-        foreignCache[language] = out
-        return out
-    }
-
-    /// Called at launch: loads the model for the caption languages if it is on the phone.
+    /// Called at launch: loads the model if it is on the phone.
     @MainActor
     static func warmUp() {
         guard let url = preferredFolder else { return }
         warm(url)
     }
 
-    /// Loads the model in the background, one part at a time, so the editor can show what is happening.
-    /// The first time, iOS optimizes each part for this iPhone's chip (minutes); after that it takes seconds.
+    /// Loads the model in the background; the editor pill shows what is happening.
     @MainActor
     static func warm(_ url: URL) {
         let st = SpeechStatus.shared
-        guard !st.warming else { return }
-        // only when the model is really on the phone
-        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("AudioEncoder.mlmodelc").path) else { return }
-        let key = "warmed." + url.lastPathComponent
-        let first = !UserDefaults.standard.bool(forKey: key)
-        st.begin(first: first, model: url.lastPathComponent)
+        guard !st.warming, SpeechModels.shared.isReady(.parakeet) else { return }
+        let key = "warmed.parakeet"
+        st.begin(first: !UserDefaults.standard.bool(forKey: key), model: "parakeet")
         let bg = UIApplication.shared.beginBackgroundTask(withName: "voice-model")
         Task.detached(priority: .userInitiated) {
-            let parts: [(String, String, MLComputeUnits)] = [
-                ("MelSpectrogram", "Sound reader", .cpuAndGPU),
-                ("TextDecoder", "Text writer", .cpuAndNeuralEngine),
-                ("AudioEncoder", "Listener", .cpuAndNeuralEngine),
-            ]
             var failed: String?
-            for (k, part) in parts.enumerated() {
-                await MainActor.run { st.step(k, of: parts.count, name: part.1) }
-                let u = url.appendingPathComponent(part.0 + ".mlmodelc")
-                guard FileManager.default.fileExists(atPath: u.path) else { continue }
-                let cfg = MLModelConfiguration()
-                cfg.computeUnits = part.2
-                let t0 = Date()
-                do { _ = try await MLModel.load(contentsOf: u, configuration: cfg) } catch { failed = error.localizedDescription; break }
-                let took = Date().timeIntervalSince(t0)
-                await MainActor.run { st.learn(part: part.0, seconds: took, first: first) }
-            }
-            if failed == nil {
-                await MainActor.run { st.step(parts.count, of: parts.count, name: "Finishing") }
-                do { _ = try await SpeechEngine.shared.pipe(url) } catch { failed = error.localizedDescription }
-            }
+            do {
+                _ = try await SpeechEngine.shared.manager(url) { p in
+                    Task { @MainActor in st.progress(p) }
+                }
+            } catch { failed = error.localizedDescription }
             let result = failed
             await MainActor.run {
                 if result == nil { UserDefaults.standard.set(true, forKey: key) }
@@ -548,10 +286,7 @@ actor SpeechEngine {
 
     @MainActor
     static var preferredFolder: URL? {
-        let models = SpeechModels.shared
-        let want = SpeechModel.needed(for: Prefs.languages)
-        guard models.isReady(want), case .ready(let url) = models.state(want) else { return nil }
-        return url
+        SpeechModels.shared.isReady(.parakeet) ? SpeechModel.parakeet.folder : nil
     }
 }
 
@@ -561,29 +296,34 @@ final class SpeechStatus: ObservableObject {
     static let shared = SpeechStatus()
     @Published private(set) var warming = false
     @Published private(set) var stepIndex = 0
-    @Published private(set) var stepCount = 3
+    @Published private(set) var stepCount = 1
     @Published private(set) var stepName = ""
     @Published private(set) var started = Date()
     @Published private(set) var stepStarted = Date()
     @Published private(set) var firstTime = false
     @Published private(set) var error: String?
-    private var model = ""
+    @Published private(set) var reported: Double = 0
 
     func begin(first: Bool, model: String) {
         warming = true
         firstTime = first
         error = nil
-        self.model = model
         started = Date()
         stepStarted = Date()
         stepIndex = 0
+        stepCount = 1
+        reported = 0
     }
 
-    func step(_ k: Int, of n: Int, name: String) {
-        stepIndex = k
-        stepCount = n
-        stepName = name
-        stepStarted = Date()
+    /// Progress from the model loader (compiling each part for this iPhone's chip).
+    func progress(_ p: DownloadProgress) {
+        reported = max(reported, p.fractionCompleted)
+        if case .compiling(let name) = p.phase, name != stepName {
+            stepName = name
+            stepIndex += 1
+            stepCount = max(stepCount, stepIndex)
+            stepStarted = Date()
+        }
     }
 
     func end(error: String?) {
@@ -591,35 +331,17 @@ final class SpeechStatus: ObservableObject {
         self.error = error
     }
 
-    func learn(part: String, seconds: Double, first: Bool) {
-        UserDefaults.standard.set(seconds, forKey: "warmTime.\(first ? "first" : "again").\(model).\(part)")
-    }
-
-    /// Expected seconds per part (learned from earlier loads, otherwise rough guesses).
-    private func expected(_ k: Int) -> Double {
-        let parts = ["MelSpectrogram", "TextDecoder", "AudioEncoder"]
-        guard k < parts.count else { return 3 }
-        let learned = UserDefaults.standard.double(forKey: "warmTime.\(firstTime ? "first" : "again").\(model).\(parts[k])")
-        if learned > 0 { return learned }
-        let guesses: [Double] = firstTime ? [3, 40, 120] : [1, 3, 6]
-        return guesses[k]
-    }
-
-    /// 0...1, from finished parts plus time spent in the current one (never claims to be done early).
     func fraction(now: Date) -> Double {
-        let total = (0..<stepCount).map(expected).reduce(0, +) + 2
-        let done = (0..<min(stepIndex, stepCount)).map(expected).reduce(0, +)
-        let inStep = min(now.timeIntervalSince(stepStarted), expected(stepIndex) * 0.95)
-        return min(0.98, (done + inStep) / total)
+        let byTime = min(now.timeIntervalSince(started) / (firstTime ? 40 : 6), 0.9)
+        return min(0.98, max(reported, byTime))
     }
 
-    /// Taking far longer than it should: offer a retry.
     func looksStuck(now: Date) -> Bool {
-        now.timeIntervalSince(stepStarted) > max(90, expected(stepIndex) * 3)
+        now.timeIntervalSince(stepStarted) > (firstTime ? 180 : 60)
     }
 }
 
-/// Second look at uncertain words: when Whisper wrote something that is not a word in the chosen language,
+/// Second look at uncertain words: when the model wrote something that is not a word in the chosen language,
 /// swap in the closest real word from the iPhone's own dictionary (names you typed are left alone).
 @MainActor
 enum SpellCheck {
