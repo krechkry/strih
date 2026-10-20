@@ -5,6 +5,7 @@ struct CaptionWord: Codable, Hashable {
     var text: String
     var start: Double   // timeline seconds
     var end: Double
+    var confidence: Double? = nil   // how sure the speech model was (0...1)
 }
 
 struct CaptionCue: Codable, Hashable, Identifiable {

@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreML
 import Foundation
 import SwiftUI
 @preconcurrency import WhisperKit
@@ -9,11 +10,14 @@ enum SpeechModel: String, CaseIterable {
     case large = "openai_whisper-large-v3-v20240930_turbo_632MB"
     /// English only: small and quick.
     case englishSmall = "openai_whisper-small.en"
+    /// Full large-v3 (32 decoder layers instead of 4): slower, noticeably better Czech and Slovak.
+    case accurate = "openai_whisper-large-v3_947MB"
 
     var title: String {
         switch self {
         case .large: return "Czech · Slovak · English"
         case .englishSmall: return "English only"
+        case .accurate: return "Accurate (Czech · Slovak · English)"
         }
     }
 
@@ -21,6 +25,7 @@ enum SpeechModel: String, CaseIterable {
         switch self {
         case .large: return "632 MB"
         case .englishSmall: return "smaller download"
+        case .accurate: return "947 MB"
         }
     }
 
@@ -30,7 +35,8 @@ enum SpeechModel: String, CaseIterable {
 
     /// English can use the small model when that's what is on the phone; Czech and Slovak need the large one.
     @MainActor
-    static func needed(forLanguage l: String) -> SpeechModel {
+    static func needed(forLanguage l: String, accurate: Bool = false) -> SpeechModel {
+        if accurate { return .accurate }
         guard l == "en" else { return .large }
         let m = SpeechModels.shared
         if m.isReady(.large) { return .large }
@@ -145,9 +151,9 @@ enum Transcriber {
     }
 
     @MainActor
-    static func run(project: Project, language: String, names: String,
+    static func run(project: Project, language: String, names: String, accurate: Bool = false,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
-        let model = SpeechModel.needed(forLanguage: language)
+        let model = SpeechModel.needed(forLanguage: language, accurate: accurate)
         let models = SpeechModels.shared
         let folder: URL
         if case .ready(let url) = models.state(model) {
@@ -169,9 +175,17 @@ enum Transcriber {
         defer { try? FileManager.default.removeItem(at: audio) }
 
         phase(.loadingModel)
-        let words = try await transcribe(audio: audio, folder: folder, language: language, names: names) { f in
+        if !(await SpeechEngine.shared.isLoaded(folder)) { SpeechEngine.warm(folder) }
+        // let the step-by-step load finish (the pill shows its progress) instead of loading twice
+        while SpeechStatus.shared.warming {
+            try await Task.sleep(for: .milliseconds(300))
+        }
+        if let e = SpeechStatus.shared.error { throw CompositionBuilder.err("Voice model: " + e) }
+        var words = try await transcribe(audio: audio, folder: folder, language: language, names: names) { f in
             Task { @MainActor in phase(.listening(f)) }
         }
+        let keep = Set(names.split(whereSeparator: { " ,;\n".contains($0) }).map { $0.lowercased() })
+        words = SpellCheck.fix(words, language: language, keep: keep)
         return words
     }
 
@@ -214,7 +228,7 @@ enum Transcriber {
         let results = try await pipe.transcribe(audioPath: audio.path, decodeOptions: opts)
         let segs = results.flatMap(\.segments).map {
             Seg(start: Double($0.start), end: Double($0.end), text: $0.text,
-                words: ($0.words ?? []).map { (w: $0.word, s: Double($0.start), e: Double($0.end)) })
+                words: ($0.words ?? []).map { (w: $0.word, s: Double($0.start), e: Double($0.end), p: Double($0.probability)) })
         }
         return timedWords(segs, speech: speech)
     }
@@ -223,10 +237,10 @@ enum Transcriber {
         var start: Double
         var end: Double
         var text: String
-        var words: [(w: String, s: Double, e: Double)]
+        var words: [(w: String, s: Double, e: Double, p: Double)]
     }
 
-    typealias RawWord = (w: String, s: Double, e: Double)
+    typealias RawWord = (w: String, s: Double, e: Double, p: Double)
 
     private static func clean(_ t: String) -> String {
         var s = t
@@ -243,10 +257,10 @@ enum Transcriber {
                 words[words.count - 1].w += t   // stray punctuation joins the previous word
                 continue
             }
-            words.append((t, w.s, w.e))
+            words.append((t, w.s, w.e, w.p))
         }
         if words.isEmpty {
-            words = clean(seg.text).split(separator: " ").filter { $0 != "-" && $0 != "–" }.map { (String($0), 0, 0) }
+            words = clean(seg.text).split(separator: " ").filter { $0 != "-" && $0 != "–" }.map { (String($0), 0, 0, 0.5) }
         }
         return words
     }
@@ -288,7 +302,7 @@ enum Transcriber {
             let s = at(acc / total)
             acc += weights[i]
             let e = max(at(acc / total) - 0.02, s + 0.05)
-            return (w.w, s, e)
+            return (w.w, s, e, w.p)
         }
     }
 
@@ -323,7 +337,7 @@ enum Transcriber {
                 guard !words.isEmpty else { continue }
                 // word times relative to the segment instead of absolute?
                 if s.start > 1, let l = words.last, l.e <= (s.end - s.start) + 0.6, words[0].s < s.start - 0.6 {
-                    words = words.map { ($0.w, $0.s + s.start, $0.e + s.start) }
+                    words = words.map { ($0.w, $0.s + s.start, $0.e + s.start, $0.p) }
                 }
                 raw += plausible(words, in: s.start, s.end) ? words : spread(words, s.start, s.end, speech: speech)
             }
@@ -332,7 +346,7 @@ enum Transcriber {
         for w in raw {
             let s = max(w.s, out.last?.start ?? 0, 0)
             let e = max(w.e, s + 0.05)
-            out.append(CaptionWord(text: w.w, start: s, end: e))
+            out.append(CaptionWord(text: w.w, start: s, end: e, confidence: w.p))
         }
         return out
     }
@@ -437,6 +451,14 @@ actor SpeechEngine {
         loaded = nil
     }
 
+    func isLoaded(_ folder: URL) -> Bool { loaded?.path == folder.path }
+
+    /// Forget a load that got stuck (e.g. the app was closed halfway); the next request starts over.
+    func reset() {
+        loading = nil
+        loaded = nil
+    }
+
     /// Tokens containing letters that only the other language uses, so Czech stays Czech and Slovak stays Slovak.
     private var foreignCache: [String: [Int]] = [:]
     func foreignLetterTokens(_ language: String, _ tok: WhisperTokenizer) -> [Int] {
@@ -460,26 +482,187 @@ actor SpeechEngine {
     /// Called at launch: loads the model for the caption languages if it is on the phone.
     @MainActor
     static func warmUp() {
-        let models = SpeechModels.shared
-        let want = SpeechModel.needed(for: Prefs.languages)
-        let pick: SpeechModel? = models.isReady(want) ? want : SpeechModel.allCases.first { models.isReady($0) }
-        guard let m = pick, case .ready(let url) = models.state(m) else { return }
+        guard let url = preferredFolder else { return }
         warm(url)
     }
 
-    /// Loads the model in the background; the editor shows a small "Setting up voice model" pill meanwhile.
+    /// Loads the model in the background, one part at a time, so the editor can show what is happening.
+    /// The first time, iOS optimizes each part for this iPhone's chip (minutes); after that it takes seconds.
     @MainActor
     static func warm(_ url: URL) {
-        SpeechStatus.shared.warming = true
-        Task.detached(priority: .utility) {
-            _ = try? await SpeechEngine.shared.pipe(url)
-            await MainActor.run { SpeechStatus.shared.warming = false }
+        let st = SpeechStatus.shared
+        guard !st.warming else { return }
+        let key = "warmed." + url.lastPathComponent
+        let first = !UserDefaults.standard.bool(forKey: key)
+        st.begin(first: first, model: url.lastPathComponent)
+        let bg = UIApplication.shared.beginBackgroundTask(withName: "voice-model")
+        Task.detached(priority: .userInitiated) {
+            let parts: [(String, String, MLComputeUnits)] = [
+                ("MelSpectrogram", "Sound reader", .cpuAndGPU),
+                ("TextDecoder", "Text writer", .cpuAndNeuralEngine),
+                ("AudioEncoder", "Listener", .cpuAndNeuralEngine),
+            ]
+            var failed: String?
+            for (k, part) in parts.enumerated() {
+                await MainActor.run { st.step(k, of: parts.count, name: part.1) }
+                let u = url.appendingPathComponent(part.0 + ".mlmodelc")
+                guard FileManager.default.fileExists(atPath: u.path) else { continue }
+                let cfg = MLModelConfiguration()
+                cfg.computeUnits = part.2
+                let t0 = Date()
+                do { _ = try await MLModel.load(contentsOf: u, configuration: cfg) } catch { failed = error.localizedDescription; break }
+                let took = Date().timeIntervalSince(t0)
+                await MainActor.run { st.learn(part: part.0, seconds: took, first: first) }
+            }
+            if failed == nil {
+                await MainActor.run { st.step(parts.count, of: parts.count, name: "Finishing") }
+                do { _ = try await SpeechEngine.shared.pipe(url) } catch { failed = error.localizedDescription }
+            }
+            await MainActor.run {
+                if failed == nil { UserDefaults.standard.set(true, forKey: key) }
+                st.end(error: failed)
+                UIApplication.shared.endBackgroundTask(bg)
+            }
         }
+    }
+
+    /// The user tapped "retry" on a load that looks stuck.
+    @MainActor
+    static func retry(_ url: URL) {
+        SpeechStatus.shared.end(error: nil)
+        Task {
+            await SpeechEngine.shared.reset()
+            await MainActor.run { warm(url) }
+        }
+    }
+
+    @MainActor
+    static var preferredFolder: URL? {
+        let models = SpeechModels.shared
+        let accurate = UserDefaults.standard.string(forKey: "captionQuality") == "accurate"
+        let want: SpeechModel = accurate ? .accurate : SpeechModel.needed(for: Prefs.languages)
+        let pick: SpeechModel? = models.isReady(want) ? want : SpeechModel.allCases.first { models.isReady($0) }
+        guard let m = pick, case .ready(let url) = models.state(m) else { return nil }
+        return url
     }
 }
 
+/// What the voice model is doing right now, for the status pill.
 @MainActor
 final class SpeechStatus: ObservableObject {
     static let shared = SpeechStatus()
-    @Published var warming = false
+    @Published private(set) var warming = false
+    @Published private(set) var stepIndex = 0
+    @Published private(set) var stepCount = 3
+    @Published private(set) var stepName = ""
+    @Published private(set) var started = Date()
+    @Published private(set) var stepStarted = Date()
+    @Published private(set) var firstTime = false
+    @Published private(set) var error: String?
+    private var model = ""
+
+    func begin(first: Bool, model: String) {
+        warming = true
+        firstTime = first
+        error = nil
+        self.model = model
+        started = Date()
+        stepStarted = Date()
+        stepIndex = 0
+    }
+
+    func step(_ k: Int, of n: Int, name: String) {
+        stepIndex = k
+        stepCount = n
+        stepName = name
+        stepStarted = Date()
+    }
+
+    func end(error: String?) {
+        warming = false
+        self.error = error
+    }
+
+    func learn(part: String, seconds: Double, first: Bool) {
+        UserDefaults.standard.set(seconds, forKey: "warmTime.\(first ? "first" : "again").\(model).\(part)")
+    }
+
+    /// Expected seconds per part (learned from earlier loads, otherwise rough guesses).
+    private func expected(_ k: Int) -> Double {
+        let parts = ["MelSpectrogram", "TextDecoder", "AudioEncoder"]
+        guard k < parts.count else { return 3 }
+        let learned = UserDefaults.standard.double(forKey: "warmTime.\(firstTime ? "first" : "again").\(model).\(parts[k])")
+        if learned > 0 { return learned }
+        let guesses: [Double] = firstTime ? [3, 40, 120] : [1, 3, 6]
+        return guesses[k]
+    }
+
+    /// 0...1, from finished parts plus time spent in the current one (never claims to be done early).
+    func fraction(now: Date) -> Double {
+        let total = (0..<stepCount).map(expected).reduce(0, +) + 2
+        let done = (0..<min(stepIndex, stepCount)).map(expected).reduce(0, +)
+        let inStep = min(now.timeIntervalSince(stepStarted), expected(stepIndex) * 0.95)
+        return min(0.98, (done + inStep) / total)
+    }
+
+    /// Taking far longer than it should: offer a retry.
+    func looksStuck(now: Date) -> Bool {
+        now.timeIntervalSince(stepStarted) > max(90, expected(stepIndex) * 3)
+    }
+}
+
+/// Second look at uncertain words: when Whisper wrote something that is not a word in the chosen language,
+/// swap in the closest real word from the iPhone's own dictionary (names you typed are left alone).
+@MainActor
+enum SpellCheck {
+    static func fix(_ words: [CaptionWord], language: String, keep: Set<String>) -> [CaptionWord] {
+        guard let lang = UITextChecker.availableLanguages.first(where: { $0.hasPrefix(language) }) else { return words }
+        let checker = UITextChecker()
+        return words.map { w in
+            guard (w.confidence ?? 0.5) < 0.9 else { return w }
+            let core = w.text.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+            guard core.count >= 4, core.allSatisfy({ $0.isLetter }), !keep.contains(core.lowercased()) else { return w }
+            let range = NSRange(location: 0, length: (core as NSString).length)
+            let bad = checker.rangeOfMisspelledWord(in: core, range: range, startingAt: 0, wrap: false, language: lang)
+            guard bad.location != NSNotFound,
+                  let guesses = checker.guesses(forWordRange: range, in: core, language: lang), !guesses.isEmpty else { return w }
+            let limit = core.count >= 7 ? 3 : 2
+            let f = fold(core)
+            var best: (String, Int)?
+            for g in guesses where !g.contains(" ") && !g.contains("-") {
+                let d = distance(f, fold(g))
+                if d <= limit, d < (best?.1 ?? Int.max) { best = (g, d) }
+            }
+            guard let g = best?.0 else { return w }
+            var out = w
+            out.text = w.text.replacingOccurrences(of: core, with: sameCase(g, as: core))
+            return out
+        }
+    }
+
+    private static func fold(_ s: String) -> [Character] {
+        Array(s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil))
+    }
+
+    private static func sameCase(_ g: String, as w: String) -> String {
+        guard let f = w.first, f.isUppercase else { return g }
+        if w.count > 1 && w.allSatisfy({ !$0.isLetter || $0.isUppercase }) { return g.uppercased() }
+        return g.prefix(1).uppercased() + g.dropFirst()
+    }
+
+    /// Edit distance (insert, delete, substitute).
+    private static func distance(_ a: [Character], _ b: [Character]) -> Int {
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        var prev = Array(0...b.count)
+        var cur = prev
+        for i in 1...a.count {
+            cur[0] = i
+            for j in 1...b.count {
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            prev = cur
+        }
+        return prev[b.count]
+    }
 }

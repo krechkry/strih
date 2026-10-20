@@ -622,7 +622,7 @@ final class EditorModel: ObservableObject {
     @Published var openCaptions = false
     private var captionTask: Task<Void, Never>?
 
-    func startCaptions(language: String, names: String) {
+    func startCaptions(language: String, names: String, accurate: Bool = false) {
         if let j = captionJob, j.error == nil { return }   // already running
         captionTask?.cancel()
         captionsReady = false
@@ -634,8 +634,9 @@ final class EditorModel: ObservableObject {
         captionTask = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
             do {
-                let words = try await Transcriber.run(project: snapshot, language: language, names: names) { [weak self] p in
-                    self?.captionJob?.phase = p
+                let words = try await Transcriber.run(project: snapshot, language: language, names: names,
+                                                     accurate: accurate) { p in
+                    self.captionJob?.phase = p
                 }
                 if Task.isCancelled { return }
                 guard !words.isEmpty else {
@@ -782,7 +783,7 @@ final class EditorModel: ObservableObject {
         let src = CGSize(width: 1000 * a, height: 1000)
         let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
                                           stab: st.stab.map { let v = $0.at(s); return (v.x, v.y, $0.crop) },
-                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode) },
+                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders) },
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
         let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
@@ -878,6 +879,27 @@ final class EditorModel: ObservableObject {
     func setFollow(_ m: FollowMode) {
         guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
         mutateLook { $0.clips[i].tracking?.mode = m }
+    }
+
+    func setNoBorders(_ on: Bool) {
+        guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
+        mutateLook { $0.clips[i].tracking?.noBorders = on }
+    }
+
+    /// While the Track panel is open, dragging on the preview scrubs through the selected clip
+    /// (to pick the frame to start from) instead of moving it.
+    @Published var previewScrubs = false
+    private var scrubStart: Double?
+    func previewScrub(dx: CGFloat, width: CGFloat, ended: Bool) {
+        guard let i = selectedIndex, width > 0 else { return }
+        let start = project.clipStarts[i], len = project.clips[i].duration
+        if scrubStart == nil {
+            pause()
+            scrubStart = min(max(currentTime, start), start + len)
+        }
+        let t = scrubStart! + Double(dx / width) * len
+        scrub(to: min(max(t, start), start + max(len - 1.0 / 30, 0)))
+        if ended { scrubStart = nil }
     }
 
     func removeTracking() {

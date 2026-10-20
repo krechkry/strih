@@ -28,7 +28,11 @@ struct PreviewArea: View {
                 layer(canvas) { guides(canvas) }
                 layer(canvas) { readout }
                 if !model.trackPick && model.analysis == nil {
-                    layer(canvas) { touch(canvas) }
+                    if model.previewScrubs {
+                        layer(canvas) { scrubSurface(canvas) }
+                    } else {
+                        layer(canvas) { touch(canvas) }
+                    }
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
@@ -41,6 +45,17 @@ struct PreviewArea: View {
 
     private func layer<V: View>(_ canvas: CGSize, @ViewBuilder _ content: () -> V) -> some View {
         content().frame(width: canvas.width, height: canvas.height)
+    }
+
+    /// Track panel open: drag sideways to scrub through the selected clip.
+    private func scrubSurface(_ canvas: CGSize) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false) }
+                    .onEnded { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: true) }
+            )
     }
 
     private func touch(_ canvas: CGSize) -> some View {

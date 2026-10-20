@@ -461,6 +461,16 @@ struct TrackSheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.dismiss) private var dismiss
 
+    private func edgePill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.subheadline.weight(.bold))
+                .foregroundStyle(on ? .black : .white)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Track subject").font(.title3.weight(.heavy))
@@ -475,6 +485,12 @@ struct TrackSheet: View {
                                 .background(tr.mode == m ? Theme.accent : Theme.panel2, in: Capsule())
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+                if tr.mode != .off {
+                    HStack(spacing: 8) {
+                        edgePill("Keep borders", on: tr.noBorders != true) { model.setNoBorders(false) }
+                        edgePill("Fill, no borders", on: tr.noBorders == true) { model.setNoBorders(true) }
                     }
                 }
                 Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
@@ -496,7 +512,7 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text("Pause where the subject is visible and tap it or roughly box it. Bombocut finds it and draws a box you can fix, then follows it through the whole clip. Great for turning 16:9 footage into 9:16.")
+                Text("Drag on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { dismiss(); model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

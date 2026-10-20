@@ -23,7 +23,7 @@ struct EditorView: View {
         case .adjust: return 300
         case .captions: return 420
         case .stabilize: return 280
-        case .track: return 300
+        case .track: return 360
         }
     }
 
@@ -81,6 +81,7 @@ struct EditorView: View {
             }
             .modifier(PanelStyle(height: panelHeight(s)))
         }
+        .onChange(of: sheet) { _, s in model.previewScrubs = s == .track }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
         }
@@ -140,6 +141,9 @@ struct EditorView: View {
     /// Top-left status while captions are prepared in the background (you can keep editing).
     private var statusPill: AnyView? {
         if let job = model.captionJob {
+            if job.phase == .loadingModel && job.error == nil && speechStatus.warming {
+                return AnyView(warmPill)
+            }
             if let e = job.error {
                 return AnyView(pillView(icon: "exclamationmark.triangle.fill", text: e, progress: nil, tint: .red) {
                     model.dismissCaptionJob()
@@ -162,10 +166,35 @@ struct EditorView: View {
                 sheet = .captions
             })
         }
-        if speechStatus.warming {
-            return AnyView(pillView(icon: "waveform", text: "Setting up voice model", progress: nil, tint: Theme.accent) {})
+        if speechStatus.warming || speechStatus.error != nil {
+            return AnyView(warmPill)
         }
         return nil
+    }
+
+    /// Voice model loading: which part, how long so far, a bar that only moves with real progress.
+    private var warmPill: some View {
+        SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            let st = speechStatus
+            let secs = Int(ctx.date.timeIntervalSince(st.started))
+            let clock = String(format: "%d:%02d", secs / 60, secs % 60)
+            if let e = st.error {
+                pillView(icon: "arrow.clockwise", text: "Voice model failed. Tap to retry", progress: nil, tint: .red) {
+                    if let u = SpeechEngine.preferredFolder { SpeechEngine.retry(u) }
+                    _ = e
+                }
+            } else if st.looksStuck(now: ctx.date) {
+                pillView(icon: "arrow.clockwise", text: "Taking long (\(clock)). Tap to restart", progress: nil, tint: .orange) {
+                    if let u = SpeechEngine.preferredFolder { SpeechEngine.retry(u) }
+                }
+            } else {
+                let step = min(st.stepIndex + 1, st.stepCount)
+                let label = st.firstTime
+                    ? "Optimizing voice model \(step)/\(st.stepCount) · \(clock)"
+                    : "Loading voice model \(step)/\(st.stepCount)"
+                pillView(icon: "waveform", text: label, progress: st.fraction(now: ctx.date), tint: Theme.accent) {}
+            }
+        }
     }
 
     private func pillView(icon: String, text: String, progress: Double?, tint: Color, done: Bool = false,

@@ -90,6 +90,7 @@ struct Tracking: Codable, Hashable {
     var mode = FollowMode.center
     var smooth = 0.5    // 0...1
     var anchor: Double? // source time where the subject was picked ("keep in place" holds it there)
+    var noBorders: Bool? // zoom in so the picture always covers the canvas while following
 
     /// Smoothed subject centers, ready for the compositor.
     func curve() -> TrackCurve? {
@@ -109,7 +110,7 @@ struct Tracking: Codable, Hashable {
             xs[i] = sx / c
             ys[i] = sy / c
         }
-        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t)
+        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t, noBorders: noBorders ?? false)
     }
 
     func box(at s: Double) -> TrackSample? {
@@ -130,6 +131,7 @@ struct TrackCurve: Hashable {
     var y: [Double]
     var mode: FollowMode
     var anchor: Double
+    var noBorders = false
 
     func at(_ s: Double) -> (x: Double, y: Double) {
         guard let first = t.first, let last = t.last else { return (0.5, 0.5) }
