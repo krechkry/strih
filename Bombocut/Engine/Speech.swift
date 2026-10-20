@@ -3,15 +3,15 @@ import Foundation
 import SwiftUI
 @preconcurrency import FluidAudio
 
-/// The speech model: NVIDIA Parakeet TDT v3 (25 European languages incl. Czech, Slovak, English) via FluidAudio.
+/// The speech model: Parakeet Ultra (a more accurate re-training of NVIDIA Parakeet TDT v3; 25 European languages incl. Czech, Slovak, English) via FluidAudio.
 /// It times every word piece itself, loads in seconds and transcribes many times faster than real time.
 enum SpeechModel: String, CaseIterable {
-    case parakeet = "parakeet-tdt-0.6b-v3"
+    case parakeet = "parakeet-ultra"
 
-    static let version: AsrModelVersion = .v3
+    static let version: AsrModelVersion = .ultra
 
     var title: String { "Czech · Slovak · English" }
-    var sizeLabel: String { "about 500 MB" }
+    var sizeLabel: String { "about 650 MB" }
 
     static func needed(for languages: Set<String>) -> SpeechModel { .parakeet }
     @MainActor static func needed(forLanguage l: String, accurate: Bool = true) -> SpeechModel { .parakeet }
