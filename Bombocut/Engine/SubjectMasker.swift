@@ -10,9 +10,9 @@ final class SubjectMasker: @unchecked Sendable {
     private var poolSize = CGSize.zero
 
     /// Mask (white = subject) for `image` covering `frame`, or nil when nothing is found.
-    func mask(for image: CIImage, frame: CGRect, kind: SubjectMask.Kind) -> CIImage? {
+    func mask(for image: CIImage, frame: CGRect, kind: SubjectMask.Kind, detail: CGFloat = 512, accurate: Bool = false) -> CIImage? {
         // analyse a small copy: fast and plenty for a soft mask
-        let k = min(1, 512 / max(frame.width, frame.height))
+        let k = min(1, detail / max(frame.width, frame.height))
         let w = Int((frame.width * k).rounded()), h = Int((frame.height * k).rounded())
         guard w > 8, h > 8, let buf = buffer(w, h) else { return nil }
         let small = image.transformed(by: CGAffineTransform(scaleX: k, y: k))
@@ -23,7 +23,7 @@ final class SubjectMasker: @unchecked Sendable {
         switch kind {
         case .person:
             let r = VNGeneratePersonSegmentationRequest()
-            r.qualityLevel = .balanced
+            r.qualityLevel = accurate ? .accurate : .balanced
             r.outputPixelFormat = kCVPixelFormatType_OneComponent8
             guard (try? handler.perform([r])) != nil else { return nil }
             out = r.results?.first?.pixelBuffer
@@ -40,6 +40,24 @@ final class SubjectMasker: @unchecked Sendable {
             .applyingGaussianBlur(sigma: 1.5)
             .cropped(to: frame)
         return mask
+    }
+
+    /// The clip's edge settings: grow / shrink, soften, invert.
+    static func refine(_ mask: CIImage, _ m: SubjectMask, frame: CGRect) -> CIImage {
+        let short = Double(min(frame.width, frame.height))
+        var out = mask
+        let r = abs(m.grow) * short * 0.025
+        if r >= 0.5 {
+            out = out.clampedToExtent()
+                .applyingFilter(m.grow > 0 ? "CIMorphologyMaximum" : "CIMorphologyMinimum", parameters: [kCIInputRadiusKey: r])
+                .cropped(to: frame)
+        }
+        let sigma = m.feather * short * 0.012
+        if sigma >= 0.3 {
+            out = out.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: frame)
+        }
+        if m.invert { out = out.applyingFilter("CIColorInvert").cropped(to: frame) }
+        return out
     }
 
     /// Background with the clip's mask settings applied (blur, darken, black & white).

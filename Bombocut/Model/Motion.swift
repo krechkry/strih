@@ -171,4 +171,27 @@ struct SubjectMask: Codable, Hashable {
     var blur = 0.0          // 0...1 background blur
     var dim = 0.0           // 0...1 background darkening (1 = black)
     var desaturate = 0.0    // 0...1 background to black & white
+    var feather = 0.15      // 0...1 edge softness
+    var grow = 0.0          // -1...1 pull the edge in (−) or push it out (+)
+    var invert = false      // treat the background as the subject
+
+    init(kind: Kind = .person, blur: Double = 0, dim: Double = 0, desaturate: Double = 0) {
+        self.kind = kind
+        self.blur = blur
+        self.dim = dim
+        self.desaturate = desaturate
+    }
+
+    enum CodingKeys: String, CodingKey { case kind, blur, dim, desaturate, feather, grow, invert }
+
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .person
+        blur = try c.decodeIfPresent(Double.self, forKey: .blur) ?? 0
+        dim = try c.decodeIfPresent(Double.self, forKey: .dim) ?? 0
+        desaturate = try c.decodeIfPresent(Double.self, forKey: .desaturate) ?? 0
+        feather = try c.decodeIfPresent(Double.self, forKey: .feather) ?? 0.15
+        grow = try c.decodeIfPresent(Double.self, forKey: .grow) ?? 0
+        invert = try c.decodeIfPresent(Bool.self, forKey: .invert) ?? false
+    }
 }

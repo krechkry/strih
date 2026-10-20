@@ -104,7 +104,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
 
             // subject cut-out: background effects and overlays that go behind the subject
             var masked = false
-            if let m = state.mask, let mask = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+            if let m = state.mask, let raw = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+                let mask = SubjectMasker.refine(raw, m, frame: frame)
                 var back = SubjectMasker.background(image, m, frame: frame)
                 if hasOverlays {
                     back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: videoFrame)
