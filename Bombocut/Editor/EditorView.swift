@@ -27,7 +27,7 @@ struct EditorView: View {
         case .stabilize: return 280
         case .track: return 360
         case .overlay: return 430
-        case .mask: return 400
+        case .mask: return 430
         }
     }
 
