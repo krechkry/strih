@@ -10,7 +10,7 @@ enum SpeechModel: String, CaseIterable {
 
     static let version: AsrModelVersion = .ultra
 
-    var title: String { loc("Czech · Slovak · English") }
+    var title: String { loc("25 languages") }
     var sizeLabel: String { loc("about 650 MB") }
 
     static func needed(for languages: Set<String>) -> SpeechModel { .parakeet }
@@ -22,7 +22,7 @@ enum SpeechModel: String, CaseIterable {
 enum Prefs {
     /// Caption languages picked on first launch.
     static var languages: Set<String> {
-        get { Set((UserDefaults.standard.string(forKey: "captionLanguages") ?? "cs").split(separator: ",").map(String.init)) }
+        get { Set((UserDefaults.standard.string(forKey: "captionLanguages") ?? CaptionLanguage.suggested).split(separator: ",").map(String.init)) }
         set { UserDefaults.standard.set(newValue.sorted().joined(separator: ","), forKey: "captionLanguages") }
     }
 }

@@ -52,6 +52,50 @@
         }
       }
     },
+    "%lld days of your trial left.": {
+      "localizations": {
+        "cs": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zkušební doba: zbývá %lld den."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zkušební doba: zbývají %lld dny."
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zkušební doba: zbývá %lld dní."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zkušební doba: zbývá %lld dní."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "1 day of your trial left.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zkušební doba: zbývá 1 den."
+          }
+        }
+      }
+    },
     "1 line": {
       "localizations": {
         "cs": {
@@ -68,6 +112,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "2 řádky"
+          }
+        }
+      }
+    },
+    "25 languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25 jazyků"
+          }
+        }
+      }
+    },
+    "A video editor for your iPhone. Subtitles are made on your iPhone, offline, in 25 languages.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Střihač videa pro tvůj iPhone. Titulky vznikají přímo v iPhonu, offline, ve 25 jazycích."
           }
         }
       }
@@ -142,6 +206,16 @@
         }
       }
     },
+    "All updates included": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny aktualizace v ceně"
+          }
+        }
+      }
+    },
     "Analyze & stabilize": {
       "localizations": {
         "cs": {
@@ -188,6 +262,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jakýkoli objekt"
+          }
+        }
+      }
+    },
+    "App language": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jazyk aplikace"
           }
         }
       }
@@ -282,12 +366,22 @@
         }
       }
     },
-    "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. The only thing it downloads is the speech model, once, from Hugging Face.": {
+    "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. It downloads the speech model once, from Hugging Face, and checks your purchase with the App Store.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut nesbírá žádná data. Videa, titulky a projekty zůstávají v iPhonu. Jediné, co stahuje, je jednou hlasový model z Hugging Face."
+            "value": "Bombocut nesbírá žádná data. Videa, titulky a projekty zůstávají v iPhonu. Jednou stáhne hlasový model z Hugging Face a nákup ověřuje přes App Store."
+          }
+        }
+      }
+    },
+    "Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bombocut tvoří úplně malý tým. Díky nákupu můžou přicházet další aktualizace a tvoje zpětná vazba rozhoduje, co vznikne dál."
           }
         }
       }
@@ -308,6 +402,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bombocut zabírá"
+          }
+        }
+      }
+    },
+    "Bought. Thank you!": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koupeno. Díky!"
           }
         }
       }
@@ -342,6 +446,36 @@
         }
       }
     },
+    "Buy Bombocut once to keep editing. Your projects are safe on your iPhone and open right after.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kup si Bombocut jednou a stříhej dál. Projekty máš v bezpečí v iPhonu a otevřou se hned po nákupu."
+          }
+        }
+      }
+    },
+    "Buy for %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koupit za %@"
+          }
+        }
+      }
+    },
+    "Buy now for %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koupit hned za %@"
+          }
+        }
+      }
+    },
     "CAPS": {
       "localizations": {
         "cs": {
@@ -358,6 +492,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mezipaměť"
+          }
+        }
+      }
+    },
+    "Can't reach the App Store. Check your connection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedá se spojit s App Storem. Zkontroluj připojení."
           }
         }
       }
@@ -492,6 +636,16 @@
         }
       }
     },
+    "Continue": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokračovat"
+          }
+        }
+      }
+    },
     "Contrast": {
       "localizations": {
         "cs": {
@@ -528,16 +682,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vlastní fps"
-          }
-        }
-      }
-    },
-    "Czech · Slovak · English": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Čeština · Slovenština · Angličtina"
           }
         }
       }
@@ -842,6 +986,16 @@
         }
       }
     },
+    "Everything unlocked from day one": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno odemčené od prvního dne"
+          }
+        }
+      }
+    },
     "Export": {
       "localizations": {
         "cs": {
@@ -992,6 +1146,50 @@
         }
       }
     },
+    "Free trial: %lld days left": {
+      "localizations": {
+        "cs": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zdarma: zbývá %lld den"
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zdarma: zbývají %lld dny"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zdarma: zbývá %lld dní"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Zdarma: zbývá %lld dní"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Free trial: 1 day left": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdarma: zbývá 1 den"
+          }
+        }
+      }
+    },
     "Generate captions": {
       "localizations": {
         "cs": {
@@ -1118,6 +1316,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zmizí navždy i s importovanými videi. Koš neexistuje. Originály ve Fotkách zůstanou."
+          }
+        }
+      }
+    },
+    "Keep Bombocut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nech si Bombocut"
           }
         }
       }
@@ -1252,6 +1460,16 @@
         }
       }
     },
+    "Made by a tiny team": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dělá to malinký tým"
+          }
+        }
+      }
+    },
     "Made in Prague.": {
       "localizations": {
         "cs": {
@@ -1298,6 +1516,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moondream. Dotrénovaný Parakeet TDT v3, převedený do Core ML od FluidInference. Licence: CC BY 4.0."
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další"
           }
         }
       }
@@ -1378,6 +1606,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Další klíčový snímek"
+          }
+        }
+      }
+    },
+    "No locked features, no ads": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádné zamčené funkce, žádné reklamy"
+          }
+        }
+      }
+    },
+    "No purchase found for this Apple Account.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro tento Apple účet se nákup nenašel."
           }
         }
       }
@@ -1518,6 +1766,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překryvy s volbou „Za objektem“ jsou mezi pozadím a objektem."
+          }
+        }
+      }
+    },
+    "Pay once, %@. No subscription, ever.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatíš jednou, %@. Žádné předplatné, nikdy."
           }
         }
       }
@@ -1742,6 +2000,16 @@
         }
       }
     },
+    "Restore purchase": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovit nákup"
+          }
+        }
+      }
+    },
     "Runs on your iPhone, offline.": {
       "localizations": {
         "cs": {
@@ -1808,6 +2076,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat objekt"
+          }
+        }
+      }
+    },
+    "Send feedback": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslat zpětnou vazbu"
           }
         }
       }
@@ -1952,6 +2230,16 @@
         }
       }
     },
+    "Start 7-day free trial": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyzkoušet 7 dní zdarma"
+          }
+        }
+      }
+    },
     "Storage": {
       "localizations": {
         "cs": {
@@ -1998,6 +2286,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sledování objektů, masky, rozmazání pohybem, plynulé zpomalení, efekty."
+          }
+        }
+      }
+    },
+    "Subtitles on your iPhone, offline, in 25 languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky v iPhonu, offline, ve 25 jazycích"
           }
         }
       }
@@ -2072,12 +2370,42 @@
         }
       }
     },
+    "The 7-day trial is free and has everything unlocked. After 7 days Bombocut stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech Bombocut přestane fungovat, pokud si ho jednou nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
+          }
+        }
+      }
+    },
+    "The purchase is waiting for approval.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nákup čeká na schválení."
+          }
+        }
+      }
+    },
     "The speech model is about 650 MB. Wi-Fi is better.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Hlasový model má asi 650 MB. Lepší je Wi-Fi."
+          }
+        }
+      }
+    },
+    "Then buy it once, or don't. Simple as that.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pak si ho jednou koupíš, nebo ne. Tak jednoduché to je."
           }
         }
       }
@@ -2142,12 +2470,32 @@
         }
       }
     },
+    "Try everything free for 7 days": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyzkoušej všechno 7 dní zdarma"
+          }
+        }
+      }
+    },
     "Typewriter": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Psací stroj"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrátit"
           }
         }
       }
@@ -2252,22 +2600,12 @@
         }
       }
     },
-    "Welcome to Bombocut": {
+    "Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPhone, offline.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vítej v Bombocutu"
-          }
-        }
-      }
-    },
-    "Which languages do you speak in your videos? Bombocut downloads only the speech model you need. Captions then run on your iPhone, offline.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jakými jazyky ve videích mluvíš? Bombocut stáhne jen model, který potřebuješ. Titulky pak běží v iPhonu, offline."
+            "value": "Jakými jazyky ve videích mluvíš? Jeden hlasový model zvládne všech 25. Titulky pak běží v iPhonu, offline."
           }
         }
       }
@@ -2318,6 +2656,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Můžeš to zavřít a stříhat dál. Štítek nahoře ukáže, až budou hotové."
+          }
+        }
+      }
+    },
+    "Your 7 free days are over": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tvých 7 dní zdarma skončilo"
+          }
+        }
+      }
+    },
+    "Your languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tvoje jazyky"
           }
         }
       }

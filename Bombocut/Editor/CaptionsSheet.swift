@@ -4,7 +4,7 @@ import SwiftUI
 struct CaptionsSheet: View {
     @ObservedObject var model: EditorModel
     @ObservedObject private var speech = SpeechModels.shared
-    @State private var language = Prefs.languages.contains("cs") ? "cs" : (Prefs.languages.first ?? "cs")
+    @AppStorage("lastCaptionLanguage") private var language = Prefs.languages.sorted().first ?? "en"
     @AppStorage("captionNames") private var names = ""
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
@@ -17,7 +17,11 @@ struct CaptionsSheet: View {
     @State private var askedCellular = false
     @FocusState private var focusedCue: UUID?
 
-    private let languages: [(String, String)] = [("cs", "Čeština"), ("sk", "Slovenčina"), ("en", "English")]
+    /// Your languages first (from setup), plus the one in use.
+    private var languages: [CaptionLanguage.Item] {
+        let mine = Prefs.languages.union([language])
+        return CaptionLanguage.all.filter { mine.contains($0.code) }
+    }
 
     var body: some View {
         Group {
@@ -57,18 +61,34 @@ struct CaptionsSheet: View {
     private var generator: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Captions").font(.title2.weight(.heavy))
-            HStack(spacing: 8) {
-                ForEach(languages, id: \.0) { l in
-                    Button { language = l.0 } label: {
-                        Text(l.1)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(language == l.0 ? .black : .white)
-                            .padding(.horizontal, 14).frame(height: 38)
-                            .background(language == l.0 ? Theme.accent : Theme.panel2, in: Capsule())
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(languages, id: \.code) { l in
+                        Button { language = l.code } label: {
+                            Text(verbatim: l.name)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(language == l.code ? .black : .white)
+                                .padding(.horizontal, 14).frame(height: 38)
+                                .background(language == l.code ? Theme.accent : Theme.panel2, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    Menu {
+                        ForEach(CaptionLanguage.all, id: \.code) { l in
+                            Button { pick(l.code) } label: {
+                                Text(verbatim: "\(l.flag) \(l.name)")
+                            }
+                        }
+                    } label: {
+                        Label("More", systemImage: "plus")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 38)
+                            .background(Theme.panel2, in: Capsule())
+                    }
                 }
             }
+            .scrollIndicators(.hidden)
             .disabled(phase != nil)
 
             TextField("Names & slang, comma separated", text: $names)
@@ -101,6 +121,12 @@ struct CaptionsSheet: View {
                 Text(error).font(.footnote.weight(.semibold)).foregroundStyle(.red)
             }
         }
+    }
+
+    /// A language from the full list: use it now and keep it among your languages.
+    private func pick(_ code: String) {
+        language = code
+        Prefs.languages.insert(code)
     }
 
     private var modelNote: String {

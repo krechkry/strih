@@ -1,0 +1,53 @@
+{
+  "identifier" : "B0B0C0CA",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0",
+      "familyShareable" : false,
+      "internalID" : "6740000001",
+      "localizations" : [
+        {
+          "description" : "Everything unlocked for 7 days.",
+          "displayName" : "7-day Free Trial",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "cz.krechler.bombocut.trial",
+      "referenceName" : "7-day Free Trial",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "149",
+      "familyShareable" : true,
+      "internalID" : "6740000002",
+      "localizations" : [
+        {
+          "description" : "Buy Bombocut once. No subscription.",
+          "displayName" : "Bombocut",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "cz.krechler.bombocut.full",
+      "referenceName" : "Bombocut Full",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "cs_CZ",
+    "_storefront" : "CZE",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

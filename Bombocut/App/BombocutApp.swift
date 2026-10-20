@@ -18,7 +18,7 @@ struct BombocutApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
@@ -37,8 +37,8 @@ enum Demo {
     }()
 }
 
-/// Looks up the translation of a UI string (Czech when the phone is in Czech).
-func loc(_ s: String) -> String { NSLocalizedString(s, comment: "") }
+/// Looks up the translation of a UI string in the app language.
+func loc(_ s: String) -> String { NSLocalizedString(s, bundle: AppLanguage.bundle, comment: "") }
 
 enum Theme {
     static let accent = Color(red: 0.894, green: 1.0, blue: 0.353)   // #E4FF5A

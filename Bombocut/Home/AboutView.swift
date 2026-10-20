@@ -4,6 +4,9 @@ import SwiftUI
 /// Version, privacy and the credits the speech model's and libraries' licenses ask for.
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @ObservedObject private var purchases = Purchases.shared
+    @AppStorage("appLanguage") private var language = AppLanguage.current
 
     private var version: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -19,13 +22,51 @@ struct AboutView: View {
                         Text("Bombocut").font(.largeTitle.weight(.heavy))
                         Text(version).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(Theme.muted)
                     }
-                    block("Privacy", "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. The only thing it downloads is the speech model, once, from Hugging Face.")
+                    block("Made by a tiny team", "Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
+                    HStack(spacing: 10) {
+                        if let url = Support.mailURL() {
+                            pill("Send feedback", "envelope.fill") { openURL(url) }
+                        }
+                        if purchases.access != .owned {
+                            pill("Restore purchase", "arrow.clockwise") { Task { await purchases.restore() } }
+                        }
+                    }
+                    if purchases.access == .owned {
+                        Label("Bought. Thank you!", systemImage: "checkmark.seal.fill")
+                            .font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
+                    }
+                    block("App language", nil)
+                    HStack(spacing: 10) {
+                        ForEach(AppLanguage.options, id: \.code) { o in
+                            Button {
+                                AppLanguage.set(o.code)
+                                language = o.code
+                            } label: {
+                                Text(verbatim: "\(o.flag) \(o.name)")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(language == o.code ? .black : .white)
+                                    .padding(.horizontal, 14).frame(height: 38)
+                                    .background(language == o.code ? Theme.accent : Theme.panel2, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.top, -14)
+                    block("Privacy", "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. It downloads the speech model once, from Hugging Face, and checks your purchase with the App Store.")
                     block("Credits", nil)
                     credit("Parakeet TDT 0.6B v3", "NVIDIA. Speech recognition model. License: CC BY 4.0.")
                     credit("Parakeet Ultra", "Moondream. Further training of Parakeet TDT v3, converted to Core ML by FluidInference. License: CC BY 4.0.")
                     credit("FluidAudio", "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0.")
                     credit("Apple Vision, Video Toolbox, Core Image", "Subject tracking, masks, motion blur, smooth slow motion, effects.")
                     Text("Made in Prague.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    #if DEBUG
+                    block("Test (Xcode builds only)", nil)
+                    HStack(spacing: 10) {
+                        pill("End trial", "hourglass.bottomhalf.filled") { purchases.debugExpireTrial(true) }
+                        pill("Undo", "arrow.uturn.backward") { purchases.debugExpireTrial(false) }
+                    }
+                    .padding(.top, -14)
+                    #endif
                 }
                 .padding(20)
             }
@@ -43,6 +84,17 @@ struct AboutView: View {
             Text(title).font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
             if let text { Text(text).font(.subheadline.weight(.semibold)) }
         }
+    }
+
+    private func pill(_ title: LocalizedStringKey, _ icon: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14).frame(height: 38)
+                .background(Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func credit(_ name: String, _ text: LocalizedStringKey) -> some View {

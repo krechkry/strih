@@ -11,11 +11,15 @@ packages:
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
     revision: 61d41b3ca04833d1cb80632c82ba401f117a01ef
+fileGroups:
+  - Bombocut.storekit
 targets:
   Bombocut:
     type: application
     platform: iOS
     sources: [Bombocut]
+    scheme:
+      storeKitConfiguration: Bombocut.storekit
     dependencies:
       - package: FluidAudio
         product: FluidAudio

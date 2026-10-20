@@ -7,15 +7,25 @@ struct LanguageSetupView: View {
     @State private var askCellular = false
     @State private var picked: Set<String> = Prefs.languages
     var firstLaunch = false
+    /// Onboarding: called instead of closing.
+    var onDone: (() -> Void)? = nil
 
-    private let options: [(String, String, String)] = [("cs", "Čeština", "🇨🇿"), ("sk", "Slovenčina", "🇸🇰"), ("en", "English", "🇬🇧")]
+    /// Your languages on top (as they were when the screen opened), then the rest.
+    @State private var order: [CaptionLanguage.Item] = {
+        let mine = Prefs.languages
+        return CaptionLanguage.all.filter { mine.contains($0.code) } + CaptionLanguage.all.filter { !mine.contains($0.code) }
+    }()
+
+    private func finish() {
+        if let onDone { onDone() } else { dismiss() }
+    }
 
     private var model: SpeechModel { SpeechModel.needed(for: picked) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Text(firstLaunch ? "Welcome to Bombocut" : "Captions").font(.title2.weight(.heavy))
+                Text(firstLaunch ? "Your languages" : "Captions").font(.title2.weight(.heavy))
                 Spacer()
                 if !firstLaunch {
                     Button { dismiss() } label: {
@@ -26,35 +36,36 @@ struct LanguageSetupView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Which languages do you speak in your videos? Bombocut downloads only the speech model you need. Captions then run on your iPhone, offline.")
+            Text("Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPhone, offline.")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.muted)
 
-            VStack(spacing: 10) {
-                ForEach(options, id: \.0) { o in
-                    let on = picked.contains(o.0)
-                    Button {
-                        if on { if picked.count > 1 { picked.remove(o.0) } } else { picked.insert(o.0) }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(o.2).font(.title2)
-                            Text(o.1).font(.headline.weight(.bold))
-                            Spacer()
-                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(on ? Theme.accent : Theme.muted)
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(order, id: \.code) { o in
+                        let on = picked.contains(o.code)
+                        Button {
+                            if on { if picked.count > 1 { picked.remove(o.code) } } else { picked.insert(o.code) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(o.flag).font(.title3)
+                                Text(verbatim: o.name).font(.headline.weight(.bold))
+                                Spacer()
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(on ? Theme.accent : Theme.muted)
+                            }
+                            .padding(.horizontal, 16).frame(height: 50)
+                            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(on ? Theme.accent : .clear, lineWidth: 2))
                         }
-                        .padding(.horizontal, 16).frame(height: 58)
-                        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(on ? Theme.accent : .clear, lineWidth: 2))
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
+            .scrollIndicators(.hidden)
 
             modelCard
-
-            Spacer(minLength: 0)
 
             Button {
                 Prefs.languages = picked
@@ -62,7 +73,7 @@ struct LanguageSetupView: View {
                     askCellular = true
                 } else {
                     speech.startDownload(model)
-                    dismiss()
+                    finish()
                 }
             } label: {
                 Text(speech.isReady(model) ? "Done" : "Download now")
@@ -75,7 +86,7 @@ struct LanguageSetupView: View {
             if !speech.isReady(model) {
                 Button {
                     Prefs.languages = picked
-                    dismiss()
+                    finish()
                 } label: {
                     Text("Later")
                         .font(.headline.weight(.bold))
@@ -90,7 +101,7 @@ struct LanguageSetupView: View {
         .background(Theme.panel.ignoresSafeArea())
         .interactiveDismissDisabled(firstLaunch)
         .alert("Download on mobile data?", isPresented: $askCellular) {
-            Button("Download anyway") { speech.startDownload(model); dismiss() }
+            Button("Download anyway") { speech.startDownload(model); finish() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The speech model is about 650 MB. Wi-Fi is better.")

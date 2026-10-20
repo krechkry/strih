@@ -23,6 +23,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    TrialPill()
                     downloadBanner
                     newProjectCard
                     if !store.projects.isEmpty {
@@ -76,7 +77,6 @@ struct HomeView: View {
             }
             .onAppear {
                 if Demo.mode == "setup" { showSetup = true }
-                else if Demo.mode == nil && !onboarded { showSetup = true }
             }
             .navigationDestination(item: $openProject) { p in
                 EditorView(project: p, store: store)
