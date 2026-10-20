@@ -44,3 +44,13 @@ Working through Kryštof's feedback from 22:47, most important first. Each finis
 - With nothing selected, a gesture still moves the clip at the playhead and selects it (like CapCut's main track). Overlays and captions never move unless selected.
 
 ## Skipped / for the morning
+- **Test on the iPhone** (can't be done from here; the simulator has no Video Toolbox frame engine and no real keyboard):
+  1. Motion blur: does it now play frame by frame in the editor? Does the export look as good as before?
+  2. Typing text / caption lines: panel shrinks above the keyboard, preview stays visible.
+  3. Drag a panel slowly by its handle: no more jumping.
+  4. Selection rule: with an overlay selected, then a clip selected, then nothing selected.
+  5. Pick clips: Motion blur → Pick clips → tap clips → Apply.
+  6. Mask → Transparent video → open it in DaVinci or CapCut to check the alpha.
+- **Feedback email**: the Send feedback button stays hidden until you tell me which address to use.
+- **App Store Connect**: create the two in-app purchases (free "7-day Free Trial" and the 149 Kč unlock). Not touched.
+- **Outro clip**: waiting for your video.
