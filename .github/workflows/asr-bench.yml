@@ -58,38 +58,3 @@ jobs:
           git commit -qm "bench result"
           git push -fq origin "$B"
 
-  parakeet:
-    runs-on: macos-15
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v5
-      - name: Pick newest Xcode
-        run: |
-          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
-          sudo xcode-select -s "$XC"
-      - name: Czech test speech (macOS voice)
-        working-directory: bench/audio
-        run: |
-          V=$(say -v '?' | grep -i "cs_CZ" | head -1 | awk '{print $1}')
-          if [ -n "$V" ]; then
-            T="Tohle je test českého jazyka. Já jsem Kryštof, ahoj, jak se máš? Pa pa. Dneska jedeme na skatepark a natočíme nový díl."
-            say -v "$V" -r 170 -o tts.aiff "$T"
-            afconvert -f WAVE -d LEI16@16000 -c 1 tts.aiff tts_cs.wav
-          fi
-      - name: Build and run
-        working-directory: bench/parakeet
-        run: |
-          swift build -c release 2>&1 | tail -30
-          .build/release/PKBench ../audio/*.wav | tee ../result.md
-      - name: Publish result
-        if: always()
-        run: |
-          B="bench-parakeet"
-          cp bench/result.md /tmp/result.md || echo "no result" > /tmp/result.md
-          git config user.name bench; git config user.email bench@users.noreply.github.com
-          git checkout --orphan "$B"
-          git rm -rfq . > /dev/null
-          cp /tmp/result.md result.md
-          git add result.md
-          git commit -qm "bench result"
-          git push -fq origin "$B"
