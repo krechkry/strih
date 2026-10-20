@@ -585,7 +585,7 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .adjust
             }
-        case "captions", "captionstyle", "captionsframe":
+        case "captions", "captionstyle", "captionsframe", "captionsel":
             let text = "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark v Karlíně a natočíme nový díl. Robin jede první, pak zbytek party. To je ono!"
             var t = 0.3
             let words = text.split(separator: " ").map { w -> CaptionWord in
@@ -597,7 +597,10 @@ struct EditorView: View {
             caps.recut()
             model.setCaptions(caps)
             model.scrub(to: mode == "captionsframe" ? 2.05 : 1.2)
-            if mode != "captionsframe" {
+            if mode == "captionsel", let cue = model.project.captions?.cues.dropFirst(2).first {
+                try? await Task.sleep(for: .seconds(0.6))
+                model.openCaption(cue)
+            } else if mode != "captionsframe" {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .captions
             }
@@ -643,6 +646,12 @@ struct EditorView: View {
             model.editOverlay { $0.kind = .text("BIG UP!") }
             model.selectOverlay(nil)
             model.showSafeZoneForDemo()
+        case "motionblur":
+            guard let first = clips.first else { break }
+            model.selectedClipID = first.id
+            model.mutateLook { $0.clips[0].motionBlur = 0.55 }
+            try? await Task.sleep(for: .seconds(0.6))
+            sheet = .motionBlur
         case "pick":
             guard clips.count > 2 else { break }
             model.selectedClipID = clips[0].id
