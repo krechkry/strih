@@ -25,7 +25,7 @@ struct MaskSheet: View {
                     slider("Blur background", m.blur) { v in model.editClip { $0.mask?.blur = v } }
                     slider("Darken background", m.dim) { v in model.editClip { $0.mask?.dim = v } }
                     slider("Background black & white", m.desaturate) { v in model.editClip { $0.mask?.desaturate = v } }
-                    Text("Overlays set to \\"Behind subject\\" go between the background and the subject.")
+                    Text("Overlays set to “Behind subject” go between the background and the subject.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 } else {
                     Text("Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject.")
