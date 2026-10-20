@@ -164,6 +164,7 @@ enum CompositionBuilder {
 
         // Video overlays: one muted track each, placed at the overlay's time.
         var overlayTracks: [UUID: OverlayTrack] = [:]
+        var overlayAudio: [AVAudioMixInputParameters] = []
         for o in project.overlays {
             guard case .video(let file, _, let inPoint) = o.kind, o.start < cursor.seconds else { continue }
             let asset = AVURLAsset(url: Paths.mediaURL(file))
@@ -179,6 +180,20 @@ enum CompositionBuilder {
                 overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
             } else {
                 comp.removeTrack(track)
+                continue
+            }
+            // its sound, on its own track so its volume is separate
+            if o.volume > 0.001, let a = try? await asset.loadTracks(withMediaType: .audio).first,
+               let ar = try? await a.load(.timeRange),
+               let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                let rr = r.intersection(ar)
+                if rr.duration.seconds > 0.01, (try? at.insertTimeRange(rr, of: a, at: time(o.start + (rr.start - r.start).seconds))) != nil {
+                    let p = AVMutableAudioMixInputParameters(track: at)
+                    p.setVolume(Float(o.volume), at: .zero)
+                    overlayAudio.append(p)
+                } else {
+                    comp.removeTrack(at)
+                }
             }
         }
 
@@ -187,7 +202,7 @@ enum CompositionBuilder {
             if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
         }
         let mix = AVMutableAudioMix()
-        mix.inputParameters = mixParams
+        mix.inputParameters = mixParams + overlayAudio
 
         // Instructions must cover the whole composition without gaps.
         let total = max(cursor, comp.duration)

@@ -1315,6 +1315,12 @@ final class EditorModel: ObservableObject {
         if video && timing { mutate { $0.overlays[i] = o } } else { mutateLook { $0.overlays[i] = o } }
     }
 
+    /// Video overlay sound changed: the audio mix is rebuilt once the slider is let go.
+    func overlayVolumeEnded() {
+        liveEditEnded()
+        rebuild()
+    }
+
     /// Opacity slider: the fixed value, or the keyframe at the playhead.
     func editOverlayOpacity(_ v: Double) {
         guard let i = selectedOverlayIndex else { return }

@@ -53,6 +53,17 @@ struct OverlaySheet: View {
                             }
                         }
                     }
+                    if o.kind.isVideo {
+                        section("Volume") {
+                            HStack(spacing: 12) {
+                                Image(systemName: o.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 24)
+                                Slider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
+                                       onEditingChanged: { e in
+                                    if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
+                                })
+                            }
+                        }
+                    }
                     slider("Opacity", value: o.pose(at: model.currentTime).opacity, in: 0.05...1) { v in model.editOverlayOpacity(v) }
                     Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
                         VStack(alignment: .leading, spacing: 2) {
