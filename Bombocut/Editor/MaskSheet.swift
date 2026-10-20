@@ -39,7 +39,7 @@ struct MaskSheet: View {
 
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.subheadline.weight(.bold))
+            Text(loc(title)).font(.subheadline.weight(.bold))
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())
@@ -50,7 +50,7 @@ struct MaskSheet: View {
     private func slider(_ title: String, _ value: Double, _ set: @escaping (Double) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 Spacer()
                 Text("\(Int((value * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
             }

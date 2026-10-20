@@ -1,6 +1,7 @@
 name: Bombocut
 options:
   bundleIdPrefix: cz.krechler
+  developmentLanguage: en
   deploymentTarget:
     iOS: "18.0"
 settings:
@@ -26,6 +27,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "Bombocut"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Bombocut saves exported videos to your library."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Bombocut imports videos you pick to edit them."
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -34,6 +38,6 @@ targets:
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
-        MARKETING_VERSION: "0.1"
+        MARKETING_VERSION: "0.9"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

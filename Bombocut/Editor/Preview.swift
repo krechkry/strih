@@ -217,7 +217,7 @@ struct PreviewArea: View {
                 ProgressView().tint(Theme.accent).scaleEffect(1.3).allowsHitTesting(false)
             }
             VStack {
-                Text(pickBanner)
+                Text(loc(pickBanner))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 14).padding(.vertical, 7)
@@ -255,7 +255,7 @@ struct PreviewArea: View {
 
     private func pill(_ title: String, lime: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(lime ? .black : .white)
+            Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(lime ? .black : .white)
                 .lineLimit(1).fixedSize()
                 .padding(.horizontal, lime ? 20 : 14).frame(height: 42)
                 .background(lime ? Theme.accent : Theme.panel2, in: Capsule())
@@ -360,7 +360,7 @@ struct PreviewArea: View {
 
     private func analysisOverlay(_ a: AnalysisState) -> some View {
         VStack(spacing: 10) {
-            Text("\(a.title) \(Int(a.progress * 100)) %").font(.headline.weight(.bold))
+            Text(loc(a.title) + " \(Int(a.progress * 100)) %").font(.headline.weight(.bold))
             ProgressView(value: a.progress).tint(Theme.accent).frame(width: 180)
             Button { model.cancelAnalysis() } label: {
                 Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.8))
@@ -479,7 +479,7 @@ struct TrimTwoUp: View {
                 Image(uiImage: img).resizable().scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Text(label)
+            Text(loc(label))
                 .font(.system(size: 11, weight: .heavy))
                 .foregroundStyle(moving ? .black : .white)
                 .padding(.horizontal, 8).padding(.vertical, 3)

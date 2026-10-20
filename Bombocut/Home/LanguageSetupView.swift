@@ -4,6 +4,7 @@ import SwiftUI
 struct LanguageSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var speech = SpeechModels.shared
+    @State private var askCellular = false
     @State private var picked: Set<String> = Prefs.languages
     var firstLaunch = false
 
@@ -57,8 +58,12 @@ struct LanguageSetupView: View {
 
             Button {
                 Prefs.languages = picked
-                speech.startDownload(model)
-                dismiss()
+                if !speech.isReady(model) && NetworkWatch.shared.onMobileData {
+                    askCellular = true
+                } else {
+                    speech.startDownload(model)
+                    dismiss()
+                }
             } label: {
                 Text(speech.isReady(model) ? "Done" : "Download now")
                     .font(.headline.weight(.bold))
@@ -84,6 +89,12 @@ struct LanguageSetupView: View {
         .padding(22)
         .background(Theme.panel.ignoresSafeArea())
         .interactiveDismissDisabled(firstLaunch)
+        .alert("Download on mobile data?", isPresented: $askCellular) {
+            Button("Download anyway") { speech.startDownload(model); dismiss() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The speech model is about 650 MB. Wi-Fi is better.")
+        }
     }
 
     private var modelCard: some View {

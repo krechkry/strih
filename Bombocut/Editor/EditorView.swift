@@ -192,7 +192,7 @@ struct EditorView: View {
                 case .downloading(let f): return ("Downloading voice model", f)
                 case .preparingAudio: return ("Reading audio", nil)
                 case .loadingModel: return ("Setting up voice model", nil)
-                case .listening(let f): return ("Captions \(Int(f * 100)) %", f)
+                case .listening(let f): return (String(format: loc("Captions %lld %%"), Int(f * 100)), f)
                 }
             }()
             return AnyView(pillView(icon: "waveform", text: text, progress: f, tint: Theme.accent) { sheet = .captions })
@@ -222,12 +222,12 @@ struct EditorView: View {
                     _ = e
                 }
             } else if st.looksStuck(now: ctx.date) {
-                pillView(icon: "arrow.clockwise", text: "Taking long (\(clock)). Tap to restart", progress: nil, tint: .orange) {
+                pillView(icon: "arrow.clockwise", text: String(format: loc("Taking long (%@). Tap to restart"), clock), progress: nil, tint: .orange) {
                     if let u = SpeechEngine.preferredFolder { SpeechEngine.retry(u) }
                 }
             } else {
                 let label = st.firstTime
-                    ? "Preparing voice model · \(clock)"
+                    ? String(format: loc("Preparing voice model · %@"), clock)
                     : "Loading voice model"
                 pillView(icon: "waveform", text: label, progress: st.fraction(now: ctx.date), tint: Theme.accent) {}
             }
@@ -244,7 +244,7 @@ struct EditorView: View {
                     } else {
                         Image(systemName: icon).font(.caption.weight(.bold)).foregroundStyle(tint)
                     }
-                    Text(text).font(.caption.weight(.bold)).lineLimit(1)
+                    Text(loc(text)).font(.caption.weight(.bold)).lineLimit(1)
                 }
                 if let progress {
                     ProgressView(value: progress).tint(tint).frame(width: 120)
@@ -557,7 +557,7 @@ struct ToolLabel: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 20, weight: .medium))
-            Text(label).font(.caption2.weight(.semibold))
+            Text(loc(label)).font(.caption2.weight(.semibold))
         }
         .foregroundStyle(tint.opacity(enabled ? 1 : 0.3))
         .frame(width: 66, height: 60)

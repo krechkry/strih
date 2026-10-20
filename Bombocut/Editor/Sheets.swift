@@ -363,7 +363,7 @@ struct ExportSheet: View {
             Spacer()
             Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 44)).foregroundStyle(.orange)
             Text("Export failed").font(.title3.weight(.semibold))
-            Text(msg).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+            Text(loc(msg)).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Button("Back to settings") { phase = .setup }
             Spacer()
         }
@@ -463,7 +463,7 @@ struct TrackSheet: View {
 
     private func edgePill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.subheadline.weight(.bold))
+            Text(loc(title)).font(.subheadline.weight(.bold))
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())
@@ -479,7 +479,7 @@ struct TrackSheet: View {
                 HStack(spacing: 8) {
                     ForEach(FollowMode.allCases, id: \.self) { m in
                         Button { model.setFollow(m) } label: {
-                            Text(m.title).font(.subheadline.weight(.bold))
+                            Text(loc(m.title)).font(.subheadline.weight(.bold))
                                 .foregroundStyle(tr.mode == m ? .black : .white)
                                 .padding(.horizontal, 14).frame(height: 38)
                                 .background(tr.mode == m ? Theme.accent : Theme.panel2, in: Capsule())

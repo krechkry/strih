@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showSetup = false
     @State private var showSettings = false
     @State private var showStorage = false
+    @State private var showAbout = false
     @ObservedObject private var speech = SpeechModels.shared
 
     var body: some View {
@@ -49,6 +50,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 4) {
+                        Button { showAbout = true } label: { Image(systemName: "info.circle") }
                         Button { showStorage = true } label: { Image(systemName: "internaldrive") }
                         Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
                     }
@@ -65,6 +67,7 @@ struct HomeView: View {
             } message: { _ in
                 Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
             }
+            .sheet(isPresented: $showAbout) { AboutView() }
             .sheet(isPresented: $showStorage) {
                 StorageView().environmentObject(store)
             }
@@ -238,7 +241,7 @@ private struct ProjectRow: View {
                 Text(project.name).font(.body.weight(.semibold)).lineLimit(1)
                 Text(Fmt.duration(project.duration))
                     .font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.85))
-                Text("\(project.clips.count) \(project.clips.count == 1 ? "clip" : "clips") · \(size)")
+                Text(String(format: loc(project.clips.count == 1 ? "%lld clip" : "%lld clips"), project.clips.count) + " · " + size)
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()

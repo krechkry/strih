@@ -84,7 +84,7 @@ struct SpeedSheet: View {
                 model.setCurve(points)
             }
         } label: {
-            Text(title)
+            Text(loc(title))
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(tab == i ? .black : .white)
                 .padding(.horizontal, 16).frame(height: 36)
@@ -251,7 +251,7 @@ struct SpeedSheet: View {
                     line.addLine(to: CGPoint(x: w, y: yy))
                     ctx.stroke(line, with: .color(.white.opacity(v == 1 ? 0.3 : 0.12)),
                                style: StrokeStyle(lineWidth: 1, dash: v == 1 ? [] : [4, 4]))
-                    ctx.draw(Text(label).font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.45)),
+                    ctx.draw(Text(loc(label)).font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.45)),
                              at: CGPoint(x: 8, y: min(max(yy - 8, 8), h - 8)), anchor: .leading)
                 }
                 var curve = Path()

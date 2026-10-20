@@ -13,7 +13,7 @@ struct AdjustSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(hint)
+                Text(loc(hint))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                     .lineLimit(1)
@@ -38,7 +38,7 @@ struct AdjustSheet: View {
             if let i = index {
                 let value = param.get(model.lookAtPlayhead(i))
                 HStack(alignment: .firstTextBaseline) {
-                    Text(param.title).font(.title3.weight(.bold))
+                    Text(loc(param.title)).font(.title3.weight(.bold))
                     Spacer()
                     Text(param.display(value))
                         .font(.system(size: 28, weight: .heavy).monospacedDigit())
@@ -69,8 +69,8 @@ struct AdjustSheet: View {
         guard let i = index else { return "" }
         let c = model.project.clips[i]
         if c.keyframes.isEmpty { return "Whole clip" }
-        if model.keyframeAtPlayhead(i) != nil { return "Editing keyframe at \(Fmt.time(model.currentTime))" }
-        return "Change adds a keyframe at \(Fmt.time(model.currentTime))"
+        if model.keyframeAtPlayhead(i) != nil { return String(format: loc("Editing keyframe at %@"), Fmt.time(model.currentTime)) }
+        return String(format: loc("Change adds a keyframe at %@"), Fmt.time(model.currentTime))
     }
 
     private func chip(_ p: LookParam) -> some View {
@@ -91,7 +91,7 @@ struct AdjustSheet: View {
                         Circle().fill(Theme.accent).frame(width: 9, height: 9).offset(x: -2, y: 2)
                     }
                 }
-                Text(p.title)
+                Text(loc(p.title))
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(on ? .white : Theme.muted)
                     .lineLimit(1)

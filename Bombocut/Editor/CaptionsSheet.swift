@@ -13,6 +13,8 @@ struct CaptionsSheet: View {
     @State private var savingTemplate = false
     @State private var templateName = ""
     @State private var confirmRegenerate = false
+    @State private var askCellular = false
+    @State private var askedCellular = false
     @FocusState private var focusedCue: UUID?
 
     private let languages: [(String, String)] = [("cs", "Čeština"), ("sk", "Slovenčina"), ("en", "English")]
@@ -37,6 +39,12 @@ struct CaptionsSheet: View {
             TextField("Name", text: $templateName)
             Button("Save") { saveTemplate() }
             Button("Cancel", role: .cancel) {}
+        }
+        .alert("Download on mobile data?", isPresented: $askCellular) {
+            Button("Download anyway") { askedCellular = true; generate() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The speech model is about 650 MB. Wi-Fi is better.")
         }
         .confirmationDialog("Generate captions again? Your text edits will be replaced.", isPresented: $confirmRegenerate,
                             titleVisibility: .visible) {
@@ -76,7 +84,7 @@ struct CaptionsSheet: View {
             if let phase {
                 progress(phase)
             } else {
-                Text(modelNote)
+                Text(loc(modelNote))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                 Button { generate() } label: {
@@ -98,20 +106,20 @@ struct CaptionsSheet: View {
     private var modelNote: String {
         let m = SpeechModel.needed(forLanguage: language)
         if speech.isReady(m) { return "Runs on your iPhone, offline." }
-        return "First time downloads the speech model (\(m.sizeLabel)). Wi-Fi recommended."
+        return String(format: loc("First time downloads the speech model (%@). Wi-Fi recommended."), m.sizeLabel)
     }
 
     private func progress(_ p: Transcriber.Phase) -> some View {
         let (label, value): (String, Double?) = {
             switch p {
-            case .downloading(let f): return ("Downloading speech model \(Int(f * 100)) %", f)
+            case .downloading(let f): return (String(format: loc("Downloading speech model %lld %%"), Int(f * 100)), f)
             case .preparingAudio: return ("Reading the audio…", nil)
             case .loadingModel: return ("Warming up the model (first time can take a minute)…", nil)
-            case .listening(let f): return ("Listening \(Int(f * 100)) %", f)
+            case .listening(let f): return (String(format: loc("Listening %lld %%"), Int(f * 100)), f)
             }
         }()
         return VStack(alignment: .leading, spacing: 10) {
-            Text(label).font(.subheadline.weight(.bold))
+            Text(loc(label)).font(.subheadline.weight(.bold))
             if let value {
                 ProgressView(value: value).tint(Theme.accent)
             } else {
@@ -125,6 +133,10 @@ struct CaptionsSheet: View {
     }
 
     private func generate() {
+        if !speech.isReady(SpeechModel.needed(forLanguage: language)) && NetworkWatch.shared.onMobileData && !askedCellular {
+            askCellular = true
+            return
+        }
         model.pause()
         model.startCaptions(language: language, names: names)
         tab = 0
@@ -155,7 +167,7 @@ struct CaptionsSheet: View {
 
     private func tabButton(_ title: String, _ i: Int) -> some View {
         Button { tab = i } label: {
-            Text(title)
+            Text(loc(title))
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(tab == i ? .black : .white)
                 .padding(.horizontal, 16).frame(height: 36)
@@ -369,14 +381,14 @@ struct CaptionsSheet: View {
 
     private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
             content()
         }
     }
 
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
+            Text(loc(title))
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)

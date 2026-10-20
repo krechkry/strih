@@ -8,6 +8,7 @@ struct StorageView: View {
     @State private var report = StorageReport()
     @State private var confirm: Confirm?
     @State private var busy = false
+    @State private var pendingDownload: SpeechModel?
 
     enum Confirm: Identifiable {
         case model(SpeechModel), leftovers, temp, caches, optimized, unused
@@ -65,11 +66,17 @@ struct StorageView: View {
             }
             .overlay { if busy { ProgressView().tint(Theme.accent).scaleEffect(1.4) } }
             .alert(item: $confirm) { c in
-                Alert(title: Text(title(c)), message: Text("This can't be undone."),
+                Alert(title: Text(loc(title(c))), message: Text("This can't be undone."),
                       primaryButton: .destructive(Text("Delete")) { run(c) },
                       secondaryButton: .cancel())
             }
             .task { await refresh() }
+            .alert("Download on mobile data?", isPresented: Binding(get: { pendingDownload != nil }, set: { if !$0 { pendingDownload = nil } })) {
+                Button("Download anyway") { if let m = pendingDownload { speech.startDownload(m) }; pendingDownload = nil }
+                Button("Cancel", role: .cancel) { pendingDownload = nil }
+            } message: {
+                Text("The speech model is about 650 MB. Wi-Fi is better.")
+            }
             .onChange(of: readyModels) { Task { await refresh() } }
         }
     }
@@ -89,7 +96,7 @@ struct StorageView: View {
 
     private func section<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+            Text(loc(title)).font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
             VStack(spacing: 8) { content() }
         }
     }
@@ -99,16 +106,18 @@ struct StorageView: View {
         let detail: String = {
             switch speech.state(m) {
             case .ready: return "Downloaded"
-            case .downloading(let f): return "Downloading \(Int(f * 100)) %"
+            case .downloading(let f): return String(format: loc("Downloading %lld %%"), Int(f * 100))
             case .failed: return "Download failed"
-            case .missing: return "Not downloaded (\(m.sizeLabel))"
+            case .missing: return String(format: loc("Not downloaded (%@)"), m.sizeLabel)
             }
         }()
         let ready: Bool = { if case .ready = speech.state(m) { return true }; return false }()
         let downloading: Bool = { if case .downloading = speech.state(m) { return true }; return false }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
                    action: ready ? { confirm = .model(m) } : nil,
-                   download: ready ? nil : (downloading ? .busy : .start { speech.startDownload(m) }))
+                   download: ready ? nil : (downloading ? .busy : .start {
+                       if NetworkWatch.shared.onMobileData { pendingDownload = m } else { speech.startDownload(m) }
+                   }))
     }
 
     enum Download {
@@ -121,8 +130,8 @@ struct StorageView: View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.body.weight(.semibold)).frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.bold))
-                Text(detail).font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                Text(loc(title)).font(.subheadline.weight(.bold))
+                Text(loc(detail)).font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
@@ -161,7 +170,7 @@ struct StorageView: View {
 
     private func title(_ c: Confirm) -> String {
         switch c {
-        case .model(let m): return "Delete the \(m.title) voice model?"
+        case .model(let m): return String(format: loc("Delete the %@ voice model?"), loc(m.title))
         case .leftovers: return "Delete unfinished downloads?"
         case .temp: return "Delete temporary files?"
         case .caches: return "Clear caches?"

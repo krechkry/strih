@@ -37,6 +37,9 @@ enum Demo {
     }()
 }
 
+/// Looks up the translation of a UI string (Czech when the phone is in Czech).
+func loc(_ s: String) -> String { NSLocalizedString(s, comment: "") }
+
 enum Theme {
     static let accent = Color(red: 0.894, green: 1.0, blue: 0.353)   // #E4FF5A
     static let bg = Color(red: 0.05, green: 0.055, blue: 0.063)

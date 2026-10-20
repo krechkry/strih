@@ -1,0 +1,2356 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "%@ %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %lld %%"
+          }
+        }
+      }
+    },
+    "%@, downloaded once. Wi-Fi recommended.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, stáhne se jednou. Doporučujeme Wi-Fi."
+          }
+        }
+      }
+    },
+    "%lld chars": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld znaků"
+          }
+        }
+      }
+    },
+    "%lld clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld klip"
+          }
+        }
+      }
+    },
+    "%lld clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld klipů"
+          }
+        }
+      }
+    },
+    "1 line": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 řádek"
+          }
+        }
+      }
+    },
+    "2 lines": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 řádky"
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O aplikaci"
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat"
+          }
+        }
+      }
+    },
+    "Add a clip to start": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Začni přidáním klipu"
+          }
+        }
+      }
+    },
+    "Add at playhead": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat na pozici"
+          }
+        }
+      }
+    },
+    "Add keyframe": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat klíčový snímek"
+          }
+        }
+      }
+    },
+    "Adjust": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úpravy"
+          }
+        }
+      }
+    },
+    "Again": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znovu"
+          }
+        }
+      }
+    },
+    "Analyze & stabilize": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzovat a stabilizovat"
+          }
+        }
+      }
+    },
+    "Analyze again": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzovat znovu"
+          }
+        }
+      }
+    },
+    "Analyzing shake": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzuji otřesy"
+          }
+        }
+      }
+    },
+    "Animation": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animace"
+          }
+        }
+      }
+    },
+    "Any subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jakýkoli objekt"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automaticky"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zpět"
+          }
+        }
+      }
+    },
+    "Back to settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zpět do nastavení"
+          }
+        }
+      }
+    },
+    "Background black & white": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozadí černobíle"
+          }
+        }
+      }
+    },
+    "Behind subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Za objektem"
+          }
+        }
+      }
+    },
+    "Big up!": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Big up!"
+          }
+        }
+      }
+    },
+    "Bitrate": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datový tok"
+          }
+        }
+      }
+    },
+    "Blend": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prolnutí"
+          }
+        }
+      }
+    },
+    "Blur background": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmazat pozadí"
+          }
+        }
+      }
+    },
+    "Bombocut collects no data. Your videos, captions and projects stay on your iPhone. The only thing it downloads is the speech model, once, from Hugging Face.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bombocut nesbírá žádná data. Videa, titulky a projekty zůstávají v iPhonu. Jediné, co stahuje, je jednou hlasový model z Hugging Face."
+          }
+        }
+      }
+    },
+    "Bombocut measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bombocut změří otřesy kamery v klipu, vyhladí je a mírně přiblíží, aby skryl okraje. Trvá to pár sekund na minutu záznamu."
+          }
+        }
+      }
+    },
+    "Bombocut uses": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bombocut zabírá"
+          }
+        }
+      }
+    },
+    "Box": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Box"
+          }
+        }
+      }
+    },
+    "Box color": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barva boxu"
+          }
+        }
+      }
+    },
+    "Box opacity": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krytí boxu"
+          }
+        }
+      }
+    },
+    "CAPS": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VERZÁLKY"
+          }
+        }
+      }
+    },
+    "Caches": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mezipaměť"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušit"
+          }
+        }
+      }
+    },
+    "Canvas": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plátno"
+          }
+        }
+      }
+    },
+    "Captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky"
+          }
+        }
+      }
+    },
+    "Captions %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky %lld %%"
+          }
+        }
+      }
+    },
+    "Captions ready": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky hotové"
+          }
+        }
+      }
+    },
+    "Change adds a keyframe at %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Změna přidá klíčový snímek v %@"
+          }
+        }
+      }
+    },
+    "Chroma": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chroma"
+          }
+        }
+      }
+    },
+    "Clean up": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úklid"
+          }
+        }
+      }
+    },
+    "Clear caches?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vymazat mezipaměť?"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zavřít"
+          }
+        }
+      }
+    },
+    "Codec": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kodek"
+          }
+        }
+      }
+    },
+    "Color": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barva"
+          }
+        }
+      }
+    },
+    "Constant": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konstantní"
+          }
+        }
+      }
+    },
+    "Contrast": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrast"
+          }
+        }
+      }
+    },
+    "Credits": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poděkování"
+          }
+        }
+      }
+    },
+    "Curve": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křivka"
+          }
+        }
+      }
+    },
+    "Custom fps": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vlastní fps"
+          }
+        }
+      }
+    },
+    "Czech · Slovak · English": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čeština · Slovenština · Angličtina"
+          }
+        }
+      }
+    },
+    "Darken": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ztmavit"
+          }
+        }
+      }
+    },
+    "Darken background": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ztmavit pozadí"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat"
+          }
+        }
+      }
+    },
+    "Delete a project to free this": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uvolníš smazáním projektu"
+          }
+        }
+      }
+    },
+    "Delete forever": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat navždy"
+          }
+        }
+      }
+    },
+    "Delete keyframe": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat klíčový snímek"
+          }
+        }
+      }
+    },
+    "Delete template": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat šablonu"
+          }
+        }
+      }
+    },
+    "Delete temporary files?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat dočasné soubory?"
+          }
+        }
+      }
+    },
+    "Delete the %@ voice model?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat hlasový model %@?"
+          }
+        }
+      }
+    },
+    "Delete the voice model optimization?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat optimalizaci hlasového modelu?"
+          }
+        }
+      }
+    },
+    "Delete this project?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat projekt?"
+          }
+        }
+      }
+    },
+    "Delete unfinished downloads?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat nedokončená stahování?"
+          }
+        }
+      }
+    },
+    "Delete unused videos?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat nepoužitá videa?"
+          }
+        }
+      }
+    },
+    "Difference": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozdíl"
+          }
+        }
+      }
+    },
+    "Different shape than the canvas (%@). Clips fit or fill this frame instead.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jiný tvar než plátno (%@). Klipy se do něj vejdou nebo ho vyplní."
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotovo"
+          }
+        }
+      }
+    },
+    "Download anyway": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesto stáhnout"
+          }
+        }
+      }
+    },
+    "Download failed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stažení selhalo"
+          }
+        }
+      }
+    },
+    "Download failed: %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stažení selhalo: %@"
+          }
+        }
+      }
+    },
+    "Download now": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stáhnout teď"
+          }
+        }
+      }
+    },
+    "Download on mobile data?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahovat přes mobilní data?"
+          }
+        }
+      }
+    },
+    "Downloaded": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staženo"
+          }
+        }
+      }
+    },
+    "Downloading %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuji %lld %%"
+          }
+        }
+      }
+    },
+    "Downloading speech model %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuji hlasový model %lld %%"
+          }
+        }
+      }
+    },
+    "Downloading voice model": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuji hlasový model"
+          }
+        }
+      }
+    },
+    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tažením do stran po náhledu najdi snímek, kde je objekt dobře vidět, pak klepni na Vybrat objekt a klepni na něj nebo ho zhruba ohraničuj. Bombocut ho najde, nakreslí rámeček, který můžeš upravit, a sleduje ho celým klipem."
+          }
+        }
+      }
+    },
+    "Drag the box to fix it, then Track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uprav rámeček a dej Sledovat"
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikovat"
+          }
+        }
+      }
+    },
+    "Edit": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravit"
+          }
+        }
+      }
+    },
+    "Editing keyframe at %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravuješ klíčový snímek v %@"
+          }
+        }
+      }
+    },
+    "Export": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
+    "Export failed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export selhal"
+          }
+        }
+      }
+    },
+    "Exposure": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expozice"
+          }
+        }
+      }
+    },
+    "Extras": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doplňky"
+          }
+        }
+      }
+    },
+    "Fade": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prolínání"
+          }
+        }
+      }
+    },
+    "Files": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubory"
+          }
+        }
+      }
+    },
+    "Fill": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyplnit"
+          }
+        }
+      }
+    },
+    "Fill, no borders": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyplnit, bez okrajů"
+          }
+        }
+      }
+    },
+    "Finding it…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hledám…"
+          }
+        }
+      }
+    },
+    "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Pak můžeš zbytek rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+          }
+        }
+      }
+    },
+    "First time downloads the speech model (%@). Wi-Fi recommended.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poprvé se stáhne hlasový model (%@). Doporučujeme Wi-Fi."
+          }
+        }
+      }
+    },
+    "Fit": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přizpůsobit"
+          }
+        }
+      }
+    },
+    "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "FluidInference. Spouští hlasový model v iPhonu. Licence: Apache 2.0."
+          }
+        }
+      }
+    },
+    "Follow": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledovat"
+          }
+        }
+      }
+    },
+    "Font": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Písmo"
+          }
+        }
+      }
+    },
+    "Generate captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit titulky"
+          }
+        }
+      }
+    },
+    "Generate captions again? Your text edits will be replaced.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit titulky znovu? Tvoje úpravy textu se přepíšou."
+          }
+        }
+      }
+    },
+    "Grain": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrno"
+          }
+        }
+      }
+    },
+    "Grain size": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velikost zrna"
+          }
+        }
+      }
+    },
+    "HEVC": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HEVC"
+          }
+        }
+      }
+    },
+    "Height": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výška"
+          }
+        }
+      }
+    },
+    "Highlight": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvýraznění"
+          }
+        }
+      }
+    },
+    "Highlights": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Světla"
+          }
+        }
+      }
+    },
+    "Import failed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import selhal"
+          }
+        }
+      }
+    },
+    "Imported videos no project uses any more": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importovaná videa, která už žádný projekt nepoužívá"
+          }
+        }
+      }
+    },
+    "Importing…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importuji…"
+          }
+        }
+      }
+    },
+    "Invents in-between frames": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dopočítá mezisnímky"
+          }
+        }
+      }
+    },
+    "It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmizí navždy i s importovanými videi. Koš neexistuje. Originály ve Fotkách zůstanou."
+          }
+        }
+      }
+    },
+    "Keep borders": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponechat okraje"
+          }
+        }
+      }
+    },
+    "Keep centered": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Držet uprostřed"
+          }
+        }
+      }
+    },
+    "Keep in place": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Držet na místě"
+          }
+        }
+      }
+    },
+    "Keep pitch": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zachovat výšku tónu"
+          }
+        }
+      }
+    },
+    "Keep the app open while exporting.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Během exportu nech aplikaci otevřenou."
+          }
+        }
+      }
+    },
+    "Kept": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponecháno"
+          }
+        }
+      }
+    },
+    "Later": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Později"
+          }
+        }
+      }
+    },
+    "Leftovers from stopped downloads": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zbytky přerušených stahování"
+          }
+        }
+      }
+    },
+    "Lighten": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zesvětlit"
+          }
+        }
+      }
+    },
+    "Linear": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lineární"
+          }
+        }
+      }
+    },
+    "Lines": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řádky"
+          }
+        }
+      }
+    },
+    "Listening %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslouchám %lld %%"
+          }
+        }
+      }
+    },
+    "Loading voice model": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Načítám hlasový model"
+          }
+        }
+      }
+    },
+    "Made in Prague.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyrobeno v Praze."
+          }
+        }
+      }
+    },
+    "Makes the voice model load fast. Deleting means the next load takes minutes again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrychluje načtení hlasového modelu. Po smazání bude další načtení zase trvat minuty."
+          }
+        }
+      }
+    },
+    "Mask": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maska"
+          }
+        }
+      }
+    },
+    "Mbps": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mb/s"
+          }
+        }
+      }
+    },
+    "Moondream. Further training of Parakeet TDT v3, converted to Core ML by FluidInference. License: CC BY 4.0.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moondream. Dotrénovaný Parakeet TDT v3, převedený do Core ML od FluidInference. Licence: CC BY 4.0."
+          }
+        }
+      }
+    },
+    "Motion blur": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmazání pohybem"
+          }
+        }
+      }
+    },
+    "Multiply": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Násobit"
+          }
+        }
+      }
+    },
+    "NVIDIA. Speech recognition model. License: CC BY 4.0.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NVIDIA. Model rozpoznávání řeči. Licence: CC BY 4.0."
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Název"
+          }
+        }
+      }
+    },
+    "Names & slang, comma separated": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jména a slang, oddělené čárkou"
+          }
+        }
+      }
+    },
+    "Needs a subject mask on the clip below (Mask tool)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Potřebuje masku objektu na klipu pod ním (nástroj Maska)"
+          }
+        }
+      }
+    },
+    "New project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nový projekt"
+          }
+        }
+      }
+    },
+    "Next keyframe": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další klíčový snímek"
+          }
+        }
+      }
+    },
+    "No speech found.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádná řeč nenalezena."
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádná"
+          }
+        }
+      }
+    },
+    "Normal": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normální"
+          }
+        }
+      }
+    },
+    "Not downloaded (%@)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nestaženo (%@)"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Off": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vypnuto"
+          }
+        }
+      }
+    },
+    "Old exports, caption audio, imports in progress": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staré exporty, zvuk pro titulky, rozpracované importy"
+          }
+        }
+      }
+    },
+    "On": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zapnuto"
+          }
+        }
+      }
+    },
+    "On your iPhone": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V iPhonu"
+          }
+        }
+      }
+    },
+    "Opacity": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krytí"
+          }
+        }
+      }
+    },
+    "Outline": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrys"
+          }
+        }
+      }
+    },
+    "Outline width": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šířka obrysu"
+          }
+        }
+      }
+    },
+    "Overlay": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překryv"
+          }
+        }
+      }
+    },
+    "Overlays set to “Behind subject” go between the background and the subject.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překryvy s volbou „Za objektem“ jsou mezi pozadím a objektem."
+          }
+        }
+      }
+    },
+    "People": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lidé"
+          }
+        }
+      }
+    },
+    "Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotky"
+          }
+        }
+      }
+    },
+    "Pick again": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat znovu"
+          }
+        }
+      }
+    },
+    "Pick clips in the order you want them. Original quality is kept.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber klipy v pořadí, v jakém je chceš. Kvalita zůstane původní."
+          }
+        }
+      }
+    },
+    "Picture": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrázek"
+          }
+        }
+      }
+    },
+    "Pop": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pop"
+          }
+        }
+      }
+    },
+    "Position": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozice"
+          }
+        }
+      }
+    },
+    "Preparing voice model · %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuji hlasový model · %@"
+          }
+        }
+      }
+    },
+    "Previous keyframe": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předchozí klíčový snímek"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soukromí"
+          }
+        }
+      }
+    },
+    "Project files": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubory projektů"
+          }
+        }
+      }
+    },
+    "Projects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projekty"
+          }
+        }
+      }
+    },
+    "Reading audio": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čtu zvuk"
+          }
+        }
+      }
+    },
+    "Reading the audio…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čtu zvuk…"
+          }
+        }
+      }
+    },
+    "Regenerate": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit znovu"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit"
+          }
+        }
+      }
+    },
+    "Remove captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit titulky"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přejmenovat"
+          }
+        }
+      }
+    },
+    "Rename project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přejmenovat projekt"
+          }
+        }
+      }
+    },
+    "Reset": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovit"
+          }
+        }
+      }
+    },
+    "Reset all": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovit vše"
+          }
+        }
+      }
+    },
+    "Reset curve": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovit křivku"
+          }
+        }
+      }
+    },
+    "Runs on your iPhone, offline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Běží v iPhonu, offline."
+          }
+        }
+      }
+    },
+    "Saturation": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sytost"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit"
+          }
+        }
+      }
+    },
+    "Save template": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit šablonu"
+          }
+        }
+      }
+    },
+    "Screen": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Závoj"
+          }
+        }
+      }
+    },
+    "Select a clip first.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív vyber klip."
+          }
+        }
+      }
+    },
+    "Select subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat objekt"
+          }
+        }
+      }
+    },
+    "Setting up voice model": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuji hlasový model"
+          }
+        }
+      }
+    },
+    "Shadow": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stín"
+          }
+        }
+      }
+    },
+    "Shadows": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stíny"
+          }
+        }
+      }
+    },
+    "Size": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velikost"
+          }
+        }
+      }
+    },
+    "Slide up": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyjetí"
+          }
+        }
+      }
+    },
+    "Smart tools": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chytré nástroje"
+          }
+        }
+      }
+    },
+    "Smooth": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulé"
+          }
+        }
+      }
+    },
+    "Smooth slow motion": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulé zpomalení"
+          }
+        }
+      }
+    },
+    "Smoothness": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulost"
+          }
+        }
+      }
+    },
+    "Soft light": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Měkké světlo"
+          }
+        }
+      }
+    },
+    "Speech model: %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model: %@"
+          }
+        }
+      }
+    },
+    "Speed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlost"
+          }
+        }
+      }
+    },
+    "Split": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozdělit"
+          }
+        }
+      }
+    },
+    "Stabilize": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stabilizace"
+          }
+        }
+      }
+    },
+    "Storage": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úložiště"
+          }
+        }
+      }
+    },
+    "Strength": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Síla"
+          }
+        }
+      }
+    },
+    "Style": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Styl"
+          }
+        }
+      }
+    },
+    "Subject mask": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maska objektu"
+          }
+        }
+      }
+    },
+    "Subject tracking, masks, motion blur, smooth slow motion, effects.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledování objektů, masky, rozmazání pohybem, plynulé zpomalení, efekty."
+          }
+        }
+      }
+    },
+    "Taking long (%@). Tap to restart": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trvá to dlouho (%@). Klepni pro restart"
+          }
+        }
+      }
+    },
+    "Tap or roughly box the subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na objekt nebo ho zhruba ohraničuj"
+          }
+        }
+      }
+    },
+    "Tap the line to add · drag to scrub": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na čáru pro bod · táhni pro posun"
+          }
+        }
+      }
+    },
+    "Temp": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teplota"
+          }
+        }
+      }
+    },
+    "Temporary files": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dočasné soubory"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        }
+      }
+    },
+    "Text ": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text "
+          }
+        }
+      }
+    },
+    "The speech model is about 650 MB. Wi-Fi is better.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model má asi 650 MB. Lepší je Wi-Fi."
+          }
+        }
+      }
+    },
+    "This can't be undone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejde to vrátit."
+          }
+        }
+      }
+    },
+    "Thumbnails and system caches, rebuilt when needed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Náhledy a systémová mezipaměť, vytvoří se znovu podle potřeby"
+          }
+        }
+      }
+    },
+    "Tint": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstín"
+          }
+        }
+      }
+    },
+    "Track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledování"
+          }
+        }
+      }
+    },
+    "Track subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledovat objekt"
+          }
+        }
+      }
+    },
+    "Tracking": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduji"
+          }
+        }
+      }
+    },
+    "Typewriter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psací stroj"
+          }
+        }
+      }
+    },
+    "Unfinished downloads": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedokončená stahování"
+          }
+        }
+      }
+    },
+    "Unused videos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nepoužitá videa"
+          }
+        }
+      }
+    },
+    "Video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video"
+          }
+        }
+      }
+    },
+    "Videos in your projects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videa v projektech"
+          }
+        }
+      }
+    },
+    "Vignette": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vinětace"
+          }
+        }
+      }
+    },
+    "Voice model failed. Tap to retry": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model selhal. Klepni pro opakování"
+          }
+        }
+      }
+    },
+    "Voice model optimization": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optimalizace hlasového modelu"
+          }
+        }
+      }
+    },
+    "Voice models": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasové modely"
+          }
+        }
+      }
+    },
+    "Volume": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasitost"
+          }
+        }
+      }
+    },
+    "Warming up the model (first time can take a minute)…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuji model (poprvé to může chvíli trvat)…"
+          }
+        }
+      }
+    },
+    "Welcome to Bombocut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vítej v Bombocutu"
+          }
+        }
+      }
+    },
+    "Which languages do you speak in your videos? Bombocut downloads only the speech model you need. Captions then run on your iPhone, offline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jakými jazyky ve videích mluvíš? Bombocut stáhne jen model, který potřebuješ. Titulky pak běží v iPhonu, offline."
+          }
+        }
+      }
+    },
+    "Whole clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Celý klip"
+          }
+        }
+      }
+    },
+    "Width": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šířka"
+          }
+        }
+      }
+    },
+    "Word by word": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slovo po slově"
+          }
+        }
+      }
+    },
+    "Words it should spell your way, split with commas. Example: Kryštof, Bombocut, PVP": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slova, která má psát po tvém, oddělená čárkou. Například: Kryštof, Bombocut, PVP"
+          }
+        }
+      }
+    },
+    "You can close this and keep editing. The pill at the top shows when they're ready.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Můžeš to zavřít a stříhat dál. Štítek nahoře ukáže, až budou hotové."
+          }
+        }
+      }
+    },
+    "Your originals in Photos are never touched. Deleting here is permanent, there is no trash bin.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originálů ve Fotkách se nic nedotkne. Mazání je trvalé, koš neexistuje."
+          }
+        }
+      }
+    },
+    "Zoom %lld %% to hide the moving edges": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiblížení %lld %% skryje pohyblivé okraje"
+          }
+        }
+      }
+    },
+    "about 650 MB": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "asi 650 MB"
+          }
+        }
+      }
+    }
+  }
+}
