@@ -1,0 +1,37 @@
+name: SDK headers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dump:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pick newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+      - name: Dump
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          mkdir -p /tmp/out
+          echo "$SDK" > /tmp/out/sdk.txt
+          ls "$SDK/System/Library/Frameworks/VideoToolbox.framework/Headers/" > /tmp/out/vt_list.txt
+          for f in "$SDK"/System/Library/Frameworks/VideoToolbox.framework/Headers/VTFrameProcessor*.h; do
+            echo "=== $(basename $f)" >> /tmp/out/vtfp.txt; cat "$f" >> /tmp/out/vtfp.txt; done
+          for f in "$SDK"/System/Library/Frameworks/VideoToolbox.framework/Headers/VTMotionBlur*.h "$SDK"/System/Library/Frameworks/VideoToolbox.framework/Headers/VTFrameRate*.h "$SDK"/System/Library/Frameworks/VideoToolbox.framework/Headers/VTOpticalFlow*.h; do
+            [ -f "$f" ] && { echo "=== $(basename $f)" >> /tmp/out/vtfp.txt; cat "$f" >> /tmp/out/vtfp.txt; }; done
+          grep -rl "VTFrameProcessor" "$SDK/System/Library/Frameworks/VideoToolbox.framework/" | head -50 > /tmp/out/where.txt || true
+      - name: Publish
+        run: |
+          git config user.name bench; git config user.email bench@users.noreply.github.com
+          git checkout --orphan sdk-headers
+          git rm -rfq . > /dev/null
+          cp /tmp/out/* .
+          git add .
+          git commit -qm headers
+          git push -fq origin sdk-headers
