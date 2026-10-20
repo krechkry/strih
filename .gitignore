@@ -6,3 +6,4 @@ Payload/
 Config/Local.xcconfig
 bench/.build/
 bench/models/
+bench/parakeet/.build/
