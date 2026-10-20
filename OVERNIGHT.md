@@ -21,9 +21,15 @@ Working through Kryštof's feedback from 22:47, most important first. Each finis
 - **Captions track selection**: tapping a caption in the timeline selects the captions (lime outline), opens the Text tab, scrolls to that line and starts editing it. With captions selected the toolbar shows Edit text, Style, Reset (when moved / turned) and Done; close the panel and drag / pinch / twist on the preview to place them.
 - **Plain new text**: new text is plain white (no shadow, no outline, no box, no animation). Text, pictures and videos no longer fade in / out.
 - **Typing**: while the keyboard is up the panel shrinks to just the text field (with a Done button) right above the keyboard, and the preview shrinks to fit above it. Works for text overlays and caption lines.
+- **Motion blur** is its own clip tool (wind icon, next to Adjust), out of Adjust. Strength slider plus direction (both ways / forward / backward). Old projects carry their motion blur over automatically.
+- **Motion blur speed**: the frame engine was working on the source frames (4K from the iPhone camera). It now works at the output size for export and at 60 % of it in the editor, scaled back up. That is roughly 4 to 10 times less work per frame, so the editor should keep up frame by frame. Same change for smooth slow motion.
+- **Apply to all / Pick clips**: under Motion blur, Adjust, Speed, Volume and Mask. "All clips" copies right away. "Pick clips" closes the panel; the timeline spreads the clips apart, you tap the ones you want (lime with a check, the source clip has a dashed outline and a star), then Apply. "All" picks every clip. Undo works as one step.
 
 ## Decisions
 - No tap-to-select on the preview any more (you said: don't guess). Selection is only in the timeline. The hit-testing code stays in the model, unused, in case you want it back.
+- Adjust copies what you see at the playhead (if the source clip has keyframes, their current value), and overwrites the target clips' color in all their keyframes. Transform (position / scale) is never copied.
+- Speed copies the speed or curve, keep pitch and smooth slow motion; captions and overlays follow their footage as usual.
+- Stabilize and Track are not in Apply to: they are measured per clip.
 - With nothing selected, a gesture still moves the clip at the playhead and selects it (like CapCut's main track). Overlays and captions never move unless selected.
 
 ## Skipped / for the morning
