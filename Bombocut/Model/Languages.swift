@@ -54,16 +54,20 @@ enum AppLanguage {
 
     /// Picked in the app, or the phone's language when it is one we have.
     static var current: String {
-        if let c = UserDefaults.standard.string(forKey: key), options.contains(where: { $0.code == c }) { return c }
+        if Demo.mode == nil, let c = UserDefaults.standard.string(forKey: key), options.contains(where: { $0.code == c }) { return c }
         let phone = Bundle.main.preferredLocalizations.first ?? "en"
         return options.contains(where: { $0.code == phone }) ? phone : "en"
     }
 
+    static let changed = Notification.Name("appLanguageChanged")
+
     static func set(_ code: String) {
+        bundle = Self.makeBundle(code)
+        NotificationCenter.default.post(name: changed, object: code)
+        guard Demo.mode == nil else { return }   // screenshot runs follow the launch language
         UserDefaults.standard.set(code, forKey: key)
         // system parts (Photos picker, share sheet) follow from the next launch
         UserDefaults.standard.set([code], forKey: "AppleLanguages")
-        bundle = Self.makeBundle(code)
     }
 
     nonisolated(unsafe) static var bundle: Bundle = makeBundle(current)

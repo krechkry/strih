@@ -6,7 +6,7 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @ObservedObject private var purchases = Purchases.shared
-    @AppStorage("appLanguage") private var language = AppLanguage.current
+    @State private var language = AppLanguage.current
 
     private var version: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -39,8 +39,8 @@ struct AboutView: View {
                     HStack(spacing: 10) {
                         ForEach(AppLanguage.options, id: \.code) { o in
                             Button {
-                                AppLanguage.set(o.code)
                                 language = o.code
+                                AppLanguage.set(o.code)
                             } label: {
                                 Text(verbatim: "\(o.flag) \(o.name)")
                                     .font(.subheadline.weight(.bold))

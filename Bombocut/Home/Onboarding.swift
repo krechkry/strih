@@ -4,7 +4,7 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject private var purchases = Purchases.shared
     @AppStorage("onboarded") private var onboarded = false
-    @AppStorage("appLanguage") private var language = AppLanguage.current
+    @State private var language = AppLanguage.current
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -23,6 +23,9 @@ struct RootView: View {
         }
         .environment(\.locale, Locale(identifier: language))
         .id(language)
+        .onReceive(NotificationCenter.default.publisher(for: AppLanguage.changed)) { n in
+            if let c = n.object as? String { language = c }
+        }
         .onChange(of: scenePhase) { _, p in if p == .active { purchases.recheck() } }
     }
 }
@@ -31,7 +34,7 @@ struct RootView: View {
 struct OnboardingView: View {
     @State var step: Int
     @AppStorage("onboarded") private var onboarded = false
-    @AppStorage("appLanguage") private var language = AppLanguage.current
+    @State private var language = AppLanguage.current
 
     var body: some View {
         ZStack {
@@ -67,8 +70,8 @@ struct OnboardingView: View {
                 ForEach(AppLanguage.options, id: \.code) { o in
                     let on = language == o.code
                     Button {
-                        AppLanguage.set(o.code)
                         language = o.code
+                        AppLanguage.set(o.code)
                     } label: {
                         HStack(spacing: 8) {
                             Text(o.flag)
