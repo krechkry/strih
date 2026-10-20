@@ -28,6 +28,10 @@ Working through Kryštof's feedback from 22:47, most important first. Each finis
 - **Social layouts**: instead of a dimmed box, the preview now shows a see-through copy of the app's real screen (Reels, TikTok, Shorts, Stories): the side buttons with counts, avatar + username, caption lines, music line, top bar, Stories header and reply bar, positioned from your reference screenshots. It appears while you move a title, briefly when you pick an app, and the dropdown has "Always show" to keep it on.
 - **Mask**: new Edge controls (softness, shrink / grow, invert) and Background (blur, darken, black & white). New "Use the cut-out elsewhere": Transparent video (subject only, HEVC with alpha .mov, works in Final Cut, DaVinci, CapCut, Keynote) or Matte (white subject on black, H.264). Both use the more accurate person model at higher detail, then Save or share (Files, AirDrop, etc.). Mask settings are also in Apply to.
 - **Czech**: went through every string again and rewrote it in the Czech people actually use for editing (keyframe stays keyframe, motion blur, tracking, bitrate; "Překrytí", "Prolínačka", "Viněta", "Resetovat", progress as nouns like "Stahování 45 %" instead of "Stahuji"). Engine errors and the default project name ("Project 21. 10. 9:00" / "Projekt …") are now translated too.
+- **New text**: adding text opens its panel with the keyboard already up; the word "Text" clears as soon as you start typing (and comes back if you leave it empty).
+- **Apply to for overlays**: the overlay panel has Apply to as well: copies a text's look (font, colors, size, outline, box, animation) plus blend, opacity and "behind subject" to all overlays or the ones you tap in the overlay lane. Position is never copied.
+- **Video overlays have sound** now, with a volume slider in their panel (0 mutes).
+- Panel tweaks from simulator checks: Apply to buttons no longer get cut off; mask panel scrolls.
 
 ## Decisions
 - No tap-to-select on the preview any more (you said: don't guess). Selection is only in the timeline. The hit-testing code stays in the model, unused, in case you want it back.
