@@ -1296,6 +1296,16 @@
         }
       }
     },
+    "Fill all clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyplnit všechny klipy"
+          }
+        }
+      }
+    },
     "Fill, no borders": {
       "localizations": {
         "cs": {
@@ -1352,6 +1362,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přizpůsobit"
+          }
+        }
+      }
+    },
+    "Fit all clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přizpůsobit všechny klipy"
           }
         }
       }

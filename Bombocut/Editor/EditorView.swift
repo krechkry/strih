@@ -432,7 +432,9 @@ struct EditorView: View {
                     ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: "arrow.down.right.and.arrow.up.left", label: "Fit") { model.fitClip(fill: false) }
+                        .contextMenu { Button("Fit all clips", systemImage: "square.stack.3d.up") { model.fitAll(fill: false) } }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
+                        .contextMenu { Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) } }
                     if !clip.transform.isIdentity {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }

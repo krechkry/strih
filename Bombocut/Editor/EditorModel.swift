@@ -499,6 +499,27 @@ final class EditorModel: ObservableObject {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// Fit or fill every clip at once (all their keyframes too).
+    func fitAll(fill: Bool) {
+        pause()
+        live = nil
+        let A = project.canvas.aspect
+        mutateLook { p in
+            for i in p.clips.indices {
+                var c = p.clips[i]
+                let a = c.aspect ?? A
+                let fitB = Clip.baseFraction(aspect: a, fill: false, canvasAspect: A)
+                let fillB = Clip.baseFraction(aspect: a, fill: true, canvasAspect: A)
+                let t = ClipTransform(x: 0, y: 0, scale: fill ? fillB.width / max(fitB.width, 1e-6) : 1, rotation: 0)
+                c.fill = false
+                c.transform = t
+                for k in c.keyframes.indices { c.keyframes[k].look.transform = t }
+                p.clips[i] = c
+            }
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
     func resetTransform() {
         guard let i = selectedIndex else { return }
         live = nil
