@@ -8,8 +8,23 @@ struct TimelineView: View {
     @State private var phase: ScrollPhase = .idle
     @State private var offsetX: CGFloat = 0
     @State private var zoomBase: CGFloat = 60
+    @State private var reorder: Reorder?
+    @State private var screenW: CGFloat = 390
 
     private let stripHeight: CGFloat = 60
+    private let gap: CGFloat = 2
+
+    /// Hold a clip, then slide it: the strip zooms out so the neighbours are in view.
+    struct Reorder {
+        var id: UUID
+        var from: Int
+        var to: Int
+        var savedPx: CGFloat
+        var dragX: CGFloat = 0        // finger movement on screen
+        var scrolled: CGFloat = 0     // auto-scroll since the drag began
+        var fingerX: CGFloat = 0      // finger position on screen
+        var scrollX: CGFloat = 0      // programmatic scroll target
+    }
 
     /// While trimming a head, everything left of the cut slides with your finger so the clip's
     /// right side stays put and nothing ever detaches (DaVinci-style ripple trim).
@@ -18,10 +33,27 @@ struct TimelineView: View {
         return CGFloat(tr.startDuration - c.duration) * model.pxPerSec
     }
 
+    /// Clips in the order shown (the dragged one sits at its new slot).
+    private var shownClips: [Clip] {
+        var cs = model.project.clips
+        guard let r = reorder, let i = cs.firstIndex(where: { $0.id == r.id }) else { return cs }
+        let c = cs.remove(at: i)
+        cs.insert(c, at: min(r.to, cs.count))
+        return cs
+    }
+
+    private func width(_ c: Clip) -> CGFloat { max(6, CGFloat(c.duration) * model.pxPerSec) }
+
+    /// Left edge of slot k when `clips` are laid out in a row.
+    private func slotX(_ clips: [Clip], _ k: Int) -> CGFloat {
+        clips.prefix(k).reduce(0) { $0 + width($1) + gap }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let half = geo.size.width / 2
             let shift = headShift
+            let shown = shownClips
             ZStack(alignment: .top) {
                 RulerView(offsetX: offsetX - shift, pxPerSec: model.pxPerSec, width: geo.size.width, half: half)
                     .frame(height: 20)
@@ -29,20 +61,26 @@ struct TimelineView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 2) {
-                        ForEach(model.project.clips) { clip in
+                    HStack(spacing: gap) {
+                        ForEach(shown) { clip in
+                            let dragged = reorder?.id == clip.id
                             ClipTile(clip: clip,
                                      pxPerSec: model.pxPerSec,
                                      height: stripHeight,
-                                     selected: clip.id == model.selectedClipID,
+                                     selected: clip.id == model.selectedClipID && reorder == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
-                                     onTap: { select(clip.id) },
+                                     lifted: dragged,
+                                     onTap: { model.tapClip(clip.id) },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
-                                     onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) })
-                                .zIndex(clip.id == model.selectedClipID ? 1 : 0)
+                                     onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) },
+                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
+                                .offset(x: dragged ? draggedOffset(shown) : 0)
+                                .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
+                                .opacity(reorder != nil && !dragged ? 0.6 : 1)
                         }
                     }
-                    if let caps = model.project.captions {
+                    .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
+                    if let caps = model.project.captions, reorder == nil {
                         CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime)
                     }
                     }
@@ -54,10 +92,10 @@ struct TimelineView: View {
                     .onTapGesture { model.selectedClipID = nil }
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil)
+                .scrollDisabled(model.trim != nil || reorder != nil)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
-                    if phase == .interacting || phase == .decelerating {
+                    if reorder == nil && (phase == .interacting || phase == .decelerating) {
                         model.scrub(to: Double(max(0, x) / model.pxPerSec))
                     }
                 }
@@ -65,7 +103,7 @@ struct TimelineView: View {
                     phase = new
                     let user = new == .interacting || new == .decelerating
                     if user && !model.isScrubbing && model.isPlaying { model.pause() }
-                    model.isScrubbing = user
+                    model.isScrubbing = user && reorder == nil
                 }
 
                 // Playhead
@@ -76,29 +114,40 @@ struct TimelineView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 6)
                 .shadow(color: .black.opacity(0.6), radius: 2)
-                .opacity(model.trim == nil ? 1 : 0.25)
+                .opacity(model.trim == nil && reorder == nil ? 1 : 0.25)
                 .allowsHitTesting(false)
             }
             .simultaneousGesture(
                 MagnifyGesture()
-                    .onChanged { v in model.pxPerSec = min(max(zoomBase * v.magnification, 6), 800) }
+                    .onChanged { v in
+                        guard reorder == nil else { return }
+                        model.pxPerSec = min(max(zoomBase * v.magnification, 6), 800)
+                    }
                     .onEnded { _ in zoomBase = model.pxPerSec }
             )
+            .onAppear { screenW = geo.size.width }
+            .onChange(of: geo.size.width) { _, w in screenW = w }
         }
         .onAppear { zoomBase = model.pxPerSec; follow() }
         .onChange(of: model.currentTime) { follow() }
-        .onChange(of: model.pxPerSec) { scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec) }
+        .onChange(of: model.pxPerSec) { if reorder == nil { scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec) } }
         .onChange(of: model.project.clips) { if model.trim == nil { follow() } }
+        .task(id: reorder != nil) { await autoScroll() }
+        .task {
+            guard Demo.mode == "reorder" else { return }
+            try? await Task.sleep(for: .seconds(4))
+            let c = model.project.clips
+            guard c.count > 2 else { return }
+            reorderEvent(c[0].id, .began, 0, 150)
+            try? await Task.sleep(for: .seconds(0.5))
+            reorderEvent(c[0].id, .changed, 70, 220)
+        }
     }
 
     /// Keeps the strip under the playhead when time changes from playback, edits or undo.
     private func follow() {
-        guard !model.isScrubbing, model.trim == nil else { return }
+        guard !model.isScrubbing, model.trim == nil, reorder == nil else { return }
         scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
-    }
-
-    private func select(_ id: UUID) {
-        model.selectedClipID = model.selectedClipID == id ? nil : id
     }
 
     private func trim(_ id: UUID, _ leading: Bool, _ phase: ClipTile.TrimPhase, _ delta: Double) {
@@ -110,6 +159,85 @@ struct TimelineView: View {
         case .ended:
             model.trimEnded(id, leading: leading)
             withAnimation(.easeOut(duration: 0.25)) { follow() }
+        }
+    }
+
+    // MARK: Reorder
+
+    /// Where the dragged tile is drawn relative to its current slot, so it stays under the finger.
+    private func draggedOffset(_ shown: [Clip]) -> CGFloat {
+        guard let r = reorder else { return 0 }
+        let original = model.project.clips
+        return slotX(original, r.from) + r.dragX + r.scrolled - slotX(shown, r.to)
+    }
+
+    private func reorderEvent(_ id: UUID, _ phase: ClipTile.TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) {
+        let clips = model.project.clips
+        switch phase {
+        case .began:
+            guard model.trim == nil, let i = clips.firstIndex(where: { $0.id == id }) else { return }
+            model.pause()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            let saved = model.pxPerSec
+            // zoom out until the whole clip and one whole neighbour on each side fit (or the whole timeline)
+            let near = (i > 0 ? clips[i - 1].duration : 0) + clips[i].duration + (i + 1 < clips.count ? clips[i + 1].duration : 0)
+            let fitNear = 0.85 * screenW / CGFloat(max(near, 0.1))
+            let fitAll = 0.85 * screenW / CGFloat(max(model.duration, 0.1))
+            let px = min(saved, max(fitAll, fitNear * 0.4))
+            // bring the dragged clip's middle under the playhead line
+            model.pxPerSec = max(px, 2)
+            let target = slotX(clips, i) + width(clips[i]) / 2
+            scrollPos.scrollTo(x: target)
+            reorder = Reorder(id: id, from: i, to: i, savedPx: saved, fingerX: fingerX, scrollX: target)
+        case .changed:
+            guard var r = reorder, r.id == id else { return }
+            r.dragX = dx
+            r.fingerX = fingerX
+            // which slot does the tile's middle fall into?
+            let others = clips.filter { $0.id != id }
+            let mid = slotX(clips, r.from) + r.dragX + r.scrolled + width(clips[r.from]) / 2
+            var to = 0
+            var x: CGFloat = 0
+            for c in others {
+                if mid > x + width(c) / 2 { to += 1 }
+                x += width(c) + gap
+            }
+            if to != r.to { UISelectionFeedbackGenerator().selectionChanged() }
+            r.to = to
+            reorder = r
+        case .ended:
+            guard let r = reorder, r.id == id else { return }
+            reorder = nil
+            model.pxPerSec = r.savedPx
+            zoomBase = r.savedPx
+            if r.to != r.from {
+                model.moveClip(from: r.from, to: r.to)
+            } else {
+                model.selectedClipID = id
+            }
+            scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
+        }
+    }
+
+    /// Finger near the left or right edge while dragging a clip: slide the strip that way.
+    private func autoScroll() async {
+        while !Task.isCancelled, reorder != nil {
+            if var r = reorder {
+                let edge: CGFloat = r.fingerX < 56 ? -1 : (r.fingerX > screenW - 56 ? 1 : 0)
+                if edge != 0 {
+                    let maxX = slotX(model.project.clips, model.project.clips.count)
+                    let next = min(max(r.scrollX + edge * 7, 0), maxX)
+                    let moved = next - r.scrollX
+                    if abs(moved) > 0.01 {
+                        r.scrollX = next
+                        r.scrolled += moved
+                        scrollPos.scrollTo(x: next)
+                        reorder = r
+                        reorderEvent(r.id, .changed, r.dragX, r.fingerX)
+                    }
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(16))
         }
     }
 }
@@ -152,12 +280,15 @@ struct ClipTile: View {
     let height: CGFloat
     let selected: Bool
     let trim: TrimState?
+    var lifted = false
     let onTap: () -> Void
     let onKeyframe: (Keyframe) -> Void
     let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double) -> Void
+    var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
     @State private var dragging: Bool? = nil   // which edge is being dragged (true = leading)
+    @State private var holding = false
 
     private let handleW: CGFloat = 16
 
@@ -247,8 +378,39 @@ struct ClipTile: View {
                     .offset(x: tr.leading ? -6 : 6, y: -24)
             }
         }
+        .overlay {
+            if lifted { RoundedRectangle(cornerRadius: 6).strokeBorder(.white, lineWidth: 2) }
+        }
+        .scaleEffect(lifted ? 1.06 : 1)
+        .shadow(color: .black.opacity(lifted ? 0.7 : 0), radius: 8, y: 4)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .gesture(holdToMove)
+    }
+
+    /// Hold, then slide to move the clip.
+    private var holdToMove: some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 8)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
+            .onChanged { v in
+                guard trim == nil, dragging == nil else { return }
+                switch v {
+                case .second(true, let drag):
+                    if !holding {
+                        holding = true
+                        onReorder(.began, 0, drag?.location.x ?? 0)
+                    }
+                    if let d = drag { onReorder(.changed, d.translation.width, d.location.x) }
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                if holding {
+                    holding = false
+                    onReorder(.ended, 0, 0)
+                }
+            }
     }
 
     /// Shows how much is being cut away (red) or added (lime) compared to where the edge started.

@@ -280,3 +280,75 @@ enum TemplateStore {
         if let data = try? JSONEncoder().encode(t) { try? data.write(to: url, options: .atomic) }
     }
 }
+
+// MARK: Captions follow their footage
+
+extension Project {
+    /// What is on screen at timeline time t: which clip, and which moment of its source.
+    func locate(_ t: Double) -> (index: Int, id: UUID, media: String, src: Double)? {
+        guard t >= 0, t <= duration + 0.05, let hit = clipIndex(at: min(t, max(0, duration - 1e-4))) else { return nil }
+        let c = clips[hit.index]
+        return (hit.index, c.id, c.mediaFile, c.retime.source(atLocal: t - hit.start))
+    }
+
+    /// Where that moment of footage now sits on the timeline (same clip, or a piece of it after a split).
+    func timeline(id: UUID, media: String, src: Double, oldIndex: Int) -> (time: Double, clip: Int)? {
+        let starts = clipStarts
+        func fits(_ c: Clip) -> Bool { src >= c.inPoint - 0.02 && src <= c.outPoint + 0.02 }
+        var pick = clips.firstIndex { $0.id == id && fits($0) }
+        if pick == nil {
+            pick = clips.indices.filter { clips[$0].mediaFile == media && fits(clips[$0]) }
+                .min { abs($0 - oldIndex) < abs($1 - oldIndex) }
+        }
+        guard let i = pick else { return nil }
+        let c = clips[i]
+        let s = min(max(src, c.inPoint), c.outPoint)
+        return (starts[i] + c.retime.local(atSource: s), i)
+    }
+
+    /// Fingerprint of everything that decides where clips sit in time.
+    var timingKey: [Double] {
+        clips.flatMap { [Double($0.id.hashValue), $0.inPoint, $0.outPoint, $0.duration] }
+    }
+}
+
+extension Captions {
+    /// Moves words and cues along with the footage they belong to after clips were moved, trimmed,
+    /// split, sped up or deleted. Speech whose footage is gone is dropped. Manual text edits are kept.
+    func remapped(from old: Project, to new: Project) -> Captions {
+        func map(_ s: Double, _ e: Double) -> (Double, Double)? {
+            let mid = (s + e) / 2
+            guard let a = old.locate(min(max(s, 0), mid)), let ns = new.timeline(id: a.id, media: a.media, src: a.src, oldIndex: a.index)
+            else { return nil }
+            // end: same clip, so a speed change stretches it the same way
+            var ne = ns.time + (e - s)
+            if let b = old.locate(e - 1e-4), b.id == a.id, let t = new.timeline(id: a.id, media: a.media, src: b.src, oldIndex: a.index),
+               t.clip == ns.clip {
+                ne = t.time
+            } else {
+                let c = new.clips[ns.clip]
+                ne = min(ne, new.clipStarts[ns.clip] + c.duration)
+            }
+            return (ns.time, max(ne, ns.time + 0.04))
+        }
+        var c = self
+        c.words = words.compactMap { w in map(w.start, w.end).map { CaptionWord(text: w.text, start: $0.0, end: $0.1) } }
+            .sorted { $0.start < $1.start }
+        var cues: [CaptionCue] = []
+        for q in self.cues {
+            guard let r = map(q.start, q.end) else { continue }
+            var n = q
+            n.start = r.0
+            n.end = r.1
+            n.words = q.words.compactMap { w in map(w.start, w.end).map { CaptionWord(text: w.text, start: $0.0, end: $0.1) } }
+            if n.words.isEmpty && !q.words.isEmpty { continue }
+            cues.append(n)
+        }
+        cues.sort { $0.start < $1.start }
+        for i in cues.indices.dropLast() where cues[i].end > cues[i + 1].start - 0.02 {
+            cues[i].end = max(cues[i].start + 0.1, cues[i + 1].start - 0.02)
+        }
+        c.cues = cues
+        return c
+    }
+}

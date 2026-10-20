@@ -3,14 +3,16 @@ import AVFoundation
 
 // MARK: Preview with direct manipulation
 
-/// Canvas preview. Drag = move, pinch = scale, twist = rotate the clip under the playhead (with snapping).
+/// Canvas preview. One finger moves, two fingers scale and turn around the fingers (with snapping).
 /// Tap = play / pause, double-tap = fullscreen.
+/// Every layer has the canvas size fixed, so a clip zoomed far past the canvas can't push the layout around.
 struct PreviewArea: View {
     @ObservedObject var model: EditorModel
-    @GestureState private var gestureOn = false
-    @State private var began = false
-    @State private var pickStart: CGPoint?
     @State private var pickRect: CGRect?
+    @State private var grab: Grab?
+    @State private var grabStart: CGRect = .zero
+
+    private enum Grab { case move, corner(Int), draw }
 
     var body: some View {
         GeometryReader { geo in
@@ -20,32 +22,38 @@ struct PreviewArea: View {
             let canvas = CGSize(width: w, height: h)
 
             ZStack {
-                media(canvas)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                selectionBox(canvas)
-                trackedBox(canvas)
-                guides(canvas)
-                readout
-                if model.trackPick { pickOverlay(canvas) }
-                if let a = model.analysis { analysisOverlay(a) }
+                layer(canvas) { media(canvas).clipShape(RoundedRectangle(cornerRadius: 6)) }
+                layer(canvas) { selectionBox(canvas) }
+                layer(canvas) { trackedBox(canvas) }
+                layer(canvas) { guides(canvas) }
+                layer(canvas) { readout }
+                if !model.trackPick && model.analysis == nil {
+                    layer(canvas) { touch(canvas) }
+                }
+                if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
+                if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
             }
             .frame(width: w, height: h)
-            .contentShape(Rectangle())
-            .gesture(transformGesture(canvas), including: model.trackPick || model.analysis != nil ? .subviews : .all)
-            .onTapGesture(count: 2) {
-                guard !model.project.clips.isEmpty, !model.trackPick else { return }
-                withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
-            }
-            .onTapGesture { if !model.trackPick && model.analysis == nil { model.togglePlay() } }
-            .onChange(of: gestureOn) { old, new in
-                if old && !new {
-                    began = false
-                    model.transformEnded()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
         .clipped()
+    }
+
+    private func layer<V: View>(_ canvas: CGSize, @ViewBuilder _ content: () -> V) -> some View {
+        content().frame(width: canvas.width, height: canvas.height)
+    }
+
+    private func touch(_ canvas: CGSize) -> some View {
+        TouchSurface(
+            onTap: { if !model.project.clips.isEmpty { model.togglePlay() } },
+            onDoubleTap: {
+                guard !model.project.clips.isEmpty else { return }
+                withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
+            },
+            onBegan: { if !model.project.clips.isEmpty { model.transformBegan() } },
+            onChanged: { g in model.transformChanged(gesture: g, canvas: canvas) },
+            onEnded: { model.transformEnded() }
+        )
     }
 
     @ViewBuilder
@@ -66,27 +74,13 @@ struct PreviewArea: View {
             if let e = model.buildError {
                 Text(e).font(.footnote).padding(8)
                     .background(.red.opacity(0.8), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(12)
             }
         }
+        .frame(width: canvas.width, height: canvas.height)
     }
 
-    private func transformGesture(_ canvas: CGSize) -> some Gesture {
-        SimultaneousGesture(SimultaneousGesture(DragGesture(minimumDistance: 6), MagnifyGesture()), RotateGesture())
-            .updating($gestureOn) { _, state, _ in state = true }
-            .onChanged { v in
-                guard !model.project.clips.isEmpty else { return }
-                if !began {
-                    began = true
-                    model.transformBegan()
-                }
-                model.transformChanged(translation: v.first?.first?.translation ?? .zero,
-                                       magnification: Double(v.first?.second?.magnification ?? 1),
-                                       rotation: v.second?.rotation.radians ?? 0,
-                                       canvas: canvas)
-            }
-    }
-
-    /// Lime outline around the selected clip when it is the one on screen.
+    /// Lime outline around the selected clip when it is the one on screen (may reach past the canvas).
     @ViewBuilder
     private func selectionBox(_ canvas: CGSize) -> some View {
         if let i = model.selectedIndex, model.trimView == nil, !model.isPlaying,
@@ -94,37 +88,62 @@ struct PreviewArea: View {
             let c = model.project.clips[i]
             let t = model.shownTransform(c)
             let base = c.baseFraction(canvasAspect: model.project.canvas.aspect)
-            Rectangle()
-                .stroke(Theme.accent, lineWidth: 1.5)
-                .frame(width: base.width * canvas.width * t.scale, height: base.height * canvas.height * t.scale)
-                .rotationEffect(.radians(t.rotation))
-                .offset(x: t.x * canvas.width, y: t.y * canvas.height)
-                .allowsHitTesting(false)
+            let bw = base.width * canvas.width * t.scale, bh = base.height * canvas.height * t.scale
+            let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+            Path { p in
+                let m = CGAffineTransform(rotationAngle: t.rotation)
+                    .concatenating(CGAffineTransform(translationX: cx, y: cy))
+                let pts = [CGPoint(x: -bw / 2, y: -bh / 2), CGPoint(x: bw / 2, y: -bh / 2),
+                           CGPoint(x: bw / 2, y: bh / 2), CGPoint(x: -bw / 2, y: bh / 2)].map { $0.applying(m) }
+                p.addLines(pts)
+                p.closeSubpath()
+            }
+            .stroke(Theme.accent, lineWidth: 1.5)
+            .allowsHitTesting(false)
         }
     }
 
-    /// Draw a box around the subject to track.
+    /// The tracked subject, shown while the clip is selected and paused.
+    @ViewBuilder
+    private func trackedBox(_ canvas: CGSize) -> some View {
+        if let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil, !model.trackPick,
+           let tr = model.project.clips[i].tracking, model.playheadInSelected,
+           let b = tr.box(at: model.sourceTime(i)) {
+            let m = model.sourceToCanvas(i, canvas: canvas)
+            Path { p in
+                let r = CGRect(x: b.x - b.w / 2, y: b.y - b.h / 2, width: b.w, height: b.h)
+                p.addLines([CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                            CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)].map { $0.applying(m) })
+                p.closeSubpath()
+            }
+            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+            .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: Picking the subject to track
+
+    private var pickBanner: String {
+        switch model.pickPhase {
+        case .select: return "Tap or roughly box the subject"
+        case .detecting: return "Finding it…"
+        case .adjust: return "Drag the box to fix it, then Track"
+        }
+    }
+
     private func pickOverlay(_ canvas: CGSize) -> some View {
         ZStack {
-            Color.black.opacity(0.35)
+            Color.black.opacity(model.pickPhase == .adjust ? 0.2 : 0.35)
                 .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { v in
-                            let a = v.startLocation, b = v.location
-                            pickRect = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
-                        }
-                )
-            if let r = pickRect, r.width > 4 {
-                Rectangle()
-                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, dash: [8, 5]))
-                    .background(Theme.accent.opacity(0.12))
-                    .frame(width: r.width, height: r.height)
-                    .position(x: r.midX, y: r.midY)
-                    .allowsHitTesting(false)
+                .gesture(pickGesture(canvas))
+            if let r = pickRect, r.width > 2 {
+                pickBox(r)
+            }
+            if model.pickPhase == .detecting {
+                ProgressView().tint(Theme.accent).scaleEffect(1.3).allowsHitTesting(false)
             }
             VStack {
-                Text("Draw a box around the subject")
+                Text(pickBanner)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 14).padding(.vertical, 7)
@@ -133,34 +152,135 @@ struct PreviewArea: View {
                     .allowsHitTesting(false)
                 Spacer()
                 HStack(spacing: 10) {
-                    Button {
+                    pill("Cancel", lime: false) {
                         pickRect = nil
-                        model.trackPick = false
-                    } label: {
-                        Text("Cancel").font(.headline.weight(.bold)).foregroundStyle(.white)
-                            .padding(.horizontal, 20).frame(height: 44)
-                            .background(Theme.panel2, in: Capsule())
+                        model.cancelTrackPick()
                     }
-                    Button {
-                        if let r = pickRect { model.runTracking(canvasRect: r, canvas: canvas) }
-                        pickRect = nil
-                    } label: {
-                        Text("Track").font(.headline.weight(.bold)).foregroundStyle(.black)
-                            .padding(.horizontal, 24).frame(height: 44)
-                            .background(Theme.accent, in: Capsule())
+                    if model.pickPhase == .adjust {
+                        pill("Again", lime: false) {
+                            pickRect = nil
+                            model.pickPhase = .select
+                        }
+                        pill("Track", lime: true) {
+                            if let r = pickRect { model.runTracking(canvasRect: r, canvas: canvas) }
+                            pickRect = nil
+                        }
+                        .disabled((pickRect?.width ?? 0) < 12 || (pickRect?.height ?? 0) < 12)
                     }
-                    .disabled((pickRect?.width ?? 0) < 12 || (pickRect?.height ?? 0) < 12)
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 14)
             }
         }
-        .frame(width: canvas.width, height: canvas.height)
         .onAppear {
             if Demo.mode == "trackpick" {
-                pickRect = CGRect(x: canvas.width * 0.3, y: canvas.height * 0.35, width: canvas.width * 0.35, height: canvas.height * 0.25)
+                pickRect = CGRect(x: canvas.width * 0.3, y: canvas.height * 0.33, width: canvas.width * 0.34, height: canvas.height * 0.3)
             }
         }
+    }
+
+    private func pill(_ title: String, lime: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.headline.weight(.bold)).foregroundStyle(lime ? .black : .white)
+                .padding(.horizontal, lime ? 24 : 18).frame(height: 44)
+                .background(lime ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+    }
+
+    @ViewBuilder
+    private func pickBox(_ r: CGRect) -> some View {
+        let adjust = model.pickPhase == .adjust
+        ZStack {
+            Rectangle()
+                .stroke(Theme.accent, style: adjust ? StrokeStyle(lineWidth: 2.5) : StrokeStyle(lineWidth: 2.5, dash: [8, 5]))
+                .background(Theme.accent.opacity(adjust ? 0.08 : 0.12))
+                .frame(width: r.width, height: r.height)
+                .position(x: r.midX, y: r.midY)
+            if adjust {
+                ForEach(0..<4, id: \.self) { k in
+                    let p = corner(r, k)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Theme.accent)
+                        .frame(width: 14, height: 14)
+                        .position(p)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func corner(_ r: CGRect, _ k: Int) -> CGPoint {
+        switch k {
+        case 0: return CGPoint(x: r.minX, y: r.minY)
+        case 1: return CGPoint(x: r.maxX, y: r.minY)
+        case 2: return CGPoint(x: r.maxX, y: r.maxY)
+        default: return CGPoint(x: r.minX, y: r.maxY)
+        }
+    }
+
+    /// select: draw a rough box (or tap). adjust: drag inside to move, drag a corner to resize.
+    private func pickGesture(_ canvas: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                switch model.pickPhase {
+                case .detecting:
+                    return
+                case .select:
+                    let a = v.startLocation, b = v.location
+                    pickRect = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+                    grab = .draw
+                case .adjust:
+                    guard let r = pickRect else { return }
+                    if grab == nil {
+                        grabStart = r
+                        if let k = (0..<4).first(where: { k in
+                            let c = corner(r, k)
+                            return hypot(c.x - v.startLocation.x, c.y - v.startLocation.y) < 30
+                        }) {
+                            grab = .corner(k)
+                        } else if r.insetBy(dx: -12, dy: -12).contains(v.startLocation) {
+                            grab = .move
+                        } else {
+                            grab = .draw
+                        }
+                    }
+                    let dx = v.translation.width, dy = v.translation.height
+                    let s = grabStart
+                    var n = s
+                    switch grab {
+                    case .move?:
+                        n = s.offsetBy(dx: dx, dy: dy)
+                    case .corner(let k)?:
+                        var x0 = s.minX, y0 = s.minY, x1 = s.maxX, y1 = s.maxY
+                        if k == 0 || k == 3 { x0 += dx } else { x1 += dx }
+                        if k == 0 || k == 1 { y0 += dy } else { y1 += dy }
+                        n = CGRect(x: min(x0, x1), y: min(y0, y1), width: max(abs(x1 - x0), 16), height: max(abs(y1 - y0), 16))
+                    default:
+                        let a = v.startLocation, b = v.location
+                        n = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+                    }
+                    pickRect = n
+                }
+            }
+            .onEnded { v in
+                defer { grab = nil }
+                switch model.pickPhase {
+                case .select:
+                    var r = pickRect ?? .zero
+                    if r.width < 14 || r.height < 14 {
+                        r = CGRect(x: v.location.x - 10, y: v.location.y - 10, width: 20, height: 20)
+                    }
+                    pickRect = r
+                    model.detectSubject(rough: r, canvas: canvas) { found in pickRect = found }
+                case .adjust:
+                    // a fresh rough box drawn while adjusting: find the subject again
+                    if case .draw? = grab, let r = pickRect, r.width > 14, r.height > 14 {
+                        model.detectSubject(rough: r, canvas: canvas) { found in pickRect = found }
+                    }
+                case .detecting:
+                    break
+                }
+            }
     }
 
     private func analysisOverlay(_ a: AnalysisState) -> some View {
@@ -174,46 +294,6 @@ struct PreviewArea: View {
         }
         .padding(18)
         .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    /// The tracked subject, shown while the clip is selected and paused.
-    @ViewBuilder
-    private func trackedBox(_ canvas: CGSize) -> some View {
-        if let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil,
-           let tr = model.project.clips[i].tracking, model.playheadInSelected,
-           let box = tr.box(at: model.sourceTime(i)) {
-            let c = model.project.clips[i]
-            let t = model.lookAtPlayhead(i).transform
-            let base = c.baseFraction(canvasAspect: model.project.canvas.aspect)
-            let bw: CGFloat = base.width * canvas.width * CGFloat(t.scale)
-            let bh: CGFloat = base.height * canvas.height * CGFloat(t.scale)
-            let pos = Self.trackedPosition(tr: tr, box: box, t: t, bw: bw, bh: bh, canvas: canvas)
-            Rectangle()
-                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
-                .frame(width: CGFloat(box.w) * bw, height: CGFloat(box.h) * bh)
-                .rotationEffect(.radians(t.rotation))
-                .position(pos)
-                .allowsHitTesting(false)
-        }
-    }
-
-    /// Where the tracked box sits on the canvas (follow modes move the picture, not the box).
-    private static func trackedPosition(tr: Tracking, box: TrackSample, t: ClipTransform,
-                                        bw: CGFloat, bh: CGFloat, canvas: CGSize) -> CGPoint {
-        if tr.mode == .center { return CGPoint(x: canvas.width / 2, y: canvas.height / 2) }
-        var px: Double = box.x
-        var py: Double = box.y
-        if tr.mode == .inPlace, let first = tr.samples.first {
-            px = first.x
-            py = first.y
-        }
-        let qx: CGFloat = CGFloat(px - 0.5) * bw
-        let qy: CGFloat = CGFloat(py - 0.5) * bh
-        let cs: CGFloat = CGFloat(Foundation.cos(t.rotation))
-        let sn: CGFloat = CGFloat(Foundation.sin(t.rotation))
-        let cx: CGFloat = canvas.width / 2 + CGFloat(t.x) * canvas.width
-        let cy: CGFloat = canvas.height / 2 + CGFloat(t.y) * canvas.height
-        return CGPoint(x: cx + qx * cs - qy * sn, y: cy + qx * sn + qy * cs)
     }
 
     /// Snap guides while dragging.
@@ -230,7 +310,6 @@ struct PreviewArea: View {
                 if g.contains(.bottom) { p.move(to: CGPoint(x: 0, y: h - 1)); p.addLine(to: CGPoint(x: w, y: h - 1)) }
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-            .frame(width: w, height: h)
             .allowsHitTesting(false)
         }
     }

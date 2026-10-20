@@ -89,6 +89,7 @@ struct Tracking: Codable, Hashable {
     var samples: [TrackSample]
     var mode = FollowMode.center
     var smooth = 0.5    // 0...1
+    var anchor: Double? // source time where the subject was picked ("keep in place" holds it there)
 
     /// Smoothed subject centers, ready for the compositor.
     func curve() -> TrackCurve? {
@@ -108,13 +109,18 @@ struct Tracking: Codable, Hashable {
             xs[i] = sx / c
             ys[i] = sy / c
         }
-        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode)
+        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t)
     }
 
     func box(at s: Double) -> TrackSample? {
         guard !samples.isEmpty else { return nil }
         if s <= samples[0].t { return samples[0] }
-        return samples.last { $0.t <= s }
+        var lo = 0, hi = samples.count - 1
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2
+            if samples[mid].t <= s { lo = mid } else { hi = mid - 1 }
+        }
+        return samples[lo]
     }
 }
 
@@ -123,6 +129,7 @@ struct TrackCurve: Hashable {
     var x: [Double]
     var y: [Double]
     var mode: FollowMode
+    var anchor: Double
 
     func at(_ s: Double) -> (x: Double, y: Double) {
         guard let first = t.first, let last = t.last else { return (0.5, 0.5) }
@@ -137,5 +144,5 @@ struct TrackCurve: Hashable {
         return (x[lo] + (x[hi] - x[lo]) * f, y[lo] + (y[hi] - y[lo]) * f)
     }
 
-    var start: (x: Double, y: Double) { (x.first ?? 0.5, y.first ?? 0.5) }
+    var start: (x: Double, y: Double) { at(anchor) }
 }

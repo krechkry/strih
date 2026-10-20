@@ -10,6 +10,7 @@ struct SpeedSheet: View {
     @State private var dragIndex: Int?
     @State private var dragMoved = false
     @State private var snapped = false
+    @State private var snappedHead = false
     @State private var loaded = false
 
     private var clip: Clip? { model.selectedIndex.map { model.project.clips[$0] } }
@@ -21,7 +22,7 @@ struct SpeedSheet: View {
                 tabButton("Curve", 1)
                 Spacer()
                 Button { model.previewSelected() } label: {
-                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                    Image(systemName: model.isPlaying ? "pause.fill" : "repeat")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.black)
                         .frame(width: 40, height: 40)
@@ -139,7 +140,7 @@ struct SpeedSheet: View {
         }()
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Drag points, tap to add")
+                Text("Tap the line to add · drag to scrub")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                 Spacer()
@@ -150,42 +151,82 @@ struct SpeedSheet: View {
             }
             .frame(height: 190)
             HStack(spacing: 10) {
-                Button {
+                pill("Add at playhead", "plus") { addAtPlayhead() }
+                    .disabled(playheadU == nil)
+                pill("Delete", "trash") {
                     guard let i = selected, i > 0, i < points.count - 1 else { return }
                     points.remove(at: i)
                     selected = nil
                     model.setCurve(points)
-                } label: {
-                    Label("Delete point", systemImage: "trash")
-                        .font(.subheadline.weight(.bold))
-                        .padding(.horizontal, 14).frame(height: 36)
-                        .background(Theme.panel2, in: Capsule())
                 }
                 .disabled(selected == nil || selected == 0 || selected == points.count - 1)
+                Spacer(minLength: 0)
                 Button {
                     points = SpeedCurve.flat(1)
                     selected = nil
                     model.setCurve(points)
                 } label: {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
+                    Image(systemName: "arrow.counterclockwise")
                         .font(.subheadline.weight(.bold))
-                        .padding(.horizontal, 14).frame(height: 36)
-                        .background(Theme.panel2, in: Capsule())
+                        .frame(width: 36, height: 36)
+                        .background(Theme.panel2, in: Circle())
                 }
+                .accessibilityLabel("Reset curve")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
         }
     }
 
-    // Graph mapping: x = position in clip (0...1), y = speed on a log scale, 10x at top, 0.1x at bottom.
+    private func pill(_ title: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .padding(.horizontal, 12).frame(height: 36)
+                .background(Theme.panel2, in: Capsule())
+        }
+    }
+
+    // Graph mapping: x = position in clip's source (0...1), y = speed on a log scale, 10x at top, 0.1x at bottom.
     private func y(for v: Double, h: CGFloat) -> CGFloat { CGFloat((1 - log10(v)) / 2) * h }
     private func v(for y: CGFloat, h: CGFloat) -> Double {
         min(max(pow(10, 1 - 2 * Double(y / max(h, 1))), SpeedCurve.minV), SpeedCurve.maxV)
     }
 
+    /// Where the playhead is along the selected clip (nil when it is on another clip).
+    private var playheadU: Double? {
+        guard let i = model.selectedIndex, model.playheadInSelected else { return nil }
+        let c = model.project.clips[i]
+        let len = c.outPoint - c.inPoint
+        guard len > 0 else { return nil }
+        return min(max((model.sourceTime(i) - c.inPoint) / len, 0), 1)
+    }
+
+    /// Moves the playhead to position u (0...1 of the clip's source).
+    private func scrub(toU u: Double) {
+        guard let i = model.selectedIndex else { return }
+        let c = model.project.clips[i]
+        let src = c.inPoint + min(max(u, 0), 1) * (c.outPoint - c.inPoint)
+        let local = c.retime.local(atSource: src)
+        if model.isPlaying { model.pause() }
+        model.scrub(to: model.project.clipStarts[i] + min(local, max(c.duration - 0.001, 0)))
+    }
+
+    private func addAtPlayhead() {
+        guard let u = playheadU, u > 0.01, u < 0.99 else { return }
+        if let k = points.firstIndex(where: { abs($0.t - u) < 0.015 }) { selected = k; return }
+        let p = SpeedPoint(t: u, v: (SpeedCurve.value(points, at: u) * 100).rounded() / 100)
+        points.append(p)
+        points.sort { $0.t < $1.t }
+        selected = points.firstIndex(of: p)
+        model.setCurve(points)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     private func curveGraph(size: CGSize) -> some View {
         let w = size.width, h = size.height
+        let head = playheadU
         return ZStack {
             RoundedRectangle(cornerRadius: 14).fill(Theme.panel2)
             SwiftUI.Canvas { ctx, _ in
@@ -207,6 +248,13 @@ struct SpeedSheet: View {
                     if k == 0 { curve.move(to: p) } else { curve.addLine(to: p) }
                 }
                 ctx.stroke(curve, with: .color(Theme.accent), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                if let head {
+                    let x = min(max(CGFloat(head) * w, 1), w - 1)
+                    var line = Path()
+                    line.move(to: CGPoint(x: x, y: 0))
+                    line.addLine(to: CGPoint(x: x, y: h))
+                    ctx.stroke(line, with: .color(.white), lineWidth: 2)
+                }
                 for (i, pt) in points.enumerated() {
                     let c = CGPoint(x: CGFloat(pt.t) * w, y: y(for: pt.v, h: h))
                     let r: CGFloat = i == selected ? 10 : 8
@@ -225,6 +273,7 @@ struct SpeedSheet: View {
         )
     }
 
+    /// dragIndex: a point index, -1 = scrubbing, -2 = touched the line (adds a point).
     private func handleDrag(_ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
         if dragIndex == nil {
             // grab the nearest point within reach
@@ -233,17 +282,54 @@ struct SpeedSheet: View {
                 let d = hypot(CGFloat(p.t) * w - g.startLocation.x, y(for: p.v, h: h) - g.startLocation.y)
                 if d < 26, d < (best?.1 ?? .infinity) { best = (i, d) }
             }
-            dragIndex = best?.0 ?? -1
             dragMoved = false
-            if let i = best?.0 { selected = i }
+            if let i = best?.0 {
+                dragIndex = i
+                selected = i
+            } else {
+                let u = Double(g.startLocation.x / w)
+                let lineY = y(for: SpeedCurve.value(points, at: u), h: h)
+                dragIndex = abs(lineY - g.startLocation.y) < 18 && u > 0.02 && u < 0.98 ? -2 : -1
+            }
         }
-        guard let i = dragIndex, i >= 0 else { return }
+        guard let i = dragIndex else { return }
         if hypot(g.translation.width, g.translation.height) > 3 { dragMoved = true }
+
+        if i == -2 {
+            // touched the line and started dragging: make a point there and carry it
+            guard dragMoved else { return }
+            let u = Double(g.startLocation.x / w)
+            let p = SpeedPoint(t: u, v: (SpeedCurve.value(points, at: u) * 100).rounded() / 100)
+            points.append(p)
+            points.sort { $0.t < $1.t }
+            let k = points.firstIndex(of: p) ?? 0
+            dragIndex = k
+            selected = k
+            move(k, g, w: w, h: h)
+            return
+        }
+        if i == -1 {
+            scrub(toU: Double(g.location.x / w))
+            return
+        }
         guard dragMoved else { return }
+        move(i, g, w: w, h: h)
+    }
+
+    private func move(_ i: Int, _ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
         var p = points[i]
         if i > 0 && i < points.count - 1 {
             let lo = points[i - 1].t + 0.02, hi = points[i + 1].t - 0.02
-            p.t = min(max(Double(g.location.x / w), lo), hi)
+            var t = Double(g.location.x / w)
+            // snap to the playhead
+            var onHead = false
+            if let head = playheadU, abs(CGFloat(head - t) * w) < 10, head > lo, head < hi {
+                t = head
+                onHead = true
+            }
+            if onHead && !snappedHead { UISelectionFeedbackGenerator().selectionChanged() }
+            snappedHead = onHead
+            p.t = min(max(t, lo), hi)
         }
         var v = v(for: g.location.y, h: h)
         let near1 = abs(log10(v)) < 0.04
@@ -255,16 +341,20 @@ struct SpeedSheet: View {
     }
 
     private func handleEnd(_ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
-        defer { dragIndex = nil; dragMoved = false }
-        if dragIndex == -1 {
-            // tap on empty graph: add a point there
-            let t = Double(g.location.x / w)
-            guard t > 0.02, t < 0.98, !points.contains(where: { abs($0.t - t) < 0.03 }) else { return }
-            let newPoint = SpeedPoint(t: t, v: (v(for: g.location.y, h: h) * 100).rounded() / 100)
-            points.append(newPoint)
+        defer { dragIndex = nil; dragMoved = false; snappedHead = false }
+        guard let i = dragIndex else { return }
+        if i == -2 {
+            // tap on the line: add a point there (the curve keeps its shape)
+            let u = Double(g.location.x / w)
+            guard !points.contains(where: { abs($0.t - u) < 0.03 }) else { return }
+            let p = SpeedPoint(t: u, v: (SpeedCurve.value(points, at: u) * 100).rounded() / 100)
+            points.append(p)
             points.sort { $0.t < $1.t }
-            selected = points.firstIndex(of: newPoint)
+            selected = points.firstIndex(of: p)
             model.setCurve(points)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } else if i == -1 {
+            if !dragMoved { scrub(toU: Double(g.location.x / w)) }
         } else if dragMoved {
             model.setCurve(points)
         }

@@ -26,6 +26,9 @@ struct AnalysisState {
     var progress: Double
 }
 
+/// Picking a subject to track: mark it roughly, the phone finds it, then the box can be adjusted.
+enum PickPhase { case select, detecting, adjust }
+
 /// Live move / scale / rotate while fingers are on the preview.
 struct LiveTransform {
     var clipID: UUID
@@ -54,6 +57,8 @@ final class EditorModel: ObservableObject {
     @Published var fullscreen = false
     @Published private(set) var analysis: AnalysisState?
     @Published var trackPick = false
+    @Published var pickPhase = PickPhase.select
+    private var detectTask: Task<Void, Never>?
     @Published var openTrackSheet = false
     private var analysisTask: Task<Void, Never>?
 
@@ -91,11 +96,22 @@ final class EditorModel: ObservableObject {
             MainActor.assumeIsolated {
                 guard let self, !self.isScrubbing, !self.seeking, self.isPlaying else { return }
                 self.currentTime = min(t.seconds, self.duration)
+                self.loopIfNeeded()
             }
         }
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in self?.isPlaying = status != .paused }
+            .sink { [weak self] status in
+                guard let self else { return }
+                // the selected clip is the last one: the item stopped at its end, so go round again
+                if status == .paused, self.loopSelected, let i = self.selectedIndex,
+                   self.player.currentTime().seconds >= self.project.clipStarts[i] + self.project.clips[i].duration - 0.1 {
+                    self.scrub(to: self.project.clipStarts[i])
+                    self.player.play()
+                    return
+                }
+                self.isPlaying = status != .paused
+            }
             .store(in: &cancellables)
 
         LookStore.shared.update(project.clips)
@@ -117,6 +133,7 @@ final class EditorModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        loopSelected = false
         if currentTime >= duration - 0.05 { scrub(to: 0) }
         player.play()
         isPlaying = true      // flip immediately so UI (fullscreen bar) reacts on the same tap
@@ -125,6 +142,7 @@ final class EditorModel: ObservableObject {
     func pause() {
         player.pause()
         isPlaying = false
+        loopSelected = false
     }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
@@ -144,11 +162,26 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    /// Play button in the speed sheet: plays the selected clip on a loop (tap again to stop).
+    @Published private(set) var loopSelected = false
+
     func previewSelected() {
         guard let i = selectedIndex else { return }
-        scrub(to: project.clipStarts[i])
+        if isPlaying { pause(); return }
+        let start = project.clipStarts[i], end = start + project.clips[i].duration
+        if currentTime < start || currentTime >= end - 0.05 { scrub(to: start) }
+        loopSelected = true
         player.play()
         isPlaying = true
+    }
+
+    private func loopIfNeeded() {
+        guard loopSelected, let i = selectedIndex else { return }
+        let start = project.clipStarts[i], end = start + project.clips[i].duration
+        if currentTime >= end - 0.04 || currentTime < start - 0.1 {
+            scrub(to: start)
+            player.play()
+        }
     }
 
     // MARK: Rebuilding the player item
@@ -201,9 +234,17 @@ final class EditorModel: ObservableObject {
     // MARK: Edits with undo
 
     func mutate(_ change: (inout Project) -> Void) {
+        let before = project
         pushUndo(project)
         change(&project)
+        followFootage(from: before)
         commit()
+    }
+
+    /// Captions (and later overlays) stick to the footage they belong to.
+    private func followFootage(from before: Project) {
+        guard let caps = project.captions, before.timingKey != project.timingKey else { return }
+        project.captions = caps.remapped(from: before, to: project)
     }
 
     private func pushUndo(_ p: Project) {
@@ -349,12 +390,27 @@ final class EditorModel: ObservableObject {
         selectedClipID = copy.id
     }
 
-    func moveSelected(by offset: Int) {
-        guard let i = selectedIndex else { return }
-        let j = i + offset
-        guard project.clips.indices.contains(j) else { return }
-        mutate { $0.clips.swapAt(i, j) }
-        scrub(to: project.clipStarts[j])
+    /// Hold-and-drag reorder finished: clip moves from index `from` to `to` (captions go with it).
+    func moveClip(from: Int, to: Int) {
+        guard from != to, project.clips.indices.contains(from), project.clips.indices.contains(to) else { return }
+        let id = project.clips[from].id
+        mutate { p in
+            let c = p.clips.remove(at: from)
+            p.clips.insert(c, at: to)
+        }
+        selectedClipID = id
+        if let j = project.clips.firstIndex(where: { $0.id == id }) { scrub(to: project.clipStarts[j]) }
+    }
+
+    /// Tapping a clip the playhead isn't on puts the playhead on that clip's nearest edge.
+    func tapClip(_ id: UUID) {
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
+        if selectedClipID == id { selectedClipID = nil; return }
+        selectedClipID = id
+        let start = project.clipStarts[i], end = start + project.clips[i].duration
+        guard currentTime < start || currentTime >= end else { return }
+        pause()
+        scrub(to: abs(currentTime - start) <= abs(currentTime - end) ? start : max(start, end - 1.0 / 30))
     }
 
     func toggleFill() {
@@ -607,36 +663,95 @@ final class EditorModel: ObservableObject {
         mutateLook { $0.clips[i].stabilization = nil }
     }
 
-    /// Enter "draw a box around the subject" mode on the preview.
+    /// Enter "mark the subject" mode on the preview.
     func startTrackPick() {
         guard let hit = project.clipIndex(at: currentTime) else { return }
         pause()
         if selectedIndex == nil || !playheadInSelected { selectedClipID = project.clips[hit.index].id }
+        pickPhase = .select
         trackPick = true
     }
 
-    /// The box was drawn on the preview (canvas points); map it to the source and track forward from here.
-    func runTracking(canvasRect r: CGRect, canvas: CGSize) {
-        guard let i = selectedIndex, analysis == nil, canvas.width > 0 else { return }
+    func cancelTrackPick() {
+        detectTask?.cancel()
         trackPick = false
+        pickPhase = .select
+    }
+
+    /// Maps normalized source coordinates (top-left origin) of clip i to preview canvas points,
+    /// exactly like the compositor draws the current frame (transform, stabilization, follow).
+    func sourceToCanvas(_ i: Int, canvas: CGSize) -> CGAffineTransform {
+        let c = project.clips[i]
+        let s = sourceTime(i)
+        let st = LookStore.shared.state(c.id) ?? c.lookState
+        let look = st.look(atSource: s)
+        let a = c.aspect ?? project.canvas.aspect
+        let src = CGSize(width: 1000 * a, height: 1000)
+        let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
+                                          stab: st.stab.map { let v = $0.at(s); return (v.x, v.y, $0.crop) },
+                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode) },
+                                          in: canvas)
+        let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
+        let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
+        return toPx.concatenating(p.stab).concatenating(p.place).concatenating(flip)
+    }
+
+    private static func bounds(_ r: CGRect, _ m: CGAffineTransform) -> CGRect {
+        let pts = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                   CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.maxY)].map { $0.applying(m) }
+        let xs = pts.map(\.x), ys = pts.map(\.y)
+        return CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
+    }
+
+    /// Canvas rect -> normalized source rect (clamped to the frame).
+    func canvasToSource(_ r: CGRect, clip i: Int, canvas: CGSize) -> CGRect? {
+        let b = Self.bounds(r, sourceToCanvas(i, canvas: canvas).inverted())
+            .intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
+        guard !b.isNull, b.width > 0.005, b.height > 0.005 else { return nil }
+        return b
+    }
+
+    func sourceRectToCanvas(_ r: CGRect, clip i: Int, canvas: CGSize) -> CGRect {
+        Self.bounds(r, sourceToCanvas(i, canvas: canvas))
+    }
+
+    /// The user marked the subject roughly (a tap is a tiny rect). Finds it and returns a tidy box in canvas points.
+    func detectSubject(rough r: CGRect, canvas: CGSize, done: @escaping (CGRect) -> Void) {
+        guard let i = selectedIndex, let src = canvasToSource(r, clip: i, canvas: canvas) else { return }
+        let c = project.clips[i]
+        let t = sourceTime(i)
+        let tap = r.width * r.height < 900
+        pickPhase = .detecting
+        detectTask?.cancel()
+        detectTask = Task {
+            let found = try? await Task.detached(priority: .userInitiated) {
+                try await Analyzer.detectSubject(file: c.mediaFile, at: t, rough: src)
+            }.value
+            if Task.isCancelled { return }
+            var out: CGRect
+            if let f = found, let j = project.clips.firstIndex(where: { $0.id == c.id }) {
+                out = sourceRectToCanvas(f, clip: j, canvas: canvas)
+                UISelectionFeedbackGenerator().selectionChanged()
+            } else {
+                // nothing recognised: use what was drawn (or a box around the tap)
+                let side = min(canvas.width, canvas.height) * 0.3
+                out = tap ? CGRect(x: r.midX - side / 2, y: r.midY - side / 2, width: side, height: side) : r
+            }
+            out = out.intersection(CGRect(origin: .zero, size: canvas))
+            pickPhase = .adjust
+            done(out)
+        }
+    }
+
+    /// The (adjusted) box on the preview, in canvas points: track forward and backward from here.
+    func runTracking(canvasRect r: CGRect, canvas: CGSize) {
+        guard let i = selectedIndex, analysis == nil, canvas.width > 0,
+              let box = canvasToSource(r, clip: i, canvas: canvas), box.width > 0.01, box.height > 0.01 else { return }
+        trackPick = false
+        pickPhase = .select
         let c = project.clips[i]
         let id = c.id
-        let t = lookAtPlayhead(i).transform
-        let base = c.baseFraction(canvasAspect: project.canvas.aspect)
-        let bw = base.width * canvas.width, bh = base.height * canvas.height
-        func toSource(_ p: CGPoint) -> CGPoint {
-            var q = CGPoint(x: p.x - (canvas.width / 2 + t.x * canvas.width), y: p.y - (canvas.height / 2 + t.y * canvas.height))
-            let cs = cos(-t.rotation), sn = sin(-t.rotation)
-            q = CGPoint(x: q.x * cs - q.y * sn, y: q.x * sn + q.y * cs)
-            return CGPoint(x: q.x / t.scale / bw + 0.5, y: q.y / t.scale / bh + 0.5)
-        }
-        let corners = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
-                       CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.maxY)].map(toSource)
-        let xs = corners.map(\.x), ys = corners.map(\.y)
-        let x0 = max(0, xs.min()!), x1 = min(1, xs.max()!), y0 = max(0, ys.min()!), y1 = min(1, ys.max()!)
-        guard x1 - x0 > 0.01, y1 - y0 > 0.01 else { return }
-        let box = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
-        let from = sourceTime(i)
+        let anchor = sourceTime(i)
         let mode = c.tracking?.mode ?? .center
         let smooth = c.tracking?.smooth ?? 0.5
 
@@ -646,12 +761,16 @@ final class EditorModel: ObservableObject {
             await withTaskCancellationHandler {
                 do {
                     let samples = try await Task.detached(priority: .userInitiated) {
-                        try await Analyzer.track(file: c.mediaFile, from: from, to: c.outPoint, box: box, progress: { f in
+                        try await Analyzer.track(file: c.mediaFile, from: c.inPoint, to: c.outPoint, anchor: anchor, box: box,
+                                                 progress: { f in
                             Task { @MainActor in self.analysis?.progress = f }
                         }, isCancelled: { flag.isSet })
                     }.value
                     guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
-                    mutateLook { $0.clips[j].tracking = Tracking(samples: samples, mode: mode == .off ? .center : mode, smooth: smooth) }
+                    mutateLook {
+                        $0.clips[j].tracking = Tracking(samples: samples, mode: mode == .off ? .center : mode,
+                                                        smooth: smooth, anchor: anchor)
+                    }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     openTrackSheet = true
                 } catch {
@@ -757,7 +876,10 @@ final class EditorModel: ObservableObject {
     }
 
     func trimEnded(_ id: UUID, leading: Bool) {
-        if let s = trimSnapshot, s != project { pushUndo(s) }
+        if let s = trimSnapshot, s != project {
+            pushUndo(s)
+            followFootage(from: s)
+        }
         trimSnapshot = nil
         trimOriginal = nil
         trim = nil
@@ -792,15 +914,21 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    func transformChanged(translation: CGSize, magnification: Double, rotation: Double, canvas: CGSize) {
+    /// g = how the fingers moved the picture on screen since the gesture began (move + scale + turn
+    /// around the fingers). The clip center follows g; scale and angle take g's scale and angle.
+    func transformChanged(gesture g: CGAffineTransform, canvas: CGSize) {
         guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
         let w = canvas.width, h = canvas.height
         let th: CGFloat = 7
+        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
+        let c1 = c0.applying(g)
+        let k = Double(hypot(g.a, g.b))
+        let turn = Double(atan2(g.b, g.a))
         var t = s0
-        t.x = s0.x + translation.width / w
-        t.y = s0.y + translation.height / h
-        t.scale = min(max(s0.scale * magnification, 0.05), 20)
-        t.rotation = s0.rotation + rotation
+        t.x = (c1.x - w / 2) / w
+        t.y = (c1.y - h / 2) / h
+        t.scale = min(max(s0.scale * k, 0.05), 20)
+        t.rotation = s0.rotation + turn
         var guides = Set<Guide>()
 
         // Rotation snaps to straight angles.

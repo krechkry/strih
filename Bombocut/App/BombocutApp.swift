@@ -8,6 +8,11 @@ struct BombocutApp: App {
     init() {
         // editor audio plays even when the ring/silent switch is on
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        // the speech model is big: drop it if iOS runs short of memory (it reloads when needed)
+        NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
+                                               object: nil, queue: .main) { _ in
+            Task { await SpeechEngine.shared.unload() }
+        }
     }
 
     var body: some Scene {
@@ -17,6 +22,7 @@ struct BombocutApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
                 .fontWeight(.medium)
+                .task { if Demo.mode == nil { SpeechEngine.warmUp() } }
         }
     }
 }

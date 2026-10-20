@@ -115,6 +115,7 @@ final class SpeechModels: ObservableObject {
             UserDefaults.standard.set(rel, forKey: "model.\(m.rawValue)")
             states[m] = .ready(url)
             tasks[m] = nil
+            Task.detached(priority: .utility) { _ = try? await SpeechEngine.shared.pipe(url) }
             return url
         } catch {
             states[m] = .failed(error.localizedDescription)
@@ -194,11 +195,10 @@ enum Transcriber {
 
     nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
                                                progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
-        let pipe = try await WhisperKit(WhisperKitConfig(modelFolder: folder.path, verbose: false, logLevel: .error,
-                                                         load: true, download: false))
+        let pipe = try await SpeechEngine.shared.pipe(folder)
+        // No VAD chunking: plain sequential decoding keeps every timestamp on the same clock.
         var opts = DecodingOptions(task: .transcribe, language: language, temperatureFallbackCount: 3,
-                                   usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true,
-                                   chunkingStrategy: .vad)
+                                   usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true)
         var prompt = prompts[language] ?? ""
         let extra = names.trimmingCharacters(in: .whitespacesAndNewlines)
         if !extra.isEmpty { prompt = extra + ". " + prompt }
@@ -215,19 +215,136 @@ enum Transcriber {
         defer { poll.cancel() }
 
         let results = try await pipe.transcribe(audioPath: audio.path, decodeOptions: opts)
-        var words: [CaptionWord] = []
-        for seg in results.flatMap(\.segments) {
-            for w in seg.words ?? [] {
-                let text = w.word.trimmingCharacters(in: .whitespacesAndNewlines)
-                if text.isEmpty || text.hasPrefix("<|") { continue }
-                // stray punctuation joins the previous word
-                if text.allSatisfy({ ".,!?…;:".contains($0) }), let last = words.indices.last {
-                    words[last].text += text
+        let segs = results.flatMap(\.segments).map {
+            Seg(start: Double($0.start), end: Double($0.end), text: $0.text,
+                words: ($0.words ?? []).map { (w: $0.word, s: Double($0.start), e: Double($0.end)) })
+        }
+        return timedWords(segs)
+    }
+
+    struct Seg {
+        var start: Double
+        var end: Double
+        var text: String
+        var words: [(w: String, s: Double, e: Double)]
+    }
+
+    private static func clean(_ t: String) -> String {
+        var s = t
+        while let r = s.range(of: "<\\|[^|]*\\|>", options: .regularExpression) { s.removeSubrange(r) }
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Whisper's segment times are dependable; its word times sometimes are not (they can collapse to 0
+    /// or jump). Words are kept only when they sit inside their segment in order; otherwise the segment's
+    /// words are spread over the segment by length.
+    static func timedWords(_ input: [Seg]) -> [CaptionWord] {
+        var out: [CaptionWord] = []
+        var prevEnd = 0.0
+        for var seg in input {
+            let text = clean(seg.text)
+            var words: [(w: String, s: Double, e: Double)] = []
+            for w in seg.words {
+                let t = clean(w.w)
+                if t.isEmpty { continue }
+                if t.allSatisfy({ ".,!?…;:".contains($0) }), !words.isEmpty {
+                    words[words.count - 1].w += t   // stray punctuation joins the previous word
                     continue
                 }
-                words.append(CaptionWord(text: text, start: Double(w.start), end: Double(w.end)))
+                words.append((t, w.s, w.e))
             }
+            if words.isEmpty {
+                words = text.split(separator: " ").map { (String($0), 0, 0) }
+            }
+            guard !words.isEmpty else { continue }
+
+            // segment clock sanity
+            if seg.end <= seg.start { seg.end = seg.start + max(0.6, Double(text.count) * 0.065) }
+            if seg.start < prevEnd - 0.3 {
+                let d = seg.end - seg.start
+                seg.start = prevEnd
+                seg.end = prevEnd + d
+            }
+            let len = seg.end - seg.start
+
+            // word times relative to the segment instead of absolute?
+            if seg.start > 1, let last = words.last, last.e <= len + 0.6, words.first!.s < seg.start - 0.6 {
+                words = words.map { ($0.w, $0.s + seg.start, $0.e + seg.start) }
+            }
+            var ok = true
+            var prev = seg.start - 0.6
+            for w in words {
+                if w.s < prev - 0.05 || w.e < w.s || w.s < seg.start - 0.6 || w.e > seg.end + 0.8 { ok = false; break }
+                prev = w.s
+            }
+            if ok {
+                let first = words.first!.s, lastEnd = words.last!.e
+                let span = lastEnd - first
+                // all words squeezed into a sliver of a long segment = broken alignment
+                if len > 1.5 && span < len * 0.25 { ok = false }
+            }
+            if !ok {
+                let total = Double(words.reduce(0) { $0 + $1.w.count + 1 })
+                var cursor = seg.start
+                words = words.map { w in
+                    let d = len * Double(w.w.count + 1) / max(total, 1)
+                    defer { cursor += d }
+                    return (w.w, cursor, cursor + d * 0.92)
+                }
+            }
+            for w in words {
+                let s = max(w.s, seg.start - 0.3, out.last?.start ?? 0)
+                let e = max(min(w.e, seg.end + 0.5), s + 0.05)
+                out.append(CaptionWord(text: w.w, start: s, end: e))
+            }
+            prevEnd = max(prevEnd, seg.end)
         }
-        return words.sorted { $0.start < $1.start }
+        return out
+    }
+}
+
+/// Keeps the speech model loaded between caption runs and warms it up in the background
+/// when the app opens, so "Generate" starts listening right away.
+actor SpeechEngine {
+    static let shared = SpeechEngine()
+    private var loaded: (path: String, pipe: WhisperKit)?
+    private var loading: (path: String, task: Task<WhisperKit, Error>)?
+
+    func pipe(_ folder: URL) async throws -> WhisperKit {
+        let path = folder.path
+        if let l = loaded, l.path == path { return l.pipe }
+        if let l = loading, l.path == path { return try await l.task.value }
+        loaded = nil
+        let task = Task<WhisperKit, Error>(priority: .userInitiated) {
+            try await WhisperKit(WhisperKitConfig(modelFolder: path, verbose: false, logLevel: .error,
+                                                  prewarm: false, load: true, download: false))
+        }
+        loading = (path, task)
+        do {
+            let p = try await task.value
+            loaded = (path, p)
+            loading = nil
+            return p
+        } catch {
+            loading = nil
+            throw error
+        }
+    }
+
+    func unload() {
+        loaded = nil
+    }
+
+    /// Called at launch: loads the model for the caption languages if it is on the phone.
+    @MainActor
+    static func warmUp() {
+        let models = SpeechModels.shared
+        let want = SpeechModel.needed(for: Prefs.languages)
+        let pick: SpeechModel? = models.isReady(want) ? want : SpeechModel.allCases.first { models.isReady($0) }
+        guard let m = pick, case .ready(let url) = models.state(m) else { return }
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(1.5))   // let the first screen settle
+            _ = try? await SpeechEngine.shared.pipe(url)
+        }
     }
 }

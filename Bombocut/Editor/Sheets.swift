@@ -10,7 +10,7 @@ struct CanvasSheet: View {
     private let presets: [(Double, Double)] = [(9, 16), (4, 5), (1, 1), (4, 3), (16, 9), (2.39, 1)]
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             ForEach(presets.indices, id: \.self) { i in
                 let p = presets[i]
                 let on = abs(model.project.canvas.aspect - p.0 / p.1) < 0.005
@@ -18,13 +18,20 @@ struct CanvasSheet: View {
                     if !on { model.setCanvas(Canvas(ratioW: p.0, ratioH: p.1)) }
                     dismiss()
                 } label: {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(on ? Theme.accent.opacity(0.25) : Color.clear)
-                        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(on ? Theme.accent : .white.opacity(0.8), lineWidth: 2))
-                        .aspectRatio(p.0 / p.1, contentMode: .fit)
-                        .frame(width: 34, height: 34)
-                        .frame(maxWidth: .infinity, minHeight: 60)
-                        .background(on ? Theme.accent.opacity(0.1) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                    VStack(spacing: 7) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(on ? Theme.accent.opacity(0.25) : Color.clear)
+                            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(on ? Theme.accent : .white.opacity(0.8), lineWidth: 2))
+                            .aspectRatio(p.0 / p.1, contentMode: .fit)
+                            .frame(width: 30, height: 30)
+                        Text(verbatim: Canvas(ratioW: p.0, ratioH: p.1).label)
+                            .font(.system(size: 13, weight: .heavy).monospacedDigit())
+                            .foregroundStyle(on ? Theme.accent : .white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 74)
+                    .background(on ? Theme.accent.opacity(0.1) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }
@@ -478,7 +485,7 @@ struct TrackSheet: View {
                 })
                 HStack(spacing: 10) {
                     Button { dismiss(); model.startTrackPick() } label: {
-                        Label("New box", systemImage: "viewfinder").font(.subheadline.weight(.bold))
+                        Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
                             .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
                     }
                     Button(role: .destructive) { model.removeTracking() } label: {
@@ -489,7 +496,7 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text("Pause on a frame where the subject is visible, draw a box around it, and Bombocut follows it to the end of the clip. Great for turning 16:9 footage into 9:16.")
+                Text("Pause where the subject is visible and tap it or roughly box it. Bombocut finds it and draws a box you can fix, then follows it through the whole clip. Great for turning 16:9 footage into 9:16.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { dismiss(); model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

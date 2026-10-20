@@ -73,17 +73,29 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let w = e.width, h = e.height
+        let p = placement(source: CGSize(width: w, height: h), fill: fill, transform: t, stab: stab, follow: follow, in: size)
+        if stab != nil {
+            img = img.transformed(by: p.stab).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
+        }
+        return img.transformed(by: p.place)
+    }
 
+    /// The two transforms used by `place` (Core Image coordinates: y-up, source pixels -> output pixels).
+    /// `stab` moves and zooms the upright source (it is then cropped to the source rect); `place` puts it on the canvas.
+    static func placement(source: CGSize, fill: Bool, transform t: ClipTransform,
+                          stab: (x: Double, y: Double, crop: Double)?,
+                          follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode)?,
+                          in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
+        let w = source.width, h = source.height
         // stabilization: shift by the correction, zoom in just enough to hide the edges
         var stabT = CGAffineTransform.identity
         if let st = stab {
             stabT = CGAffineTransform(translationX: st.x * w - w / 2, y: st.y * h - h / 2)
                 .concatenating(CGAffineTransform(scaleX: st.crop, y: st.crop))
                 .concatenating(CGAffineTransform(translationX: w / 2, y: h / 2))
-            img = img.transformed(by: stabT).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
         }
 
-        let sx = size.width / w, sy = size.height / h
+        let sx = size.width / max(w, 1e-6), sy = size.height / max(h, 1e-6)
         let s = fill ? max(sx, sy) : min(sx, sy)
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
         var m = CGAffineTransform(scaleX: s, y: s)
@@ -101,7 +113,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let target = f.mode == .center ? CGPoint(x: size.width / 2, y: size.height / 2) : onCanvas(f.start.x, f.start.y)
             m = m.concatenating(CGAffineTransform(translationX: target.x - now.x, y: target.y - now.y))
         }
-        return img.transformed(by: m)
+        return (stabT, m)
     }
 
     static func orientation(for t: CGAffineTransform) -> CGImagePropertyOrientation {

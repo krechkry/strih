@@ -42,7 +42,7 @@ struct EditorView: View {
         .sheet(item: $sheet) { s in
             switch s {
             case .export: ExportSheet(project: model.project).presentationDetents([.large])
-            case .canvas: CanvasSheet(model: model).presentationDetents([.height(108)])
+            case .canvas: CanvasSheet(model: model).presentationDetents([.height(124)])
             case .volume: VolumeSheet(model: model).presentationDetents([.height(200)])
             case .speed: SpeedSheet(model: model).presentationDetents([.height(470)])
             case .adjust: AdjustSheet(model: model).presentationDetents([.height(300)])
@@ -191,10 +191,6 @@ struct EditorView: View {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
-                    ToolButton(icon: "arrow.left.to.line", label: "Move left") { model.moveSelected(by: -1) }
-                        .disabled(i == 0)
-                    ToolButton(icon: "arrow.right.to.line", label: "Move right") { model.moveSelected(by: 1) }
-                        .disabled(i == model.project.clips.count - 1)
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelected() }
                 } else {
                     PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .videos,
@@ -234,6 +230,16 @@ struct EditorView: View {
         model.scrub(to: min(2.2, model.duration))
         let clips = model.project.clips
         switch mode {
+        case "zoom":
+            guard clips.count > 1 else { break }
+            let id = clips[1].id
+            model.mutateLook { p in
+                if let i = p.clips.firstIndex(where: { $0.id == id }) {
+                    p.clips[i].transform = ClipTransform(x: 0.12, y: 0.05, scale: 2.4, rotation: 0.3)
+                }
+            }
+            model.selectedClipID = id
+            model.scrub(to: model.project.clipStarts[1] + 1.0)
         case "selected":
             guard clips.count > 1 else { break }
             let id = clips[1].id
@@ -320,6 +326,7 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .track
             } else {
+                model.pickPhase = .adjust
                 model.trackPick = true
             }
         case "fullscreen":
