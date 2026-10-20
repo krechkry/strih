@@ -84,13 +84,16 @@ struct TimelineView: View {
                         CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
                                     onTap: { cue in model.openCaption(cue) })
                     }
+                    if !model.project.overlays.isEmpty, reorder == nil {
+                        OverlayLane(model: model)
+                    }
                     }
                     .padding(.leading, max(0, half + shift))
                     .padding(.trailing, half)
                     .padding(.top, 26)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
-                    .onTapGesture { model.selectedClipID = nil }
+                    .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil }
                 }
                 .scrollPosition($scrollPos)
                 .scrollDisabled(model.trim != nil || reorder != nil)
@@ -516,5 +519,121 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
         default:
             break
         }
+    }
+}
+
+/// Overlay blocks under the clips: tap to select (again to edit), hold and slide to move, drag the ends to trim.
+struct OverlayLane: View {
+    @ObservedObject var model: EditorModel
+    @State private var dragStart: (start: Double, duration: Double)?
+
+    static let rowHeight: CGFloat = 22
+    static let maxRows = 3
+
+    /// Overlays packed into rows so blocks never overlap (later ones go lower).
+    static func rows(_ list: [Overlay]) -> [[Overlay]] {
+        var rows: [[Overlay]] = []
+        for o in list {
+            if let i = rows.firstIndex(where: { r in r.allSatisfy { $0.end <= o.start + 0.001 || $0.start >= o.end - 0.001 } }),
+               i < maxRows {
+                rows[i].append(o)
+            } else if rows.count < maxRows {
+                rows.append([o])
+            } else {
+                rows[maxRows - 1].append(o)
+            }
+        }
+        return rows
+    }
+
+    static func height(_ list: [Overlay]) -> CGFloat {
+        list.isEmpty ? 0 : CGFloat(rows(list).count) * (rowHeight + 3) + 3
+    }
+
+    var body: some View {
+        let px = model.pxPerSec
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(Self.rows(model.project.overlays).enumerated()), id: \.offset) { _, row in
+                ZStack(alignment: .topLeading) {
+                    Color.clear.frame(width: CGFloat(model.duration) * px, height: Self.rowHeight)
+                    ForEach(row) { o in block(o, px: px) }
+                }
+            }
+        }
+    }
+
+    private func block(_ o: Overlay, px: CGFloat) -> some View {
+        let selected = o.id == model.selectedOverlayID
+        let w = max(10, CGFloat(o.duration) * px)
+        return HStack(spacing: 4) {
+            Image(systemName: o.icon).font(.system(size: 9, weight: .bold))
+            Text(o.title.replacingOccurrences(of: "\n", with: " ")).font(.system(size: 9, weight: .bold)).lineLimit(1)
+        }
+        .foregroundStyle(selected ? .black : .white)
+        .padding(.horizontal, selected ? 12 : 5)
+        .frame(width: w, height: Self.rowHeight, alignment: .leading)
+        .background(selected ? Theme.accent : Color(red: 0.55, green: 0.35, blue: 1).opacity(0.45),
+                    in: RoundedRectangle(cornerRadius: 5))
+        .clipped()
+        .overlay {
+            if selected {
+                HStack(spacing: 0) {
+                    edge(o, leading: true, px: px)
+                    Spacer(minLength: 0)
+                    edge(o, leading: false, px: px)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if selected { model.openOverlayPanel = true } else { model.selectOverlay(o.id) }
+        }
+        .gesture(HoldToDrag(
+            onBegan: { _ in
+                model.selectOverlay(o.id)
+                dragStart = (o.start, o.duration)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            },
+            onChanged: { dx, _ in
+                guard let d = dragStart else { return }
+                var s = d.start + Double(dx / px)
+                // snap the start to the playhead
+                if abs((s - model.currentTime) * Double(px)) < 8 { s = model.currentTime }
+                model.overlayTiming(o.id, start: s, duration: d.duration, done: false)
+            },
+            onEnded: {
+                if let cur = model.project.overlays.first(where: { $0.id == o.id }) {
+                    model.overlayTiming(o.id, start: cur.start, duration: cur.duration, done: true)
+                }
+                dragStart = nil
+            }))
+        .offset(x: CGFloat(o.start) * px)
+    }
+
+    private func edge(_ o: Overlay, leading: Bool, px: CGFloat) -> some View {
+        Rectangle().fill(.black.opacity(0.35))
+            .frame(width: 10, height: Self.rowHeight)
+            .overlay(Capsule().fill(.black).frame(width: 2, height: 10))
+            .contentShape(Rectangle().inset(by: -8))
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                    .onChanged { v in
+                        if dragStart == nil { dragStart = (o.start, o.duration) }
+                        guard let d = dragStart else { return }
+                        let dt = Double(v.translation.width / px)
+                        if leading {
+                            let ns = min(max(0, d.start + dt), d.start + d.duration - 0.2)
+                            model.overlayTiming(o.id, start: ns, duration: d.start + d.duration - ns, done: false)
+                        } else {
+                            model.overlayTiming(o.id, start: d.start, duration: d.duration + dt, done: false)
+                        }
+                    }
+                    .onEnded { _ in
+                        if let cur = model.project.overlays.first(where: { $0.id == o.id }) {
+                            model.overlayTiming(o.id, start: cur.start, duration: cur.duration, done: true)
+                        }
+                        dragStart = nil
+                    }
+            )
     }
 }

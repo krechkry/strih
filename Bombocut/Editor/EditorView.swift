@@ -1,12 +1,14 @@
 import SwiftUI
 import AVFoundation
 import PhotosUI
+import UniformTypeIdentifiers
 
 struct EditorView: View {
     @StateObject private var model: EditorModel
     @Environment(\.dismiss) private var dismiss
     @State private var sheet: EditorSheet?
     @State private var addItems: [PhotosPickerItem] = []
+    @State private var overlayItems: [PhotosPickerItem] = []
     @State private var adding = false
     @State private var renaming = false
     @State private var renameText = ""
@@ -24,6 +26,7 @@ struct EditorView: View {
         case .captions: return 420
         case .stabilize: return 280
         case .track: return 360
+        case .overlay: return 430
         }
     }
 
@@ -51,6 +54,7 @@ struct EditorView: View {
         case .captions: CaptionsSheet(model: model)
         case .stabilize: StabilizeSheet(model: model)
         case .track: TrackSheet(model: model)
+        case .overlay: OverlaySheet(model: model)
         }
     }
 
@@ -75,7 +79,7 @@ struct EditorView: View {
                 VStack(spacing: 0) {
                     transport
                     TimelineView(model: model)
-                        .frame(height: model.project.captions == nil ? 112 : 136)
+                        .frame(height: (model.project.captions == nil ? 112 : 136) + OverlayLane.height(model.project.overlays))
                     toolbar
                 }
                 .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = $0 }
@@ -107,6 +111,17 @@ struct EditorView: View {
         }
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
+        }
+        .onChange(of: model.openOverlayPanel) { _, open in
+            if open { model.openOverlayPanel = false; sheet = .overlay }
+        }
+        .onChange(of: model.selectedOverlayID) { _, id in
+            if id == nil && sheet == .overlay { sheet = nil }
+        }
+        .onChange(of: overlayItems) { _, items in
+            guard let item = items.first else { return }
+            overlayItems = []
+            Task { await addOverlay(item) }
         }
         .onChange(of: addItems) { _, items in
             guard !items.isEmpty else { return }
@@ -322,7 +337,12 @@ struct EditorView: View {
     private var toolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                if let i = model.selectedIndex {
+                if model.selectedOverlayIndex != nil {
+                    ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
+                    ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
+                    ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
+                    ToolButton(icon: "xmark", label: "Done") { model.selectOverlay(nil) }
+                } else if let i = model.selectedIndex {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
@@ -344,6 +364,12 @@ struct EditorView: View {
                     }
                     .tint(Theme.pickerTint)
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
+                    ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
+                    PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
+                                 preferredItemEncoding: .current) {
+                        ToolLabel(icon: "square.on.square", label: "Overlay")
+                    }
+                    .tint(Theme.pickerTint)
                     ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
                     ToolButton(icon: "aspectratio", label: "Canvas") { sheet = .canvas }
                 }
@@ -354,6 +380,22 @@ struct EditorView: View {
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
         .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
+    }
+
+    /// Picture or video from Photos as an overlay.
+    private func addOverlay(_ item: PhotosPickerItem) async {
+        adding = true
+        defer { adding = false }
+        if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }),
+           let m = try? await item.loadTransferable(type: ImportedMovie.self) {
+            await model.addMediaOverlay(url: m.url, isVideo: true)
+        } else if let data = try? await item.loadTransferable(type: Data.self) {
+            Paths.ensure()
+            let ext = item.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+            let url = Paths.mediaURL(UUID().uuidString + "." + ext)
+            guard (try? data.write(to: url)) != nil else { return }
+            await model.addMediaOverlay(url: url, isVideo: false)
+        }
     }
 
     private func add(_ items: [PhotosPickerItem]) async {
@@ -487,7 +529,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay
     var id: String { rawValue }
 }
 

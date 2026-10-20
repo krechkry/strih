@@ -102,6 +102,14 @@ final class CaptionRenderer: @unchecked Sendable {
         return out
     }
 
+    /// A text overlay: the same drawing as captions, any text, no animation.
+    func textImage(_ text: String, style: CaptionStyle, canvas: CGSize) -> CIImage? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+        let cue = CaptionCue(start: 0, end: 1, text: t, words: [])
+        return render(cue, style: style, canvas: canvas, active: nil, visibleWords: nil, visibleFraction: nil)
+    }
+
     static func uiFont(_ f: CaptionFont, size: CGFloat) -> UIFont {
         func named(_ n: String, _ w: UIFont.Weight) -> UIFont { UIFont(name: n, size: size) ?? .systemFont(ofSize: size, weight: w) }
         switch f {

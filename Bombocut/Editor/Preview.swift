@@ -25,6 +25,7 @@ struct PreviewArea: View {
             ZStack {
                 layer(canvas) { media(canvas).clipShape(RoundedRectangle(cornerRadius: 6)) }
                 layer(canvas) { selectionBox(canvas) }
+                layer(canvas) { overlayBox(canvas) }
                 layer(canvas) { trackedBox(canvas) }
                 layer(canvas) { guides(canvas) }
                 layer(canvas) { readout }
@@ -151,6 +152,28 @@ struct PreviewArea: View {
             }
             .stroke(Theme.accent, lineWidth: 1.5)
             .allowsHitTesting(false)
+        }
+    }
+
+    /// Lime outline around the selected overlay while the playhead is on it.
+    @ViewBuilder
+    private func overlayBox(_ canvas: CGSize) -> some View {
+        if let i = model.selectedOverlayIndex, !model.isPlaying {
+            let o = model.project.overlays[i]
+            if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 {
+                let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
+                let t = o.transform
+                let bw = base.width * t.scale, bh = base.height * t.scale
+                let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+                Path { p in
+                    let m = CGAffineTransform(rotationAngle: t.rotation).concatenating(CGAffineTransform(translationX: cx, y: cy))
+                    p.addLines([CGPoint(x: -bw / 2, y: -bh / 2), CGPoint(x: bw / 2, y: -bh / 2),
+                                CGPoint(x: bw / 2, y: bh / 2), CGPoint(x: -bw / 2, y: bh / 2)].map { $0.applying(m) })
+                    p.closeSubpath()
+                }
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                .allowsHitTesting(false)
+            }
         }
     }
 
@@ -351,7 +374,8 @@ struct PreviewArea: View {
     /// Snap guides while dragging.
     @ViewBuilder
     private func guides(_ canvas: CGSize) -> some View {
-        if let g = model.live?.guides, !g.isEmpty {
+        let g = (model.live?.guides ?? []).union(model.overlayGuides)
+        if !g.isEmpty {
             let w = canvas.width, h = canvas.height
             Path { p in
                 if g.contains(.centerX) { p.move(to: CGPoint(x: w / 2, y: 0)); p.addLine(to: CGPoint(x: w / 2, y: h)) }

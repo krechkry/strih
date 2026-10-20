@@ -58,7 +58,7 @@ final class ProjectStore: ObservableObject {
 
     /// Removes imported media no project uses any more.
     func cleanupMedia() {
-        let used = Set(projects.flatMap { $0.clips.map(\.mediaFile) })
+        let used = Set(projects.flatMap { $0.mediaFiles })
         let files = (try? FileManager.default.contentsOfDirectory(atPath: Paths.media.path)) ?? []
         for f in files where !used.contains(f) {
             try? FileManager.default.removeItem(at: Paths.mediaURL(f))

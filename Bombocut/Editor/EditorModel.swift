@@ -46,7 +46,9 @@ final class EditorModel: ObservableObject {
     @Published var project: Project
     @Published var currentTime: Double = 0
     @Published private(set) var isPlaying = false
-    @Published var selectedClipID: UUID?
+    @Published var selectedClipID: UUID? {
+        didSet { if selectedClipID != nil && selectedOverlayID != nil { selectedOverlayID = nil } }
+    }
     @Published var pxPerSec: CGFloat = 60
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
@@ -123,6 +125,7 @@ final class EditorModel: ObservableObject {
 
         LookStore.shared.update(project.clips)
         CaptionStore.shared.update(project.captions)
+        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         rebuild()
         Task { await fillMissingAspects() }
     }
@@ -250,10 +253,13 @@ final class EditorModel: ObservableObject {
         commit()
     }
 
-    /// Captions (and later overlays) stick to the footage they belong to.
+    /// Captions and overlays stick to the footage they belong to.
     private func followFootage(from before: Project) {
-        guard let caps = project.captions, before.timingKey != project.timingKey else { return }
-        project.captions = caps.remapped(from: before, to: project)
+        guard before.timingKey != project.timingKey else { return }
+        if let caps = project.captions { project.captions = caps.remapped(from: before, to: project) }
+        if !project.overlays.isEmpty {
+            project.overlays = Captions.remapOverlays(project.overlays, from: before, to: project)
+        }
     }
 
     private func pushUndo(_ p: Project) {
@@ -268,9 +274,11 @@ final class EditorModel: ObservableObject {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
         if let id = selectedClipID, !project.clips.contains(where: { $0.id == id }) { selectedClipID = nil }
+        if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
         currentTime = min(currentTime, duration)
         LookStore.shared.update(project.clips)
         CaptionStore.shared.update(project.captions)
+        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         rebuild()
     }
 
@@ -294,6 +302,8 @@ final class EditorModel: ObservableObject {
     private func publishLook() {
         LookStore.shared.update(project.clips)
         CaptionStore.shared.update(project.captions)
+        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
         refreshFrame()
     }
 
@@ -413,6 +423,7 @@ final class EditorModel: ObservableObject {
 
     /// Tapping a clip the playhead isn't on puts the playhead on that clip's nearest edge.
     func tapClip(_ id: UUID) {
+        selectedOverlayID = nil
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         if selectedClipID == id { selectedClipID = nil; return }
         selectedClipID = id
@@ -1025,11 +1036,163 @@ final class EditorModel: ObservableObject {
         commit()
     }
 
+    // MARK: Overlays
+
+    @Published var selectedOverlayID: UUID?
+    @Published private(set) var overlayGuides: Set<Guide> = []
+    private var overlayStart: ClipTransform?
+    private var overlaySnapshot: Project?
+
+    var selectedOverlayIndex: Int? { project.overlays.firstIndex { $0.id == selectedOverlayID } }
+
+    func selectOverlay(_ id: UUID?) {
+        selectedOverlayID = id
+        if id != nil { selectedClipID = nil }
+        // put the playhead on it so you see what you edit
+        if let i = selectedOverlayIndex {
+            let o = project.overlays[i]
+            if currentTime < o.start || currentTime >= o.end { pause(); scrub(to: o.start + min(0.05, o.duration / 2)) }
+        }
+    }
+
+    /// Text overlay at the playhead (3 s).
+    func addText() {
+        let start = min(currentTime, max(0, duration - 0.5))
+        var o = Overlay(kind: .text("Text"), start: start, duration: min(3, max(0.5, duration - start)))
+        o.transform.y = -0.15
+        mutateLook { $0.overlays.append(o) }
+        selectOverlay(o.id)
+        openOverlayPanel = true
+    }
+
+    /// Picture or video from Photos, placed at the playhead.
+    func addMediaOverlay(url: URL, isVideo: Bool) async {
+        let start = min(currentTime, max(0, duration - 0.5))
+        var o: Overlay
+        if isVideo {
+            guard let info = try? await Media.probe(url), info.duration > 0.05 else { return }
+            o = Overlay(kind: .video(file: url.lastPathComponent, sourceDuration: info.duration, inPoint: 0),
+                        start: start, duration: min(info.duration, max(0.5, duration - start)))
+            if info.size.height > 0 { o.aspect = info.size.width / info.size.height }
+            mutate { $0.overlays.append(o) }     // video needs its own track: rebuild
+        } else {
+            guard let img = UIImage(contentsOfFile: url.path) else { return }
+            o = Overlay(kind: .image(file: url.lastPathComponent), start: start, duration: min(3, max(0.5, duration - start)))
+            if img.size.height > 0 { o.aspect = img.size.width / img.size.height }
+            mutateLook { $0.overlays.append(o) }
+        }
+        selectOverlay(o.id)
+    }
+
+    @Published var openOverlayPanel = false
+
+    /// Live change to the selected overlay (sliders, typing); pair with liveEditBegan / liveEditEnded.
+    func editOverlay(_ change: (inout Overlay) -> Void) {
+        guard let i = selectedOverlayIndex else { return }
+        change(&project.overlays[i])
+        publishLook()
+    }
+
+    /// One-step change with undo.
+    func setOverlay(_ change: (inout Overlay) -> Void) {
+        guard let i = selectedOverlayIndex else { return }
+        let video = project.overlays[i].kind.isVideo
+        let before = project.overlays[i]
+        var o = before
+        change(&o)
+        guard o != before else { return }
+        let timing = o.start != before.start || o.duration != before.duration || o.kind != before.kind
+        if video && timing { mutate { $0.overlays[i] = o } } else { mutateLook { $0.overlays[i] = o } }
+    }
+
+    func deleteOverlay() {
+        guard let i = selectedOverlayIndex else { return }
+        let video = project.overlays[i].kind.isVideo
+        if video { mutate { $0.overlays.remove(at: i) } } else { mutateLook { $0.overlays.remove(at: i) } }
+        selectedOverlayID = nil
+    }
+
+    func duplicateOverlay() {
+        guard let i = selectedOverlayIndex else { return }
+        var o = project.overlays[i]
+        o.id = UUID()
+        o.transform.x += 0.04
+        o.transform.y += 0.04
+        let video = o.kind.isVideo
+        if video { mutate { $0.overlays.insert(o, at: i + 1) } } else { mutateLook { $0.overlays.insert(o, at: i + 1) } }
+        selectedOverlayID = o.id
+    }
+
+    /// Drag on the timeline: move (both) or trim (one edge). Times in timeline seconds; live until `done`.
+    private var overlayTimingSnapshot: Project?
+    func overlayTiming(_ id: UUID, start: Double, duration: Double, done: Bool) {
+        guard let i = project.overlays.firstIndex(where: { $0.id == id }) else { return }
+        if overlayTimingSnapshot == nil { overlayTimingSnapshot = project }
+        var o = project.overlays[i]
+        var d = max(0.2, duration)
+        if case .video(_, let srcDur, let inPoint) = o.kind { d = min(d, srcDur - inPoint) }
+        o.duration = min(d, max(0.2, self.duration - start))
+        o.start = min(max(0, start), max(0, self.duration - 0.2))
+        project.overlays[i] = o
+        publishLook()
+        if done {
+            let video = o.kind.isVideo
+            if let s = overlayTimingSnapshot, s != project { pushUndo(s) }
+            overlayTimingSnapshot = nil
+            if video { commit() } else { commitLook() }
+        }
+    }
+
+    /// Fingers on the preview move the selected overlay when the playhead is on it.
+    private func overlayTransformBegan() -> Bool {
+        guard let i = selectedOverlayIndex else { return false }
+        let o = project.overlays[i]
+        guard currentTime >= o.start - 0.01, currentTime < o.end + 0.01 else { return false }
+        pause()
+        overlayStart = o.transform
+        overlaySnapshot = project
+        overlayGuides = []
+        return true
+    }
+
+    private func overlayTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
+        guard let s0 = overlayStart, let i = selectedOverlayIndex, canvas.width > 0 else { return }
+        let w = canvas.width, h = canvas.height
+        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
+        let c1 = c0.applying(g)
+        var t = s0
+        t.x = (c1.x - w / 2) / w
+        t.y = (c1.y - h / 2) / h
+        t.scale = min(max(s0.scale * Double(hypot(g.a, g.b)), 0.05), 20)
+        t.rotation = s0.rotation + Double(atan2(g.b, g.a))
+        var guides = Set<Guide>()
+        let quarter = Double.pi / 2
+        let turns = (t.rotation / quarter).rounded()
+        if abs(t.rotation - turns * quarter) < 5 * .pi / 180 { t.rotation = turns * quarter; guides.insert(.angle) }
+        if abs(t.x * w) < 7 { t.x = 0; guides.insert(.centerX) }
+        if abs(t.y * h) < 7 { t.y = 0; guides.insert(.centerY) }
+        if abs(t.scale - 1) < 0.035 { t.scale = 1; guides.insert(.scale) }
+        if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
+        overlayGuides = guides
+        project.overlays[i].transform = t
+        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        refreshFrame()
+    }
+
+    private func overlayTransformEnded() {
+        overlayStart = nil
+        overlayGuides = []
+        if let s = overlaySnapshot, s != project { pushUndo(s) }
+        overlaySnapshot = nil
+        commitLook()
+    }
+
     // MARK: Move / scale / rotate on the preview
 
     private var lastGuides: Set<Guide> = []
 
     func transformBegan() {
+        if overlayTransformBegan() { return }
         guard !fullscreen, trim == nil, let hit = project.clipIndex(at: currentTime) else { return }
         pause()
         let c = project.clips[hit.index]
@@ -1053,6 +1216,7 @@ final class EditorModel: ObservableObject {
     /// g = how the fingers moved the picture on screen since the gesture began (move + scale + turn
     /// around the fingers). The clip center follows g; scale and angle take g's scale and angle.
     func transformChanged(gesture g: CGAffineTransform, canvas: CGSize) {
+        if overlayStart != nil { overlayTransformChanged(g, canvas: canvas); return }
         guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
         let w = canvas.width, h = canvas.height
         let th: CGFloat = 7
@@ -1117,6 +1281,7 @@ final class EditorModel: ObservableObject {
     }
 
     func transformEnded() {
+        if overlayStart != nil { overlayTransformEnded(); return }
         guard var l = live, l.active else { return }
         liveStart = nil
         l.active = false

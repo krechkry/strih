@@ -204,7 +204,7 @@ struct StorageView: View {
             if case .ready(let u) = speech.state(m) { return (m, u) }
             return nil
         })
-        let used = Set(store.projects.flatMap { $0.clips.map(\.mediaFile) })
+        let used = Set(store.projects.flatMap { $0.mediaFiles })
         let base = SpeechModels.base
         report = await Task.detached { StorageReport.scan(models: ready, usedMedia: used, modelBase: base) }.value
     }

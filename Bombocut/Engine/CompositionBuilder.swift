@@ -20,12 +20,15 @@ final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @u
 
     let trackID: CMPersistentTrackID
     let info: ClipRenderInfo
+    let overlayTracks: [UUID: OverlayTrack]
 
-    init(timeRange: CMTimeRange, trackID: CMPersistentTrackID, info: ClipRenderInfo) {
+    init(timeRange: CMTimeRange, trackID: CMPersistentTrackID, info: ClipRenderInfo,
+         overlayTracks: [UUID: OverlayTrack] = [:]) {
         self.timeRange = timeRange
         self.trackID = trackID
         self.info = info
-        self.requiredSourceTrackIDs = [NSNumber(value: trackID)]
+        self.overlayTracks = overlayTracks
+        self.requiredSourceTrackIDs = [NSNumber(value: trackID)] + overlayTracks.values.map { NSNumber(value: $0.trackID) }
         super.init()
     }
 }
@@ -124,6 +127,26 @@ enum CompositionBuilder {
 
         guard !placed.isEmpty else { throw err("Nothing to play.") }
 
+        // Video overlays: one muted track each, placed at the overlay's time.
+        var overlayTracks: [UUID: OverlayTrack] = [:]
+        for o in project.overlays {
+            guard case .video(let file, _, let inPoint) = o.kind, o.start < cursor.seconds else { continue }
+            let asset = AVURLAsset(url: Paths.mediaURL(file))
+            guard let src = try? await asset.loadTracks(withMediaType: .video).first,
+                  let loaded = try? await src.load(.preferredTransform, .timeRange),
+                  let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { continue }
+            let (pref, range) = loaded
+            let len = min(o.duration, range.duration.seconds - inPoint, cursor.seconds - o.start)
+            guard len > 0.04 else { comp.removeTrack(track); continue }
+            let r = CMTimeRange(start: time(inPoint), duration: time(len)).intersection(range)
+            if (try? track.insertTimeRange(r, of: src, at: time(o.start))) != nil {
+                overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
+            } else {
+                comp.removeTrack(track)
+            }
+        }
+
         var mixParams: [AVAudioMixInputParameters] = []
         for (track, p) in [(keepTrack, keepParams), (variTrack, variParams)] {
             if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
@@ -137,7 +160,7 @@ enum CompositionBuilder {
         for (i, p) in placed.enumerated() {
             let end = i == placed.count - 1 ? total : p.end
             instructions.append(ClipInstruction(timeRange: CMTimeRange(start: p.start, end: end),
-                                                trackID: vTrack.trackID, info: p.info))
+                                                trackID: vTrack.trackID, info: p.info, overlayTracks: overlayTracks))
         }
 
         let vc = AVMutableVideoComposition()

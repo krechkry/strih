@@ -54,6 +54,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let bg = CIImage(color: .black).cropped(to: frame)
             image = image.composited(over: bg).cropped(to: frame)
             image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+            if !instr.overlayTracks.isEmpty || !OverlayStore.shared.current.overlays.isEmpty {
+                image = OverlayRenderer.shared.draw(on: image, at: t, size: size) { id in
+                    guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
+                    return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
+                }
+            }
             if let caps = CaptionStore.shared.current, let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                 image = text.composited(over: image).cropped(to: frame)
             }

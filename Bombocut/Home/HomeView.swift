@@ -214,7 +214,7 @@ private struct ProjectRow: View {
 
     /// Space the project's videos take on the phone (a video shared by several clips counts once).
     private var size: String {
-        let files = Set(project.clips.map(\.mediaFile))
+        let files = project.mediaFiles
         let bytes = files.reduce(Int64(0)) { sum, f in
             let a = try? FileManager.default.attributesOfItem(atPath: Paths.mediaURL(f).path)
             return sum + ((a?[.size] as? NSNumber)?.int64Value ?? 0)
