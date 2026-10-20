@@ -155,11 +155,16 @@ struct Overlay: Codable, Hashable, Identifiable {
     /// Changes placement / opacity at `now`: the fixed values, the keyframe there, or a new keyframe.
     mutating func changePose(at now: Double, _ change: (inout ClipTransform, inout Double) -> Void) {
         if keys.isEmpty {
-            change(&transform, &opacity)
+            var t = transform, o = opacity
+            change(&t, &o)
+            transform = t
+            opacity = o
             return
         }
         if let k = key(at: now) {
-            change(&keys[k].transform, &keys[k].opacity)
+            var kk = keys[k]
+            change(&kk.transform, &kk.opacity)
+            keys[k] = kk
         } else {
             let p = pose(at: now)
             var k = OverlayKey(t: min(max(now - start, 0), duration), transform: p.transform, opacity: p.opacity)
