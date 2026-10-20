@@ -4,3 +4,5 @@ Payload/
 *.ipa
 .DS_Store
 Config/Local.xcconfig
+bench/.build/
+bench/models/

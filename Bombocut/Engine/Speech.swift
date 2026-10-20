@@ -217,11 +217,8 @@ enum Transcriber {
         if let tok = pipe.tokenizer {
             opts.suppressTokens = await SpeechEngine.shared.foreignLetterTokens(language, tok)
         }
-        // A short sentence in the chosen language (plus your names) steers spelling and diacritics.
-        // Timing no longer depends on it: words are checked and re-timed afterwards.
-        var prompt = prompts[language] ?? ""
-        let extra = names.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !extra.isEmpty { prompt = extra + ". " + prompt }
+        // Only names you typed go in as a hint: a longer prompt makes Whisper skip its timestamps.
+        let prompt = names.trimmingCharacters(in: .whitespacesAndNewlines)
         if let tok = pipe.tokenizer, !prompt.isEmpty {
             opts.promptTokens = tok.encode(text: " " + prompt).filter { $0 < tok.specialTokens.specialTokenBegin }
         }
@@ -334,6 +331,8 @@ enum Transcriber {
             prevEnd = max(prevEnd, s.end)
         }
         if let sp = speech, sp.voicedDuration > 2, covered < sp.voicedDuration * 0.45 { broken = true }
+        // a segment running past the end of the audio = Whisper gave no timestamps (it reports its 30 s window)
+        if let sp = speech, let last = segs.last, last.end > sp.duration + 0.5 { broken = true }
 
         var raw: [RawWord] = []
         if broken {
@@ -352,10 +351,11 @@ enum Transcriber {
                 raw += plausible(words, in: s.start, s.end) ? words : spread(words, s.start, s.end, speech: speech)
             }
         }
+        let limit = speech?.duration ?? .greatestFiniteMagnitude
         var out: [CaptionWord] = []
         for w in raw {
-            let s = max(w.s, out.last?.start ?? 0, 0)
-            let e = max(w.e, s + 0.05)
+            let s = min(max(w.s, out.last?.start ?? 0, 0), max(limit - 0.1, 0))
+            let e = min(max(w.e, s + 0.05), limit)
             out.append(CaptionWord(text: w.w, start: s, end: e, confidence: w.p))
         }
         return out
@@ -412,6 +412,7 @@ struct SpeechActivity {
     }
 
     var voicedDuration: Double { Double(voiced.filter { $0 }.count) * step }
+    var duration: Double { Double(voiced.count) * step }
     var firstVoice: Double? { voiced.firstIndex(of: true).map { Double($0) * step } }
     var lastVoice: Double? { voiced.lastIndex(of: true).map { Double($0 + 1) * step } }
 

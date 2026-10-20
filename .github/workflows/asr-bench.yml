@@ -1,0 +1,49 @@
+name: ASR bench
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: macos-15
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - openai_whisper-large-v3-v20240930_turbo_632MB
+          - openai_whisper-large-v3_947MB
+          - openai_whisper-large-v3-v20240930_626MB
+          - openai_whisper-large-v3-v20240930
+          - openai_whisper-large-v3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pick newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+      - name: Czech test speech (macOS voice)
+        working-directory: bench/audio
+        run: |
+          say -v '?' | grep -i "cs_CZ\|sk_SK" || true
+          V=$(say -v '?' | grep -i "cs_CZ" | head -1 | awk '{print $1}')
+          if [ -n "$V" ]; then
+            T="Tohle je test českého jazyka. Já jsem Kryštof, ahoj, jak se máš? Pa pa. Dneska jedeme na skatepark a natočíme nový díl."
+            say -v "$V" -r 170 -o tts.aiff "$T"
+            afconvert -f WAVE -d LEI16@16000 -c 1 tts.aiff tts_cs.wav
+            echo "$T" > tts_cs.txt
+          fi
+          ls -la
+      - name: Build
+        working-directory: bench
+        run: swift build -c release 2>&1 | tail -20
+      - name: Run
+        working-directory: bench
+        run: |
+          .build/release/ASRBench "${{ matrix.variant }}" audio/*.wav | tee result.md
+          cat result.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: result-${{ matrix.variant }}
+          path: bench/result.md
