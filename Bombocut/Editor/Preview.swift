@@ -151,7 +151,7 @@ struct PreviewArea: View {
                     .padding(.top, 12)
                     .allowsHitTesting(false)
                 Spacer()
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     pill("Cancel", lime: false) {
                         pickRect = nil
                         model.cancelTrackPick()
@@ -181,8 +181,9 @@ struct PreviewArea: View {
 
     private func pill(_ title: String, lime: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.headline.weight(.bold)).foregroundStyle(lime ? .black : .white)
-                .padding(.horizontal, lime ? 24 : 18).frame(height: 44)
+            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(lime ? .black : .white)
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, lime ? 20 : 14).frame(height: 42)
                 .background(lime ? Theme.accent : Theme.panel2, in: Capsule())
         }
     }
