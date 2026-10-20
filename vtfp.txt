@@ -1,0 +1,1672 @@
+=== VTFrameProcessor_FrameRateConversion.h
+/*
+	File:  VTFrameProcessor_FrameRateConversion.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_FRAMERATECONVERSION_H
+#define VTFRAMEPROCESSOR_FRAMERATECONVERSION_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+/// Configuration value you set to prioritize quality or performance.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTFrameRateConversionConfigurationQualityPrioritization) {
+	VTFrameRateConversionConfigurationQualityPrioritizationNormal = 1,
+	VTFrameRateConversionConfigurationQualityPrioritizationQuality = 2,
+} NS_SWIFT_NAME(VTFrameRateConversionConfiguration.QualityPrioritization);
+
+/// Available algorithm revisions.
+///
+/// A new enum case with higher revision number is added when the processing algorithm is updated.
+/// The ``VTFrameRateConversionConfiguration/defaultRevision`` property provides the default algorithm revision.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTFrameRateConversionConfigurationRevision) {
+	VTFrameRateConversionConfigurationRevision1           = 1,    // revision 1
+} NS_SWIFT_NAME(VTFrameRateConversionConfiguration.Revision);
+
+/// Indicates the order of input frames.
+///
+/// When submitting ``VTFrameRateConversionParameters`` to the processor, you need to provide one of these values based on
+/// how the input frames are related to each other.
+///
+/// Use ``VTFrameRateConversionParametersSubmissionModeSequential`` to indicate that the current submission follows
+/// presentation time order without jump or skip, when compared to previous submissions. This value provides better
+/// processor performance than other values.
+///
+/// Use ``VTFrameRateConversionParametersSubmissionModeRandom`` to indicate that the current submission has no relation
+/// to the previous submission. Typically, this indicates a jump or a skip in the frame sequence. The processor clears
+/// internal caches when it receives this value in ``VTFrameProcessor/processWithParameters`` function call.
+///
+/// Use ``VTFrameRateConversionParametersSubmissionModeSequentialReferencesUnchanged`` to indicate that the frames are
+/// in sequential order however, the reference frames are unchanged.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTFrameRateConversionParametersSubmissionMode) {
+	/// You are submitting frames in non-sequential order.
+	VTFrameRateConversionParametersSubmissionModeRandom							= 1,
+	/// You are submitting frames sequentially following presentation time order.
+	VTFrameRateConversionParametersSubmissionModeSequential						= 2,
+	/// You are submitting frames sequentially.
+	///
+	/// This processing request uses the same source and next reference frames as the previous submission.
+	VTFrameRateConversionParametersSubmissionModeSequentialReferencesUnchanged	= 3,
+} NS_SWIFT_NAME(VTFrameRateConversionParameters.SubmissionMode);
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// Configuration that you use to set up the frame rate conversion processor.
+///
+/// This configuration enables the frame-rate conversion on a `VTFrameProcessor` session.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+NS_SWIFT_SENDABLE
+@interface VTFrameRateConversionConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new frame-rate conversion configuration.
+///
+/// Returns `nil` if dimensions are out of range or revision is unsupported.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels; the maximum value is 8192 for macOS, and 4096 for iOS.
+///   - frameHeight: Height of source frame in pixels; the maximum value is 4320 for macOS, and 2160 for iOS.
+///   - usePrecomputedFlow: A Boolean value that indicates whether you are providing Optical Flow. If false, optical flow is computed on the fly.
+///   - qualityPrioritization: A level you use to prioritize quality or performance; for more information about supported levels, see ``VTFrameRateConversionConfigurationQualityPrioritization``.
+///   - revision: The specific algorithm or configuration revision you use to perform the request.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+						 usePrecomputedFlow:(BOOL)usePrecomputedFlow
+					  qualityPrioritization:(VTFrameRateConversionConfigurationQualityPrioritization)qualityPrioritization
+								   revision:(VTFrameRateConversionConfigurationRevision)revision;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Indicates that caller provides optical flow.
+@property (nonatomic, readonly) BOOL usePrecomputedFlow;
+
+/// A parameter you use to control quality and performance levels.
+///
+/// For more information about supported levels, see ``VTFrameRateConversionConfigurationQualityPrioritization``.
+@property (nonatomic, readonly) VTFrameRateConversionConfigurationQualityPrioritization qualityPrioritization;
+
+/// The specific algorithm or configuration revision you use to perform the request.
+@property (nonatomic, readonly) VTFrameRateConversionConfigurationRevision revision;
+
+/// Provides the collection of currently supported algorithms or configuration revisions for the class of configuration.
+///
+/// A property you use to introspect at runtime which revisions are available for each configuration.
+@property (class, nonatomic, readonly) NSIndexSet* supportedRevisions;
+
+/// Provides the default revision of a specific algorithm or configuration.
+@property (class, nonatomic, readonly) VTFrameRateConversionConfigurationRevision defaultRevision;
+
+/// Supported pixel formats available for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+@property (class, nonatomic, readonly) Boolean processorSupported API_DEPRECATED_WITH_REPLACEMENT("isSupported", macos(15.4, 26.0)) API_UNAVAILABLE(ios) API_UNAVAILABLE(tvos, watchos, visionos);
+
+@end
+
+/// An object that contains both input and output parameters, which the frame-rate conversion processor needs to process a frame.
+///
+/// Use this object as a parameter to the ``VTFrameProcessor/processWithParameters`` method. The output parameter for
+/// this class is ``destinationFrame`` where the processor returns output frame (as mutable ``VTFrameProcessorFrame``)
+/// back to you once the `processWithParameters` completes.
+///
+/// `VTFrameRateConversionParameters` are frame-level parameters.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+@interface VTFrameRateConversionParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates new frame rate conversion parameters.
+///
+/// Returns `nil` if `sourceFrame` or `nextFrame` is `nil`, if `sourceFrame` and reference frames don't have the same pixel format, or if `interpolationPhase` array count does not match `destinationFrames` array count.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - nextFrame: Next source frame in presentation time order; must be non `nil`.
+///   - opticalFlow: Optional ``VTFrameProcessorOpticalFlow`` object that contains forward and backward optical flow with
+///   next frame. You only need to use this if the optical flow is pre-computed. For the first frame this is always `nil`.
+///   - interpolationPhase: Array of float numbers that indicate intervals at which the processor inserts a frame between
+///   current and next frame. The array size indicates how many frames to interpolate and this size must match
+///   `destinationFrames` size, with one interval for each destination frame. Use float number values between 0 and 1,
+///   for example, to insert one frame in the middle use a value of 0.5.
+///   - submissionMode: Provides a hint to let the processor know whether you are submitting frames in presentation
+///   sequence. For more information about supported modes see ``VTFrameRateConversionParametersSubmissionMode``.
+///   - destinationFrames: Caller-allocated array of ``VTFrameProcessorFrame`` that contains pixel buffers to receive the results. Must contain the same number of elements as `interpolationPhase`.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+									nextFrame:(VTFrameProcessorFrame *)nextFrame
+								  opticalFlow:(VTFrameProcessorOpticalFlow * _Nullable)opticalFlow
+						   interpolationPhase:(NSArray<NSNumber *> *) interpolationPhase
+							   submissionMode:(VTFrameRateConversionParametersSubmissionMode)submissionMode
+							destinationFrames:(NSArray<VTFrameProcessorFrame *> *)destinationFrame NS_REFINED_FOR_SWIFT;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame, which must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// The next source frame in presentation time order, which is `nil` for the last frame.
+@property(nonatomic, readonly, nullable) VTFrameProcessorFrame * nextFrame;
+
+/// An optional object that contains forward and backward optical flow with next frame.
+///
+/// Only needed if optical flow is pre-computed. For the last frame this is `nil`.
+@property(nonatomic, readonly, nullable) VTFrameProcessorOpticalFlow * opticalFlow;
+
+/// Array of float numbers that indicate intervals at which the processor inserts a frame between the current and next frame.
+///
+/// Array size indicates how many frames to interpolate and must match `destinationFrames` size, one interval for each destination frame. Use float number values between 0 and 1, for example, to insert one frame in the middle use a value of 0.5.
+@property (nonatomic, readonly) NSArray<NSNumber *> * interpolationPhase NS_REFINED_FOR_SWIFT;
+
+/// Ordering of the input frames in this submission relative to the previous submission.
+@property (nonatomic, readonly) VTFrameRateConversionParametersSubmissionMode submissionMode;
+
+/// Caller-allocated array of video frame objects that contain pixel buffers to receive the results.
+///
+/// Must contain the same number of elements as `interpolationPhase` NSArray.
+@property(nonatomic, readonly) NSArray<VTFrameProcessorFrame *> * destinationFrames;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_FRAMERATECONVERSION_H
+=== VTFrameProcessor_LowLatencyFrameInterpolation.h
+/*
+	File:  VTFrameProcessor_LowLatencyFrameInterpolation.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2024-2025 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_LOWLATENCYFRAMEINTERPOLATION_H
+#define VTFRAMEPROCESSOR_LOWLATENCYFRAMEINTERPOLATION_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+
+/// Configuration that you use to program Video Toolbox frame processor for low-latency frame interpolation.
+///
+/// This configuration can do either purely temporal interpolation (frame-rate conversion) or temporal and spatial
+/// interpolation (scaling and frame-rate conversion). This processor requires a source frame and a previous frame. It
+/// does temporal scaling, which interpolates frames between the previous frame and the source frame. When performing
+/// both temporal and spatial interpolation, the processor can only perform 2x upscaling, and a single frame of temporal
+/// interpolation. When performing spatial scaling, the processor produces upscaled intermediate frames and an upscaled
+/// `sourceFrame`, but it does not upscale the previous reference frame you provided.
+///
+/// > Important: When calling ``VTFrameProcessor/startSessionWithConfiguration:error:`` to create a `VTLowLatencyFrameInterpolation`
+/// session, ML model loading may take longer than a frame time. Avoid blocking the UI thread or stalling frame rendering
+/// pipelines during this call.
+API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+NS_SWIFT_SENDABLE
+@interface VTLowLatencyFrameInterpolationConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new low-latency frame interpolation configuration for frame-rate conversion.
+///
+/// The available interpolation points are the equal to the value of (2^x - 1), where x is equal to `numberOfInterpolatedFrames`.
+/// For example,
+/// - If you request 1 interpolated frame, 1 interpolation point at 0.5 is available.
+/// - If you request 2 interpolated frames, 3 interpolation points at 0.25, 0.5 and 0.75 are available.
+/// You don't need to use all available interpolation points. Setting a higher `numberOfInterpolatedFrames` increases
+/// the resolution of interpolation in some cases, but also increases latency.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels.
+///   - frameHeight: Height of source frame in pixels.
+///   - numberOfInterpolatedFrames: The number of uniformly spaced frames that you want to be used for interpolation.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+				 numberOfInterpolatedFrames:(NSInteger)numberOfInterpolatedFrames;
+
+/// Creates a new low-latency frame interpolation configuration for spatial scaling and temporal scaling.
+///
+/// When you configure the processor for spatial scaling, the low-latency frame interpolation processor only supports 2x
+/// spatial upscaling and a single frame of temporal interpolation at a 0.5 interpolation phase.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels.
+///   - frameHeight: Height of source frame in pixels.
+///   - spatialScaleFactor: The requested spatial scale factor as an integer. Currently, the processor supports only 2x spatial scaling.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+						 spatialScaleFactor:(NSInteger)spatialScaleFactor;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frames in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frames in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Configured spatial scale factor as an integer.
+@property (nonatomic, readonly) NSInteger spatialScaleFactor;
+
+/// Number of uniformly spaced frames for which you configured the processor.
+@property (nonatomic, readonly) NSInteger numberOfInterpolatedFrames;
+
+/// Available supported pixel formats for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+
+@end
+
+/// An object that contains both input and output parameters that the low-latency frame interpolation processor needs.
+///
+/// Use this object in the `processWithParameters` call of `VTFrameProcessor` class.
+///
+/// `VTLowLatencyFrameInterpolationParameters` are frame-level parameters.
+API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+@interface VTLowLatencyFrameInterpolationParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new low-latency frame interpolation parameters object.
+///
+/// - Parameters:
+///   - sourceFrame: Current frame to use for interpolation; must be non `nil`.
+///   - previousFrame: Previous frame used for interpolation; must be non `nil`.
+///   - interpolationPhase: Array of float numbers that indicate interpolation phase locations at which the processor
+///   interpolates the frames. Must be greater than 0 and less than 1.0; for example 0.5 is midway between the previous
+///   frame and the source frame. If you enable spatial scaling, the only supported interpolation phase is 0.5.
+///   - destinationFrames: Caller-allocated array of `VTFrameProcessorFrame` to receive the interpolated frames. This
+///   must have the same number of elements as the the `interpolationPhase`. If you enable spatial scaling, it must also
+///   contain an element to hold the scaled version of sourceFrame.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+					   previousFrame:(VTFrameProcessorFrame *)previousFrame
+				  interpolationPhase:(NSArray<NSNumber *> *) interpolationPhase
+				   destinationFrames:(NSArray<VTFrameProcessorFrame *> *)destinationFrames NS_REFINED_FOR_SWIFT;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Source frame that you provided when creating the low-latency frame interpolation parameters object.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// Previous frame that you provided when creating the low-latency frame interpolation parameters object.
+@property(nonatomic, readonly) VTFrameProcessorFrame * previousFrame;
+
+/// Array of interpolation phases that you provided when creating the low-latency frame interpolation parameters object.
+@property (nonatomic, readonly) NSArray<NSNumber *> * interpolationPhase NS_REFINED_FOR_SWIFT;
+
+/// Array of destination frames that you provided when creating the low-latency frame interpolation parameters object.
+@property(nonatomic, readonly) NSArray<VTFrameProcessorFrame *> * destinationFrames;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_LOWLATENCYFRAMEINTERPOLATION_H
+=== VTFrameProcessor_LowLatencySuperResolutionScaler.h
+/*
+	File:  VTFrameProcessor_LowLatencySuperResolutionScaler.h
+
+	Framework:  VideoToolbox
+
+	Copyright © 2024-2025 Apple Inc. All rights reserved.
+
+*/
+
+#ifndef VTFRAMEPROCESSOR_LOWLATENCYSUPERRESOLUTIONSCALER_H
+#define VTFRAMEPROCESSOR_LOWLATENCYSUPERRESOLUTIONSCALER_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+
+/// An object you use to configure frame processor for low-latency super-resolution scaler processing.
+///
+/// Use this object to configure a ``VTFrameProcessor``. Query this interface also for important operating details, like
+/// the pixel buffer attributes required for frames you submit to the processor.
+///
+/// > Important: When calling ``VTFrameProcessor/startSessionWithConfiguration:error:`` to create a `VTLowLatencySuperResolutionScaler`
+/// session, ML model loading may take longer than a frame time. Avoid blocking the UI thread or stalling frame rendering
+/// pipelines during this call.
+API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+NS_SWIFT_SENDABLE
+@interface VTLowLatencySuperResolutionScalerConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new low-latency super-resolution scaler configuration with specified frame width and height.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels.
+///   - frameHeight: Height of source frame in pixels.
+///   - scaleFactor: The scale factor to apply. This must be a supported value that ``supportedScaleFactorsForFrameWidth:frameHeight:`` returns.
+- (instancetype)initWithFrameWidth:(NSInteger)frameWidth
+					   frameHeight:(NSInteger)frameHeight
+					   scaleFactor:(float)scaleFactor;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Available supported pixel formats for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Scale factor with which you initialized the configuration.
+@property (nonatomic, readonly) float scaleFactor;
+
+/// Maximum dimensions for a source frame for the processor.
+@property (class, nonatomic, readonly) CMVideoDimensions maximumDimensions;
+
+/// Minimum dimensions for a source frame for the processor.
+@property (class, nonatomic, readonly) CMVideoDimensions minimumDimensions;
+
+/// Reports whether the system supports this processor on the current configuration.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+
+/// Returns an array of supported scale factors values, or an empty list if the processor doesn't support the dimensions.
++ (NSArray<NSNumber*>*) supportedScaleFactorsForFrameWidth:(NSInteger)frameWidth
+											   frameHeight:(NSInteger)frameHeight NS_REFINED_FOR_SWIFT;
+
+@end
+
+/// An object that contains both input and output parameters that the low-latency super-resolution scaler frame processor needs.
+///
+/// Use this object in the `processWithParameters` call of `VTFrameProcessor` class.
+///
+/// `VTLowLatencySuperResolutionScalerParameters` are frame-level parameters.
+API_AVAILABLE(macos(26.0), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+
+@interface VTLowLatencySuperResolutionScalerParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new low-latency, super-resolution scaler parameters object.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - destinationFrame: User-allocated pixel buffer that receives the scaled processor output; must be non `nil`.
+- (instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+					destinationFrame:(VTFrameProcessorFrame *)destinationFrame;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame, which must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// Destination frame that contains user-allocated pixel buffer that receives the scaled processor output.
+@property(nonatomic, readonly) VTFrameProcessorFrame * destinationFrame;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_LOWLATENCYSUPERRESOLUTIONSCALER_H
+=== VTFrameProcessor_MotionBlur.h
+/*
+	File:  VTFrameProcessor_MotionBlur.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_MOTIONBLUR_H
+#define VTFRAMEPROCESSOR_MOTIONBLUR_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+/// Configuration value you set to prioritize quality or performance.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTMotionBlurConfigurationQualityPrioritization) {
+	VTMotionBlurConfigurationQualityPrioritizationNormal = 1,
+	VTMotionBlurConfigurationQualityPrioritizationQuality = 2,
+} NS_SWIFT_NAME(VTMotionBlurConfiguration.QualityPrioritization);
+
+/// Available algorithm revisions.
+///
+/// A new enum case with higher revision number is added when the processing algorithm is updated.
+/// The ``VTMotionBlurConfiguration/defaultRevision`` property provides the default algorithm revision.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTMotionBlurConfigurationRevision) {
+	VTMotionBlurConfigurationRevision1           = 1,    // revision 1
+} NS_SWIFT_NAME(VTMotionBlurConfiguration.Revision);
+
+/// Indicates the order of input frames.
+///
+/// When submitting ``VTMotionBlurParameters`` to the processor, you need to provide one of these values based on how
+/// the input frames are related to each other.
+///
+/// Use ``VTMotionBlurParametersSubmissionModeSequential`` to indicate that the current submission follows presentation
+/// time order without jump or skip, when compared to previous submissions. This value provides better processor
+/// performance than other values.
+///
+/// Use ``VTMotionBlurParametersSubmissionModeRandom`` to indicate that the current submission has no relation to the
+/// previous submission. Typically, this indicates a jump or a skip in the frame sequence. The processor clears internal
+/// caches when it receives this value in ``VTFrameProcessor/processWithParameters`` function call.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTMotionBlurParametersSubmissionMode) {
+	VTMotionBlurParametersSubmissionModeRandom             = 1,    // You are submitting frames in non-sequential order.
+	VTMotionBlurParametersSubmissionModeSequential         = 2,    // You are submitting frames sequentially following presentation time order.
+} NS_SWIFT_NAME(VTMotionBlurParameters.SubmissionMode);
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// Configuration that you use to set up the motion blur processor.
+///
+/// This configuration enables the motion blur on a `VTFrameProcessor` session.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+NS_SWIFT_SENDABLE
+@interface VTMotionBlurConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new motion blur configuration.
+///
+/// Returns `nil` if dimensions are out of range or revision is unsupported.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels; the maximum value is 8192 for macOS, and 4096 for iOS.
+///   - frameHeight: Height of source frame in pixels; the maximum value is 4320 for macOS, and 2160 for iOS.
+///   - usePrecomputedFlow: Boolean value that indicates whether you will provide optical flow; if false, this
+///    configuration computes the optical flow on the fly.
+///   - qualityPrioritization: A level you use to prioritize quality or performance; for more information about supported
+///    levels, see ``VTMotionBlurConfigurationQualityPrioritization``.
+///   - revision: The specific algorithm or configuration revision you use to perform the request.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+						 usePrecomputedFlow:(BOOL)usePrecomputedFlow
+					  qualityPrioritization:(VTMotionBlurConfigurationQualityPrioritization)qualityPrioritization
+								   revision:(VTMotionBlurConfigurationRevision)revision;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Indicates that you provide optical flow.
+@property (nonatomic, readonly) BOOL usePrecomputedFlow;
+
+/// A parameter you use to control quality and performance levels.
+///
+/// For more information about supported levels, see ``VTMotionBlurConfigurationQualityPrioritization``.
+@property (nonatomic, readonly) VTMotionBlurConfigurationQualityPrioritization qualityPrioritization;
+
+/// The specific algorithm or configuration revision you use to perform the request.
+@property (nonatomic, readonly) VTMotionBlurConfigurationRevision revision;
+
+/// Provides the collection of currently supported algorithms or configuration revisions for the class of configuration.
+///
+/// A property you use to introspect at runtime which revisions are available for each configuration.
+@property (class, nonatomic, readonly) NSIndexSet* supportedRevisions;
+
+/// Provides the default revision of a specific algorithm or configuration.
+@property (class, nonatomic, readonly) VTMotionBlurConfigurationRevision defaultRevision;
+
+/// Available supported pixel formats for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+@property (class, nonatomic, readonly) Boolean processorSupported API_DEPRECATED_WITH_REPLACEMENT("isSupported", macos(15.4, 26.0)) API_UNAVAILABLE(ios) API_UNAVAILABLE(tvos, watchos, visionos);
+
+@end
+
+/// An object that contains both input and output parameters that the motion blur processor needs to run on a frame.
+///
+/// Use this object in the `processWithParameters` call of `VTFrameProcessor` class. The output parameter for this class is `destinationFrame` where the processor returns the output frame (as `VTFrameProcessorFrame`) back to you once the `processWithParameters` completes.
+///
+/// `VTMotionBlurParameters` are frame-level parameters.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+@interface VTMotionBlurParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new motion blur parameters object.
+///
+/// Returns `nil` if `sourceFrame` or `destinationFrame` is `nil`, `sourceFrame` and reference frames are different pixel
+/// formats, or `motionBlurStrength` is out of range.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - nextFrame: Next source frame in presentation time order; for the last frame you can set this to `nil`.
+///   - previousFrame: Previous source frame in presentation time order; for the first frame you can set this to `nil`.
+///   - nextOpticalFlow: Optional `VTFrameProcessorOpticalFlow` object that contains forward and backward optical flow
+///   with `nextFrame`. You only need this object if optical flow is pre-computed. For the last frame this is always `nil`.
+///   - previousOpticalFlow: Optional VTFrameProcessorOpticalFlow object that contains forward and backward optical flow
+///   with `previousFrame`. You only need to use this if the optical flow is pre-computed. For the first frame this is always `nil`.
+///   - motionBlurStrength: Number that indicates the strength of blur applied by the processor. Range is from 1 to 100. Default value is 50.
+///   - submissionMode: Provides a hint to let the processor know whether you are submitting frames in presenatation
+///   sequence. For more information about supported modes see ``VTMotionBlurParametersSubmissionMode``.
+///   - destinationFrame: User-allocated pixel buffer that receives a frame with motion blur applied by the processor.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+									nextFrame:(VTFrameProcessorFrame * _Nullable)nextFrame
+								previousFrame:(VTFrameProcessorFrame * _Nullable)previousFrame
+							  nextOpticalFlow:(VTFrameProcessorOpticalFlow * _Nullable)nextOpticalFlow
+						  previousOpticalFlow:(VTFrameProcessorOpticalFlow * _Nullable)previousOpticalFlow
+						   motionBlurStrength:(NSInteger)motionBlurStrength
+							   submissionMode:(VTMotionBlurParametersSubmissionMode)submissionMode
+							 destinationFrame:(VTFrameProcessorFrame *)destinationFrame;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame, which must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// The next source frame in presentation time order, which is `nil` for the last frame.
+@property(nonatomic, readonly, nullable) VTFrameProcessorFrame * nextFrame;
+
+/// Previous source frame in presentation time order, which is `nil` for the first frame.
+@property(nonatomic, readonly, nullable) VTFrameProcessorFrame * previousFrame;
+
+/// Optional frame processor optical flow object that contains forward and backward optical flow with next frame.
+///
+/// You only need to use this object if the optical flow is pre-computed. For the last frame this is `nil`.
+@property(nonatomic, readonly, nullable) VTFrameProcessorOpticalFlow * nextOpticalFlow;
+
+/// Optional frame processor optical flow object that contains forward and backward optical flow with previous frame.
+///
+/// You only need to use this object if the optical flow is pre-computed. For the first frame this is `nil`.
+@property(nonatomic, readonly, nullable) VTFrameProcessorOpticalFlow * previousOpticalFlow;
+
+/// Number that indicates the strength of motion blur.
+///
+/// The range is from 1 to 100; the default value is 50.
+@property (nonatomic, readonly) NSInteger motionBlurStrength;
+
+/// Ordering of the input frames this submission related to the previous submission.
+@property (nonatomic, readonly) VTMotionBlurParametersSubmissionMode submissionMode;
+
+/// Destination frame that contains user-allocated pixel buffer that receive a frame with motion blur applied by the processor.
+@property(nonatomic, readonly) VTFrameProcessorFrame * destinationFrame;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_MOTIONBLUR_H
+=== VTFrameProcessor_OpticalFlow.h
+/*
+	File:  VTFrameProcessor_OpticalFlow.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_OPTICALFLOW_H
+#define VTFRAMEPROCESSOR_OPTICALFLOW_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+/// Configuration value you set to prioritize quality or performance.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTOpticalFlowConfigurationQualityPrioritization) {
+	VTOpticalFlowConfigurationQualityPrioritizationNormal = 1,
+	VTOpticalFlowConfigurationQualityPrioritizationQuality = 2,
+} NS_SWIFT_NAME(VTOpticalFlowConfiguration.QualityPrioritization);
+
+/// Available algorithm revisions.
+///
+/// A new enum case with higher revision number is added when the processing algorithm is updated.
+/// The ``VTOpticalFlowConfiguration/defaultRevision`` property provides the default algorithm revision.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTOpticalFlowConfigurationRevision) {
+	VTOpticalFlowConfigurationRevision1           = 1,    // revision 1
+} NS_SWIFT_NAME(VTOpticalFlowConfiguration.Revision);
+
+/// Indicates the order of input frames.
+///
+/// When submitting ``VTOpticalFlowParameters`` to the processor, you need to provide one of these values based on how
+/// the input frames are related to each other.
+///
+/// Use ``VTOpticalFlowParametersSubmissionModeSequential`` to indicate that the current submission follows presentation
+/// time order without jump or skip, when compared to previous submissions. This value provides better processor
+/// performance than other values.
+///
+/// Use ``VTOpticalFlowParametersSubmissionModeRandom`` to indicate that the current submission has no relation to the
+/// previous submission. Typically, this indicates a jump or a skip in the frame sequence. The processor clears internal
+/// caches when it receives this value in ``VTFrameProcessor/processWithParameters`` function call.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTOpticalFlowParametersSubmissionMode) {
+	VTOpticalFlowParametersSubmissionModeRandom             = 1,    // You are submitting frames in non-sequential order.
+	VTOpticalFlowParametersSubmissionModeSequential         = 2,    // You are submitting frames sequentially following presentation time order.
+} NS_SWIFT_NAME(VTOpticalFlowParameters.SubmissionMode);
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// Configuration that you use to set up an optical flow processor
+///
+/// This configuration enables the optical flow on a `VTFrameProcessor` session.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+NS_SWIFT_SENDABLE
+@interface VTOpticalFlowConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new optical flow configuration.
+///
+/// Returns ``nil`` if dimensions are out of range or revision is unsupported.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels; the maximum value is 8192 for macOS, and 4096 for iOS.
+///   - frameHeight: Height of source frame in pixels; the maximum value is 4320 for macOS, and 2160 for iOS.
+///   - qualityPrioritization: A level you use to prioritize quality or performance; for more information about supported
+///   levels, see ``VTOpticalFlowConfigurationQualityPrioritization``.
+///   - revision: The specific algorithm or configuration revision you use to perform the request.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+					  qualityPrioritization:(VTOpticalFlowConfigurationQualityPrioritization)qualityPrioritization
+								   revision:(VTOpticalFlowConfigurationRevision)revision;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// A parameter you use to control quality and performance levels.
+///
+/// For more information about supported levels, see ``VTOpticalFlowConfigurationQualityPrioritization``.
+@property (nonatomic, readonly) VTOpticalFlowConfigurationQualityPrioritization qualityPrioritization;
+
+/// The specific algorithm or configuration revision you use to perform the request.
+@property (nonatomic, readonly) VTOpticalFlowConfigurationRevision revision;
+
+/// Provides the collection of currently supported algorithms or configuration revisions for the class of configuration.
+///
+/// A property you use to introspect at runtime which revisions are available for each configuration.
+@property (class, nonatomic, readonly) NSIndexSet* supportedRevisions;
+
+/// Provides the default revision of a specific algorithm or configuration.
+@property (class, nonatomic, readonly) VTOpticalFlowConfigurationRevision defaultRevision;
+
+/// Supported pixel formats for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+@property (class, nonatomic, readonly) Boolean processorSupported API_DEPRECATED_WITH_REPLACEMENT("isSupported", macos(15.4, 26.0)) API_UNAVAILABLE(ios) API_UNAVAILABLE(tvos, watchos, visionos);
+
+@end
+
+/// An object that contains both input and output parameters the frame processor needs to generate optical flow between two frames.
+///
+/// Use this object in the `processWithParameters` call of `VTFrameProcessor` class. The output parameter for this class is `destinationOpticalFlow` where the processor returns the output flow (as mutable `VTFrameProcessorOpticalFlow`) back to you once the `processWithParameters` completes.
+///
+/// `VTOpticalFlowParameters` are frame-level parameters.
+API_AVAILABLE(macos(15.4), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+@interface VTOpticalFlowParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new optical flow parameters object.
+///
+/// Returns `nil` if `sourceFrame` or `nextFrame` is `nil`, or if `sourceFrame` and `nextFrame` have different pixel formats.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - nextFrame: Next source frame in presentation time order.
+///   - submissionMode: Provides a hint to let the processor know whether you are submitting frames in presentation
+///   sequence. For more information about supported modes see ``VTOpticalFlowParametersSubmissionMode``.
+///   - destinationOpticalFlow: User allocated `VTFrameProcessorOpticalFlow` that receives the results.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+									nextFrame:(VTFrameProcessorFrame *)nextFrame
+							   submissionMode:(VTOpticalFlowParametersSubmissionMode)submissionMode
+					   destinationOpticalFlow:(VTFrameProcessorOpticalFlow *) destinationOpticalFlow;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame, which must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// The next source frame in presentation time order.
+@property(nonatomic, readonly) VTFrameProcessorFrame * nextFrame;
+
+/// Ordering of the input frames in this submission relative to the previous submission.
+@property (nonatomic, readonly) VTOpticalFlowParametersSubmissionMode submissionMode;
+
+/// Output optical flow calculated by the processor.
+@property(nonatomic, readonly) VTFrameProcessorOpticalFlow * destinationOpticalFlow;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_OPTICALFLOW_H
+=== VTFrameProcessor_SuperResolutionScaler.h
+/*
+	File:  VTFrameProcessor_SuperResolutionScaler.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_SUPERRESOLUTION_H
+#define VTFRAMEPROCESSOR_SUPERRESOLUTION_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+/// Configuration value you set to prioritize quality or performance.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTSuperResolutionScalerConfigurationQualityPrioritization) {
+	VTSuperResolutionScalerConfigurationQualityPrioritizationNormal = 1,
+} NS_SWIFT_NAME(VTSuperResolutionScalerConfiguration.QualityPrioritization);
+
+/// Available algorithm revisions.
+///
+/// A new enum case with a higher revision number is added when the processing algorithm is updated.
+/// The ``VTSuperResolutionScalerConfiguration/defaultRevision`` property provides the default algorithm revision.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTSuperResolutionScalerConfigurationRevision) {
+	VTSuperResolutionScalerConfigurationRevision1           = 1,    // revision 1
+} NS_SWIFT_NAME(VTSuperResolutionScalerConfiguration.Revision);
+
+/// Available super-resolution processor input types.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTSuperResolutionScalerConfigurationInputType) {
+	VTSuperResolutionScalerConfigurationInputTypeVideo		= 1,
+	VTSuperResolutionScalerConfigurationInputTypeImage		= 2,
+} NS_SWIFT_NAME(VTSuperResolutionScalerConfiguration.InputType);
+
+/// Available super-resolution processor model status types.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTSuperResolutionScalerConfigurationModelStatus) {
+	VTSuperResolutionScalerConfigurationModelStatusDownloadRequired	= 0,
+	VTSuperResolutionScalerConfigurationModelStatusDownloading		= 1,
+	VTSuperResolutionScalerConfigurationModelStatusReady			= 2,
+} NS_SWIFT_NAME(VTSuperResolutionScalerConfiguration.ModelStatus);
+
+/// Indicates the order of input frames.
+///
+/// When submitting ``VTSuperResolutionScalerParameters`` to the processor, you need to provide one of these values based on
+/// how the input frames are related to each other.
+///
+/// Use ``VTSuperResolutionScalerParametersSubmissionModeSequential`` to indicate that the current submission follows
+/// presentation time order without jumps or skips, when compared to previous submissions. This value provides better
+/// processor performance than other values.
+///
+/// Use ``VTSuperResolutionScalerParametersSubmissionModeRandom`` to indicate that the current submission has no relation
+/// to the previous submission. Typically, this indicates a jump or skip in the frame sequence. The processor clears
+/// internal caches when it receives this value in ``VTFrameProcessor/processWithParameters`` function call.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+typedef NS_ENUM(NSInteger, VTSuperResolutionScalerParametersSubmissionMode) {
+	VTSuperResolutionScalerParametersSubmissionModeRandom             = 1,    // You are submitting frames in non-sequential order.
+	VTSuperResolutionScalerParametersSubmissionModeSequential         = 2,    // You are submitting frames sequentially following presentation time order.
+} NS_SWIFT_NAME(VTSuperResolutionScalerParameters.SubmissionMode);
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// Configuration that you use to set up the super-resolution processor.
+///
+/// This configuration enables the super-resolution processor on a `VTFrameProcessor` session.
+///
+/// > Important: The super-resolution processor may require ML models which the framework needs to download in order to
+/// operate. Before calling ``VTFrameProcessor/startSessionWithConfiguration:error:`` with an instance of this class,
+/// it is important that you verify that the necessary models are present by checking ``configurationModelStatus``.
+/// If models are not available, you can trigger model download using the ``downloadConfigurationModelWithCompletionHandler:``
+/// method. Best practice is to confirm availability of models and drive download with user awareness and interaction
+/// before engaging workflows that need this processor.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+NS_SWIFT_SENDABLE
+@interface VTSuperResolutionScalerConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new super-resolution scaler processor configuration.
+///
+/// This processor increases resolution of an image or video.
+/// Returns `nil` if dimensions are out of range or revision is unsupported.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels. With ``VTSuperResolutionScalerConfigurationInputTypeVideo``,
+///   maximum width is 1920 on macOS and 1440 on iOS. With ``VTSuperResolutionScalerConfigurationInputTypeImage``,
+///   maximum width is 1920.
+///   - frameHeight: Height of source frame in pixels. With ``VTSuperResolutionScalerConfigurationInputTypeVideo``,
+///   maximum height is 1080. With ``VTSuperResolutionScalerConfigurationInputTypeImage``, maximum height is 1920 on
+///   macOS and 1080 on iOS.
+///   - scaleFactor: Indicates the scale factor between input and output.
+///   - inputType: Indicates the type of input, either video or image.
+///   - usePrecomputedFlow: Boolean value to indicate that you provide optical flow; if false, this configuration
+///   computes the optical flow on the fly.
+///   - qualityPrioritization: A level you use to prioritize quality or performance; for more information about
+///   supported levels, see ``VTSuperResolutionScalerConfigurationQualityPrioritization``.
+///   - revision: The specific algorithm or configuration revision you use to perform the request.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+								scaleFactor:(NSInteger)scaleFactor
+								  inputType:(VTSuperResolutionScalerConfigurationInputType)inputType
+						 usePrecomputedFlow:(BOOL)usePrecomputedFlow
+					  qualityPrioritization:(VTSuperResolutionScalerConfigurationQualityPrioritization)qualityPrioritization
+								   revision:(VTSuperResolutionScalerConfigurationRevision)revision;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Indicates the type of input.
+@property (nonatomic, readonly) VTSuperResolutionScalerConfigurationInputType inputType;
+
+/// Indicates that you provide optical flow.
+@property (nonatomic, readonly, getter=usesPrecomputedFlow) BOOL precomputedFlow;
+
+/// Indicates the scale factor between input and output.
+@property (nonatomic, readonly) NSInteger scaleFactor;
+
+/// A parameter to control quality and performance levels.
+///
+/// For more information about supported levels, see ``VTSuperResolutionScalerConfigurationQualityPrioritization``.
+@property (nonatomic, readonly) VTSuperResolutionScalerConfigurationQualityPrioritization qualityPrioritization;
+
+/// The specific algorithm or configuration revision you use to perform the request.
+@property (nonatomic, readonly) VTSuperResolutionScalerConfigurationRevision revision;
+
+/// Provides the collection of currently supported algorithms or configuration revisions for the class of configuration.
+///
+/// A property you use to introspect at runtime which revisions are available for each configuration.
+@property (class, nonatomic, readonly) NSIndexSet* supportedRevisions;
+
+/// Provides the default revision of a specific algorithm or configuration.
+@property (class, nonatomic, readonly) VTSuperResolutionScalerConfigurationRevision defaultRevision;
+
+/// Available supported pixel formats for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Reports the download status of models that the system needs for the current configuration.
+@property (nonatomic, readonly) VTSuperResolutionScalerConfigurationModelStatus configurationModelStatus;
+
+/// Downloads models that the system needs for the current configuration.
+///
+/// This method downloads model assets required for the current configuration in background. You should call this method
+/// if ``configurationModelStatus`` is ``VTSuperResolutionScalerConfigurationModelStatusDownloadRequired``. After this
+/// method is called, you can query ``configurationModelPercentageAvailable`` to determine progress of model asset
+/// download process. If the download fails, the completion handler is invoked with an `NSError`, and the
+/// ``configurationModelStatus`` goes back to ``VTSuperResolutionScalerConfigurationModelStatusDownloadRequired``. If
+/// the download succeeds, the completion handler is invoked with `nil` NSError.
+- (void)downloadConfigurationModelWithCompletionHandler:(void (^)(NSError * _Nullable error))completionHandler;
+
+/// Returns a floating point value between 0.0 and 1.0 indicating the percentage of required model assets that have been downloaded.
+@property (nonatomic, readonly) float configurationModelPercentageAvailable;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+
+/// Reports the set of supported scale factors to use when initializing a super-resolution scaler configuration.
+@property (class, nonatomic, readonly) NSArray<NSNumber*> * supportedScaleFactors NS_REFINED_FOR_SWIFT;
+
+@end
+
+/// An object that contains both input and output parameters that the super-resolution processor needs to run on a frame.
+///
+/// Use this object in the `processWithParameters` call of the `VTFrameProcessor` class. The output parameter for this class is `destinationFrame`, where the processor returns the output frame (as `VTFrameProcessorFrame`) back to you once `processWithParameters` completes.
+///
+/// `VTSuperResolutionScalerParameters` are frame-level parameters.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(tvos, visionos, watchos)
+@interface VTSuperResolutionScalerParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new super-resolution scaler parameters instance.
+///
+/// Returns `nil` if `sourceFrame` or `destinationFrame` is `nil`, or if `sourceFrame` and reference frames have different pixel formats.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - previousFrame: The previous source frame in presentation time order. For the first frame you can set this to `nil`.
+///   - previousOutputFrame: The previous output frame in presentation time order. For the first frame you can set this to `nil`.
+///   - opticalFlow: Optional `VTFrameProcessorOpticalFlow` object that contains forward and backward optical flow between the `sourceFrame` and `previousFrame`. You only need this if optical flow is pre-computed.
+///   - submissionMode: Provides a hint to let the processor know whether you are submitting frames in presentation
+///   sequence. For more information about supported modes see ``VTSuperResolutionScalerParametersSubmissionMode``.
+///   - destinationFrame: User-allocated pixel buffer that receives the results.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+								previousFrame:(VTFrameProcessorFrame * _Nullable)previousFrame
+						  previousOutputFrame:(VTFrameProcessorFrame * _Nullable)previousOutputFrame
+								  opticalFlow:(VTFrameProcessorOpticalFlow * _Nullable)opticalFlow
+							   submissionMode:(VTSuperResolutionScalerParametersSubmissionMode)submissionMode
+							 destinationFrame:(VTFrameProcessorFrame *)destinationFrame;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame, which must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// Previous source frame in presentation time order, which is `nil` for the first frame.
+@property(nonatomic, readonly, nullable) VTFrameProcessorFrame * previousFrame;
+
+/// Previous output frame in presentation time order, which is `nil` for the first frame.
+@property(nonatomic, readonly, nullable) VTFrameProcessorFrame * previousOutputFrame;
+
+/// Optional object that contains forward and backward optical flow with the previous frame.
+///
+/// You only need this if optical flow is pre-computed. For the first frame this is `nil`.
+@property(nonatomic, readonly, nullable) VTFrameProcessorOpticalFlow * opticalFlow;
+
+/// Ordering of the input frames in this submission relative to the previous submission.
+@property (nonatomic, readonly) VTSuperResolutionScalerParametersSubmissionMode submissionMode;
+
+/// Destination frame that contains user-allocated pixel buffer that receives the results.
+@property(nonatomic, readonly) VTFrameProcessorFrame * destinationFrame;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_SUPERRESOLUTION_H
+=== VTFrameProcessor_TemporalNoiseFilter.h
+/*
+	File:  VTFrameProcessor_TemporalNoiseFilter.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2024-2025 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_TEMPORALNOISEFILTER_H
+#define VTFRAMEPROCESSOR_TEMPORALNOISEFILTER_H
+
+#include <CoreMedia/CMBase.h>
+
+#if ! TARGET_OS_SIMULATOR
+#ifdef __OBJC__
+
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// A configuration object to initiate a frame processor and use temporal noise-filter processor.
+///
+/// The class properties of `VTTemporalNoiseFilterConfiguration` help to identify the capabilities of temporal noise
+/// filter processor on the current platform, prior to initiating a session. You can confirm the availability of temporal
+/// noise-filter processor in the current platform by checking the ``isSupported`` class property. Verify the processor's
+/// capability to process source frames by ensuring that the dimensions are no less than ``minimumDimensions`` and no
+/// greater than ``maximumDimensions``. Use the instance properties such as ``frameSupportedPixelFormats``,
+/// ``sourcePixelBufferAttributes``, and ``destinationPixelBufferAttributes`` to ensure that the input and output pixel
+/// buffer formats and attributes of the processor align with the client's specific requirements. The properties
+/// ``previousFrameCount`` and ``nextFrameCount`` represent the maximum number of preceding and subsequent reference
+/// frames, used in the processing of a source frame, to achieve optimum noise-reduction quality.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(visionos) API_UNAVAILABLE(tvos, watchos)
+NS_SWIFT_SENDABLE
+VT_EXPORT @interface VTTemporalNoiseFilterConfiguration : NSObject <VTFrameProcessorConfiguration>
+
+#pragma mark --- init function(s).
+
+/// Creates a new temporal noise-processor configuration.
+///
+///	Returns nil if frameWidth, frameHeight, or sourcePixelFormat is unsupported.
+///
+/// - Parameters:
+///   - frameWidth: Width of source frame in pixels.
+///   - frameHeight: Height of source frame in pixels.
+- (nullable instancetype)initWithFrameWidth:(NSInteger)frameWidth
+								frameHeight:(NSInteger)frameHeight
+						  sourcePixelFormat:(OSType)sourcePixelFormat;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Width of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameWidth;
+
+/// Height of source frame in pixels.
+@property (nonatomic, readonly) NSInteger frameHeight;
+
+/// Supported pixel formats for source frames for current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+/// Maximum number of future reference frames that the processor can use to process a source frame.
+@property (nonatomic, readonly) NSInteger nextFrameCount;
+
+/// Maximum number of past reference frames that the processor can use to process a source frame.
+@property (nonatomic, readonly) NSInteger previousFrameCount;
+
+///	List of all supported pixel formats for source frames.
+@property (class, nonatomic, readonly) NSArray<NSNumber *> *supportedSourcePixelFormats NS_REFINED_FOR_SWIFT;
+
+/// The maximum dimensions of a source frame that the processor supports.
+@property (class, nonatomic, readonly) CMVideoDimensions maximumDimensions;
+
+/// The minimum dimensions of a source frame that the processor supports.
+@property (class, nonatomic, readonly) CMVideoDimensions minimumDimensions;
+
+/// Reports whether the system supports this processor.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+
+@end
+
+/// Encapsulates the frame-level parameters necessary for processing a source frame using temporal noise-filter processor.
+///
+/// This object is intended for sending input parameters into the `processWithParameters` method of the `VTFrameProcessor`
+/// class. Temporal noise-filter processor utilizes past and future reference frames, provided in presentation time order,
+/// to reduce noise from the source frame. The `previousFrameCount` and `nextFrameCount` properties in
+/// ``VTTemporalNoiseFilterConfiguration`` represent the maximum number of past and future reference frames that the
+/// processor can use to achieve optimum noise reduction quality. The number of reference frames provided shall depend
+/// on their availability, but at a minimum, you must provide one reference frame, either past or future. The parameter
+/// `destinationFrame` stores the output frame that the processor returns to the caller upon the successful completion
+/// of the `processWithParameters` operation.
+API_AVAILABLE(macos(26.0), ios(26.0)) API_UNAVAILABLE(visionos) API_UNAVAILABLE(tvos, watchos)
+VT_EXPORT @interface VTTemporalNoiseFilterParameters : NSObject <VTFrameProcessorParameters>
+
+/// Creates a new `VTTemporalNoiseFilterParameters` object.
+///
+/// - Parameters:
+///   - sourceFrame: Current source frame; must be non `nil`.
+///   - nextFrames: Future reference frames in presentation time order to use for processing the source frame. The number
+///   of frames can vary from 0 to the number specified by ``VTTemporalNoiseFilterConfiguration/nextFrameCount`` property.
+///   - previousFrames: Past reference frames in presentation time order to use for processing the source frame. The number
+///   of frames can vary from 0 to the number specified by ``VTTemporalNoiseFilterConfiguration/previousFrameCount`` property.
+///   - destinationFrame: User-allocated pixel buffer that receives the output frame. The pixel format of `destinationFrame`
+///   must match with that of the `sourceFrame`.
+///   - filterStrength: Strength of the noise-filtering to use. The value can range from the minimum strength of 0.0 to the
+///   maximum strength of 1.0. Change in filter strength causes the processor to flush all frames in the queue prior to
+///   processing the source frame.
+///   - hasDiscontinuity: Marks sequence discontinuity, forcing the processor to reset prior to processing the source frame.
+- (nullable instancetype) initWithSourceFrame:(VTFrameProcessorFrame *)sourceFrame
+								   nextFrames:(NSArray<VTFrameProcessorFrame *> *)nextFrames
+							   previousFrames:(NSArray<VTFrameProcessorFrame *> *)previousFrames
+							 destinationFrame:(VTFrameProcessorFrame *)destinationFrame
+							   filterStrength:(float)filterStrength
+							 hasDiscontinuity:(Boolean)hasDiscontinuity;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Current source frame; must be non `nil`.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+/// Future reference frames in presentation time order that you use to process the source frame.
+///
+/// The number of frames can vary from 0 to the number specified by the `nextFrameCount` property in `VTTemporalNoiseFilterConfiguration`.
+@property(nonatomic, readonly) NSArray<VTFrameProcessorFrame *> *nextFrames;
+
+/// Past reference frames in presentation time order that you use to process the source frame.
+///
+/// The number of frames can vary from 0 to the number specified by the `previousFrameCount` property in `VTTemporalNoiseFilterConfiguration`.
+@property(nonatomic, readonly) NSArray<VTFrameProcessorFrame *> *previousFrames;
+
+/// A parameter to control the strength of noise-filtering. The value can range from the minimum strength of 0.0 to the maximum strength of 1.0. Change in filter strength causes the processor to flush all frames in the queue prior to processing the source frame.
+@property (nonatomic) float filterStrength;
+
+/// A Boolean that indicates sequence discontinuity, forcing the processor to reset prior to processing the source frame.
+@property (nonatomic) BOOL hasDiscontinuity;
+
+/// Destination frame that contains a user-allocated pixel buffer that receives the output frame.
+@property(nonatomic, readonly) VTFrameProcessorFrame * destinationFrame;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+#endif // ! TARGET_OS_SIMULATOR
+
+#endif // VTFRAMEPROCESSOR_TEMPORALNOISEFILTER_H
+=== VTFrameProcessor.h
+/*
+	File:  VTFrameProcessor.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSOR_H
+#define VTFRAMEPROCESSOR_H
+
+#ifdef __OBJC__
+
+#import <CoreMedia/CMBase.h>
+#import <VideoToolbox/VTFrameProcessorConfiguration.h>
+#import <VideoToolbox/VTFrameProcessorParameters.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+#import <VideoToolbox/VTFrameProcessorErrors.h>
+#if ! TARGET_OS_SIMULATOR
+#import <VideoToolbox/VTFrameProcessor_MotionBlur.h>
+#import <VideoToolbox/VTFrameProcessor_FrameRateConversion.h>
+#import <VideoToolbox/VTFrameProcessor_OpticalFlow.h>
+#import <VideoToolbox/VTFrameProcessor_TemporalNoiseFilter.h>
+#endif // ! TARGET_OS_SIMULATOR
+#import <Metal/Metal.h>
+
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/// Provides a unified interface you can use to apply video effects to frames.
+///
+/// The VTFrameProcessor gives access to a set of powerful video processing implementation suitable for different use cases.
+/// A configuration object (conforming to the ``VTFrameProcessorConfiguration`` protocol) passes initialization and
+/// configuration parameters for the processor. A Parameter object (conforming to the ``VTFrameProcessorParameters``
+/// protocol) provides the parameters for each individual processing operation. A Configuration object and a Parameter
+/// object define each processor implementation. These Configuration and Parameters objects for each implementation are
+/// defined in a processor-specific header file.
+///
+/// Use an instance of this class to apply configured video effects either directly to pixel buffers or as a
+/// part of Metal pipeline. The video effect must be specified as a ``VTFrameProcessorConfiguration`` instance at session
+/// startup. Once a session is started, you need to call one of the process methods for each input frame. After all input
+/// frames have been provided, session must be ended for the system to finish all pending processing.
+///
+/// After you call the process function, you must not modify input and output buffers (including attachments) before the
+/// function returns or the system receives the callback, in the case of asynchronous processing.
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+@interface VTFrameProcessor : NSObject
+
+/// Create a new instance of the frame processor.
+- (instancetype) init;
+
+/// Starts a new session and configures the processor pipeline for an effect.
+///
+/// - Parameters:
+///   - configuration: The system uses this parameter to create an effect pipeline for processing frames. This object
+///       must conform to the ``VTFrameProcessorConfiguration`` interface.
+///   - error: Contains error information if any. You may specify NULL for this parameter if you do not want the error information.
+- (BOOL) startSessionWithConfiguration:(id<VTFrameProcessorConfiguration>)configuration
+                                 error:(NSError * _Nullable * _Nullable)error NS_SWIFT_NAME(startSession(configuration:));
+
+/// Synchronously performs the processor effects.
+///
+/// Use the respective ``VTFrameProcessorParameters`` to pass frame level settings and frame level input/output parameters
+/// for the effect that you configured this session for by calling ``startSessionWithConfiguration:error``.
+///
+/// - Parameters:
+///   - parameters: A `VTFrameProcessorParameters` based object to specify additional frame based parameters to use
+///     during processing. It needs to match the configuration type used during start session.
+///   - error: Contains error information if any. You may specify NULL for this parameter if you do not want the error information.
+- (BOOL) processWithParameters:(id<VTFrameProcessorParameters>)parameters
+                         error:(NSError * _Nullable * _Nullable)error NS_SWIFT_UNAVAILABLE("use the async version processWithParameters:completionHandler instead");
+
+/// Asynchronously performs the processor effects.
+///
+/// - Parameters:
+///   - parameters: A `VTFrameProcessorParameters` based object to specify additional frame based parameters to use
+///     during processing. It needs to match the configuration type used during start session.
+///   - completionHandler: This completion handler is called when frame processing is completed. The completion handler
+///     receives the same parameters object that you provided to the original call, as well as an `NSError` which contains
+///     an error code if processing was not successful.
+- (void) processWithParameters:(id<VTFrameProcessorParameters>)parameters
+             completionHandler:(void (^)(id<VTFrameProcessorParameters> , NSError * _Nullable) )completionHandler NS_SWIFT_NAME(process(parameters:completionHandler:));
+
+/// Asynchronously performs the processor effects and outputs each frame separately.
+///
+/// Use with frame processor configurations which allow multiple output frames from a single processing call, such
+/// as frame rate conversion processor cases when you need access to output frames as they become available, rather than
+/// waiting for all output frames to be complete.
+///
+/// This interface is suitable for low-latency scenarios when a call would generate multiple output frames, but waiting
+/// for all frames to be generated before beginning to use the frames is not ideal. Because the processor may use the
+/// output frames as references for frames still being generated, the output frames are strictly read-only. If you want
+/// to modify the frames, you must create a copy first.
+///
+/// - Parameters:
+///   - parameters: A `VTFrameProcessorParameters` based object to specify additional frame based parameters to use
+///       during processing. It needs to match the configuration type used during start session.
+///   - frameOutputHandler: This frame output handler is called once for each destination frame in the provided parameters
+///       if no errors are encountered. The output handler receives the same parameters object that you provided to the
+///       original call, a flag indicating if this is the final output to be called for this processing request, and the
+///       presentation timestamp associated with the `VTFrameProcessorFrame` that it is being called for. The `NSError`
+///       parameter contains an error code if processing was not successful.
+- (void) processWithParameters:(id<VTFrameProcessorParameters>)parameters
+			frameOutputHandler:(void (^)(id<VTFrameProcessorParameters> , CMTime, BOOL, NSError * _Nullable) )frameOutputHandler NS_REFINED_FOR_SWIFT;
+
+/// Performs effects in a Metal command buffer.
+///
+/// This function allows you to add the effect to an existing Metal command buffer. The clients that have an existing
+/// Metal pipeline and want to add this effect to it can use this function.
+///
+/// > Note: this function waits until all previously inserted tasks in the command buffer finish before running. Tasks
+/// inserted after the `processWithCommandBuffer` returns are run by the system after the effect is applied. Processing
+/// does not happen until the commandBuffer is executed.
+///
+/// - Parameters:
+///   - commandBuffer: An existing Metal command buffer where the frame processing is inserted.
+///   - parameters: A `VTFrameProcessorParameters` based object to specify additional frame based parameters to use
+///       during processing. It needs to match the configuration type used during start session.
+- (void) processWithCommandBuffer:(id <MTLCommandBuffer>) commandBuffer
+                       parameters:(id<VTFrameProcessorParameters>)parameters;
+
+/// Performs all necessary tasks to end the session.
+///
+/// After this call completes, you can process no new frames unless you call ``startSessionWithConfiguration`` again.
+- (void) endSession;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+
+#endif // VTFRAMEPROCESSOR_H
+=== VTFrameProcessorConfiguration.h
+/*
+	File:  VTFrameProcessorConfiguration.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSORCONFIGURATION_H
+#define VTFRAMEPROCESSORCONFIGURATION_H
+
+#ifdef __OBJC__
+
+#import <CoreMedia/CMBase.h>
+#import <Foundation/Foundation.h>
+#import <CoreMedia/CMFormatDescription.h>
+
+NS_HEADER_AUDIT_BEGIN(nullability)
+
+
+/// The protocol that describes the configuration of a processor for a video frame processing session.
+///
+/// Use `VTFrameProcessorConfiguration` protocol conformance to start a frame processing session. You can query these
+/// properties on an implementation conforming to `VTFrameProcessorConfiguration` without starting a session.
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+NS_SWIFT_SENDABLE
+@protocol VTFrameProcessorConfiguration <NSObject>
+
+@required
+
+/// Returns a Boolean indicating whether the system supports this processor on the current configuration.
+@property (class, nonatomic, readonly, getter=isSupported) BOOL supported;
+
+/// List of supported pixel formats for source frames for the current configuration.
+@property (nonatomic, readonly) NSArray<NSNumber *> * frameSupportedPixelFormats NS_REFINED_FOR_SWIFT;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent source frames and reference frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE sourcePixelBufferAttributes;
+
+/// Pixel buffer attributes dictionary that describes requirements for pixel buffers which represent destination frames.
+///
+/// Use ``CVPixelBufferCreateResolvedAttributesDictionary`` to combine this dictionary with your pixel buffer attributes dictionary.
+@property (nonatomic, readonly) NSDictionary<NSString *, id> * NS_SWIFT_SENDABLE destinationPixelBufferAttributes;
+
+@optional // WARNING: Optional properties must be refined for swift
+
+/// Returns the number of "next" frames that this processor requires for processing.
+@property (nonatomic, readonly) NSInteger nextFrameCount NS_REFINED_FOR_SWIFT;
+
+/// Returns the number of "previous" frames that this processor requires for processing.
+@property (nonatomic, readonly) NSInteger previousFrameCount NS_REFINED_FOR_SWIFT;
+
+/// Returns the maximum dimensions for a `sourceFrame` for the processor.
+@property (class, nonatomic, readonly) CMVideoDimensions maximumDimensions NS_REFINED_FOR_SWIFT;
+
+/// Returns the minimum dimensions for a `sourceFrame` for the processor.
+@property (class, nonatomic, readonly) CMVideoDimensions minimumDimensions NS_REFINED_FOR_SWIFT;
+
+@end
+
+NS_HEADER_AUDIT_END(nullability)
+
+#endif // __OBJC__
+
+#endif // VTFRAMEPROCESSORCONFIGURATION_H
+=== VTFrameProcessorErrors.h
+/*
+	File:  VTFrameProcessorErrors.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSORERRORS_H
+#define VTFRAMEPROCESSORERRORS_H
+
+#ifdef __OBJC__
+
+#import <CoreMedia/CMBase.h>
+#import <Foundation/Foundation.h>
+
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+
+extern NSErrorDomain _Nonnull const VTFrameProcessorErrorDomain;
+
+
+/// `VTFrameProcessor` error codes.
+///
+/// These error codes are returned in the `NSError` object in the event a method fails.
+typedef NS_ERROR_ENUM(VTFrameProcessorErrorDomain, VTFrameProcessorError)
+{
+	/// Returned if the processor failed for unknown reason.
+	VTFrameProcessorUnknownError				= -19730,
+	/// Returned if the processor failed due to an unsupported resolution.
+	VTFrameProcessorUnsupportedResolution		= -19731,
+	/// Returned if the session is used to process frames without being started.
+	VTFrameProcessorSessionNotStarted			= -19732,
+	/// Returned if a `startSessionWithConfiguration` call is made on a session which has already been started.
+	VTFrameProcessorSessionAlreadyActive		= -19733,
+	/// Returned if a fatal error is encoutnered during processing.
+	VTFrameProcessorFatalError					= -19734,
+	/// Returned if processing failed and current session should be stopped.
+	VTFrameProcessorSessionLevelError			= -19735,
+	/// Returned if the session failed to initialize the processing pipeline.
+	VTFrameProcessorInitializationFailed		= -19736,
+	/// Returned to indicate that one or more frames is in a format which is not supproted by the processor.
+	VTFrameProcessorUnsupportedInput			= -19737,
+	/// Returned if the session or processor is unable to allocate required memory.
+	VTFrameProcessorMemoryAllocationFailure		= -19738,
+	/// Returned if the specifed revision is not supported by the configured processor.
+	VTFrameProcessorRevisionNotSupported		= -19739,
+	/// Returned if the processor encountered an issue preventing it from processing the provided frame.
+	VTFrameProcessorProcessingError				= -19740,
+	/// Returned if one of the provided parameters is not valid.
+	VTFrameProcessorInvalidParameterError		= -19741,
+	/// Returned if one of the provided `VTFrameProcessorFrame` objects has a presentation time which is not supported by the processor, either invalid or out-of-order.
+	VTFrameProcessorInvalidFrameTiming			= -19742,
+	/// Returned if download of a required model asset for the processor failed
+	VTFrameProcessorAssetDownloadFailed			= -19743,
+};
+
+#endif // __OBJC__
+
+#endif // VTFRAMEPROCESSORERRORS_H
+=== VTFrameProcessorFrame.h
+/*
+	File:  VTFrameProcessorFrame.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+
+#ifndef VTFRAMEPROCESSORFRAME_H
+#define VTFRAMEPROCESSORFRAME_H
+
+#ifdef __OBJC__
+
+#import <CoreMedia/CMBase.h>
+#import <CoreVideo/CoreVideo.h>
+#import <CoreMedia/CMTime.h>
+
+NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+
+/// Helper class to wrap pixel buffers as video frames.
+///
+/// You can use the frames as source frames, reference frames, or output frames of a processor. Frame instances retain
+/// the backing pixel buffer.
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+@interface VTFrameProcessorFrame : NSObject
+/// Creates a new instance of frame with a pixel buffer and presentation timestamp.
+///
+/// The `CVPixelBuffer` is retained in this object.
+/// Returns `nil` if the ``CVPixelBuffer`` you provided is NULL or the ``CVPixelBuffer`` is not backed by ``IOSurface``.
+///
+/// - Parameters:
+///   - buffer: The ``CVPixelBuffer`` that this frame wraps; it must not be `nil` and must be ``IOSurface`` backed.
+///   - presentationTimeStamp: The presentation timestamp of the buffer.
+- (nullable instancetype)initWithBuffer:(CVPixelBufferRef)buffer
+         presentationTimeStamp:(CMTime)presentationTimeStamp;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Pixel buffer that you provided when you initialized the object.
+@property(nonatomic,readonly) CVPixelBufferRef buffer;
+
+/// Presentation timestamp that you provided when you initialized the object.
+@property(nonatomic,readonly) CMTime presentationTimeStamp;
+
+@end
+
+/// Helper class to wrap optical flow.
+///
+/// Instances retain the backing pixel buffers that you provide.
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+@interface VTFrameProcessorOpticalFlow : NSObject
+/// Creates a new instance of forward and backward optical flow with pixel buffers.
+///
+/// Create a new instance with forward and backward optical flow ``CVPixelBuffer``s. Instances retain the pixel buffers
+/// you provide to this method. Returns `nil` if either `CVPixelBuffer` is NULL or the `CVPixelBuffer`s are not `IOSurface` backed.
+///
+/// - Parameters:
+///   - forwardFlow: `CVPixelBuffer` that contains forward optical flow; it must not be `nil` and must be `IOSurface` backed.
+///   - backwardFlow: `CVPixelBuffer` that contains backward optical flow; it must not be `nil` and must be `IOSurface` backed.
+- (nullable instancetype)initWithForwardFlow:(CVPixelBufferRef)forwardFlow
+                       backwardFlow:(CVPixelBufferRef)backwardFlow;
+
+- (instancetype) init NS_UNAVAILABLE;
++ (instancetype) new NS_UNAVAILABLE;
+
+/// Returns the forward optical flow `CVPixelBuffer` that you provided when you initialized the object.
+@property(nonatomic, readonly) CVPixelBufferRef forwardFlow;
+
+/// Returns the backward optical flow `CVPixelBuffer` that you provided when you initialized the object.
+@property(nonatomic, readonly) CVPixelBufferRef backwardFlow;
+
+@end
+
+
+NS_HEADER_AUDIT_END(nullability, sendability)
+
+#endif // __OBJC__
+
+#endif // VTFRAMEPROCESSORFRAME_H
+=== VTFrameProcessorParameters.h
+/*
+	File:  VTFrameProcessorParameters.h
+ 
+	Framework:  VideoToolbox
+ 
+	Copyright © 2023-2024 Apple Inc. All rights reserved.
+ 
+*/
+ 
+#ifndef VTFRAMEPROCESSORPARAMETERS_H
+#define VTFRAMEPROCESSORPARAMETERS_H
+
+#ifdef __OBJC__
+
+#import <CoreMedia/CMBase.h>
+#import <Foundation/Foundation.h>
+#import <VideoToolbox/VTFrameProcessorFrame.h>
+
+NS_HEADER_AUDIT_BEGIN(nullability)
+
+
+/// The base protocol for input and output processing parameters for a Video Toolbox frame processor implementation.
+///
+/// Pass an instance of a class corresponding to this protocol to `processFrameWithParameters` calls. In async versions of those APIs, the completion handler returns the same instance.
+API_AVAILABLE(macos(15.4), ios(26.0), tvos(26.0), visionos(26.0)) API_UNAVAILABLE(watchos)
+@protocol VTFrameProcessorParameters <NSObject>
+
+@required
+
+/// Use `VTFrameProcessorFrame` that contains the current source frame for all processing features; must be non-null.
+@property(nonatomic, readonly) VTFrameProcessorFrame * sourceFrame;
+
+@optional // WARNING: Optional properties must be refined for swift
+
+/// Destination frame that contains the destination frame for processors which output a single processed frame.
+@property(nonatomic, readonly) VTFrameProcessorFrame * destinationFrame NS_REFINED_FOR_SWIFT;
+
+/// Array of destination frames for processors which may output more than one processed frame.
+@property(nonatomic, readonly) NSArray<VTFrameProcessorFrame *> * destinationFrames NS_REFINED_FOR_SWIFT;
+
+
+@end
+
+NS_HEADER_AUDIT_END(nullability)
+
+#endif // __OBJC__
+
+#endif // VTFRAMEPROCESSORPARAMETERS_H
