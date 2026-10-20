@@ -388,29 +388,21 @@ struct ClipTile: View {
         .gesture(holdToMove)
     }
 
-    /// Hold, then slide to move the clip.
-    private var holdToMove: some Gesture {
-        LongPressGesture(minimumDuration: 0.35, maximumDistance: 8)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .onChanged { v in
+    /// Hold, then slide to move the clip. A UIKit long press, so a normal swipe still scrolls the strip.
+    private var holdToMove: HoldToDrag {
+        HoldToDrag(
+            onBegan: { x in
                 guard trim == nil, dragging == nil else { return }
-                switch v {
-                case .second(true, let drag):
-                    if !holding {
-                        holding = true
-                        onReorder(.began, 0, drag?.location.x ?? 0)
-                    }
-                    if let d = drag { onReorder(.changed, d.translation.width, d.location.x) }
-                default:
-                    break
-                }
-            }
-            .onEnded { _ in
+                holding = true
+                onReorder(.began, 0, x)
+            },
+            onChanged: { dx, x in if holding { onReorder(.changed, dx, x) } },
+            onEnded: {
                 if holding {
                     holding = false
                     onReorder(.ended, 0, 0)
                 }
-            }
+            })
     }
 
     /// Shows how much is being cut away (red) or added (lime) compared to where the edge started.
@@ -485,5 +477,41 @@ private struct CaptionLane: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Long press that keeps reporting the finger after it fires (UIKit, so it plays nicely with scrolling).
+struct HoldToDrag: UIGestureRecognizerRepresentable {
+    var onBegan: (CGFloat) -> Void
+    var onChanged: (_ dx: CGFloat, _ x: CGFloat) -> Void
+    var onEnded: () -> Void
+
+    final class Coordinator {
+        var startX: CGFloat = 0
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let g = UILongPressGestureRecognizer()
+        g.minimumPressDuration = 0.35
+        g.allowableMovement = 10
+        g.cancelsTouchesInView = false
+        return g
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
+        let x = g.location(in: g.view?.window).x
+        switch g.state {
+        case .began:
+            context.coordinator.startX = x
+            onBegan(x)
+        case .changed:
+            onChanged(x - context.coordinator.startX, x)
+        case .ended, .cancelled, .failed:
+            onEnded()
+        default:
+            break
+        }
     }
 }

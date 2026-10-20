@@ -144,12 +144,6 @@ enum Transcriber {
         case listening(Double)
     }
 
-    static let prompts: [String: String] = [
-        "cs": "Dobře, takže tohle je přepis. Ano, přesně tak, jdeme na to.",
-        "sk": "Dobre, takže toto je prepis. Áno, presne tak, ideme na to.",
-        "en": "Okay, so this is the transcript. Yes, exactly, let's go.",
-    ]
-
     @MainActor
     static func run(project: Project, language: String, names: String,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
@@ -196,14 +190,13 @@ enum Transcriber {
     nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
                                                progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
         let pipe = try await SpeechEngine.shared.pipe(folder)
-        // No VAD chunking: plain sequential decoding keeps every timestamp on the same clock.
+        // No VAD chunking (keeps one clock) and no generic style prompt: a prompt shifts Whisper's
+        // word alignment and its timestamps. Only names the user typed are passed as a hint.
         var opts = DecodingOptions(task: .transcribe, language: language, temperatureFallbackCount: 3,
                                    usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true)
-        var prompt = prompts[language] ?? ""
         let extra = names.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !extra.isEmpty { prompt = extra + ". " + prompt }
-        if let tok = pipe.tokenizer, !prompt.isEmpty {
-            opts.promptTokens = tok.encode(text: " " + prompt).filter { $0 < tok.specialTokens.specialTokenBegin }
+        if let tok = pipe.tokenizer, !extra.isEmpty {
+            opts.promptTokens = tok.encode(text: " " + extra + ".").filter { $0 < tok.specialTokens.specialTokenBegin }
         }
 
         let poll = Task {
@@ -214,12 +207,13 @@ enum Transcriber {
         }
         defer { poll.cancel() }
 
+        let speech = SpeechActivity(url: audio)
         let results = try await pipe.transcribe(audioPath: audio.path, decodeOptions: opts)
         let segs = results.flatMap(\.segments).map {
             Seg(start: Double($0.start), end: Double($0.end), text: $0.text,
                 words: ($0.words ?? []).map { (w: $0.word, s: Double($0.start), e: Double($0.end)) })
         }
-        return timedWords(segs)
+        return timedWords(segs, speech: speech)
     }
 
     struct Seg {
@@ -229,77 +223,176 @@ enum Transcriber {
         var words: [(w: String, s: Double, e: Double)]
     }
 
+    typealias RawWord = (w: String, s: Double, e: Double)
+
     private static func clean(_ t: String) -> String {
         var s = t
         while let r = s.range(of: "<\\|[^|]*\\|>", options: .regularExpression) { s.removeSubrange(r) }
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Whisper's segment times are dependable; its word times sometimes are not (they can collapse to 0
-    /// or jump). Words are kept only when they sit inside their segment in order; otherwise the segment's
-    /// words are spread over the segment by length.
-    static func timedWords(_ input: [Seg]) -> [CaptionWord] {
-        var out: [CaptionWord] = []
+    private static func tokens(_ seg: Seg) -> [RawWord] {
+        var words: [RawWord] = []
+        for w in seg.words {
+            let t = clean(w.w)
+            if t.isEmpty { continue }
+            if t.allSatisfy({ ".,!?…;:".contains($0) }), !words.isEmpty {
+                words[words.count - 1].w += t   // stray punctuation joins the previous word
+                continue
+            }
+            words.append((t, w.s, w.e))
+        }
+        if words.isEmpty {
+            words = clean(seg.text).split(separator: " ").map { (String($0), 0, 0) }
+        }
+        return words
+    }
+
+    /// Word times are believable: in order, inside the segment, not piled on one spot.
+    private static func plausible(_ words: [RawWord], in a: Double, _ b: Double) -> Bool {
+        guard let first = words.first, let last = words.last else { return false }
+        if !first.s.isFinite || !last.e.isFinite { return false }
+        var stuck = 0
+        for (i, w) in words.enumerated() {
+            if !w.s.isFinite || !w.e.isFinite || w.e < w.s - 0.01 { return false }
+            if w.s < a - 0.6 || w.e > b + 0.8 || w.e - w.s > 4 { return false }
+            if i > 0 {
+                let p = words[i - 1]
+                if w.s < p.s - 0.02 || w.s < p.e - 0.3 { return false }
+                if w.s - p.s < 0.02 { stuck += 1 }
+            }
+        }
+        if words.count > 2 && Double(stuck) > Double(words.count - 1) * 0.2 { return false }
+        let len = b - a
+        if len > 1.5 && last.e - first.s < len * 0.3 { return false }
+        return true
+    }
+
+    /// Spreads words over [a, b] by length, skipping the silent parts.
+    private static func spread(_ words: [RawWord], _ a: Double, _ b: Double, speech: SpeechActivity?) -> [RawWord] {
+        let weights = words.map { Double($0.w.count + 1) }
+        let total = max(weights.reduce(0, +), 1)
+        let voiced = speech?.voicedTimes(from: a, to: b) ?? []
+        let useVoice = voiced.count >= 5 && Double(voiced.count) * (speech?.step ?? 1) > (b - a) * 0.15
+        func at(_ f: Double) -> Double {
+            let f = min(max(f, 0), 1)
+            guard useVoice else { return a + f * (b - a) }
+            let k = min(Int(f * Double(voiced.count)), voiced.count - 1)
+            return voiced[k]
+        }
+        var acc = 0.0
+        return words.enumerated().map { i, w in
+            let s = at(acc / total)
+            acc += weights[i]
+            let e = max(at(acc / total) - 0.02, s + 0.05)
+            return (w.w, s, e)
+        }
+    }
+
+    /// Whisper's segment times are usually dependable; its word times sometimes are not (they can all
+    /// collapse to 0). Words are kept when they look right; otherwise they are spread over the segment's
+    /// speech. When the segments themselves look broken, everything is spread over the speech in the audio.
+    static func timedWords(_ input: [Seg], speech: SpeechActivity? = nil) -> [CaptionWord] {
+        let segs = input.filter { !clean($0.text).isEmpty || !$0.words.isEmpty }
+        guard !segs.isEmpty else { return [] }
+        let tok = segs.map(tokens)
+
+        // are the segment clocks sane?
+        var broken = false
         var prevEnd = 0.0
-        for var seg in input {
-            let text = clean(seg.text)
-            var words: [(w: String, s: Double, e: Double)] = []
-            for w in seg.words {
-                let t = clean(w.w)
-                if t.isEmpty { continue }
-                if t.allSatisfy({ ".,!?…;:".contains($0) }), !words.isEmpty {
-                    words[words.count - 1].w += t   // stray punctuation joins the previous word
-                    continue
-                }
-                words.append((t, w.s, w.e))
-            }
-            if words.isEmpty {
-                words = text.split(separator: " ").map { (String($0), 0, 0) }
-            }
-            guard !words.isEmpty else { continue }
+        var covered = 0.0
+        for s in segs {
+            if !s.start.isFinite || !s.end.isFinite || s.end <= s.start || s.start < prevEnd - 0.3 { broken = true }
+            covered += max(0, s.end - s.start)
+            prevEnd = max(prevEnd, s.end)
+        }
+        if let sp = speech, sp.voicedDuration > 2, covered < sp.voicedDuration * 0.45 { broken = true }
 
-            // segment clock sanity
-            if seg.end <= seg.start { seg.end = seg.start + max(0.6, Double(text.count) * 0.065) }
-            if seg.start < prevEnd - 0.3 {
-                let d = seg.end - seg.start
-                seg.start = prevEnd
-                seg.end = prevEnd + d
-            }
-            let len = seg.end - seg.start
-
-            // word times relative to the segment instead of absolute?
-            if seg.start > 1, let last = words.last, last.e <= len + 0.6, words.first!.s < seg.start - 0.6 {
-                words = words.map { ($0.w, $0.s + seg.start, $0.e + seg.start) }
-            }
-            var ok = true
-            var prev = seg.start - 0.6
-            for w in words {
-                if w.s < prev - 0.05 || w.e < w.s || w.s < seg.start - 0.6 || w.e > seg.end + 0.8 { ok = false; break }
-                prev = w.s
-            }
-            if ok {
-                let first = words.first!.s, lastEnd = words.last!.e
-                let span = lastEnd - first
-                // all words squeezed into a sliver of a long segment = broken alignment
-                if len > 1.5 && span < len * 0.25 { ok = false }
-            }
-            if !ok {
-                let total = Double(words.reduce(0) { $0 + $1.w.count + 1 })
-                var cursor = seg.start
-                words = words.map { w in
-                    let d = len * Double(w.w.count + 1) / max(total, 1)
-                    defer { cursor += d }
-                    return (w.w, cursor, cursor + d * 0.92)
+        var raw: [RawWord] = []
+        if broken {
+            let all = tok.flatMap { $0 }
+            let a = speech?.firstVoice ?? 0
+            let b = max(speech?.lastVoice ?? Double(all.count) * 0.35, a + 0.5)
+            raw = spread(all, a, b, speech: speech)
+        } else {
+            for (k, s) in segs.enumerated() {
+                var words = tok[k]
+                guard !words.isEmpty else { continue }
+                // word times relative to the segment instead of absolute?
+                if s.start > 1, let l = words.last, l.e <= (s.end - s.start) + 0.6, words[0].s < s.start - 0.6 {
+                    words = words.map { ($0.w, $0.s + s.start, $0.e + s.start) }
                 }
+                raw += plausible(words, in: s.start, s.end) ? words : spread(words, s.start, s.end, speech: speech)
             }
-            for w in words {
-                let s = max(w.s, seg.start - 0.3, out.last?.start ?? 0)
-                let e = max(min(w.e, seg.end + 0.5), s + 0.05)
-                out.append(CaptionWord(text: w.w, start: s, end: e))
-            }
-            prevEnd = max(prevEnd, seg.end)
+        }
+        var out: [CaptionWord] = []
+        for w in raw {
+            let s = max(w.s, out.last?.start ?? 0, 0)
+            let e = max(w.e, s + 0.05)
+            out.append(CaptionWord(text: w.w, start: s, end: e))
         }
         return out
+    }
+}
+
+/// Where in the audio someone is (probably) talking: short-time loudness against the clip's own level.
+struct SpeechActivity {
+    let step = 0.02
+    private(set) var voiced: [Bool] = []
+
+    init?(url: URL) {
+        guard let file = try? AVAudioFile(forReading: url) else { return nil }
+        let fmt = file.processingFormat
+        let hop = max(1, Int(fmt.sampleRate * step))
+        let chunk = AVAudioFrameCount(hop * 50)   // one second at a time
+        guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: chunk) else { return nil }
+        let chans = Int(fmt.channelCount)
+        var rms: [Float] = []
+        var sum: Float = 0
+        var count = 0
+        while file.framePosition < file.length {
+            guard (try? file.read(into: buf, frameCount: chunk)) != nil, buf.frameLength > 0,
+                  let ch = buf.floatChannelData else { break }
+            let n = Int(buf.frameLength)
+            for k in 0..<n {
+                for c in 0..<chans { sum += ch[c][k] * ch[c][k] }
+                count += 1
+                if count == hop {
+                    rms.append((sum / Float(hop * chans)).squareRoot())
+                    sum = 0
+                    count = 0
+                }
+            }
+        }
+        if count > 0 { rms.append((sum / Float(count * chans)).squareRoot()) }
+        guard !rms.isEmpty else { return nil }
+        let sorted = rms.sorted()
+        let floor = sorted[Int(Double(sorted.count - 1) * 0.1)]
+        let peak = sorted[Int(Double(sorted.count - 1) * 0.95)]
+        let th = max(floor * 2, floor + (peak - floor) * 0.18, 0.004)
+        var v = rms.map { $0 > th }
+        // close tiny gaps between syllables (< 0.2 s)
+        var k = 0
+        while k < v.count {
+            if !v[k] {
+                var e = k
+                while e < v.count && !v[e] { e += 1 }
+                if k > 0 && e < v.count && e - k < 10 { for q in k..<e { v[q] = true } }
+                k = e
+            } else { k += 1 }
+        }
+        voiced = v
+    }
+
+    var voicedDuration: Double { Double(voiced.filter { $0 }.count) * step }
+    var firstVoice: Double? { voiced.firstIndex(of: true).map { Double($0) * step } }
+    var lastVoice: Double? { voiced.lastIndex(of: true).map { Double($0 + 1) * step } }
+
+    /// Start times of the voiced 20 ms frames between a and b.
+    func voicedTimes(from a: Double, to b: Double) -> [Double] {
+        let i0 = max(0, Int(a / step)), i1 = min(voiced.count, Int((b / step).rounded(.up)))
+        guard i0 < i1 else { return [] }
+        return (i0..<i1).filter { voiced[$0] }.map { Double($0) * step }
     }
 }
 
