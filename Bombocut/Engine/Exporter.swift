@@ -1,4 +1,4 @@
-@preconcurrency import AVFoundation
+import AVFoundation
 import Photos
 
 /// Renders the project with exact resolution, frame rate and bitrate control
@@ -139,14 +139,13 @@ final class Exporter: @unchecked Sendable {
         let state = PumpState()
         input.requestMediaDataWhenReady(on: queue) { [weak self] in
             guard !state.done else { return }
-            func finish() { state.done = true; input.markAsFinished(); group.leave() }
             while input.isReadyForMoreMediaData {
-                if self?.cancelled ?? true || reader.status != .reading { finish(); return }
-                guard let sample = output.copyNextSampleBuffer() else { finish(); return }
+                if self?.cancelled ?? true || reader.status != .reading { state.done = true; input.markAsFinished(); group.leave(); return }
+                guard let sample = output.copyNextSampleBuffer() else { state.done = true; input.markAsFinished(); group.leave(); return }
                 onTime?(sample.presentationTimeStamp.seconds)
                 if !input.append(sample) {
                     reader.cancelReading()
-                    finish(); return
+                    state.done = true; input.markAsFinished(); group.leave(); return
                 }
             }
         }

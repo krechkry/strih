@@ -518,9 +518,10 @@ actor SpeechEngine {
                 await MainActor.run { st.step(parts.count, of: parts.count, name: "Finishing") }
                 do { _ = try await SpeechEngine.shared.pipe(url) } catch { failed = error.localizedDescription }
             }
+            let result = failed
             await MainActor.run {
-                if failed == nil { UserDefaults.standard.set(true, forKey: key) }
-                st.end(error: failed)
+                if result == nil { UserDefaults.standard.set(true, forKey: key) }
+                st.end(error: result)
                 UIApplication.shared.endBackgroundTask(bg)
             }
         }
