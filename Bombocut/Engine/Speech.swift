@@ -492,6 +492,8 @@ actor SpeechEngine {
     static func warm(_ url: URL) {
         let st = SpeechStatus.shared
         guard !st.warming else { return }
+        // only when the model is really on the phone
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("AudioEncoder.mlmodelc").path) else { return }
         let key = "warmed." + url.lastPathComponent
         let first = !UserDefaults.standard.bool(forKey: key)
         st.begin(first: first, model: url.lastPathComponent)

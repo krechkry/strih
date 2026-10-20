@@ -166,7 +166,8 @@ struct EditorView: View {
                 sheet = .captions
             })
         }
-        if speechStatus.warming || speechStatus.error != nil {
+        // background loading only; a failure there stays quiet (it is reported if you generate captions)
+        if speechStatus.warming {
             return AnyView(warmPill)
         }
         return nil
