@@ -2,6 +2,10 @@ name: Screenshots
 
 on:
   workflow_dispatch:
+    inputs:
+      modes:
+        description: "demo modes to shoot (space separated)"
+        default: "home setup editor selected zoom reorder trim speed look adjust captions captionstyle captionsframe stabilize track trackpick fullscreen canvas export done overlay mask"
 
 permissions:
   contents: write
@@ -55,8 +59,10 @@ jobs:
           mkdir -p "$DATA/Documents/Media"
           cp demo/*.mp4 "$DATA/Documents/Media/"
           mkdir -p shots
-          for m in home setup editor selected zoom reorder trim speed look adjust captions captionstyle captionsframe stabilize track trackpick fullscreen canvas export done; do
-            xcrun simctl launch $UDID cz.krechler.bombocut -demo $m
+          for m in ${{ github.event.inputs.modes }}; do
+            LANGARGS=""
+            case "$m" in *cs) LANGARGS="-AppleLanguages (cs) -AppleLocale cs_CZ";; esac
+            xcrun simctl launch $UDID cz.krechler.bombocut -demo ${m%cs} $LANGARGS
             sleep 10
             xcrun simctl io $UDID screenshot shots/$m.png
             xcrun simctl terminate $UDID cz.krechler.bombocut || true

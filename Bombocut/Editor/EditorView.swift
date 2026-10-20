@@ -519,6 +519,16 @@ struct EditorView: View {
                 model.pickPhase = .adjust
                 model.trackPick = true
             }
+        case "overlay":
+            model.scrub(to: 1.0)
+            model.addText()
+            model.editOverlay { $0.kind = .text("BIG UP!"); $0.blend = .normal }
+        case "mask":
+            guard let first = clips.first else { break }
+            model.selectedClipID = first.id
+            model.mutateLook { $0.clips[0].mask = SubjectMask(kind: .person, blur: 0.6, dim: 0.3) }
+            try? await Task.sleep(for: .seconds(0.6))
+            sheet = .mask
         case "fullscreen":
             model.fullscreen = true
         case "export", "done":
