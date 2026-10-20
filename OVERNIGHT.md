@@ -32,6 +32,8 @@ Working through Kryštof's feedback from 22:47, most important first. Each finis
 - **Apply to for overlays**: the overlay panel has Apply to as well: copies a text's look (font, colors, size, outline, box, animation) plus blend, opacity and "behind subject" to all overlays or the ones you tap in the overlay lane. Position is never copied.
 - **Video overlays have sound** now, with a volume slider in their panel (0 mutes).
 - Panel tweaks from simulator checks: Apply to buttons no longer get cut off; mask panel scrolls.
+- **Snapping to the app layout**: while you move a title or the captions, its edges snap (with a tick and a guide line) to the edge of the area the picked app leaves free: left of the button column, above the username / caption, below the top bar. It is only a magnet, you can still put things anywhere.
+- Fixed two untranslated buttons in the Speed panel (Add at playhead, Delete).
 
 ## Decisions
 - No tap-to-select on the preview any more (you said: don't guess). Selection is only in the timeline. The hit-testing code stays in the model, unused, in case you want it back.

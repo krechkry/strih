@@ -195,7 +195,7 @@ struct SpeedSheet: View {
 
     private func pill(_ title: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: icon)
+            Label(loc(title), systemImage: icon)
                 .font(.subheadline.weight(.bold))
                 .lineLimit(1)
                 .padding(.horizontal, 12).frame(height: 36)
