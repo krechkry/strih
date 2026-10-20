@@ -22,6 +22,10 @@ struct HomeView: View {
     @ObservedObject private var speech = SpeechModels.shared
 
     var body: some View {
+        dialogs(stack)
+    }
+
+    private var stack: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -60,23 +64,6 @@ struct HomeView: View {
                     .tint(.white)
                 }
             }
-            .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
-                LanguageSetupView(firstLaunch: true).presentationDetents([.large])
-            }
-            .alert("Delete this project?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
-                   presenting: deleting) { p in
-                Button("Delete forever", role: .destructive) { store.delete(p) }
-                Button("Cancel", role: .cancel) {}
-            } message: { _ in
-                Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
-            }
-            .sheet(isPresented: $showAbout) { AboutView() }
-            .sheet(isPresented: $showStorage) {
-                StorageView().environmentObject(store)
-            }
-            .sheet(isPresented: $showSettings) {
-                LanguageSetupView().presentationDetents([.large])
-            }
             .onAppear {
                 if Demo.mode == "setup" { showSetup = true }
             }
@@ -101,21 +88,43 @@ struct HomeView: View {
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
             }
-            .alert("Import failed", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
-                Button("OK", role: .cancel) {}
-            } message: { Text(importError ?? "") }
-            .alert("Name your project", isPresented: Binding(get: { naming != nil }, set: { if !$0 && naming != nil { openNamed(false) } })) {
-                TextField(naming?.name ?? "", text: $newName)
-                Button("Save") { openNamed(true) }
-                Button("Skip", role: .cancel) { openNamed(false) }
-            } message: {
-                Text(String(format: loc("Leave it empty to keep “%@”. You can rename it after export."), naming?.name ?? ""))
-            }
-            .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-                TextField("Name", text: $renameText)
-                Button("Save") { if let r = renaming { store.rename(r, to: renameText) } }
-                Button("Cancel", role: .cancel) {}
-            }
+        }
+    }
+
+    /// Sheets and alerts, kept apart so the compiler can check the body quickly.
+    private func dialogs<V: View>(_ v: V) -> some View {
+        v
+        .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
+            LanguageSetupView(firstLaunch: true).presentationDetents([.large])
+        }
+        .alert("Delete this project?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+               presenting: deleting) { p in
+            Button("Delete forever", role: .destructive) { store.delete(p) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
+        }
+        .sheet(isPresented: $showAbout) { AboutView() }
+        .sheet(isPresented: $showStorage) {
+            StorageView().environmentObject(store)
+        }
+        .sheet(isPresented: $showSettings) {
+            LanguageSetupView().presentationDetents([.large])
+        }
+        .alert("Import failed", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(importError ?? "") }
+        .alert("Name your project", isPresented: Binding(get: { naming != nil }, set: { if !$0 && naming != nil { openNamed(false) } })) {
+            TextField(naming?.name ?? "", text: $newName)
+            Button("Save") { openNamed(true) }
+            Button("Skip", role: .cancel) { openNamed(false) }
+        } message: {
+            Text(String(format: loc("Leave it empty to keep “%@”. You can rename it after export."), naming?.name ?? ""))
+        }
+        .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Name", text: $renameText)
+            Button("Save") { if let r = renaming { store.rename(r, to: renameText) } }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
