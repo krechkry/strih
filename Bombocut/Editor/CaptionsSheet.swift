@@ -6,7 +6,6 @@ struct CaptionsSheet: View {
     @ObservedObject private var speech = SpeechModels.shared
     @State private var language = Prefs.languages.contains("cs") ? "cs" : (Prefs.languages.first ?? "cs")
     @AppStorage("captionNames") private var names = ""
-    @AppStorage("captionQuality") private var quality = "fast"
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
     @State private var tab = 0
@@ -64,12 +63,6 @@ struct CaptionsSheet: View {
             }
             .disabled(phase != nil)
 
-            HStack(spacing: 8) {
-                qualityPill("Fast", "fast")
-                qualityPill("Accurate", "accurate")
-            }
-            .disabled(phase != nil)
-
             TextField("Names & slang (helps spelling)", text: $names)
                 .font(.body.weight(.semibold))
                 .padding(.horizontal, 14).frame(height: 46)
@@ -99,22 +92,9 @@ struct CaptionsSheet: View {
     }
 
     private var modelNote: String {
-        let accurate = quality == "accurate"
-        let m = SpeechModel.needed(forLanguage: language, accurate: accurate)
-        let speed = accurate ? " Accurate is slower but gets Czech and Slovak words much more right." : ""
-        if speech.isReady(m) { return "Runs on your iPhone, offline." + speed }
-        return "First time downloads the speech model (\(m.sizeLabel)). Wi-Fi recommended." + speed
-    }
-
-    private func qualityPill(_ title: String, _ value: String) -> some View {
-        Button { quality = value } label: {
-            Text(title)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(quality == value ? .black : .white)
-                .padding(.horizontal, 14).frame(height: 34)
-                .background(quality == value ? Theme.accent : Theme.panel2, in: Capsule())
-        }
-        .buttonStyle(.plain)
+        let m = SpeechModel.needed(forLanguage: language)
+        if speech.isReady(m) { return "Runs on your iPhone, offline." }
+        return "First time downloads the speech model (\(m.sizeLabel)). Wi-Fi recommended."
     }
 
     private func progress(_ p: Transcriber.Phase) -> some View {
@@ -142,7 +122,7 @@ struct CaptionsSheet: View {
 
     private func generate() {
         model.pause()
-        model.startCaptions(language: language, names: names, accurate: quality == "accurate")
+        model.startCaptions(language: language, names: names)
         tab = 0
     }
 

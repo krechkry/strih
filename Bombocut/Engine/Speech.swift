@@ -15,9 +15,9 @@ enum SpeechModel: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .large: return "Czech · Slovak · English"
+        case .large: return "Older fast model"
         case .englishSmall: return "English only"
-        case .accurate: return "Accurate (Czech · Slovak · English)"
+        case .accurate: return "Czech · Slovak · English"
         }
     }
 
@@ -30,18 +30,18 @@ enum SpeechModel: String, CaseIterable {
     }
 
     static func needed(for languages: Set<String>) -> SpeechModel {
-        languages.contains("cs") || languages.contains("sk") ? .large : .englishSmall
+        languages.contains("cs") || languages.contains("sk") ? .accurate : .englishSmall
     }
 
     /// English can use the small model when that's what is on the phone; Czech and Slovak need the large one.
     @MainActor
-    static func needed(forLanguage l: String, accurate: Bool = false) -> SpeechModel {
-        if accurate { return .accurate }
-        guard l == "en" else { return .large }
+    static func needed(forLanguage l: String, accurate: Bool = true) -> SpeechModel {
+        // Czech and Slovak always use the full model: the fast one makes up words
+        guard l == "en" else { return .accurate }
         let m = SpeechModels.shared
-        if m.isReady(.large) { return .large }
+        if m.isReady(.accurate) { return .accurate }
         if m.isReady(.englishSmall) { return .englishSmall }
-        return Prefs.languages.contains("cs") || Prefs.languages.contains("sk") ? .large : .englishSmall
+        return Prefs.languages.contains("cs") || Prefs.languages.contains("sk") ? .accurate : .englishSmall
     }
 }
 
@@ -540,10 +540,8 @@ actor SpeechEngine {
     @MainActor
     static var preferredFolder: URL? {
         let models = SpeechModels.shared
-        let accurate = UserDefaults.standard.string(forKey: "captionQuality") == "accurate"
-        let want: SpeechModel = accurate ? .accurate : SpeechModel.needed(for: Prefs.languages)
-        let pick: SpeechModel? = models.isReady(want) ? want : SpeechModel.allCases.first { models.isReady($0) }
-        guard let m = pick, case .ready(let url) = models.state(m) else { return nil }
+        let want = SpeechModel.needed(for: Prefs.languages)
+        guard models.isReady(want), case .ready(let url) = models.state(want) else { return nil }
         return url
     }
 }

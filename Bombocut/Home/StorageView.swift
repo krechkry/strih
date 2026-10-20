@@ -29,7 +29,8 @@ struct StorageView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     total
                     section("Voice models") {
-                        ForEach(SpeechModel.allCases, id: \.self) { m in modelRow(m) }
+                        // the older fast model only shows up if it is still on the phone, so it can be deleted
+                        ForEach(SpeechModel.allCases.filter { $0 != .large || speech.isReady(.large) }, id: \.self) { m in modelRow(m) }
                         if report.leftovers > 0 {
                             row(icon: "shippingbox", title: "Unfinished downloads", detail: "Leftovers from stopped downloads",
                                 bytes: report.leftovers) { confirm = .leftovers }
