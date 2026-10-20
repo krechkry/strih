@@ -110,7 +110,7 @@ struct Tracking: Codable, Hashable {
             xs[i] = sx / c
             ys[i] = sy / c
         }
-        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t, noBorders: noBorders ?? false)
+        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t, noBorders: noBorders ?? false).withSpan()
     }
 
     func box(at s: Double) -> TrackSample? {
@@ -132,6 +132,18 @@ struct TrackCurve: Hashable {
     var mode: FollowMode
     var anchor: Double
     var noBorders = false
+    /// Largest distance (fraction of the picture) the subject wanders from where it is held, over the clip.
+    var span: (x: Double, y: Double) { (spanX, spanY) }
+    private(set) var spanX = 0.0
+    private(set) var spanY = 0.0
+
+    func withSpan() -> TrackCurve {
+        var c = self
+        let ref = mode == .center ? (x: 0.5, y: 0.5) : start
+        c.spanX = x.map { abs($0 - ref.x) }.max() ?? 0
+        c.spanY = y.map { abs($0 - ref.y) }.max() ?? 0
+        return c
+    }
 
     func at(_ s: Double) -> (x: Double, y: Double) {
         guard let first = t.first, let last = t.last else { return (0.5, 0.5) }

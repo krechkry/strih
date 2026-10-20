@@ -98,7 +98,10 @@ struct EditorView: View {
         }
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
-        .onChange(of: sheet) { _, s in model.previewScrubs = s != nil && s != .export }
+        .onChange(of: sheet) { _, s in
+            model.previewScrubs = s != nil && s != .export
+            model.trackPanelOpen = s == .track
+        }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
         }

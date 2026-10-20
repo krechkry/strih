@@ -50,10 +50,21 @@ struct PreviewArea: View {
         content().frame(width: canvas.width, height: canvas.height)
     }
 
-    /// Track panel open: drag sideways to scrub through the selected clip.
+    /// Tap on the preview: play / pause with a light tap feel and a quick symbol.
+    private func tapPlay() {
+        guard !model.project.clips.isEmpty else { return }
+        model.togglePlay()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        let n = (pulse?.id ?? 0) + 1
+        pulse = (model.isPlaying ? "play.fill" : "pause.fill", n)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if pulse?.id == n { pulse = nil } }
+    }
+
+    /// A panel is open: drag sideways to scrub, tap to play / pause.
     private func scrubSurface(_ canvas: CGSize) -> some View {
         Color.clear
             .contentShape(Rectangle())
+            .onTapGesture { tapPlay() }
             .gesture(
                 DragGesture(minimumDistance: 2)
                     .onChanged { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false) }
@@ -67,26 +78,17 @@ struct PreviewArea: View {
         let here = min(max(model.currentTime - r.lowerBound, 0), len)
         return VStack {
             Spacer()
-            VStack(spacing: 5) {
-                HStack {
-                    Text(Fmt.time(here))
-                    Spacer()
-                    Text(Fmt.time(len)).foregroundStyle(.white.opacity(0.6))
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.25))
+                    Capsule().fill(Theme.accent).frame(width: max(4, g.size.width * here / len))
                 }
-                .font(.system(size: 11, weight: .bold).monospacedDigit())
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.3))
-                        Capsule().fill(.white).frame(width: max(3, g.size.width * here / len))
-                    }
-                }
-                .frame(height: 3)
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: Capsule())
-            .environment(\.colorScheme, .dark)
-            .frame(width: min(canvas.width * 0.8, 260))
-            .padding(.bottom, 12)
+            .frame(height: 4)
+            .padding(6)
+            .background(.black.opacity(0.35), in: Capsule())
+            .frame(width: min(canvas.width * 0.7, 220))
+            .padding(.bottom, 14)
         }
         .transition(.opacity)
         .allowsHitTesting(false)
@@ -94,14 +96,7 @@ struct PreviewArea: View {
 
     private func touch(_ canvas: CGSize) -> some View {
         TouchSurface(
-            onTap: {
-                guard !model.project.clips.isEmpty else { return }
-                model.togglePlay()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                let n = (pulse?.id ?? 0) + 1
-                pulse = (model.isPlaying ? "play.fill" : "pause.fill", n)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if pulse?.id == n { pulse = nil } }
-            },
+            onTap: { tapPlay() },
             onDoubleTap: {
                 guard !model.project.clips.isEmpty else { return }
                 withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
@@ -162,7 +157,7 @@ struct PreviewArea: View {
     /// The tracked subject, shown while the clip is selected and paused.
     @ViewBuilder
     private func trackedBox(_ canvas: CGSize) -> some View {
-        if let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil, !model.trackPick,
+        if model.trackPanelOpen, let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil, !model.trackPick,
            let tr = model.project.clips[i].tracking, model.playheadInSelected,
            let b = tr.box(at: model.sourceTime(i)) {
             let m = model.sourceToCanvas(i, canvas: canvas)

@@ -99,7 +99,11 @@ final class EditorModel: ObservableObject {
                 guard let self, !self.isScrubbing, !self.seeking, self.isPlaying else { return }
                 self.currentTime = min(t.seconds, self.duration)
                 self.loopIfNeeded()
-                if let stop = self.stopAt, self.currentTime >= stop { self.pause() }
+                if let stop = self.stopAt, self.currentTime >= stop {
+                    let back = self.returnTo
+                    self.pause()
+                    if let back { self.scrub(to: back) }
+                }
             }
         }
         player.publisher(for: \.timeControlStatus)
@@ -147,6 +151,7 @@ final class EditorModel: ObservableObject {
         isPlaying = false
         loopSelected = false
         stopAt = nil
+        returnTo = nil
     }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
@@ -669,14 +674,15 @@ final class EditorModel: ObservableObject {
         openCaptions = true
     }
 
-    /// Plays the caption under the playhead (or the next one) once, to show the animation.
+    /// Plays the first caption once to show the animation, then goes back to its start.
     private var stopAt: Double?
+    private var returnTo: Double?
     func previewCaption() {
-        guard let caps = project.captions, !caps.cues.isEmpty else { return }
-        let cue = caps.cue(at: currentTime) ?? caps.cues.first { $0.start >= currentTime } ?? caps.cues[0]
+        guard let cue = project.captions?.cues.first else { return }
         pause()
         scrub(to: cue.start)
         stopAt = cue.end + 0.05
+        returnTo = cue.start
         player.play()
         isPlaying = true
     }
@@ -783,7 +789,7 @@ final class EditorModel: ObservableObject {
         let src = CGSize(width: 1000 * a, height: 1000)
         let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
                                           stab: st.stab.map { let v = $0.at(s); return (v.x, v.y, $0.crop) },
-                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders) },
+                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders, $0.span) },
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
         let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
@@ -889,6 +895,8 @@ final class EditorModel: ObservableObject {
     /// While a bottom panel is open, dragging on the preview scrubs instead of moving the clip:
     /// through the selected clip, or the whole timeline when nothing is selected.
     @Published var previewScrubs = false
+    /// The Track panel is open (the tracked box is only drawn then).
+    @Published var trackPanelOpen = false
     /// Range being scrubbed (shown as a slim bar on the preview), nil when not scrubbing.
     @Published private(set) var scrubRange: ClosedRange<Double>?
     private var scrubStart: Double?

@@ -63,11 +63,15 @@ struct CaptionsSheet: View {
             }
             .disabled(phase != nil)
 
-            TextField("Names & slang (helps spelling)", text: $names)
+            TextField("Names & slang, comma separated", text: $names)
                 .font(.body.weight(.semibold))
                 .padding(.horizontal, 14).frame(height: 46)
                 .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
                 .disabled(phase != nil)
+            Text("Words it should spell your way, split with commas. Example: Kryštof, Bombocut, PVP")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .padding(.top, -10)
 
             if let phase {
                 progress(phase)
