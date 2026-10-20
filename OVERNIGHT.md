@@ -24,11 +24,18 @@ Working through Kryštof's feedback from 22:47, most important first. Each finis
 - **Motion blur** is its own clip tool (wind icon, next to Adjust), out of Adjust. Strength slider plus direction (both ways / forward / backward). Old projects carry their motion blur over automatically.
 - **Motion blur speed**: the frame engine was working on the source frames (4K from the iPhone camera). It now works at the output size for export and at 60 % of it in the editor, scaled back up. That is roughly 4 to 10 times less work per frame, so the editor should keep up frame by frame. Same change for smooth slow motion.
 - **Apply to all / Pick clips**: under Motion blur, Adjust, Speed, Volume and Mask. "All clips" copies right away. "Pick clips" closes the panel; the timeline spreads the clips apart, you tap the ones you want (lime with a check, the source clip has a dashed outline and a star), then Apply. "All" picks every clip. Undo works as one step.
+- **Keyframes for text and overlays**: with an overlay selected, the diamond adds / removes a keyframe for its position, scale, rotation and opacity (hold it for smooth / linear, delete, previous / next). Moving the overlay or the opacity slider edits the keyframe under the playhead, or adds one, same as clips. Diamonds show on the overlay's block in the timeline.
+- **Social layouts**: instead of a dimmed box, the preview now shows a see-through copy of the app's real screen (Reels, TikTok, Shorts, Stories): the side buttons with counts, avatar + username, caption lines, music line, top bar, Stories header and reply bar, positioned from your reference screenshots. It appears while you move a title, briefly when you pick an app, and the dropdown has "Always show" to keep it on.
+- **Mask**: new Edge controls (softness, shrink / grow, invert) and Background (blur, darken, black & white). New "Use the cut-out elsewhere": Transparent video (subject only, HEVC with alpha .mov, works in Final Cut, DaVinci, CapCut, Keynote) or Matte (white subject on black, H.264). Both use the more accurate person model at higher detail, then Save or share (Files, AirDrop, etc.). Mask settings are also in Apply to.
+- **Czech**: went through every string again and rewrote it in the Czech people actually use for editing (keyframe stays keyframe, motion blur, tracking, bitrate; "Překrytí", "Prolínačka", "Viněta", "Resetovat", progress as nouns like "Stahování 45 %" instead of "Stahuji"). Engine errors and the default project name ("Project 21. 10. 9:00" / "Projekt …") are now translated too.
 
 ## Decisions
 - No tap-to-select on the preview any more (you said: don't guess). Selection is only in the timeline. The hit-testing code stays in the model, unused, in case you want it back.
 - Adjust copies what you see at the playhead (if the source clip has keyframes, their current value), and overwrites the target clips' color in all their keyframes. Transform (position / scale) is never copied.
 - Speed copies the speed or curve, keep pitch and smooth slow motion; captions and overlays follow their footage as usual.
+- PNG sequence / GIF: skipped in favor of HEVC with alpha. One .mov keeps full quality and frame timing, imports straight into every editor, and is far smaller than hundreds of PNGs. GIF has only 1-bit transparency and looks bad.
+- The cut-out / matte files cover the clip's trimmed source (speed changes are not baked in), long side up to 1920 px.
+- Motion blur in Czech stays "Motion blur" (like keyframe), since that is what Czech editors say.
 - Stabilize and Track are not in Apply to: they are measured per clip.
 - With nothing selected, a gesture still moves the clip at the playhead and selects it (like CapCut's main track). Overlays and captions never move unless selected.
 
