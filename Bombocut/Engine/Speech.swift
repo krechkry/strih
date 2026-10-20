@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 import SwiftUI
-import WhisperKit
+@preconcurrency import WhisperKit
 
 /// Which Whisper model to use and whether it is on the phone yet.
 enum SpeechModel: String, CaseIterable {
