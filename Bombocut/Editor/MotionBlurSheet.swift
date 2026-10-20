@@ -49,13 +49,14 @@ struct ApplyRow: View {
 
     var body: some View {
         if model.project.clips.count > 1 {
-            HStack(spacing: 8) {
-                Text("Apply to").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                Spacer()
-                button("All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
-                button("Pick clips", "hand.tap.fill") {
-                    model.startPick(kind)
-                    close()
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Apply to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                HStack(spacing: 8) {
+                    button("All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
+                    button("Pick clips", "hand.tap.fill") {
+                        model.startPick(kind)
+                        close()
+                    }
                 }
             }
         }
@@ -66,7 +67,8 @@ struct ApplyRow: View {
             Label(loc(title), systemImage: icon)
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 12).frame(height: 34)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 38)
                 .background(Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)

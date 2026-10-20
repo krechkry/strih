@@ -26,15 +26,15 @@ struct EditorView: View {
         switch s {
         case .export: return 0
         case .canvas: return 124
-        case .volume: return 240
-        case .speed: return 600
-        case .adjust: return 340
+        case .volume: return 260
+        case .speed: return 620
+        case .adjust: return 360
         case .captions: return 420
         case .stabilize: return 280
         case .track: return 360
         case .overlay: return 430
         case .mask: return 540
-        case .motionBlur: return 330
+        case .motionBlur: return 350
         }
     }
 
