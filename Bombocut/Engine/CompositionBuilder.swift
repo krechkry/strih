@@ -8,6 +8,8 @@ struct ClipRenderInfo {
     var start: Double                  // where the clip starts in the composition (seconds)
     var retime: Retime                 // composition time -> source time
     var state: LookState               // fallback if the live LookStore has nothing for this clip
+    var srcFps: Double = 30            // source frame rate (smooth slow motion phase)
+    var smoothSlowMo = false
 }
 
 /// One instruction per clip. The custom compositor reads `info` for every frame.
@@ -21,14 +23,22 @@ final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @u
     let trackID: CMPersistentTrackID
     let info: ClipRenderInfo
     let overlayTracks: [UUID: OverlayTrack]
+    let prevTrackID: CMPersistentTrackID?     // same footage one frame earlier (motion blur)
+    let nextTrackID: CMPersistentTrackID?     // same footage one frame later (motion blur, smooth slow motion)
 
     init(timeRange: CMTimeRange, trackID: CMPersistentTrackID, info: ClipRenderInfo,
-         overlayTracks: [UUID: OverlayTrack] = [:]) {
+         overlayTracks: [UUID: OverlayTrack] = [:], prevTrackID: CMPersistentTrackID? = nil,
+         nextTrackID: CMPersistentTrackID? = nil) {
         self.timeRange = timeRange
         self.trackID = trackID
         self.info = info
         self.overlayTracks = overlayTracks
-        self.requiredSourceTrackIDs = [NSNumber(value: trackID)] + overlayTracks.values.map { NSNumber(value: $0.trackID) }
+        self.prevTrackID = prevTrackID
+        self.nextTrackID = nextTrackID
+        var ids = [NSNumber(value: trackID)] + overlayTracks.values.map { NSNumber(value: $0.trackID) }
+        if let p = prevTrackID { ids.append(NSNumber(value: p)) }
+        if let n = nextTrackID { ids.append(NSNumber(value: n)) }
+        self.requiredSourceTrackIDs = ids
         super.init()
     }
 }
@@ -72,13 +82,22 @@ enum CompositionBuilder {
         let variParams = AVMutableAudioMixInputParameters(track: variTrack)
         variParams.audioTimePitchAlgorithm = .varispeed
 
-        var placed: [(start: CMTime, end: CMTime, info: ClipRenderInfo)] = []
+        var placed: [(start: CMTime, end: CMTime, info: ClipRenderInfo, aux: Bool)] = []
         var cursor = CMTime.zero
+        // neighbouring-frame tracks, only made when a clip needs them
+        var prevTrack: AVMutableCompositionTrack?
+        var nextTrack: AVMutableCompositionTrack?
 
         for clip in project.clips {
             let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
             guard let src = try await asset.loadTracks(withMediaType: .video).first else { continue }
-            let (prefTransform, srcRange) = try await src.load(.preferredTransform, .timeRange)
+            let (prefTransform, srcRange, nominalFps) = try await src.load(.preferredTransform, .timeRange, .nominalFrameRate)
+            let fps = nominalFps > 1 ? Double(nominalFps) : 30
+            let aux = clip.needsNeighbours
+            if aux && nextTrack == nil {
+                nextTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                prevTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            }
             let srcAudio = try await asset.loadTracks(withMediaType: .audio).first
             let audioRange = try await srcAudio?.load(.timeRange)
 
@@ -96,6 +115,20 @@ enum CompositionBuilder {
                 try vTrack.insertTimeRange(r, of: src, at: cursor)
                 if outDur != r.duration {
                     vTrack.scaleTimeRange(CMTimeRange(start: cursor, duration: r.duration), toDuration: outDur)
+                }
+                if aux {
+                    for (track, shift) in [(nextTrack, 1.0), (prevTrack, -1.0)] {
+                        guard let track else { continue }
+                        let sr = CMTimeRange(start: r.start + time(shift / fps), duration: r.duration).intersection(srcRange)
+                        guard sr.duration.seconds > 0.0005 else { continue }
+                        // keep it aligned with the main track
+                        let at = cursor + time(max(0, (sr.start - (r.start + time(shift / fps))).seconds) * ratio)
+                        pad(track, to: at)
+                        if (try? track.insertTimeRange(sr, of: src, at: at)) != nil {
+                            let o = time(sr.duration.seconds * ratio)
+                            if o != sr.duration { track.scaleTimeRange(CMTimeRange(start: at, duration: sr.duration), toDuration: o) }
+                        }
+                    }
                 }
 
                 if let srcAudio, let audioRange {
@@ -121,7 +154,8 @@ enum CompositionBuilder {
             if cursor > clipStart {
                 placed.append((clipStart, cursor,
                                ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: clipStart.seconds,
-                                              retime: clip.retime, state: clip.lookState)))
+                                              retime: clip.retime, state: clip.lookState, srcFps: fps,
+                                              smoothSlowMo: clip.smoothSlowMo), aux))
             }
         }
 
@@ -160,7 +194,9 @@ enum CompositionBuilder {
         for (i, p) in placed.enumerated() {
             let end = i == placed.count - 1 ? total : p.end
             instructions.append(ClipInstruction(timeRange: CMTimeRange(start: p.start, end: end),
-                                                trackID: vTrack.trackID, info: p.info, overlayTracks: overlayTracks))
+                                                trackID: vTrack.trackID, info: p.info, overlayTracks: overlayTracks,
+                                                prevTrackID: p.aux ? prevTrack?.trackID : nil,
+                                                nextTrackID: p.aux ? nextTrack?.trackID : nil))
         }
 
         let vc = AVMutableVideoComposition()

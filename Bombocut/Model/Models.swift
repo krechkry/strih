@@ -168,6 +168,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var effects = Effects()
     var keyframes: [Keyframe] = [] // sorted by source time; when present they drive the look
     var aspect: Double?            // source width / height, upright
+    var smoothSlowMo = false       // invent in-between frames when slowed down
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -201,7 +202,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
-        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking
+        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo
     }
 
     init(from d: Decoder) throws {
@@ -223,6 +224,14 @@ struct Clip: Identifiable, Codable, Hashable {
         keyframes = try c.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? []
         stabilization = try c.decodeIfPresent(Stabilization.self, forKey: .stabilization)
         tracking = try c.decodeIfPresent(Tracking.self, forKey: .tracking)
+        smoothSlowMo = try c.decodeIfPresent(Bool.self, forKey: .smoothSlowMo) ?? false
+    }
+
+    /// Needs the neighbouring source frames while rendering (motion blur or smooth slow motion).
+    var needsNeighbours: Bool {
+        let blur = effects.motionBlur > 0.001 || keyframes.contains { $0.look.effects.motionBlur > 0.001 }
+        let slow = smoothSlowMo && retime.segs.contains { $0.outLen > $0.srcLen * 1.05 }
+        return blur || slow
     }
 
     /// Part of the curve between normalized positions u0 and u1, renormalized to 0...1 (used by split).

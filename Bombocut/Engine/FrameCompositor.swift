@@ -27,23 +27,61 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
     func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
+        guard let instr = request.videoCompositionInstruction as? ClipInstruction,
+              let src = request.sourceFrame(byTrackID: instr.trackID)
+        else {
+            request.finish(with: CompositionBuilder.err("Missing frame."))
+            return
+        }
+        let info = instr.info
+        let t = request.compositionTime.seconds
+        let state = LookStore.shared.state(info.clipID) ?? info.state
+        let srcT = info.retime.source(atLocal: t - info.start)
+        let look = state.look(atSource: srcT)
+        let next = instr.nextTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
+        let prev = instr.prevTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
+        let speed = info.retime.speed(atLocal: t - info.start)
+        let srcTime = CMTime(seconds: srcT, preferredTimescale: 600)
+
+        // smooth slow motion: a new frame between this source frame and the next
+        if info.smoothSlowMo, speed < 0.95, let next {
+            let pos = srcT * info.srcFps
+            let phase = pos - pos.rounded(.down)
+            if phase > 0.04 && phase < 0.96 {
+                SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime) { img in
+                    var image = img
+                    if look.effects.motionBlur > 0.001 {
+                        image = SmoothFrames.average(src, nil, next, look.effects.motionBlur * 0.5)
+                            .applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: img, kCIInputTimeKey: 0.6])
+                    }
+                    self.finish(request, instr, source: image, look: look, state: state, srcT: srcT, t: t)
+                }
+                return
+            }
+        }
+        // motion blur from the neighbouring frames
+        if look.effects.motionBlur > 0.001, prev != nil || next != nil {
+            SmoothFrames.shared.motionBlur(cur: src, prev: prev, next: next, strength: look.effects.motionBlur,
+                                           time: srcTime) { img in
+                self.finish(request, instr, source: img, look: look, state: state, srcT: srcT, t: t)
+            }
+            return
+        }
+        finish(request, instr, source: CIImage(cvPixelBuffer: src), look: look, state: state, srcT: srcT, t: t)
+    }
+
+    private func finish(_ request: AVAsynchronousVideoCompositionRequest, _ instr: ClipInstruction, source: CIImage,
+                        look: Look, state: LookState, srcT: Double, t: Double) {
         autoreleasepool {
-            guard let instr = request.videoCompositionInstruction as? ClipInstruction,
-                  let src = request.sourceFrame(byTrackID: instr.trackID),
-                  let out = request.renderContext.newPixelBuffer()
-            else {
+            guard let out = request.renderContext.newPixelBuffer() else {
                 request.finish(with: CompositionBuilder.err("Missing frame."))
                 return
             }
             let size = request.renderContext.size
             let frame = CGRect(origin: .zero, size: size)
             let info = instr.info
-            let t = request.compositionTime.seconds
-            let state = LookStore.shared.state(info.clipID) ?? info.state
-            let srcT = info.retime.source(atLocal: t - info.start)
-            let look = state.look(atSource: srcT)
 
-            var image = EffectsRenderer.color(CIImage(cvPixelBuffer: src), look.effects)
+            var image = EffectsRenderer.color(source, look.effects)
             image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
                                stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
                                follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },

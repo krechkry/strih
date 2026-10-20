@@ -33,14 +33,28 @@ struct SpeedSheet: View {
 
             if tab == 0 { constantView } else { curveView }
 
-            HStack {
-                Image(systemName: "waveform").font(.body.weight(.semibold))
-                Text("Keep pitch").font(.body.weight(.semibold))
-                Spacer()
-                Toggle("", isOn: Binding(get: { clip?.pitchCorrect ?? true }, set: { model.setPitch($0) }))
-                    .labelsHidden()
+            VStack(spacing: 0) {
+                HStack {
+                    Image(systemName: "waveform").font(.body.weight(.semibold)).frame(width: 24)
+                    Text("Keep pitch").font(.body.weight(.semibold))
+                    Spacer()
+                    Toggle("", isOn: Binding(get: { clip?.pitchCorrect ?? true }, set: { model.setPitch($0) }))
+                        .labelsHidden()
+                }
+                .padding(.horizontal, 14).frame(height: 50)
+                Divider().overlay(Theme.line)
+                HStack {
+                    Image(systemName: "wand.and.rays").font(.body.weight(.semibold)).frame(width: 24)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Smooth slow motion").font(.body.weight(.semibold))
+                        Text("Invents in-between frames").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(get: { clip?.smoothSlowMo ?? false }, set: { model.setSmoothSlowMo($0) }))
+                        .labelsHidden()
+                }
+                .padding(.horizontal, 14).frame(height: 56)
             }
-            .padding(14)
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
         }
         .padding(20)

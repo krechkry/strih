@@ -21,7 +21,7 @@ struct EditorView: View {
         case .export: return 0
         case .canvas: return 124
         case .volume: return 200
-        case .speed: return 490
+        case .speed: return 550
         case .adjust: return 300
         case .captions: return 420
         case .stabilize: return 280

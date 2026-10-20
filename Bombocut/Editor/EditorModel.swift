@@ -201,8 +201,13 @@ final class EditorModel: ObservableObject {
     /// Preview renders at 1080 on the short side (export picks its own size).
     private var previewSize: CGSize { project.canvas.size(shortSide: 1080) }
 
+    /// Clips that were built with neighbouring-frame tracks (motion blur / smooth slow motion).
+    private var builtNeighbours: Set<UUID> = []
+    private var neighbourSet: Set<UUID> { Set(project.clips.filter(\.needsNeighbours).map(\.id)) }
+
     func rebuild() {
         buildTask?.cancel()
+        builtNeighbours = neighbourSet
         let p = project
         let size = previewSize
         let keep = currentTime
@@ -296,6 +301,8 @@ final class EditorModel: ObservableObject {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
         publishLook()
+        // motion blur switched on or off: the video needs (or no longer needs) the neighbouring frames
+        if neighbourSet != builtNeighbours { rebuild() }
     }
 
     /// Pushes the current looks to the compositor and redraws the paused frame.
@@ -952,6 +959,11 @@ final class EditorModel: ObservableObject {
     func setCurve(_ pts: [SpeedPoint]) {
         guard let i = selectedIndex, project.clips[i].speedCurve != pts else { return }
         mutate { $0.clips[i].speedCurve = pts }
+    }
+
+    func setSmoothSlowMo(_ on: Bool) {
+        guard let i = selectedIndex, project.clips[i].smoothSlowMo != on else { return }
+        mutate { $0.clips[i].smoothSlowMo = on }
     }
 
     func setPitch(_ on: Bool) {
