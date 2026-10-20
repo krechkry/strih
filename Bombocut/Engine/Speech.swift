@@ -189,8 +189,9 @@ enum Transcriber {
         var words = try await transcribe(audio: audio, folder: folder, language: language, names: names) { f in
             Task { @MainActor in phase(.listening(f)) }
         }
-        let keep = Set(names.split(whereSeparator: { " ,;\n".contains($0) }).map { $0.lowercased() })
-        words = SpellCheck.fix(words, language: language, keep: keep)
+        let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
+        words = SpellCheck.applyNames(words, typed)
+        words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
         return words
     }
 
@@ -209,18 +210,13 @@ enum Transcriber {
     nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
                                                progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
         let pipe = try await SpeechEngine.shared.pipe(folder).pipe
-        // No VAD chunking (keeps one clock). Greedy decoding only: Whisper's "fallback" re-tries a
-        // sentence at higher temperature (random sampling) when unsure, which is where made-up words came from.
-        var opts = DecodingOptions(task: .transcribe, language: language, temperature: 0, temperatureFallbackCount: 0,
-                                   usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true)
-        opts.firstTokenLogProbThreshold = nil
+        // Whisper's standard decoding (with its retries when unsure: without them it loops on music and
+        // silence), no VAD chunking (keeps one clock), and no prompt (a prompt makes it drop its timestamps;
+        // names you type are applied afterwards instead).
+        var opts = DecodingOptions(task: .transcribe, language: language, usePrefillPrompt: true,
+                                   skipSpecialTokens: true, wordTimestamps: true)
         if let tok = pipe.tokenizer {
             opts.suppressTokens = await SpeechEngine.shared.foreignLetterTokens(language, tok)
-        }
-        // Only names you typed go in as a hint: a longer prompt makes Whisper skip its timestamps.
-        let prompt = names.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let tok = pipe.tokenizer, !prompt.isEmpty {
-            opts.promptTokens = tok.encode(text: " " + prompt).filter { $0 < tok.specialTokens.specialTokenBegin }
         }
 
         let poll = Task {
@@ -648,6 +644,26 @@ enum SpellCheck {
             guard let g = best?.0 else { return w }
             var out = w
             out.text = w.text.replacingOccurrences(of: core, with: sameCase(g, as: core))
+            return out
+        }
+    }
+
+    /// Names and slang you typed win over what Whisper heard when they sound alike ("Krištof" -> "Kryštof").
+    static func applyNames(_ words: [CaptionWord], _ names: [String]) -> [CaptionWord] {
+        let list = names.filter { $0.count >= 3 }.map { ($0, fold($0)) }
+        guard !list.isEmpty else { return words }
+        return words.map { w in
+            let core = w.text.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+            guard core.count >= 3 else { return w }
+            let f = fold(core)
+            var best: (String, Int)?
+            for (name, nf) in list {
+                let d = distance(f, nf)
+                if d <= max(1, nf.count / 4), d < (best?.1 ?? Int.max) { best = (name, d) }
+            }
+            guard let name = best?.0, name != core else { return w }
+            var out = w
+            out.text = w.text.replacingOccurrences(of: core, with: name)
             return out
         }
     }
