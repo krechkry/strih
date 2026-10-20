@@ -1204,6 +1204,8 @@ final class EditorModel: ObservableObject {
     // MARK: Overlays
 
     @Published var selectedOverlayID: UUID?
+    /// A text was just added: its panel opens with the keyboard up.
+    var focusNewText = false
     @Published private(set) var overlayGuides: Set<Guide> = []
     private var overlayStart: ClipTransform?
     private var overlaySnapshot: Project?
@@ -1223,7 +1225,8 @@ final class EditorModel: ObservableObject {
     /// Text overlay at the playhead (3 s).
     func addText() {
         let start = min(currentTime, max(0, duration - 0.5))
-        var o = Overlay(kind: .text("Text"), start: start, duration: min(3, max(0.5, duration - start)))
+        var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(3, max(0.5, duration - start)))
+        focusNewText = true
         o.transform.y = -0.15
         mutateLook { $0.overlays.append(o) }
         selectOverlay(o.id)

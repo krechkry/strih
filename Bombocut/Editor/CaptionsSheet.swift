@@ -65,6 +65,7 @@ struct CaptionsSheet: View {
 
     private var generator: some View {
         VStack(alignment: .leading, spacing: 18) {
+            if !compact {
             Text("Captions").font(.title2.weight(.heavy))
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
@@ -95,6 +96,7 @@ struct CaptionsSheet: View {
             }
             .scrollIndicators(.hidden)
             .disabled(phase != nil)
+            }
 
             TextField("Names & slang, comma separated", text: $names)
                 .font(.body.weight(.semibold))

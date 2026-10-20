@@ -77,7 +77,24 @@ struct OverlaySheet: View {
         .focused($typing)
         .padding(12)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-        .onChange(of: typing) { was, now in if was && !now { model.liveEditEnded() } }
+        .onChange(of: typing) { was, now in
+            guard let i = model.selectedOverlayIndex, case .text(let t) = model.project.overlays[i].kind else { return }
+            if now && t == loc("Text") {
+                // the placeholder word goes away as you start typing
+                model.liveEditBegan()
+                model.editOverlay { $0.kind = .text("") }
+            }
+            if was && !now {
+                if t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { model.editOverlay { $0.kind = .text(loc("Text")) } }
+                model.liveEditEnded()
+            }
+        }
+        .onAppear {
+            if model.focusNewText {
+                model.focusNewText = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { typing = true }
+            }
+        }
     }
 
     @ViewBuilder
