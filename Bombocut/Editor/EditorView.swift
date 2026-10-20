@@ -27,6 +27,7 @@ struct EditorView: View {
         case .stabilize: return 280
         case .track: return 360
         case .overlay: return 430
+        case .mask: return 400
         }
     }
 
@@ -55,6 +56,7 @@ struct EditorView: View {
         case .stabilize: StabilizeSheet(model: model)
         case .track: TrackSheet(model: model)
         case .overlay: OverlaySheet(model: model)
+        case .mask: MaskSheet(model: model)
         }
     }
 
@@ -349,6 +351,7 @@ struct EditorView: View {
                     ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
                     ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                     ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
+                    ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: "arrow.down.right.and.arrow.up.left", label: "Fit") { model.fitClip(fill: false) }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
@@ -529,7 +532,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask
     var id: String { rawValue }
 }
 

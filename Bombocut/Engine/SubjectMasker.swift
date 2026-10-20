@@ -1,0 +1,82 @@
+import CoreImage
+import Vision
+
+/// Finds the subject in a frame with Apple Vision (on the phone) and treats the background separately.
+final class SubjectMasker: @unchecked Sendable {
+    static let shared = SubjectMasker()
+    private let ctx = CIContext(options: [.cacheIntermediates: false])
+    private let lock = NSLock()
+    private var pool: CVPixelBufferPool?
+    private var poolSize = CGSize.zero
+
+    /// Mask (white = subject) for `image` covering `frame`, or nil when nothing is found.
+    func mask(for image: CIImage, frame: CGRect, kind: SubjectMask.Kind) -> CIImage? {
+        // analyse a small copy: fast and plenty for a soft mask
+        let k = min(1, 512 / max(frame.width, frame.height))
+        let w = Int((frame.width * k).rounded()), h = Int((frame.height * k).rounded())
+        guard w > 8, h > 8, let buf = buffer(w, h) else { return nil }
+        let small = image.transformed(by: CGAffineTransform(scaleX: k, y: k))
+        ctx.render(small, to: buf, bounds: CGRect(x: 0, y: 0, width: w, height: h), colorSpace: CGColorSpaceCreateDeviceRGB())
+
+        let handler = VNImageRequestHandler(cvPixelBuffer: buf, options: [:])
+        var out: CVPixelBuffer?
+        switch kind {
+        case .person:
+            let r = VNGeneratePersonSegmentationRequest()
+            r.qualityLevel = .balanced
+            r.outputPixelFormat = kCVPixelFormatType_OneComponent8
+            guard (try? handler.perform([r])) != nil else { return nil }
+            out = r.results?.first?.pixelBuffer
+        case .subject:
+            let r = VNGenerateForegroundInstanceMaskRequest()
+            guard (try? handler.perform([r])) != nil, let obs = r.results?.first else { return nil }
+            out = try? obs.generateScaledMaskForImage(forInstances: obs.allInstances, from: handler)
+        }
+        guard let m = out else { return nil }
+        var mask = CIImage(cvPixelBuffer: m)
+        let e = mask.extent
+        mask = mask.transformed(by: CGAffineTransform(scaleX: frame.width / e.width, y: frame.height / e.height))
+            .clampedToExtent()
+            .applyingGaussianBlur(sigma: 1.5)
+            .cropped(to: frame)
+        return mask
+    }
+
+    /// Background with the clip's mask settings applied (blur, darken, black & white).
+    static func background(_ image: CIImage, _ m: SubjectMask, frame: CGRect) -> CIImage {
+        var bg = image
+        if m.blur > 0.001 {
+            bg = bg.clampedToExtent().applyingGaussianBlur(sigma: m.blur * Double(min(frame.width, frame.height)) * 0.03)
+                .cropped(to: frame)
+        }
+        if m.desaturate > 0.001 {
+            bg = bg.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1 - m.desaturate])
+        }
+        if m.dim > 0.001 {
+            bg = bg.applyingFilter("CIColorControls", parameters: [kCIInputBrightnessKey: -0.6 * m.dim,
+                                                                  kCIInputContrastKey: 1 - 0.3 * m.dim])
+            if m.dim > 0.95 { bg = CIImage(color: .black).cropped(to: frame) }
+        }
+        return bg
+    }
+
+    private func buffer(_ w: Int, _ h: Int) -> CVPixelBuffer? {
+        lock.lock()
+        defer { lock.unlock() }
+        if pool == nil || poolSize != CGSize(width: w, height: h) {
+            let attrs: [String: Any] = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+            ]
+            var p: CVPixelBufferPool?
+            CVPixelBufferPoolCreate(nil, nil, attrs as CFDictionary, &p)
+            pool = p
+            poolSize = CGSize(width: w, height: h)
+        }
+        guard let pool else { return nil }
+        var b: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(nil, pool, &b)
+        return b
+    }
+}

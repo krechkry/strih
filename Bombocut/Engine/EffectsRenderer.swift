@@ -23,6 +23,7 @@ final class LookStore: @unchecked Sendable {
             s.fill = c.fill
             s.look = c.staticLook
             s.keyframes = c.keyframes
+            s.mask = c.mask
             states[c.id] = s
             lock.unlock()
         } else {

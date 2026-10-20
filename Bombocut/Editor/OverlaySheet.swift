@@ -29,6 +29,13 @@ struct OverlaySheet: View {
                         }
                     }
                     slider("Opacity", value: o.opacity, in: 0.05...1) { v in model.editOverlay { $0.opacity = v } }
+                    Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Behind subject").font(.body.weight(.semibold))
+                            Text("Needs a subject mask on the clip below (Mask tool)")
+                                .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                        }
+                    }
                     HStack(spacing: 10) {
                         pill("Duplicate", on: false) { model.duplicateOverlay() }
                         pill("Delete", on: false) { model.deleteOverlay(); close() }

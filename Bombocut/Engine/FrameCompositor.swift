@@ -91,12 +91,27 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             let bg = CIImage(color: .black).cropped(to: frame)
             image = image.composited(over: bg).cropped(to: frame)
-            image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
-            if !instr.overlayTracks.isEmpty || !OverlayStore.shared.current.overlays.isEmpty {
-                image = OverlayRenderer.shared.draw(on: image, at: t, size: size) { id in
-                    guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
-                    return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
+            let videoFrame: (UUID) -> (CIImage, CGAffineTransform)? = { id in
+                guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
+                return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
+            }
+            let hasOverlays = !OverlayStore.shared.current.overlays.isEmpty
+
+            // subject cut-out: background effects and overlays that go behind the subject
+            var masked = false
+            if let m = state.mask, let mask = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+                var back = SubjectMasker.background(image, m, frame: frame)
+                if hasOverlays {
+                    back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: videoFrame)
                 }
+                image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
+                                                                            kCIInputMaskImageKey: mask]).cropped(to: frame)
+                masked = true
+            }
+            image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+            if hasOverlays {
+                image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
+                                                    video: videoFrame)
             }
             if let caps = CaptionStore.shared.current, let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                 image = text.composited(over: image).cropped(to: frame)

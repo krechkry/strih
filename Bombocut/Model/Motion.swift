@@ -160,3 +160,15 @@ struct TrackCurve: Hashable {
 
     var start: (x: Double, y: Double) { at(anchor) }
 }
+
+/// Cut the subject out of the frame (Apple Vision, on the phone) to treat the background separately.
+struct SubjectMask: Codable, Hashable {
+    enum Kind: String, Codable, CaseIterable {
+        case person, subject
+        var title: String { self == .person ? "People" : "Any subject" }
+    }
+    var kind = Kind.person
+    var blur = 0.0          // 0...1 background blur
+    var dim = 0.0           // 0...1 background darkening (1 = black)
+    var desaturate = 0.0    // 0...1 background to black & white
+}

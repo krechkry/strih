@@ -169,6 +169,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var keyframes: [Keyframe] = [] // sorted by source time; when present they drive the look
     var aspect: Double?            // source width / height, upright
     var smoothSlowMo = false       // invent in-between frames when slowed down
+    var mask: SubjectMask?         // subject cut-out for background effects / overlays behind the subject
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -185,7 +186,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
-                  stab: stabilization?.curve(), track: tracking?.curve())
+                  stab: stabilization?.curve(), track: tracking?.curve(), mask: mask)
     }
 
     var retime: Retime { Retime(self) }
@@ -202,7 +203,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
-        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo
+        case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
     }
 
     init(from d: Decoder) throws {
@@ -225,6 +226,7 @@ struct Clip: Identifiable, Codable, Hashable {
         stabilization = try c.decodeIfPresent(Stabilization.self, forKey: .stabilization)
         tracking = try c.decodeIfPresent(Tracking.self, forKey: .tracking)
         smoothSlowMo = try c.decodeIfPresent(Bool.self, forKey: .smoothSlowMo) ?? false
+        mask = try c.decodeIfPresent(SubjectMask.self, forKey: .mask)
     }
 
     /// Needs the neighbouring source frames while rendering (motion blur or smooth slow motion).
