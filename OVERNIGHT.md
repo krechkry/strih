@@ -1,6 +1,6 @@
 # Overnight log (20 to 21 Oct 2026)
 
-Working through Kryštof's feedback from 22:47, most important first. Each finished piece is committed and pushed.
+Finished at 01:15. Every item below is done, built green on CI and pushed. Working through Kryštof's feedback from 22:47, most important first. Each finished piece is committed and pushed.
 
 ## Plan (in order)
 1. Panels: fix jumpy bottom sheets when dragged slowly
