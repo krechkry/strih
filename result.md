@@ -1,0 +1,37 @@
+### openai_whisper-large-v3  (3090 MB, ready in 146 s)
+- **film_cs.wav · app** (140 s)
+  - text: Noci jsou chladné.  Co?  Noci jsou chladné!  Jo, jo.  To abych si vzal  teplé prádlo.
+  - segments: 5.9-7.3 8.0-8.2 9.1-10.3 11.3-11.9 13.1-14.1 16.2-17.2
+  - words: Noci 5.86, jsou 6.34, chladné. 6.82, Co? 8.04, Noci 9.14, jsou 9.62, chladné! 9.86, Jo, 11.28, jo. 11.46, To 13.08, abych 13.20, si 13.54
+- **film_cs.wav · defaults** (136 s)
+  - text: Noci jsou chladné.  Co?  Noci jsou chladné!  Jo, jo.  To abych si vzal  teplé prádlo.
+  - segments: 5.9-7.3 8.0-8.2 9.1-10.3 11.3-11.9 13.1-14.1 16.2-17.2
+  - words: Noci 5.86, jsou 6.34, chladné. 6.82, Co? 8.04, Noci 9.14, jsou 9.62, chladné! 9.86, Jo, 11.28, jo. 11.46, To 13.08, abych 13.20, si 13.54
+- **film_cs.wav · prompt** (66 s)
+  - text: 
+  - segments: 0.0-17.7
+  - words: 
+- **kry_cs.wav · app** (105 s)
+  - text: Tohle je test čistky jazyka.  Já jsem Krištof ahoj, jak se má?  Pa, pa.
+  - segments: 0.0-2.1 2.2-3.9 4.0-4.4
+  - words: Tohle 0.02, je 0.34, test 0.52, čistky 0.74, jazyka. 1.36, Já 2.24, jsem 2.32, Krištof 2.48, ahoj, 2.96, jak 3.48, se 3.56, má? 3.74
+- **kry_cs.wav · defaults** (365 s)
+  - text: Tohle je test čistky jazyka.  Já jsem Krištof ahoj, jak se má?  Pa, pa.
+  - segments: 0.0-2.1 2.2-3.9 4.0-4.4 4.5-9.7
+  - words: Tohle 0.02, je 0.34, test 0.52, čistky 0.74, jazyka. 1.36, Já 2.24, jsem 2.32, Krištof 2.48, ahoj, 2.96, jak 3.48, se 3.56, má? 3.74
+- **kry_cs.wav · prompt** (83 s)
+  - text: Tohle je test čistky jazyka. Já jsem Krištof. Ahoj, jak se má? Pa, pa.
+  - segments: 0.0-29.8
+  - words: Tohle 0.02, je 0.20, test 0.30, čistky 0.46, jazyka. 1.24, Já 2.24, jsem 2.44, Krištof. 2.50, Ahoj, 5.86, jak 6.22, se 6.22, má? 6.22
+- **tts_cs.wav · app** (93 s) WER 14%
+  - text: Tohle je test českého jazyka.  Já jsem Krištov.  Ahoj, jak se máš?  Papa, dneska jedeme na Skatepark a natočíme nový díl.
+  - segments: 0.0-1.8 2.1-3.1 3.6-5.0 5.4-9.1
+  - words: Tohle 0.02, je 0.14, test 0.38, českého 0.52, jazyka. 1.26, Já 2.08, jsem 2.18, Krištov. 2.46, Ahoj, 3.58, jak 4.06, se 4.42, máš? 4.62
+- **tts_cs.wav · defaults** (71 s) WER 14%
+  - text: Tohle je test českého jazyka.  Já jsem Krištov.  Ahoj, jak se máš?  Papa, dneska jedeme na Skatepark a natočíme nový díl.
+  - segments: 0.0-1.8 2.1-3.1 3.6-5.0 5.4-9.1
+  - words: Tohle 0.02, je 0.14, test 0.38, českého 0.52, jazyka. 1.26, Já 2.08, jsem 2.18, Krištov. 2.46, Ahoj, 3.58, jak 4.06, se 4.42, máš? 4.62
+- **tts_cs.wav · prompt** (95 s) WER 14%
+  - text: Tohle je test českého jazyka. Já jsem Krištof. Ahoj, jak se máš? Papa, dneska jedeme na Skatepark a natočíme nový díl.
+  - segments: 0.0-3.8
+  - words: Tohle 0.02, je 0.02, test 0.02, českého 0.02, jazyka. 0.02, Já 0.02, jsem 0.02, Krištof. 0.02, Ahoj, 0.02, jak 0.02, se 0.02, máš? 0.02
