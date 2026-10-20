@@ -56,6 +56,7 @@ struct SpeedSheet: View {
                 .padding(.horizontal, 14).frame(height: 56)
             }
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+            ApplyRow(model: model, kind: .speed)
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)

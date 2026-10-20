@@ -58,6 +58,7 @@ struct AdjustSheet: View {
                 ), in: param.range, onEditingChanged: { editing in
                     if editing { model.lookEditBegan() } else { model.lookEditEnded() }
                 })
+                ApplyRow(model: model, kind: .adjust)
             }
         }
         .padding(20)

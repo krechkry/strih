@@ -170,6 +170,8 @@ struct Clip: Identifiable, Codable, Hashable {
     var aspect: Double?            // source width / height, upright
     var smoothSlowMo = false       // invent in-between frames when slowed down
     var mask: SubjectMask?         // subject cut-out for background effects / overlays behind the subject
+    var motionBlur = 0.0           // 0...1, smear along the movement (Apple Video Toolbox)
+    var blurDirection = BlurDirection.both
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -186,7 +188,8 @@ struct Clip: Identifiable, Codable, Hashable {
 
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
-                  stab: stabilization?.curve(), track: tracking?.curve(), mask: mask)
+                  stab: stabilization?.curve(), track: tracking?.curve(), mask: mask,
+                  motionBlur: motionBlur, blurDirection: blurDirection)
     }
 
     var retime: Retime { Retime(self) }
@@ -204,6 +207,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
+        case motionBlur, blurDirection
     }
 
     init(from d: Decoder) throws {
@@ -227,11 +231,19 @@ struct Clip: Identifiable, Codable, Hashable {
         tracking = try c.decodeIfPresent(Tracking.self, forKey: .tracking)
         smoothSlowMo = try c.decodeIfPresent(Bool.self, forKey: .smoothSlowMo) ?? false
         mask = try c.decodeIfPresent(SubjectMask.self, forKey: .mask)
+        motionBlur = try c.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 0
+        blurDirection = try c.decodeIfPresent(BlurDirection.self, forKey: .blurDirection) ?? .both
+        // older projects kept motion blur among the Adjust effects
+        if motionBlur == 0 {
+            motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)
+        }
+        effects.motionBlur = 0
+        for i in keyframes.indices { keyframes[i].look.effects.motionBlur = 0 }
     }
 
     /// Needs the neighbouring source frames while rendering (motion blur or smooth slow motion).
     var needsNeighbours: Bool {
-        let blur = effects.motionBlur > 0.001 || keyframes.contains { $0.look.effects.motionBlur > 0.001 }
+        let blur = motionBlur > 0.001
         let slow = smoothSlowMo && retime.segs.contains { $0.outLen > $0.srcLen * 1.05 }
         return blur || slow
     }

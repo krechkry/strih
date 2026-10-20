@@ -10,6 +10,7 @@ struct ClipRenderInfo {
     var state: LookState               // fallback if the live LookStore has nothing for this clip
     var srcFps: Double = 30            // source frame rate (smooth slow motion phase)
     var smoothSlowMo = false
+    var preview = false                // editor playback (lighter frame-engine work) vs export
 }
 
 /// One instruction per clip. The custom compositor reads `info` for every frame.
@@ -69,7 +70,7 @@ enum CompositionBuilder {
         if end < t { track.insertEmptyTimeRange(CMTimeRange(start: end, end: t)) }
     }
 
-    static func build(project: Project, renderSize: CGSize, fps: Double) async throws -> BuiltComposition {
+    static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
         guard let vTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
               let keepTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid),
@@ -155,7 +156,7 @@ enum CompositionBuilder {
                 placed.append((clipStart, cursor,
                                ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: clipStart.seconds,
                                               retime: clip.retime, state: clip.lookState, srcFps: fps,
-                                              smoothSlowMo: clip.smoothSlowMo), aux))
+                                              smoothSlowMo: clip.smoothSlowMo, preview: preview), aux))
             }
         }
 

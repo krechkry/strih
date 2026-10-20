@@ -61,7 +61,7 @@ struct TimelineView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: gap) {
+                    HStack(spacing: model.pick == nil ? gap : 8) {
                         ForEach(shown) { clip in
                             let dragged = reorder?.id == clip.id
                             ClipTile(clip: clip,
@@ -70,10 +70,11 @@ struct TimelineView: View {
                                      selected: clip.id == model.selectedClipID && reorder == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
-                                     onTap: { model.tapClip(clip.id) },
+                                     onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
+                                .overlay { if let pk = model.pick { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
                                 .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
@@ -244,6 +245,29 @@ struct TimelineView: View {
             }
             try? await Task.sleep(for: .milliseconds(16))
         }
+    }
+}
+
+/// Picking clips to receive settings: lime = picked, dashed = the clip the settings come from.
+private struct PickMark: View {
+    let source: Bool
+    let picked: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(picked ? Theme.accent.opacity(0.5) : (source ? Color.clear : Color.black.opacity(0.35)))
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(source || picked ? Theme.accent : .white.opacity(0.35),
+                              style: StrokeStyle(lineWidth: 2, dash: source ? [5, 3] : []))
+            if picked {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.black, Theme.accent)
+            } else if source {
+                Image(systemName: "star.fill").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.accent)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

@@ -250,7 +250,7 @@ final class EditorModel: ObservableObject {
                 return
             }
             do {
-                let built = try await CompositionBuilder.build(project: p, renderSize: size, fps: 30)
+                let built = try await CompositionBuilder.build(project: p, renderSize: size, fps: 30, preview: true)
                 if Task.isCancelled { return }
                 let item = AVPlayerItem(asset: built.composition)
                 item.videoComposition = built.videoComposition
@@ -1084,6 +1084,121 @@ final class EditorModel: ObservableObject {
             currentTime = leading ? start : start + project.clips[i].duration - 0.001
         }
         commit()
+    }
+
+    // MARK: Motion blur
+
+    func setMotionBlur(_ v: Double) {
+        editClip { $0.motionBlur = min(max(v, 0), 1) }
+    }
+
+    func setBlurDirection(_ d: BlurDirection) {
+        guard let i = selectedIndex, project.clips[i].blurDirection != d else { return }
+        mutateLook { $0.clips[i].blurDirection = d }
+    }
+
+    // MARK: Apply a panel's settings to other clips
+
+    enum ApplyKind: String {
+        case motionBlur, adjust, speed, volume, mask
+
+        var title: String {
+            switch self {
+            case .motionBlur: return "Motion blur"
+            case .adjust: return "Adjust"
+            case .speed: return "Speed"
+            case .volume: return "Volume"
+            case .mask: return "Mask"
+            }
+        }
+        /// Changes clip lengths (captions and overlays follow, the video rebuilds).
+        var retimes: Bool { self == .speed }
+    }
+
+    struct PickSession: Equatable {
+        var kind: ApplyKind
+        var source: UUID
+        var picked: Set<UUID>
+    }
+
+    /// Picking clips in the timeline to receive the settings of `source`.
+    @Published private(set) var pick: PickSession?
+
+    private func copy(_ kind: ApplyKind, from s: Clip, look: Look, to c: inout Clip) {
+        switch kind {
+        case .motionBlur:
+            c.motionBlur = s.motionBlur
+            c.blurDirection = s.blurDirection
+        case .adjust:
+            c.effects = look.effects
+            c.opacity = look.opacity
+            for k in c.keyframes.indices {
+                c.keyframes[k].look.effects = look.effects
+                c.keyframes[k].look.opacity = look.opacity
+            }
+        case .speed:
+            c.speed = s.speed
+            c.speedCurve = s.speedCurve
+            c.pitchCorrect = s.pitchCorrect
+            c.smoothSlowMo = s.smoothSlowMo
+        case .volume:
+            c.volume = s.volume
+        case .mask:
+            c.mask = s.mask
+        }
+    }
+
+    /// The source clip's look where the playhead is (keyframed looks copy what you see now).
+    private func sourceLook(_ i: Int) -> Look {
+        let c = project.clips[i]
+        guard !c.keyframes.isEmpty else { return c.staticLook }
+        let local = min(max(currentTime - project.clipStarts[i], 0), c.duration)
+        return c.look(atSource: c.retime.source(atLocal: local))
+    }
+
+    private func apply(_ kind: ApplyKind, from i: Int, to ids: Set<UUID>) {
+        let s = project.clips[i]
+        let look = sourceLook(i)
+        let change: (inout Project) -> Void = { p in
+            for j in p.clips.indices where ids.contains(p.clips[j].id) && p.clips[j].id != s.id {
+                self.copy(kind, from: s, look: look, to: &p.clips[j])
+            }
+        }
+        if kind.retimes { mutate(change) } else { mutateLook(change) }
+    }
+
+    func applyToAll(_ kind: ApplyKind) {
+        guard let i = selectedIndex else { return }
+        apply(kind, from: i, to: Set(project.clips.map(\.id)))
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// Close the panel and pick clips in the timeline.
+    func startPick(_ kind: ApplyKind) {
+        guard let id = selectedClipID else { return }
+        pause()
+        pick = PickSession(kind: kind, source: id, picked: [])
+    }
+
+    func togglePick(_ id: UUID) {
+        guard var p = pick, id != p.source else { return }
+        if p.picked.contains(id) { p.picked.remove(id) } else { p.picked.insert(id) }
+        pick = p
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    func pickAll() {
+        guard var p = pick else { return }
+        p.picked = Set(project.clips.map(\.id)).subtracting([p.source])
+        pick = p
+    }
+
+    func finishPick(apply ok: Bool) {
+        guard let p = pick else { return }
+        pick = nil
+        guard ok, !p.picked.isEmpty, let i = project.clips.firstIndex(where: { $0.id == p.source }) else { return }
+        apply(p.kind, from: i, to: p.picked)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     // MARK: Overlays

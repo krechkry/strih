@@ -13,7 +13,7 @@ struct Effects: Codable, Hashable {
     var aberration = 0.0    //  0...1  chromatic aberration
     var grain = 0.0         //  0...1  animated film grain
     var grainSize = 0.4     //  0...1
-    var motionBlur = 0.0    //  0...1  smear along the movement (needs neighbouring frames)
+    var motionBlur = 0.0    //  old projects only: motion blur now lives on the clip (Clip.motionBlur)
 
     init() {}
 
@@ -36,7 +36,6 @@ struct Effects: Codable, Hashable {
         e.aberration = m(a.aberration, b.aberration)
         e.grain = m(a.grain, b.grain)
         e.grainSize = m(a.grainSize, b.grainSize)
-        e.motionBlur = m(a.motionBlur, b.motionBlur)
         return e
     }
 
@@ -100,6 +99,8 @@ struct LookState: Hashable {
     var stab: StabCurve? = nil
     var track: TrackCurve? = nil
     var mask: SubjectMask? = nil
+    var motionBlur = 0.0
+    var blurDirection = BlurDirection.both
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }
@@ -119,7 +120,7 @@ struct LookState: Hashable {
 /// The sliders in the Adjust sheet.
 enum LookParam: String, CaseIterable, Identifiable {
     case exposure, contrast, saturation, temperature, tint, highlights, shadows
-    case vignette, aberration, grain, grainSize, motionBlur, opacity
+    case vignette, aberration, grain, grainSize, opacity
 
     var id: String { rawValue }
 
@@ -136,7 +137,6 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .aberration: return "Chroma"
         case .grain: return "Grain"
         case .grainSize: return "Grain size"
-        case .motionBlur: return "Motion blur"
         case .opacity: return "Opacity"
         }
     }
@@ -154,14 +154,13 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .aberration: return "camera.filters"
         case .grain: return "circle.grid.3x3.fill"
         case .grainSize: return "circle.grid.2x2"
-        case .motionBlur: return "wind"
         case .opacity: return "square.on.square"
         }
     }
 
     var range: ClosedRange<Double> {
         switch self {
-        case .vignette, .aberration, .grain, .grainSize, .motionBlur, .opacity: return 0...1
+        case .vignette, .aberration, .grain, .grainSize, .opacity: return 0...1
         default: return -1...1
         }
     }
@@ -187,7 +186,6 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .aberration: return l.effects.aberration
         case .grain: return l.effects.grain
         case .grainSize: return l.effects.grainSize
-        case .motionBlur: return l.effects.motionBlur
         case .opacity: return l.opacity
         }
     }
@@ -206,7 +204,6 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .aberration: l.effects.aberration = v
         case .grain: l.effects.grain = v
         case .grainSize: l.effects.grainSize = v
-        case .motionBlur: l.effects.motionBlur = v
         case .opacity: l.opacity = v
         }
     }
@@ -216,5 +213,18 @@ enum LookParam: String, CaseIterable, Identifiable {
         let n = Int((v * 100).rounded())
         if range.lowerBound < 0 && n > 0 { return "+\(n)" }
         return "\(n)"
+    }
+}
+
+/// Which neighbouring frames motion blur smears towards.
+enum BlurDirection: String, Codable, CaseIterable, Hashable {
+    case both, forward, backward
+
+    var title: String {
+        switch self {
+        case .both: return "Both ways"
+        case .forward: return "Forward"
+        case .backward: return "Backward"
+        }
     }
 }

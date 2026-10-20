@@ -25,14 +25,15 @@ struct EditorView: View {
         switch s {
         case .export: return 0
         case .canvas: return 124
-        case .volume: return 200
-        case .speed: return 550
-        case .adjust: return 300
+        case .volume: return 240
+        case .speed: return 600
+        case .adjust: return 340
         case .captions: return 420
         case .stabilize: return 280
         case .track: return 360
         case .overlay: return 430
-        case .mask: return 430
+        case .mask: return 470
+        case .motionBlur: return 330
         }
     }
 
@@ -66,6 +67,7 @@ struct EditorView: View {
         case .track: TrackSheet(model: model)
         case .overlay: OverlaySheet(model: model)
         case .mask: MaskSheet(model: model)
+        case .motionBlur: MotionBlurSheet(model: model)
         }
     }
 
@@ -373,7 +375,9 @@ struct EditorView: View {
     private var toolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                if model.selectedOverlayIndex != nil {
+                if let pk = model.pick {
+                    pickBar(pk)
+                } else if model.selectedOverlayIndex != nil {
                     ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
@@ -390,6 +394,7 @@ struct EditorView: View {
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
+                    ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
                     ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                     ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                     ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
@@ -424,6 +429,36 @@ struct EditorView: View {
         .background(Theme.panel)
         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
         .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
+    }
+
+    /// Picking clips in the timeline to copy settings to.
+    private func pickBar(_ pk: EditorModel.PickSession) -> some View {
+        HStack(spacing: 10) {
+            Button { model.finishPick(apply: false) } label: {
+                Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.8))
+                    .padding(.horizontal, 14).frame(height: 40)
+                    .background(Theme.panel2, in: Capsule())
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(loc(pk.kind.title)).font(.subheadline.weight(.heavy))
+                Text("Tap the clips to apply it to").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+            }
+            .lineLimit(1)
+            Spacer(minLength: 4)
+            Button { model.pickAll() } label: {
+                Text("All").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 12).frame(height: 40)
+                    .background(Theme.panel2, in: Capsule())
+            }
+            Button { model.finishPick(apply: true) } label: {
+                Text(String(format: loc("Apply (%lld)"), pk.picked.count)).font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                    .padding(.horizontal, 14).frame(height: 40)
+                    .background(Theme.accent.opacity(pk.picked.isEmpty ? 0.4 : 1), in: Capsule())
+            }
+            .disabled(pk.picked.isEmpty)
+        }
+        .buttonStyle(.plain)
+        .containerRelativeFrame(.horizontal) { w, _ in w - 20 }
     }
 
     /// Picture or video from Photos as an overlay.
@@ -583,7 +618,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur
     var id: String { rawValue }
 }
 

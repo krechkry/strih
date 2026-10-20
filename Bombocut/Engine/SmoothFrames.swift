@@ -11,15 +11,24 @@ final class SmoothFrames: @unchecked Sendable {
     private let queue = DispatchQueue(label: "bombocut.smoothframes")
     private var sessions: [String: AnyObject] = [:]
 
+    /// Size the frame engine works at: the source fitted to the output (export) or to 60 % of it (editor
+    /// playback, so it keeps up frame by frame). Never larger than the source. Even sizes only.
+    static func workSize(source: CGSize, render: CGSize, preview: Bool) -> CGSize {
+        let k = preview ? 0.6 : 1.0
+        let fit = min(1, max(render.width, render.height) * k / max(source.width, source.height, 1))
+        func even(_ v: CGFloat) -> CGFloat { max(64, (v * fit / 2).rounded() * 2) }
+        return CGSize(width: even(source.width), height: even(source.height))
+    }
+
     // MARK: Smooth slow motion
 
     /// A frame `phase` (0...1) of the way from `cur` to `next`.
-    func interpolate(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Double, time: CMTime,
+    func interpolate(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Double, time: CMTime, work: CGSize,
                      completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTFrameRateConversionConfiguration.isSupported {
             queue.async {
-                if let out = self.frc(cur: cur, next: next, phase: Float(phase), time: time) {
+                if let out = self.frc(cur: cur, next: next, phase: Float(phase), time: time, work: work) {
                     completion(out)
                 } else {
                     completion(Self.blend(cur, next, phase))
@@ -35,11 +44,11 @@ final class SmoothFrames: @unchecked Sendable {
 
     /// Blur along the movement; `strength` 0...1.
     func motionBlur(cur: CVPixelBuffer, prev: CVPixelBuffer?, next: CVPixelBuffer?, strength: Double, time: CMTime,
-                    completion: @escaping (CIImage) -> Void) {
+                    work: CGSize, completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTMotionBlurConfiguration.isSupported {
             queue.async {
-                if let out = self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time) {
+                if let out = self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time, work: work) {
                     completion(out)
                 } else {
                     completion(Self.average(cur, prev, next, strength))
@@ -116,8 +125,21 @@ final class SmoothFrames: @unchecked Sendable {
     @available(iOS 26.0, *)
     private func frame(_ src: CVPixelBuffer, in s: Session, time: CMTime) -> VTFrameProcessorFrame? {
         guard let b = s.buffer(s.inPool) else { return nil }
-        ctx.render(CIImage(cvPixelBuffer: src), to: b)
+        var img = CIImage(cvPixelBuffer: src)
+        let sx = CGFloat(CVPixelBufferGetWidth(b)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(b)) / img.extent.height
+        if abs(sx - 1) > 0.001 || abs(sy - 1) > 0.001 {
+            img = img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
+        }
+        ctx.render(img, to: b)
         return VTFrameProcessorFrame(buffer: b, presentationTimeStamp: time)
+    }
+
+    /// The engine's output, scaled back to the source size so the rest of the pipeline is unchanged.
+    private func back(_ out: CVPixelBuffer, to src: CVPixelBuffer) -> CIImage {
+        let img = CIImage(cvPixelBuffer: out)
+        let sx = CGFloat(CVPixelBufferGetWidth(src)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(src)) / img.extent.height
+        if abs(sx - 1) < 0.001 && abs(sy - 1) < 0.001 { return img }
+        return img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
     }
 
     /// Runs one request and waits for it (we are on our own serial queue).
@@ -134,8 +156,8 @@ final class SmoothFrames: @unchecked Sendable {
     }
 
     @available(iOS 26.0, *)
-    private func frc(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Float, time: CMTime) -> CIImage? {
-        let w = CVPixelBufferGetWidth(cur), h = CVPixelBufferGetHeight(cur)
+    private func frc(cur: CVPixelBuffer, next: CVPixelBuffer, phase: Float, time: CMTime, work: CGSize) -> CIImage? {
+        let w = Int(work.width), h = Int(work.height)
         guard w <= 4096, h <= 4096, let s = session("frc", width: w, height: h, make: {
             VTFrameRateConversionConfiguration(frameWidth: w, frameHeight: h, usePrecomputedFlow: false,
                                                qualityPrioritization: .normal,
@@ -151,12 +173,13 @@ final class SmoothFrames: @unchecked Sendable {
                                                       interpolationPhase: [min(max(phase, 0.01), 0.99)],
                                                       submissionMode: mode, destinationFrames: [dst]),
               run(s, p) else { return nil }
-        return CIImage(cvPixelBuffer: outBuf)
+        return back(outBuf, to: cur)
     }
 
     @available(iOS 26.0, *)
-    private func blur(cur: CVPixelBuffer, prev: CVPixelBuffer?, next: CVPixelBuffer?, strength: Double, time: CMTime) -> CIImage? {
-        let w = CVPixelBufferGetWidth(cur), h = CVPixelBufferGetHeight(cur)
+    private func blur(cur: CVPixelBuffer, prev: CVPixelBuffer?, next: CVPixelBuffer?, strength: Double, time: CMTime,
+                      work: CGSize) -> CIImage? {
+        let w = Int(work.width), h = Int(work.height)
         guard w <= 4096, h <= 4096, let s = session("blur", width: w, height: h, make: {
             VTMotionBlurConfiguration(frameWidth: w, frameHeight: h, usePrecomputedFlow: false,
                                       qualityPrioritization: .normal,
@@ -176,7 +199,7 @@ final class SmoothFrames: @unchecked Sendable {
                                                   motionBlurStrength: max(1, min(100, Int(strength * 100))),
                                                   submissionMode: mode, destinationFrame: dst),
               run(s, params) else { return nil }
-        return CIImage(cvPixelBuffer: outBuf)
+        return back(outBuf, to: cur)
     }
     #endif
 }

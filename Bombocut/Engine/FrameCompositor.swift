@@ -42,16 +42,21 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let prev = instr.prevTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         let speed = info.retime.speed(atLocal: t - info.start)
         let srcTime = CMTime(seconds: srcT, preferredTimescale: 600)
+        // the frame engine works at (about) the output size, not the source's 4K: much faster, same look
+        let work = SmoothFrames.workSize(source: CGSize(width: CVPixelBufferGetWidth(src), height: CVPixelBufferGetHeight(src)),
+                                         render: request.renderContext.size, preview: info.preview)
+        let blurPrev = state.blurDirection == .forward ? nil : prev
+        let blurNext = state.blurDirection == .backward ? nil : next
 
         // smooth slow motion: a new frame between this source frame and the next
         if info.smoothSlowMo, speed < 0.95, let next {
             let pos = srcT * info.srcFps
             let phase = pos - pos.rounded(.down)
             if phase > 0.04 && phase < 0.96 {
-                SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime) { img in
+                SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime, work: work) { img in
                     var image = img
-                    if look.effects.motionBlur > 0.001 {
-                        image = SmoothFrames.average(src, nil, next, look.effects.motionBlur * 0.5)
+                    if state.motionBlur > 0.001 {
+                        image = SmoothFrames.average(src, nil, next, state.motionBlur * 0.5)
                             .applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: img, kCIInputTimeKey: 0.6])
                     }
                     self.finish(request, instr, source: image, look: look, state: state, srcT: srcT, t: t)
@@ -60,9 +65,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
         }
         // motion blur from the neighbouring frames
-        if look.effects.motionBlur > 0.001, prev != nil || next != nil {
-            SmoothFrames.shared.motionBlur(cur: src, prev: prev, next: next, strength: look.effects.motionBlur,
-                                           time: srcTime) { img in
+        if state.motionBlur > 0.001, blurPrev != nil || blurNext != nil {
+            SmoothFrames.shared.motionBlur(cur: src, prev: blurPrev, next: blurNext, strength: state.motionBlur,
+                                           time: srcTime, work: work) { img in
                 self.finish(request, instr, source: img, look: look, state: state, srcT: srcT, t: t)
             }
             return
