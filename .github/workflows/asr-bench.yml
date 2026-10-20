@@ -3,6 +3,9 @@ name: ASR bench
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   bench:
     runs-on: macos-15
@@ -42,8 +45,15 @@ jobs:
         run: |
           .build/release/ASRBench "${{ matrix.variant }}" audio/*.wav | tee result.md
           cat result.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v5
+      - name: Publish result
         if: always()
-        with:
-          name: result-${{ matrix.variant }}
-          path: bench/result.md
+        run: |
+          B="bench-${{ matrix.variant }}"
+          cp bench/result.md /tmp/result.md || echo "no result" > /tmp/result.md
+          git config user.name bench; git config user.email bench@users.noreply.github.com
+          git checkout --orphan "$B"
+          git rm -rfq . > /dev/null
+          cp /tmp/result.md result.md
+          git add result.md
+          git commit -qm "bench result"
+          git push -fq origin "$B"
