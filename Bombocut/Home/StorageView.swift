@@ -70,7 +70,12 @@ struct StorageView: View {
                       secondaryButton: .cancel())
             }
             .task { await refresh() }
+            .onChange(of: readyModels) { Task { await refresh() } }
         }
+    }
+
+    private var readyModels: [String] {
+        SpeechModel.allCases.filter { speech.isReady($0) }.map(\.rawValue)
     }
 
     // MARK: Pieces
@@ -100,11 +105,19 @@ struct StorageView: View {
             }
         }()
         let ready: Bool = { if case .ready = speech.state(m) { return true }; return false }()
+        let downloading: Bool = { if case .downloading = speech.state(m) { return true }; return false }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
-                   action: ready ? { confirm = .model(m) } : nil)
+                   action: ready ? { confirm = .model(m) } : nil,
+                   download: ready ? nil : (downloading ? .busy : .start { speech.startDownload(m) }))
     }
 
-    private func row(icon: String, title: String, detail: String, bytes: Int64?, action: (() -> Void)?) -> some View {
+    enum Download {
+        case start(() -> Void)
+        case busy
+    }
+
+    private func row(icon: String, title: String, detail: String, bytes: Int64?, action: (() -> Void)?,
+                     download: Download? = nil) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.body.weight(.semibold)).frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
@@ -115,6 +128,19 @@ struct StorageView: View {
             Spacer(minLength: 8)
             if let bytes {
                 Text(Self.size(bytes)).font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            switch download {
+            case .start(let go):
+                Button(action: go) {
+                    Image(systemName: "arrow.down").font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+            case .busy:
+                ProgressView().tint(Theme.accent).frame(width: 36, height: 36)
+            case nil:
+                EmptyView()
             }
             if let action, (bytes ?? 0) > 0 {
                 Button(action: action) {
@@ -183,7 +209,9 @@ struct StorageView: View {
         report = await Task.detached { StorageReport.scan(models: ready, usedMedia: used, modelBase: base) }.value
     }
 
-    static func size(_ b: Int64) -> String { ByteCountFormatter.string(fromByteCount: b, countStyle: .file) }
+    static func size(_ b: Int64) -> String {
+        b <= 0 ? "0 KB" : ByteCountFormatter.string(fromByteCount: b, countStyle: .file)
+    }
 }
 
 /// Sizes of everything in the app's folders.
