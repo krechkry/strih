@@ -1400,6 +1400,11 @@ final class EditorModel: ObservableObject {
         if case .video(_, let srcDur, let inPoint) = o.kind { d = min(d, srcDur - inPoint) }
         o.duration = min(d, max(0.2, self.duration - start))
         o.start = min(max(0, start), max(0, self.duration - 0.2))
+        // trimming the head keeps keyframes on the same moments; moving the whole block takes them along
+        if let snap = overlayTimingSnapshot?.overlays.first(where: { $0.id == id }), !snap.keys.isEmpty {
+            let headTrim = abs(o.start - snap.start) > 1e-6 && abs(o.end - snap.end) < 0.02
+            o.keys = headTrim ? snap.keys.map { var k = $0; k.t += snap.start - o.start; return k } : snap.keys
+        }
         project.overlays[i] = o
         publishLook()
         if done {
