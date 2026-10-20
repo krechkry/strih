@@ -1,0 +1,37 @@
+### openai_whisper-large-v3_947MB  (948 MB, ready in 70 s)
+- **film_cs.wav · app** (89 s)
+  - text: Noci jsou chladné.  Co?  Noci jsou chladné.  Jo, jo.  To abych si vzal  teplé prádlo.
+  - segments: 5.5-7.4 8.1-8.2 9.1-10.4 11.0-11.8 13.0-14.1 15.8-17.2
+  - words: Noci 5.46, jsou 6.14, chladné. 6.82, Co? 8.06, Noci 9.14, jsou 9.62, chladné. 9.84, Jo, 11.04, jo. 11.46, To 12.98, abych 13.20, si 13.54
+- **film_cs.wav · defaults** (347 s)
+  - text: Noci jsou chladné.  Co?  NOCI SOU CHLADNÉ!  Jo, jo.  To abych si vzal  teplé prádlo.
+  - segments: 5.4-7.4 8.1-8.2 9.0-10.4 11.2-11.8 13.0-14.1 15.8-17.2
+  - words: Noci 5.38, jsou 6.10, chladné. 6.82, Co? 8.06, NOCI 8.96, SOU 9.46, CHLADNÉ! 9.84, Jo, 11.24, jo. 11.46, To 12.98, abych 13.20, si 13.54
+- **film_cs.wav · prompt** (124 s)
+  - text: 
+  - segments: 
+  - words: 
+- **kry_cs.wav · app** (380 s)
+  - text: To
+  - segments: 0.0-0.0
+  - words: To 0.00
+- **kry_cs.wav · defaults** (2009 s)
+  - text: To, t t, t,í
+  - segments: 0.0-27.8
+  - words: To 0.00, , 27.49, t 27.84, t 27.84, , 27.84, t 27.84, , 27.84, í 27.84
+- **kry_cs.wav · prompt** (305 s)
+  - text: 
+  - segments: 
+  - words: 
+- **tts_cs.wav · app** (293 s) WER 400%
+  - text: Tohle je test české,,,,,,  Papa, dzka jed, jed, j, n,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,,j,,,,,,,,,,,,,,,,,,,,,
+  - segments: 0.0-4.3 5.2-27.8
+  - words: Tohle 0.00, je 0.14, test 0.26, české 0.52, , 1.06, , 1.52, , 1.86, , 2.20, , 2.98, , 3.76, Papa, 5.21, dzka 5.74
+- **tts_cs.wav · defaults** (1350 s) WER 327%
+  - text: Tohle je test �, já se, k,,, papa, papa.  Dneska jedeme na Skate Park a natočí jí m nový díl.  Ahoz k, Kr, k, k, k, k, k, k, ka.  Aho, k, k, ka, k, k, kr, k, k, k, ka, k, k.  Ví v, k, k, k, k, po, t, t, k, v tý, z t, k, k, po.  Ví,, z, t, z t, v, k, t, t, v, k, z, k z z, z, t. v,,
+  - segments: 0.0-0.5 6.1-9.1 13.1-17.5 17.6-18.2 18.3-20.6 21.0-25.5
+  - words: Tohle 0.00, je 0.14, test 0.26
+- **tts_cs.wav · prompt** (337 s) WER 314%
+  - text: Tohlej test české,,,,,,,,, P, Papa.  Dzka jedem na sk, sk, sk, park, and, to, to, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t, t,, t,, t,,,,,,,,,,,,,,,,,,,,,,,,,,,
+  - segments: 0.0-0.0 0.8-27.8
+  - words: Tohlej 0.00, test 0.00, české 0.00, , 0.00, , 0.00, , 0.00, , 0.00, , 0.00, , 0.00, , 0.00, , 0.00, , 0.00
