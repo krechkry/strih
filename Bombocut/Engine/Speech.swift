@@ -189,7 +189,7 @@ enum Transcriber {
 
     nonisolated private static func transcribe(audio: URL, folder: URL, language: String, names: String,
                                                progress: @escaping @Sendable (Double) -> Void) async throws -> [CaptionWord] {
-        let pipe = try await SpeechEngine.shared.pipe(folder)
+        let pipe = try await SpeechEngine.shared.pipe(folder).pipe
         // No VAD chunking (keeps one clock) and no generic style prompt: a prompt shifts Whisper's
         // word alignment and its timestamps. Only names the user typed are passed as a hint.
         var opts = DecodingOptions(task: .transcribe, language: language, temperatureFallbackCount: 3,
@@ -403,17 +403,23 @@ struct SpeechActivity {
 /// when the app opens, so "Generate" starts listening right away.
 actor SpeechEngine {
     static let shared = SpeechEngine()
-    private var loaded: (path: String, pipe: WhisperKit)?
-    private var loading: (path: String, task: Task<WhisperKit, Error>)?
+    private var loaded: (path: String, box: PipeBox)?
+    private var loading: (path: String, task: Task<PipeBox, Error>)?
 
-    func pipe(_ folder: URL) async throws -> WhisperKit {
+    /// WhisperKit isn't marked Sendable; it is only ever used by one caption run at a time.
+    final class PipeBox: @unchecked Sendable {
+        let pipe: WhisperKit
+        init(_ p: WhisperKit) { pipe = p }
+    }
+
+    func pipe(_ folder: URL) async throws -> PipeBox {
         let path = folder.path
-        if let l = loaded, l.path == path { return l.pipe }
+        if let l = loaded, l.path == path { return l.box }
         if let l = loading, l.path == path { return try await l.task.value }
         loaded = nil
-        let task = Task<WhisperKit, Error>(priority: .userInitiated) {
-            try await WhisperKit(WhisperKitConfig(modelFolder: path, verbose: false, logLevel: .error,
-                                                  prewarm: false, load: true, download: false))
+        let task = Task<PipeBox, Error>(priority: .userInitiated) {
+            PipeBox(try await WhisperKit(WhisperKitConfig(modelFolder: path, verbose: false, logLevel: .error,
+                                                          prewarm: false, load: true, download: false)))
         }
         loading = (path, task)
         do {
