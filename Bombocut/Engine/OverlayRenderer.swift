@@ -48,8 +48,9 @@ final class OverlayRenderer: @unchecked Sendable {
         for o in list where t >= o.start && t < o.end {
             if let b = behindOnly, o.behindSubject != b { continue }
             guard var img = layer(o, at: t, size: size, canvasAspect: A, video: video) else { continue }
-            if o.opacity < 0.999 {
-                img = img.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, o.opacity))])
+            let opacity = o.pose(at: t).opacity
+            if opacity < 0.999 {
+                img = img.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
             }
             if let name = o.blend.filter {
                 out = img.applyingFilter(name, parameters: [kCIInputBackgroundImageKey: out]).cropped(to: frame)
@@ -88,13 +89,13 @@ final class OverlayRenderer: @unchecked Sendable {
             let base = o.baseFraction(canvasAspect: A)
             s = min(base.width * size.width / w, base.height * size.height / h)
         }
-        let t = o.transform
+        let tr = o.pose(at: t).transform
         let m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
-            .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
-            .concatenating(CGAffineTransform(rotationAngle: -t.rotation))
-            .concatenating(CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
-                                             y: size.height / 2 - t.y * size.height))
+            .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
+            .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
+            .concatenating(CGAffineTransform(translationX: size.width / 2 + tr.x * size.width,
+                                             y: size.height / 2 - tr.y * size.height))
         return img.transformed(by: m)
     }
 

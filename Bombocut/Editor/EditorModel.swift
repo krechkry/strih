@@ -1270,6 +1270,57 @@ final class EditorModel: ObservableObject {
         if video && timing { mutate { $0.overlays[i] = o } } else { mutateLook { $0.overlays[i] = o } }
     }
 
+    /// Opacity slider: the fixed value, or the keyframe at the playhead.
+    func editOverlayOpacity(_ v: Double) {
+        guard let i = selectedOverlayIndex else { return }
+        let now = currentTime
+        project.overlays[i].changePose(at: now) { _, op in op = v }
+        publishLook()
+    }
+
+    var overlayKeyAtPlayhead: Int? {
+        guard let i = selectedOverlayIndex else { return nil }
+        return project.overlays[i].key(at: currentTime)
+    }
+
+    /// Diamond with an overlay selected: add a keyframe here, or remove the one that is here.
+    func toggleOverlayKey() {
+        guard let i = selectedOverlayIndex else { return }
+        let o = project.overlays[i]
+        pause()
+        if currentTime < o.start || currentTime > o.end { scrub(to: o.start + min(0.01, o.duration / 2)) }
+        let now = currentTime
+        if let k = o.key(at: now) {
+            mutateLook { p in
+                let removed = p.overlays[i].keys.remove(at: k)
+                if p.overlays[i].keys.isEmpty {
+                    p.overlays[i].transform = removed.transform
+                    p.overlays[i].opacity = removed.opacity
+                }
+            }
+        } else {
+            let pose = o.pose(at: now)
+            mutateLook { p in
+                p.overlays[i].keys.append(OverlayKey(t: min(max(now - o.start, 0), o.duration), transform: pose.transform, opacity: pose.opacity))
+                p.overlays[i].keys.sort { $0.t < $1.t }
+            }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+
+    func setOverlayEase(_ e: Ease) {
+        guard let i = selectedOverlayIndex, let k = overlayKeyAtPlayhead else { return }
+        mutateLook { $0.overlays[i].keys[k].ease = e }
+    }
+
+    func stepOverlayKey(_ dir: Int) {
+        guard let i = selectedOverlayIndex else { return }
+        let o = project.overlays[i]
+        let times = o.keys.map { o.start + $0.t }
+        let target = dir > 0 ? times.first { $0 > currentTime + 0.03 } : times.last { $0 < currentTime - 0.03 }
+        if let target { pause(); scrub(to: target) }
+    }
+
     func deleteOverlay() {
         guard let i = selectedOverlayIndex else { return }
         let video = project.overlays[i].kind.isVideo
@@ -1314,7 +1365,7 @@ final class EditorModel: ObservableObject {
         let o = project.overlays[i]
         guard currentTime >= o.start - 0.01, currentTime < o.end + 0.01 else { return false }
         pause()
-        overlayStart = o.transform
+        overlayStart = o.pose(at: currentTime).transform
         overlaySnapshot = project
         overlayGuides = []
         movingTitle = true
@@ -1340,7 +1391,8 @@ final class EditorModel: ObservableObject {
         if abs(t.scale - 1) < 0.035 { t.scale = 1; guides.insert(.scale) }
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
-        project.overlays[i].transform = t
+        let now = currentTime
+        project.overlays[i].changePose(at: now) { tr, _ in tr = t }
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         refreshFrame()
     }

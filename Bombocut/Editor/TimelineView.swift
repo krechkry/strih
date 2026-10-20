@@ -602,6 +602,18 @@ struct OverlayLane: View {
         .background(selected ? Theme.accent : Color(red: 0.55, green: 0.35, blue: 1).opacity(0.45),
                     in: RoundedRectangle(cornerRadius: 5))
         .clipped()
+        .overlay(alignment: .leading) {
+            // keyframes
+            ZStack(alignment: .leading) {
+                ForEach(o.keys) { k in
+                    Image(systemName: "diamond.fill")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(selected ? .black : Theme.accent)
+                        .offset(x: CGFloat(k.t) * px - 4)
+                }
+            }
+            .allowsHitTesting(false)
+        }
         .overlay {
             if selected {
                 HStack(spacing: 0) {

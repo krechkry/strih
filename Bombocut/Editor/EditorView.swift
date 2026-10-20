@@ -337,7 +337,37 @@ struct EditorView: View {
     /// Tap: add / remove a keyframe at the playhead. Hold: easing, delete, jump between keyframes.
     @ViewBuilder
     private var keyframeButton: some View {
-        if let i = model.selectedIndex {
+        if let oi = model.selectedOverlayIndex {
+            let o = model.project.overlays[oi]
+            let k = model.overlayKeyAtPlayhead
+            Menu {
+                if let k {
+                    let ease = o.keys[k].ease
+                    Button { model.setOverlayEase(.smooth) } label: {
+                        if ease == .smooth { Label("Smooth", systemImage: "checkmark") } else { Text("Smooth") }
+                    }
+                    Button { model.setOverlayEase(.linear) } label: {
+                        if ease == .linear { Label("Linear", systemImage: "checkmark") } else { Text("Linear") }
+                    }
+                    Button(role: .destructive) { model.toggleOverlayKey() } label: {
+                        Label("Delete keyframe", systemImage: "trash")
+                    }
+                } else {
+                    Button { model.toggleOverlayKey() } label: { Label("Add keyframe", systemImage: "plus") }
+                }
+                if !o.keys.isEmpty {
+                    Button { model.stepOverlayKey(-1) } label: { Label("Previous keyframe", systemImage: "chevron.left") }
+                    Button { model.stepOverlayKey(1) } label: { Label("Next keyframe", systemImage: "chevron.right") }
+                }
+            } label: {
+                Image(systemName: k != nil ? "diamond.fill" : "diamond")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(k != nil ? Theme.accent : .white)
+                    .frame(width: 36, height: 40)
+            } primaryAction: {
+                model.toggleOverlayKey()
+            }
+        } else if let i = model.selectedIndex {
             let k = model.keyframeAtPlayhead(i)
             let has = !model.project.clips[i].keyframes.isEmpty
             Menu {

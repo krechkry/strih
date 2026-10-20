@@ -35,6 +35,15 @@ enum BlendMode: String, Codable, CaseIterable {
     }
 }
 
+/// A keyframe of an overlay: where it sits and how visible it is at `t` seconds after the overlay starts.
+struct OverlayKey: Codable, Hashable, Identifiable {
+    var id = UUID()
+    var t: Double
+    var transform: ClipTransform
+    var opacity: Double
+    var ease: Ease = .smooth
+}
+
 /// What an overlay shows.
 enum OverlayKind: Codable, Hashable {
     case text(String)
@@ -65,6 +74,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     var style = Overlay.defaultTextStyle   // text look (font, color, outline, box, size)
     var aspect: Double?                // picture / video width ÷ height, upright
     var behindSubject = false          // drawn behind the masked subject (when the clip has a mask)
+    var keys: [OverlayKey] = []        // keyframes for move / scale / rotate / opacity (sorted by time)
 
     var end: Double { start + duration }
 
@@ -97,7 +107,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject
+        case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -118,6 +128,45 @@ struct Overlay: Codable, Hashable, Identifiable {
         style = try c.decodeIfPresent(CaptionStyle.self, forKey: .style) ?? Overlay.defaultTextStyle
         aspect = try c.decodeIfPresent(Double.self, forKey: .aspect)
         behindSubject = try c.decodeIfPresent(Bool.self, forKey: .behindSubject) ?? false
+        keys = try c.decodeIfPresent([OverlayKey].self, forKey: .keys) ?? []
+    }
+
+    /// Placement and opacity at timeline time `now` (keyframes, or the fixed values without them).
+    func pose(at now: Double) -> (transform: ClipTransform, opacity: Double) {
+        guard let first = keys.first else { return (transform, opacity) }
+        let s = now - start
+        if keys.count == 1 || s <= first.t { return (first.transform, first.opacity) }
+        let last = keys[keys.count - 1]
+        if s >= last.t { return (last.transform, last.opacity) }
+        var i = 0
+        while i < keys.count - 2 && s > keys[i + 1].t { i += 1 }
+        let a = keys[i], b = keys[i + 1]
+        var f = min(max((s - a.t) / max(b.t - a.t, 1e-9), 0), 1)
+        if a.ease == .smooth { f = f * f * (3 - 2 * f) }
+        let l = Look.lerp(Look(transform: a.transform, opacity: a.opacity), Look(transform: b.transform, opacity: b.opacity), f)
+        return (l.transform, l.opacity)
+    }
+
+    /// Index of the keyframe at timeline time `now` (within about a frame).
+    func key(at now: Double) -> Int? {
+        keys.firstIndex { abs($0.t - (now - start)) < 0.025 }
+    }
+
+    /// Changes placement / opacity at `now`: the fixed values, the keyframe there, or a new keyframe.
+    mutating func changePose(at now: Double, _ change: (inout ClipTransform, inout Double) -> Void) {
+        if keys.isEmpty {
+            change(&transform, &opacity)
+            return
+        }
+        if let k = key(at: now) {
+            change(&keys[k].transform, &keys[k].opacity)
+        } else {
+            let p = pose(at: now)
+            var k = OverlayKey(t: min(max(now - start, 0), duration), transform: p.transform, opacity: p.opacity)
+            change(&k.transform, &k.opacity)
+            keys.append(k)
+            keys.sort { $0.t < $1.t }
+        }
     }
 
     /// Size on the canvas before its transform (fraction of canvas width / height) for pictures and videos:

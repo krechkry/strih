@@ -53,7 +53,7 @@ struct OverlaySheet: View {
                             }
                         }
                     }
-                    slider("Opacity", value: o.opacity, in: 0.05...1) { v in model.editOverlay { $0.opacity = v } }
+                    slider("Opacity", value: o.pose(at: model.currentTime).opacity, in: 0.05...1) { v in model.editOverlayOpacity(v) }
                     Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Behind subject").font(.body.weight(.semibold))

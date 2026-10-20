@@ -165,7 +165,7 @@ struct PreviewArea: View {
             let o = model.project.overlays[i]
             if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 {
                 let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
-                let t = o.transform
+                let t = o.pose(at: model.currentTime).transform
                 let bw = base.width * t.scale, bh = base.height * t.scale
                 let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
                 Path { p in
