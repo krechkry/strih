@@ -17,7 +17,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@, stáhne se jednou. Doporučujeme Wi-Fi."
+            "value": "%@, stahuje se jen jednou. Doporučujeme Wi-Fi."
           }
         }
       }
@@ -60,25 +60,25 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zkušební doba: zbývá %lld den."
+                  "value": "Zkušební verze: zbývá %lld den."
                 }
               },
               "few": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zkušební doba: zbývají %lld dny."
+                  "value": "Zkušební verze: zbývají %lld dny."
                 }
               },
               "many": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zkušební doba: zbývá %lld dní."
+                  "value": "Zkušební verze: zbývá %lld dní."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zkušební doba: zbývá %lld dní."
+                  "value": "Zkušební verze: zbývá %lld dní."
                 }
               }
             }
@@ -91,7 +91,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zkušební doba: zbývá 1 den."
+            "value": "Zkušební verze: zbývá poslední den."
           }
         }
       }
@@ -136,6 +136,26 @@
         }
       }
     },
+    "About %.0f MB for %@.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zhruba %.0f MB na %@."
+          }
+        }
+      }
+    },
+    "Above 4096 px only HEVC works.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nad 4096 px funguje jen HEVC."
+          }
+        }
+      }
+    },
     "Add": {
       "localizations": {
         "cs": {
@@ -161,7 +181,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Přidat na pozici"
+            "value": "Přidat na playhead"
           }
         }
       }
@@ -171,7 +191,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Přidat klíčový snímek"
+            "value": "Přidat keyframe"
           }
         }
       }
@@ -196,12 +216,52 @@
         }
       }
     },
+    "All": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vše"
+          }
+        }
+      }
+    },
+    "All clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny klipy"
+          }
+        }
+      }
+    },
     "All updates included": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Všechny aktualizace v ceně"
+          }
+        }
+      }
+    },
+    "Allow Photos access in Settings to save videos.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro ukládání videí povol přístup k Fotkám v Nastavení."
+          }
+        }
+      }
+    },
+    "Always show": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zobrazovat vždy"
           }
         }
       }
@@ -231,7 +291,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analyzuji otřesy"
+            "value": "Analýza otřesů"
           }
         }
       }
@@ -251,7 +311,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jakýkoli objekt"
+            "value": "Hlavní objekt"
           }
         }
       }
@@ -262,6 +322,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jazyk aplikace"
+          }
+        }
+      }
+    },
+    "Apply (%lld)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít (%lld)"
+          }
+        }
+      }
+    },
+    "Apply to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít na"
           }
         }
       }
@@ -296,6 +376,16 @@
         }
       }
     },
+    "Background": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozadí"
+          }
+        }
+      }
+    },
     "Background black & white": {
       "localizations": {
         "cs": {
@@ -306,12 +396,22 @@
         }
       }
     },
+    "Backward": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dozadu"
+          }
+        }
+      }
+    },
     "Behind subject": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Za objektem"
+            "value": "Za objekt"
           }
         }
       }
@@ -331,7 +431,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datový tok"
+            "value": "Bitrate"
+          }
+        }
+      }
+    },
+    "Black & white": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Černobíle"
           }
         }
       }
@@ -342,6 +452,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prolnutí"
+          }
+        }
+      }
+    },
+    "Blur": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmazání"
           }
         }
       }
@@ -361,7 +481,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut tvoří úplně malý tým. Díky nákupu můžou přicházet další aktualizace a tvoje zpětná vazba rozhoduje, co vznikne dál."
+            "value": "Bombocut dělá úplně malý tým. Tvůj nákup nám umožní dál vydávat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
           }
         }
       }
@@ -371,7 +491,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut změří otřesy kamery v klipu, vyhladí je a mírně přiblíží, aby skryl okraje. Trvá to pár sekund na minutu záznamu."
+            "value": "Bombocut změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
           }
         }
       }
@@ -386,12 +506,22 @@
         }
       }
     },
+    "Both ways": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oběma směry"
+          }
+        }
+      }
+    },
     "Bought. Thank you!": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koupeno. Díky!"
+            "value": "Koupeno. Díky moc!"
           }
         }
       }
@@ -401,7 +531,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Box"
+            "value": "Pozadí"
           }
         }
       }
@@ -411,7 +541,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Barva boxu"
+            "value": "Barva pozadí"
           }
         }
       }
@@ -421,7 +551,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Krytí boxu"
+            "value": "Krytí pozadí"
           }
         }
       }
@@ -461,7 +591,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "VERZÁLKY"
+            "value": "VELKÁ"
           }
         }
       }
@@ -531,7 +661,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Titulky hotové"
+            "value": "Titulky jsou hotové"
           }
         }
       }
@@ -541,7 +671,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Změna přidá klíčový snímek v %@"
+            "value": "Změna přidá keyframe v %@"
           }
         }
       }
@@ -551,7 +681,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chroma"
+            "value": "Aberace"
           }
         }
       }
@@ -611,7 +741,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Konstantní"
+            "value": "Stálá"
           }
         }
       }
@@ -632,6 +762,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kontrast"
+          }
+        }
+      }
+    },
+    "Could not create tracks.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nepodařilo se vytvořit stopy."
+          }
+        }
+      }
+    },
+    "Could not follow the subject.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objekt se nepodařilo sledovat."
+          }
+        }
+      }
+    },
+    "Could not read the audio.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk se nepodařilo načíst."
+          }
+        }
+      }
+    },
+    "Could not read the clip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klip se nepodařilo načíst."
+          }
+        }
+      }
+    },
+    "Could not read.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video se nepodařilo načíst."
+          }
+        }
+      }
+    },
+    "Could not write the file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubor se nepodařilo zapsat."
+          }
+        }
+      }
+    },
+    "Could not write.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video se nepodařilo zapsat."
           }
         }
       }
@@ -721,7 +921,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smazat klíčový snímek"
+            "value": "Smazat keyframe"
           }
         }
       }
@@ -811,7 +1011,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jiný tvar než plátno (%@). Klipy se do něj vejdou nebo ho vyplní."
+            "value": "Jiný poměr stran než plátno (%@). Klipy se do něj vejdou, nebo ho vyplní."
           }
         }
       }
@@ -861,7 +1061,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stáhnout teď"
+            "value": "Stáhnout"
           }
         }
       }
@@ -891,7 +1091,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stahuji %lld %%"
+            "value": "Stahování %lld %%"
           }
         }
       }
@@ -901,7 +1101,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stahuji hlasový model %lld %%"
+            "value": "Stahování hlasového modelu %lld %%"
           }
         }
       }
@@ -911,7 +1111,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stahuji hlasový model"
+            "value": "Stahování hlasového modelu"
           }
         }
       }
@@ -921,7 +1121,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tažením do stran po náhledu najdi snímek, kde je objekt dobře vidět, pak klepni na Vybrat objekt a klepni na něj nebo ho zhruba ohraničuj. Bombocut ho najde, nakreslí rámeček, který můžeš upravit, a sleduje ho celým klipem."
+            "value": "Táhni prstem do stran po náhledu a najdi snímek, kde je objekt dobře vidět. Pak klepni na Vybrat objekt a klepni na něj, nebo ho zhruba orámuj. Bombocut ho najde, nakreslí rámeček, který můžeš doladit, a sleduje ho celým klipem."
           }
         }
       }
@@ -931,7 +1131,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uprav rámeček a dej Sledovat"
+            "value": "Dolaď rámeček a klepni na Sledovat"
           }
         }
       }
@@ -946,6 +1146,16 @@
         }
       }
     },
+    "Edge": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okraj"
+          }
+        }
+      }
+    },
     "Edit": {
       "localizations": {
         "cs": {
@@ -956,12 +1166,22 @@
         }
       }
     },
+    "Edit text": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravit text"
+          }
+        }
+      }
+    },
     "Editing keyframe at %@": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Upravuješ klíčový snímek v %@"
+            "value": "Upravuješ keyframe v %@"
           }
         }
       }
@@ -1041,7 +1261,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prolínání"
+            "value": "Prolínačka"
           }
         }
       }
@@ -1071,7 +1291,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyplnit, bez okrajů"
+            "value": "Vyplnit bez okrajů"
           }
         }
       }
@@ -1096,12 +1316,22 @@
         }
       }
     },
+    "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+          }
+        }
+      }
+    },
     "First time downloads the speech model (%@). Wi-Fi recommended.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poprvé se stáhne hlasový model (%@). Doporučujeme Wi-Fi."
+            "value": "Napoprvé se stáhne hlasový model (%@). Doporučujeme Wi-Fi."
           }
         }
       }
@@ -1146,6 +1376,16 @@
         }
       }
     },
+    "Forward": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dopředu"
+          }
+        }
+      }
+    },
     "Free trial: %lld days left": {
       "localizations": {
         "cs": {
@@ -1154,25 +1394,25 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zdarma: zbývá %lld den"
+                  "value": "Zkušební verze: ještě %lld den"
                 }
               },
               "few": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zdarma: zbývají %lld dny"
+                  "value": "Zkušební verze: ještě %lld dny"
                 }
               },
               "many": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zdarma: zbývá %lld dní"
+                  "value": "Zkušební verze: ještě %lld dní"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Zdarma: zbývá %lld dní"
+                  "value": "Zkušební verze: ještě %lld dní"
                 }
               }
             }
@@ -1185,7 +1425,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zdarma: zbývá 1 den"
+            "value": "Zkušební verze: ještě 1 den"
           }
         }
       }
@@ -1295,7 +1535,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Importuji…"
+            "value": "Importování…"
           }
         }
       }
@@ -1305,7 +1545,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dopočítá mezisnímky"
+            "value": "Dopočítá chybějící snímky"
+          }
+        }
+      }
+    },
+    "Invert (swap subject and background)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invertovat (prohodit objekt a pozadí)"
           }
         }
       }
@@ -1315,7 +1565,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zmizí navždy i s importovanými videi. Koš neexistuje. Originály ve Fotkách zůstanou."
+            "value": "Zmizí navždy i s importovanými videi. Koš tu není. Originály ve Fotkách zůstanou."
           }
         }
       }
@@ -1325,7 +1575,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nech si Bombocut"
+            "value": "Bombocut napořád"
           }
         }
       }
@@ -1385,7 +1635,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ponecháno"
+            "value": "Zachováno"
           }
         }
       }
@@ -1435,7 +1685,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lineární"
+            "value": "Lineárně"
           }
         }
       }
@@ -1455,7 +1705,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poslouchám %lld %%"
+            "value": "Přepisování %lld %%"
           }
         }
       }
@@ -1465,7 +1715,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Načítám hlasový model"
+            "value": "Načítání hlasového modelu"
           }
         }
       }
@@ -1475,7 +1725,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dělá to malinký tým"
+            "value": "Dělá ho malinký tým"
           }
         }
       }
@@ -1495,7 +1745,27 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zrychluje načtení hlasového modelu. Po smazání bude další načtení zase trvat minuty."
+            "value": "Díky ní se hlasový model načítá rychle. Když ji smažeš, další načtení zase potrvá pár minut."
+          }
+        }
+      }
+    },
+    "Making the matte…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvářím alfa masku…"
+          }
+        }
+      }
+    },
+    "Making the transparent video…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvářím průhledné video…"
           }
         }
       }
@@ -1506,6 +1776,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maska"
+          }
+        }
+      }
+    },
+    "Matte": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alfa maska"
           }
         }
       }
@@ -1545,7 +1825,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rozmazání pohybem"
+            "value": "Motion blur"
           }
         }
       }
@@ -1595,7 +1875,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jména a slang, oddělené čárkou"
+            "value": "Jména a slang, oddělené čárkami"
           }
         }
       }
@@ -1625,7 +1905,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Další klíčový snímek"
+            "value": "Další keyframe"
           }
         }
       }
@@ -1635,7 +1915,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Žádné zamčené funkce, žádné reklamy"
+            "value": "Žádné zamčené funkce ani reklamy"
           }
         }
       }
@@ -1655,7 +1935,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bez bezpečné zóny"
+            "value": "Nezobrazovat"
           }
         }
       }
@@ -1665,7 +1945,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Žádná řeč nenalezena."
+            "value": "Nenašla se žádná řeč."
+          }
+        }
+      }
+    },
+    "No video in this clip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V klipu není žádné video."
           }
         }
       }
@@ -1700,6 +1990,16 @@
         }
       }
     },
+    "Nothing to play.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Není co přehrát."
+          }
+        }
+      }
+    },
     "OK": {
       "localizations": {
         "cs": {
@@ -1725,7 +2025,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Staré exporty, zvuk pro titulky, rozpracované importy"
+            "value": "Staré exporty, zvuk pro titulky, nedokončené importy"
           }
         }
       }
@@ -1745,7 +2045,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "V iPhonu"
+            "value": "Staženo v iPhonu"
           }
         }
       }
@@ -1785,7 +2085,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Překryv"
+            "value": "Překrytí"
           }
         }
       }
@@ -1795,7 +2095,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Překryvy s volbou „Za objektem“ jsou mezi pozadím a objektem."
+            "value": "Překrytí s volbou „Za objekt“ se vykreslí mezi pozadím a objektem."
           }
         }
       }
@@ -1840,12 +2140,22 @@
         }
       }
     },
+    "Pick clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat klipy"
+          }
+        }
+      }
+    },
     "Pick clips in the order you want them. Original quality is kept.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyber klipy v pořadí, v jakém je chceš. Kvalita zůstane původní."
+            "value": "Vyber klipy v pořadí, v jakém je chceš mít. Kvalita zůstane původní."
           }
         }
       }
@@ -1885,7 +2195,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Připravuji hlasový model · %@"
+            "value": "Příprava hlasového modelu · %@"
           }
         }
       }
@@ -1895,7 +2205,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Předchozí klíčový snímek"
+            "value": "Předchozí keyframe"
           }
         }
       }
@@ -1906,6 +2216,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Soukromí"
+          }
+        }
+      }
+    },
+    "Project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projekt"
           }
         }
       }
@@ -1945,7 +2265,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Čtu zvuk"
+            "value": "Načítání zvuku"
+          }
+        }
+      }
+    },
+    "Reading failed.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Načítání selhalo."
           }
         }
       }
@@ -1955,7 +2285,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Čtu zvuk…"
+            "value": "Načítání zvuku…"
           }
         }
       }
@@ -2015,7 +2345,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obnovit"
+            "value": "Resetovat"
           }
         }
       }
@@ -2025,7 +2355,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obnovit vše"
+            "value": "Resetovat vše"
           }
         }
       }
@@ -2035,7 +2365,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obnovit křivku"
+            "value": "Resetovat křivku"
           }
         }
       }
@@ -2055,7 +2385,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Běží v iPhonu, offline."
+            "value": "Běží přímo v iPhonu, offline."
           }
         }
       }
@@ -2090,12 +2420,32 @@
         }
       }
     },
+    "Save or share": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit nebo sdílet"
+          }
+        }
+      }
+    },
     "Save template": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Uložit šablonu"
+          }
+        }
+      }
+    },
+    "Saved to Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uloženo do Fotek"
           }
         }
       }
@@ -2135,7 +2485,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poslat zpětnou vazbu"
+            "value": "Napsat zpětnou vazbu"
           }
         }
       }
@@ -2145,7 +2495,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Připravuji hlasový model"
+            "value": "Příprava hlasového modelu"
           }
         }
       }
@@ -2166,6 +2516,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stíny"
+          }
+        }
+      }
+    },
+    "Shrink / grow": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zúžit / rozšířit"
           }
         }
       }
@@ -2195,7 +2555,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyjetí"
+            "value": "Vyjetí nahoru"
           }
         }
       }
@@ -2210,12 +2570,22 @@
         }
       }
     },
+    "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmaže všechno, co se hýbe, jako dlouhý čas závěrky. Počítá ho přímo iPhone. V editoru se přehrává odlehčená verze, aby stíhala, export ho vykreslí v plné kvalitě."
+          }
+        }
+      }
+    },
     "Smooth": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plynulé"
+            "value": "Plynule"
           }
         }
       }
@@ -2246,6 +2616,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Měkké světlo"
+          }
+        }
+      }
+    },
+    "Softness": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Měkkost"
           }
         }
       }
@@ -2355,7 +2735,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sledování objektů, masky, rozmazání pohybem, plynulé zpomalení, efekty."
+            "value": "Sledování objektů, masky, motion blur, plynulé zpomalení, efekty."
           }
         }
       }
@@ -2385,7 +2765,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trvá to dlouho (%@). Klepni pro restart"
+            "value": "Trvá to nějak dlouho (%@). Klepni pro restart"
           }
         }
       }
@@ -2395,7 +2775,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klepni na objekt nebo ho zhruba ohraničuj"
+            "value": "Klepni na objekt, nebo ho zhruba orámuj"
+          }
+        }
+      }
+    },
+    "Tap the clips to apply it to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na klipy, kterým to chceš dát"
           }
         }
       }
@@ -2405,7 +2795,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klepni na čáru pro bod · táhni pro posun"
+            "value": "Klepnutím na čáru přidáš bod · tažením se posouváš"
           }
         }
       }
@@ -2475,7 +2865,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hlasový model má asi 650 MB. Lepší je Wi-Fi."
+            "value": "Hlasový model má asi 650 MB. Radši přes Wi-Fi."
           }
         }
       }
@@ -2485,7 +2875,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pak si ho jednou koupíš, nebo ne. Tak jednoduché to je."
+            "value": "Pak si ho buď jednou koupíš, nebo ne. Tak jednoduché to je."
           }
         }
       }
@@ -2495,7 +2885,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nejde to vrátit."
+            "value": "Tohle nejde vrátit."
           }
         }
       }
@@ -2505,7 +2895,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Náhledy a systémová mezipaměť, vytvoří se znovu podle potřeby"
+            "value": "Náhledy a systémová mezipaměť, v případě potřeby se vytvoří znovu"
           }
         }
       }
@@ -2525,7 +2915,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sledování"
+            "value": "Tracking"
           }
         }
       }
@@ -2545,7 +2935,27 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sleduji"
+            "value": "Tracking"
+          }
+        }
+      }
+    },
+    "Transparent video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Průhledné video"
+          }
+        }
+      }
+    },
+    "Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci, CapCut or Keynote. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Průhledné video: jen objekt, HEVC s alfa kanálem (.mov) pro Final Cut, DaVinci, CapCut nebo Keynote. Alfa maska: bílý objekt na černé, použiješ ji jako masku kdekoli. Změny rychlosti se do souborů nepromítnou."
           }
         }
       }
@@ -2555,7 +2965,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyzkoušej všechno 7 dní zdarma"
+            "value": "Vyzkoušej si všechno 7 dní zdarma"
           }
         }
       }
@@ -2600,6 +3010,16 @@
         }
       }
     },
+    "Use the cut-out elsewhere": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výřez pro jiné aplikace"
+          }
+        }
+      }
+    },
     "Video": {
       "localizations": {
         "cs": {
@@ -2615,7 +3035,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Videa v projektech"
+            "value": "Videa ve tvých projektech"
           }
         }
       }
@@ -2625,7 +3045,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vinětace"
+            "value": "Viněta"
           }
         }
       }
@@ -2635,7 +3055,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hlasový model selhal. Klepni pro opakování"
+            "value": "Hlasový model selhal. Klepni a zkus to znovu"
           }
         }
       }
@@ -2675,7 +3095,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Připravuji model (poprvé to může chvíli trvat)…"
+            "value": "Model se připravuje (poprvé to chvíli trvá)…"
           }
         }
       }
@@ -2715,7 +3135,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slovo po slově"
+            "value": "Po slovech"
           }
         }
       }
@@ -2725,7 +3145,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slova, která má psát po tvém, oddělená čárkou. Například: Kryštof, Bombocut, PVP"
+            "value": "Slova, která má napsat přesně po tvém, odděl čárkami. Třeba: Kryštof, Bombocut, PVP"
+          }
+        }
+      }
+    },
+    "Writing failed.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zápis selhal."
           }
         }
       }
@@ -2735,7 +3165,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Můžeš to zavřít a stříhat dál. Štítek nahoře ukáže, až budou hotové."
+            "value": "Panel můžeš zavřít a stříhat dál. Až budou titulky hotové, uvidíš to nahoře."
           }
         }
       }
@@ -2765,7 +3195,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Originálů ve Fotkách se nic nedotkne. Mazání je trvalé, koš neexistuje."
+            "value": "Originálů ve Fotkách se nic nedotkne. Mazání je tady trvalé, koš neexistuje."
           }
         }
       }
@@ -2775,7 +3205,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Přiblížení %lld %% skryje pohyblivé okraje"
+            "value": "Přiblížení %lld %% skryje okraje"
           }
         }
       }
@@ -2786,6 +3216,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "asi 650 MB"
+          }
+        }
+      }
+    },
+    "e.g. 18": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "např. 18"
           }
         }
       }

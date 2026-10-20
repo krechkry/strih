@@ -68,7 +68,7 @@ final class ProjectStore: ObservableObject {
     func nextName() -> String {
         let df = DateFormatter()
         df.dateFormat = "d. M. HH:mm"
-        return "Projekt " + df.string(from: Date())
+        return loc("Project") + " " + df.string(from: Date())
     }
 }
 
