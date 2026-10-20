@@ -27,6 +27,19 @@ struct EditorView: View {
         }
     }
 
+    private var exportBinding: Binding<EditorSheet?> {
+        Binding(get: { sheet == .export ? sheet : nil }, set: { sheet = $0 })
+    }
+
+    @ViewBuilder
+    private var panelLayer: some View {
+        if let s = sheet, s != .export {
+            Panel(height: panelHeight(s), close: { sheet = nil }) { panelContent(s) }
+                .id(s)
+                .transition(.move(edge: .bottom))
+        }
+    }
+
     @ViewBuilder
     private func panelContent(_ s: EditorSheet) -> some View {
         switch s {
@@ -80,16 +93,10 @@ struct EditorView: View {
         .persistentSystemOverlays(model.fullscreen ? .hidden : .automatic)
         .onDisappear { model.tearDown() }
         .task { await demoSetup() }
-        .sheet(item: Binding(get: { sheet == .export ? sheet : nil }, set: { sheet = $0 })) { _ in
+        .sheet(item: exportBinding) { _ in
             ExportSheet(project: model.project).presentationDetents([.large])
         }
-        .overlay(alignment: .bottom) {
-            if let s = sheet, s != .export {
-                Panel(height: panelHeight(s), close: { sheet = nil }) { panelContent(s) }
-                    .id(s)
-                    .transition(.move(edge: .bottom))
-            }
-        }
+        .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
         .onChange(of: sheet) { _, s in model.previewScrubs = s != nil && s != .export }
         .onChange(of: model.openCaptions) { _, open in
