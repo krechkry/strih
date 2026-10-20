@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Photos
 
 /// Renders the project with exact resolution, frame rate and bitrate control
