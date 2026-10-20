@@ -1446,6 +1446,8 @@ final class EditorModel: ObservableObject {
     /// Taps on the preview only play / pause; what you edit is chosen in the timeline.
     func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool { false }
 
+    func showSafeZoneForDemo() { safeZoneFlash = true }
+
     /// Shows the picked safe zone for a moment.
     func flashSafeZone() {
         safeZoneFlash = true

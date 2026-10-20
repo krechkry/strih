@@ -13,6 +13,7 @@ struct PreviewArea: View {
     @State private var grabStart: CGRect = .zero
     @State private var pulse: (icon: String, id: Int)?
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
+    @AppStorage("safeZoneAlways") private var safeZoneAlways = false
 
     private enum Grab { case move, corner(Int), draw }
 
@@ -396,25 +397,10 @@ struct PreviewArea: View {
     /// The picked app's covered areas, dimmed, while a title moves (or right after picking one).
     @ViewBuilder
     private func safeZoneLayer(_ canvas: CGSize) -> some View {
-        if model.movingTitle || model.safeZoneFlash, let r = safeZone.rect(in: canvas) {
-            ZStack(alignment: .topLeading) {
-                Path { p in
-                    p.addRect(CGRect(origin: .zero, size: canvas))
-                    p.addRect(r)
-                }
-                .fill(Color.black.opacity(0.42), style: FillStyle(eoFill: true))
-                Path { p in p.addRect(r) }
-                    .stroke(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-                Text(verbatim: safeZone.title)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(.black.opacity(0.5), in: Capsule())
-                    .offset(x: r.minX + 6, y: max(2, r.minY - 20))
-            }
-            .frame(width: canvas.width, height: canvas.height)
-            .allowsHitTesting(false)
-            .transition(.opacity)
+        if model.movingTitle || model.safeZoneFlash || safeZoneAlways, safeZone != .off {
+            PlatformMock(zone: safeZone, size: canvas)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .transition(.opacity)
         }
     }
 

@@ -12,6 +12,7 @@ struct EditorView: View {
     @State private var adding = false
     @State private var renaming = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
+    @AppStorage("safeZoneAlways") private var safeZoneAlways = false
     @State private var renameText = ""
     @State private var bottomHeight: CGFloat = 0
     @State private var keyboard: CGFloat = 0
@@ -198,6 +199,7 @@ struct EditorView: View {
             Picker("Safe zone", selection: Binding(get: { safeZone }, set: { safeZone = $0; model.flashSafeZone() })) {
                 ForEach(SafeZone.allCases) { z in Text(loc(z.title)).tag(z) }
             }
+            Toggle("Always show", isOn: $safeZoneAlways)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "rectangle.dashed")
@@ -635,6 +637,17 @@ struct EditorView: View {
             model.mutateLook { $0.clips[0].mask = SubjectMask(kind: .person, blur: 0.6, dim: 0.3) }
             try? await Task.sleep(for: .seconds(0.6))
             sheet = .mask
+        case "zreels", "ztiktok", "zshorts", "zstories":
+            safeZone = SafeZone(rawValue: String(mode.dropFirst())) ?? .reels
+            model.addText()
+            model.editOverlay { $0.kind = .text("BIG UP!") }
+            model.selectOverlay(nil)
+            model.showSafeZoneForDemo()
+        case "pick":
+            guard clips.count > 2 else { break }
+            model.selectedClipID = clips[0].id
+            model.startPick(.motionBlur)
+            model.togglePick(clips[2].id)
         case "fullscreen":
             model.fullscreen = true
         case "export", "done":
