@@ -10,6 +10,27 @@ struct EditorView: View {
     @State private var adding = false
     @State private var renaming = false
     @State private var renameText = ""
+    @State private var bottomHeight: CGFloat = 0
+    @ObservedObject private var speechStatus = SpeechStatus.shared
+
+    /// Height of each panel; editing panels leave the preview visible and undimmed.
+    private func panelHeight(_ s: EditorSheet) -> CGFloat {
+        switch s {
+        case .export: return 0
+        case .canvas: return 124
+        case .volume: return 200
+        case .speed: return 470
+        case .adjust: return 300
+        case .captions: return 420
+        case .stabilize: return 280
+        case .track: return 300
+        }
+    }
+
+    private var previewLift: CGFloat {
+        guard let s = sheet, s != .export else { return 0 }
+        return max(0, panelHeight(s) - 34 - bottomHeight + 6)
+    }
 
     init(project: Project, store: ProjectStore) {
         _model = StateObject(wrappedValue: EditorModel(project: project, store: store))
@@ -22,11 +43,17 @@ struct EditorView: View {
                 PreviewArea(model: model)
                     .padding(.horizontal, 12)
                     .frame(maxHeight: .infinity)
-                transport
-                TimelineView(model: model)
-                    .frame(height: model.project.captions == nil ? 112 : 136)
-                toolbar
+                // an open panel covers the bottom: shrink the preview so it stays fully visible above it
+                Color.clear.frame(height: previewLift)
+                VStack(spacing: 0) {
+                    transport
+                    TimelineView(model: model)
+                        .frame(height: model.project.captions == nil ? 112 : 136)
+                    toolbar
+                }
+                .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = $0 }
             }
+            .animation(.easeOut(duration: 0.25), value: previewLift)
             .background(Theme.bg.ignoresSafeArea())
 
             if model.fullscreen {
@@ -40,16 +67,22 @@ struct EditorView: View {
         .onDisappear { model.tearDown() }
         .task { await demoSetup() }
         .sheet(item: $sheet) { s in
-            switch s {
-            case .export: ExportSheet(project: model.project).presentationDetents([.large])
-            case .canvas: CanvasSheet(model: model).presentationDetents([.height(124)])
-            case .volume: VolumeSheet(model: model).presentationDetents([.height(200)])
-            case .speed: SpeedSheet(model: model).presentationDetents([.height(470)])
-            case .adjust: AdjustSheet(model: model).presentationDetents([.height(300)])
-            case .captions: CaptionsSheet(model: model).presentationDetents([.height(470), .large])
-            case .stabilize: StabilizeSheet(model: model).presentationDetents([.height(280)])
-            case .track: TrackSheet(model: model).presentationDetents([.height(300)])
+            Group {
+                switch s {
+                case .export: ExportSheet(project: model.project)
+                case .canvas: CanvasSheet(model: model)
+                case .volume: VolumeSheet(model: model)
+                case .speed: SpeedSheet(model: model)
+                case .adjust: AdjustSheet(model: model)
+                case .captions: CaptionsSheet(model: model)
+                case .stabilize: StabilizeSheet(model: model)
+                case .track: TrackSheet(model: model)
+                }
             }
+            .modifier(PanelStyle(height: panelHeight(s)))
+        }
+        .onChange(of: model.openCaptions) { _, open in
+            if open { model.openCaptions = false; sheet = .captions }
         }
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
@@ -80,10 +113,14 @@ struct EditorView: View {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left").font(.body.weight(.semibold)).frame(width: 40, height: 40)
             }
-            Button { renameText = model.project.name; renaming = true } label: {
-                Text(model.project.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+            if let pill = statusPill {
+                pill
+            } else {
+                Button { renameText = model.project.name; renaming = true } label: {
+                    Text(model.project.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             Spacer()
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
@@ -98,6 +135,59 @@ struct EditorView: View {
         .tint(.white)
         .padding(.horizontal, 8)
         .frame(height: 50)
+    }
+
+    /// Top-left status while captions are prepared in the background (you can keep editing).
+    private var statusPill: AnyView? {
+        if let job = model.captionJob {
+            if let e = job.error {
+                return AnyView(pillView(icon: "exclamationmark.triangle.fill", text: e, progress: nil, tint: .red) {
+                    model.dismissCaptionJob()
+                    sheet = .captions
+                })
+            }
+            let (text, f): (String, Double?) = {
+                switch job.phase {
+                case .downloading(let f): return ("Downloading voice model", f)
+                case .preparingAudio: return ("Reading audio", nil)
+                case .loadingModel: return ("Setting up voice model", nil)
+                case .listening(let f): return ("Captions \(Int(f * 100)) %", f)
+                }
+            }()
+            return AnyView(pillView(icon: "waveform", text: text, progress: f, tint: Theme.accent) { sheet = .captions })
+        }
+        if model.captionsReady {
+            return AnyView(pillView(icon: "checkmark.circle.fill", text: "Captions ready", progress: nil, tint: Theme.accent, done: true) {
+                model.captionsReady = false
+                sheet = .captions
+            })
+        }
+        if speechStatus.warming {
+            return AnyView(pillView(icon: "waveform", text: "Setting up voice model", progress: nil, tint: Theme.accent) {})
+        }
+        return nil
+    }
+
+    private func pillView(icon: String, text: String, progress: Double?, tint: Color, done: Bool = false,
+                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    if progress == nil && !done && tint != .red {
+                        ProgressView().controlSize(.mini).tint(tint)
+                    } else {
+                        Image(systemName: icon).font(.caption.weight(.bold)).foregroundStyle(tint)
+                    }
+                    Text(text).font(.caption.weight(.bold)).lineLimit(1)
+                }
+                if let progress {
+                    ProgressView(value: progress).tint(tint).frame(width: 120)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Transport
@@ -191,8 +281,8 @@ struct EditorView: View {
                     ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                     ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-                    ToolButton(icon: clip.fill ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                               label: clip.fill ? "Fit" : "Fill") { model.toggleFill() }
+                    ToolButton(icon: "arrow.down.right.and.arrow.up.left", label: "Fit") { model.fitClip(fill: false) }
+                    ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                     if !clip.transform.isIdentity {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
@@ -378,5 +468,20 @@ struct ToolLabel: View {
         .foregroundStyle(tint.opacity(enabled ? 1 : 0.3))
         .frame(width: 66, height: 60)
         .contentShape(Rectangle())
+    }
+}
+
+/// Editing panels: fixed height, no dimming, the editor behind stays usable.
+private struct PanelStyle: ViewModifier {
+    let height: CGFloat
+
+    func body(content: Content) -> some View {
+        if height == 0 {
+            content.presentationDetents([.large])
+        } else {
+            content
+                .presentationDetents([.height(height)])
+                .presentationBackgroundInteraction(.enabled(upThrough: .height(height)))
+        }
     }
 }

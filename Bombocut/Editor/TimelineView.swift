@@ -81,7 +81,8 @@ struct TimelineView: View {
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
                     if let caps = model.project.captions, reorder == nil {
-                        CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime)
+                        CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
+                                    onTap: { cue in model.openCaption(cue) })
                     }
                     }
                     .padding(.leading, max(0, half + shift))
@@ -458,6 +459,7 @@ private struct CaptionLane: View {
     let captions: Captions
     let pxPerSec: CGFloat
     let currentTime: Double
+    var onTap: (CaptionCue) -> Void = { _ in }
 
     var body: some View {
         let total = (captions.cues.last?.end ?? 0)
@@ -473,10 +475,11 @@ private struct CaptionLane: View {
                     .frame(width: max(4, CGFloat(cue.end - cue.start) * pxPerSec - 1), height: 18, alignment: .leading)
                     .background(on ? Theme.accent : Theme.accent.opacity(0.22), in: RoundedRectangle(cornerRadius: 4))
                     .clipped()
+                    .contentShape(Rectangle())
+                    .onTapGesture { onTap(cue) }
                     .offset(x: CGFloat(cue.start) * pxPerSec)
             }
         }
-        .allowsHitTesting(false)
     }
 }
 

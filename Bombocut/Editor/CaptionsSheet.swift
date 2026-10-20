@@ -6,8 +6,8 @@ struct CaptionsSheet: View {
     @ObservedObject private var speech = SpeechModels.shared
     @State private var language = Prefs.languages.contains("cs") ? "cs" : (Prefs.languages.first ?? "cs")
     @AppStorage("captionNames") private var names = ""
-    @State private var phase: Transcriber.Phase?
-    @State private var error: String?
+    private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
+    private var error: String? { model.captionJob?.error }
     @State private var tab = 0
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
     @State private var savingTemplate = false
@@ -29,7 +29,10 @@ struct CaptionsSheet: View {
         .padding(.top, 20)
         .frame(maxHeight: .infinity, alignment: .top)
         .presentationBackground(Theme.panel)
-        .onAppear { if Demo.mode == "captionstyle" { tab = 1 } }
+        .onAppear {
+            if Demo.mode == "captionstyle" { tab = 1 }
+            model.dismissCaptionJob()
+        }
         .alert("Save template", isPresented: $savingTemplate) {
             TextField("Name", text: $templateName)
             Button("Save") { saveTemplate() }
@@ -110,35 +113,17 @@ struct CaptionsSheet: View {
             } else {
                 ProgressView().tint(Theme.accent)
             }
-            Text("Keep Bombocut open.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            Text("You can close this and keep editing. The pill at the top shows when they're ready.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
         }
         .padding(16)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func generate() {
-        error = nil
-        phase = .preparingAudio
         model.pause()
-        UIApplication.shared.isIdleTimerDisabled = true
-        let project = model.project
-        let lang = language
-        let style = model.project.captions?.style ?? CaptionTemplate.builtIns[0].style
-        let tid = model.project.captions?.templateID ?? CaptionTemplate.builtIns[0].id
-        Task {
-            defer { UIApplication.shared.isIdleTimerDisabled = false }
-            do {
-                let words = try await Transcriber.run(project: project, language: lang, names: names) { p in phase = p }
-                var caps = Captions(language: lang, words: words, cues: [], style: style, templateID: tid)
-                caps.recut()
-                model.setCaptions(caps)
-                tab = 0
-                if words.isEmpty { error = "No speech found." }
-            } catch {
-                self.error = error.localizedDescription
-            }
-            phase = nil
-        }
+        model.startCaptions(language: language, names: names)
+        tab = 0
     }
 
     // MARK: Edit
@@ -270,7 +255,10 @@ struct CaptionsSheet: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(CaptionAnim.allCases, id: \.self) { a in
-                                pill(a.title, on: s.anim == a) { setStyle { $0.anim = a } }
+                                pill(a.title, on: s.anim == a) {
+                                    setStyle { $0.anim = a }
+                                    model.previewCaption()
+                                }
                             }
                         }
                     }
@@ -311,6 +299,7 @@ struct CaptionsSheet: View {
                     HStack(spacing: 8) {
                         pill("CAPS", on: s.caps) { setStyle { $0.caps.toggle() } }
                         pill("Shadow", on: s.shadow) { setStyle { $0.shadow.toggle() } }
+                        pill(", and .", on: s.punctuation) { setStyle(recut: true) { $0.punctuation.toggle() } }
                     }
                 }
             }

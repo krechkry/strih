@@ -99,6 +99,7 @@ final class EditorModel: ObservableObject {
                 guard let self, !self.isScrubbing, !self.seeking, self.isPlaying else { return }
                 self.currentTime = min(t.seconds, self.duration)
                 self.loopIfNeeded()
+                if let stop = self.stopAt, self.currentTime >= stop { self.pause() }
             }
         }
         player.publisher(for: \.timeControlStatus)
@@ -145,6 +146,7 @@ final class EditorModel: ObservableObject {
         player.pause()
         isPlaying = false
         loopSelected = false
+        stopAt = nil
     }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
@@ -415,9 +417,30 @@ final class EditorModel: ObservableObject {
         scrub(to: abs(currentTime - start) <= abs(currentTime - end) ? start : max(start, end - 1.0 / 30))
     }
 
-    func toggleFill() {
+    /// One-shot: put the clip centered, straight, and sized to fit inside (or fill) the canvas at the playhead.
+    func fitClip(fill: Bool) {
         guard let i = selectedIndex else { return }
-        mutateLook { $0.clips[i].fill.toggle() }
+        pause()
+        if !playheadInSelected { scrub(to: project.clipStarts[i] + 0.01) }
+        live = nil
+        let s = sourceTime(i)
+        let A = project.canvas.aspect
+        mutateLook { p in
+            var c = p.clips[i]
+            let a = c.aspect ?? A
+            let fitB = Clip.baseFraction(aspect: a, fill: false, canvasAspect: A)
+            let fillB = Clip.baseFraction(aspect: a, fill: true, canvasAspect: A)
+            let fillScale = fillB.width / max(fitB.width, 1e-6)
+            if c.fill {
+                // older clips stored "fill" as a mode: fold it into the scale so everything stays where it was
+                c.fill = false
+                c.transform.scale *= fillScale
+                for k in c.keyframes.indices { c.keyframes[k].look.transform.scale *= fillScale }
+            }
+            Self.applyLook(&c, atSource: s) { $0.transform = ClipTransform(x: 0, y: 0, scale: fill ? fillScale : 1, rotation: 0) }
+            p.clips[i] = c
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func resetTransform() {
@@ -588,6 +611,74 @@ final class EditorModel: ObservableObject {
     }
 
     // MARK: Captions
+
+    /// Captions being generated in the background while you keep editing.
+    struct CaptionJob: Equatable {
+        var phase: Transcriber.Phase
+        var error: String?
+    }
+    @Published private(set) var captionJob: CaptionJob?
+    @Published var captionsReady = false
+    @Published var openCaptions = false
+    private var captionTask: Task<Void, Never>?
+
+    func startCaptions(language: String, names: String) {
+        if let j = captionJob, j.error == nil { return }   // already running
+        captionTask?.cancel()
+        captionsReady = false
+        captionJob = CaptionJob(phase: .preparingAudio)
+        let snapshot = project
+        let style = project.captions?.style ?? CaptionTemplate.builtIns[0].style
+        let tid = project.captions?.templateID ?? CaptionTemplate.builtIns[0].id
+        UIApplication.shared.isIdleTimerDisabled = true
+        captionTask = Task {
+            defer { UIApplication.shared.isIdleTimerDisabled = false }
+            do {
+                let words = try await Transcriber.run(project: snapshot, language: language, names: names) { [weak self] p in
+                    self?.captionJob?.phase = p
+                }
+                if Task.isCancelled { return }
+                guard !words.isEmpty else {
+                    captionJob = CaptionJob(phase: .preparingAudio, error: "No speech found.")
+                    return
+                }
+                var caps = Captions(language: language, words: words, cues: [], style: style, templateID: tid)
+                caps.recut()
+                // you kept editing meanwhile: move the captions onto the timeline as it is now
+                if snapshot.timingKey != project.timingKey { caps = caps.remapped(from: snapshot, to: project) }
+                setCaptions(caps)
+                captionJob = nil
+                captionsReady = true
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                if !Task.isCancelled { captionJob = CaptionJob(phase: .preparingAudio, error: error.localizedDescription) }
+            }
+        }
+    }
+
+    func dismissCaptionJob() {
+        if captionJob?.error != nil { captionJob = nil }
+        captionsReady = false
+    }
+
+    /// Tap on a caption in the timeline: go there and open the caption settings.
+    func openCaption(_ cue: CaptionCue) {
+        pause()
+        scrub(to: cue.start + 0.01)
+        openCaptions = true
+    }
+
+    /// Plays the caption under the playhead (or the next one) once, to show the animation.
+    private var stopAt: Double?
+    func previewCaption() {
+        guard let caps = project.captions, !caps.cues.isEmpty else { return }
+        let cue = caps.cue(at: currentTime) ?? caps.cues.first { $0.start >= currentTime } ?? caps.cues[0]
+        pause()
+        scrub(to: cue.start)
+        stopAt = cue.end + 0.05
+        player.play()
+        isPlaying = true
+    }
 
     func setCaptions(_ c: Captions?) {
         mutateLook { $0.captions = c }

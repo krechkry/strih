@@ -79,11 +79,12 @@ struct CaptionStyle: Codable, Hashable {
     var lines = 2
     var maxChars = 32
     var anim = CaptionAnim.fade
+    var punctuation = false      // false = no commas and full stops on screen (? and ! stay)
 
     init() {}
 
     enum CodingKeys: String, CodingKey {
-        case font, size, text, highlight, stroke, strokeWidth, box, boxColor, boxOpacity, shadow, caps, y, lines, maxChars, anim
+        case font, size, text, highlight, stroke, strokeWidth, box, boxColor, boxOpacity, shadow, caps, y, lines, maxChars, anim, punctuation
     }
 
     init(from d: Decoder) throws {
@@ -104,6 +105,7 @@ struct CaptionStyle: Codable, Hashable {
         lines = try c.decodeIfPresent(Int.self, forKey: .lines) ?? def.lines
         maxChars = try c.decodeIfPresent(Int.self, forKey: .maxChars) ?? def.maxChars
         anim = try c.decodeIfPresent(CaptionAnim.self, forKey: .anim) ?? def.anim
+        punctuation = try c.decodeIfPresent(Bool.self, forKey: .punctuation) ?? def.punctuation
     }
 }
 
@@ -224,10 +226,15 @@ enum CaptionCutter {
         }
         flush()
 
-        var cues = out.map { ws in
-            CaptionCue(start: ws.first!.start, end: ws.last!.end,
-                       text: wrap(ws.map(\.text).joined(separator: " "), maxChars: style.maxChars, lines: lines),
-                       words: ws)
+        var cues = out.map { raw -> CaptionCue in
+            let ws = style.punctuation ? raw : raw.compactMap { w -> CaptionWord? in
+                var q = w
+                q.text = stripPunctuation(w.text)
+                return q.text.isEmpty ? nil : q
+            }
+            return CaptionCue(start: raw.first!.start, end: raw.last!.end,
+                              text: wrap(ws.map(\.text).joined(separator: " "), maxChars: style.maxChars, lines: lines),
+                              words: ws)
         }
         // readable timing: a little tail, minimum length, never overlapping the next cue
         for i in cues.indices {
@@ -237,6 +244,13 @@ enum CaptionCutter {
             cues[i].end = max(end, cues[i].start + 0.1)
         }
         return cues
+    }
+
+    /// Commas and full stops at word ends go (decimal numbers like 2.5 stay).
+    static func stripPunctuation(_ w: String) -> String {
+        var t = w
+        while let l = t.last, ",.…;".contains(l) { t.removeLast() }
+        return t
     }
 
     /// Balanced line breaks; never ends a line on a one-letter preposition.

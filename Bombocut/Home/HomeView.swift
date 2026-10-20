@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var importError: String?
     @State private var openProject: Project?
     @State private var renaming: Project?
+    @State private var deleting: Project?
     @State private var renameText = ""
     @AppStorage("onboarded") private var onboarded = false
     @State private var showSetup = false
@@ -34,7 +35,7 @@ struct HomeView: View {
                                     .onTapGesture { openProject = p }
                                     .contextMenu {
                                         Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
-                                        Button("Delete", systemImage: "trash", role: .destructive) { store.delete(p) }
+                                        Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
                                     }
                             }
                         }
@@ -52,6 +53,13 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
                 LanguageSetupView(firstLaunch: true).presentationDetents([.large])
+            }
+            .alert("Delete this project?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                   presenting: deleting) { p in
+                Button("Delete forever", role: .destructive) { store.delete(p) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
             }
             .sheet(isPresented: $showSettings) {
                 LanguageSetupView().presentationDetents([.large])
@@ -197,6 +205,16 @@ private struct ProjectRow: View {
     let project: Project
     @ObservedObject private var thumbs = ThumbnailCache.shared
 
+    /// Space the project's videos take on the phone (a video shared by several clips counts once).
+    private var size: String {
+        let files = Set(project.clips.map(\.mediaFile))
+        let bytes = files.reduce(Int64(0)) { sum, f in
+            let a = try? FileManager.default.attributesOfItem(atPath: Paths.mediaURL(f).path)
+            return sum + ((a?[.size] as? NSNumber)?.int64Value ?? 0)
+        }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             Group {
@@ -211,10 +229,10 @@ private struct ProjectRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(project.name).font(.body.weight(.semibold)).lineLimit(1)
-                Text("\(Fmt.duration(project.duration)) · \(project.clips.count) clips · \(project.canvas.label)")
+                Text(Fmt.duration(project.duration))
+                    .font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                Text("\(project.clips.count) \(project.clips.count == 1 ? "clip" : "clips") · \(size)")
                     .font(.footnote).foregroundStyle(Theme.muted)
-                Text(project.modified, style: .relative)
-                    .font(.caption).foregroundStyle(Theme.muted)
             }
             Spacer()
             Image(systemName: "chevron.right").foregroundStyle(Theme.muted)

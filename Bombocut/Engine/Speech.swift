@@ -115,7 +115,7 @@ final class SpeechModels: ObservableObject {
             UserDefaults.standard.set(rel, forKey: "model.\(m.rawValue)")
             states[m] = .ready(url)
             tasks[m] = nil
-            Task.detached(priority: .utility) { _ = try? await SpeechEngine.shared.pipe(url) }
+            SpeechEngine.warm(url)
             return url
         } catch {
             states[m] = .failed(error.localizedDescription)
@@ -194,6 +194,9 @@ enum Transcriber {
         // word alignment and its timestamps. Only names the user typed are passed as a hint.
         var opts = DecodingOptions(task: .transcribe, language: language, temperatureFallbackCount: 3,
                                    usePrefillPrompt: true, skipSpecialTokens: true, wordTimestamps: true)
+        if let tok = pipe.tokenizer {
+            opts.suppressTokens = await SpeechEngine.shared.foreignLetterTokens(language, tok)
+        }
         let extra = names.trimmingCharacters(in: .whitespacesAndNewlines)
         if let tok = pipe.tokenizer, !extra.isEmpty {
             opts.promptTokens = tok.encode(text: " " + extra + ".").filter { $0 < tok.specialTokens.specialTokenBegin }
@@ -235,7 +238,7 @@ enum Transcriber {
         var words: [RawWord] = []
         for w in seg.words {
             let t = clean(w.w)
-            if t.isEmpty { continue }
+            if t.isEmpty || t == "-" || t == "–" || t == "—" { continue }   // subtitle-style dialogue dashes
             if t.allSatisfy({ ".,!?…;:".contains($0) }), !words.isEmpty {
                 words[words.count - 1].w += t   // stray punctuation joins the previous word
                 continue
@@ -243,7 +246,7 @@ enum Transcriber {
             words.append((t, w.s, w.e))
         }
         if words.isEmpty {
-            words = clean(seg.text).split(separator: " ").map { (String($0), 0, 0) }
+            words = clean(seg.text).split(separator: " ").filter { $0 != "-" && $0 != "–" }.map { (String($0), 0, 0) }
         }
         return words
     }
@@ -428,6 +431,26 @@ actor SpeechEngine {
         loaded = nil
     }
 
+    /// Tokens containing letters that only the other language uses, so Czech stays Czech and Slovak stays Slovak.
+    private var foreignCache: [String: [Int]] = [:]
+    func foreignLetterTokens(_ language: String, _ tok: WhisperTokenizer) -> [Int] {
+        if let c = foreignCache[language] { return c }
+        let letters: Set<Character>
+        switch language {
+        case "cs": letters = ["ô", "ä", "ľ", "ĺ", "ŕ", "Ô", "Ä", "Ľ", "Ĺ", "Ŕ"]
+        case "sk": letters = ["ř", "ů", "ě", "Ř", "Ů", "Ě"]
+        default: return []
+        }
+        let limit = tok.specialTokens.specialTokenBegin
+        var out: [Int] = []
+        for id in 0..<limit {
+            let text = tok.decode(tokens: [id])
+            if text.contains(where: { letters.contains($0) }) { out.append(id) }
+        }
+        foreignCache[language] = out
+        return out
+    }
+
     /// Called at launch: loads the model for the caption languages if it is on the phone.
     @MainActor
     static func warmUp() {
@@ -435,9 +458,22 @@ actor SpeechEngine {
         let want = SpeechModel.needed(for: Prefs.languages)
         let pick: SpeechModel? = models.isReady(want) ? want : SpeechModel.allCases.first { models.isReady($0) }
         guard let m = pick, case .ready(let url) = models.state(m) else { return }
+        warm(url)
+    }
+
+    /// Loads the model in the background; the editor shows a small "Setting up voice model" pill meanwhile.
+    @MainActor
+    static func warm(_ url: URL) {
+        SpeechStatus.shared.warming = true
         Task.detached(priority: .utility) {
-            try? await Task.sleep(for: .seconds(1.5))   // let the first screen settle
             _ = try? await SpeechEngine.shared.pipe(url)
+            await MainActor.run { SpeechStatus.shared.warming = false }
         }
     }
+}
+
+@MainActor
+final class SpeechStatus: ObservableObject {
+    static let shared = SpeechStatus()
+    @Published var warming = false
 }
