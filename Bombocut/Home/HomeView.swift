@@ -15,6 +15,7 @@ struct HomeView: View {
     @AppStorage("onboarded") private var onboarded = false
     @State private var showSetup = false
     @State private var showSettings = false
+    @State private var showStorage = false
     @ObservedObject private var speech = SpeechModels.shared
 
     var body: some View {
@@ -47,8 +48,11 @@ struct HomeView: View {
             .navigationTitle("Bombocut")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
-                        .tint(.white)
+                    HStack(spacing: 4) {
+                        Button { showStorage = true } label: { Image(systemName: "internaldrive") }
+                        Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
+                    }
+                    .tint(.white)
                 }
             }
             .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
@@ -60,6 +64,9 @@ struct HomeView: View {
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
                 Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
+            }
+            .sheet(isPresented: $showStorage) {
+                StorageView().environmentObject(store)
             }
             .sheet(isPresented: $showSettings) {
                 LanguageSetupView().presentationDetents([.large])
