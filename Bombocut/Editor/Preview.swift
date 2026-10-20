@@ -11,6 +11,7 @@ struct PreviewArea: View {
     @State private var pickRect: CGRect?
     @State private var grab: Grab?
     @State private var grabStart: CGRect = .zero
+    @State private var pulse: (icon: String, id: Int)?
 
     private enum Grab { case move, corner(Int), draw }
 
@@ -37,6 +38,7 @@ struct PreviewArea: View {
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
+                if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -92,7 +94,14 @@ struct PreviewArea: View {
 
     private func touch(_ canvas: CGSize) -> some View {
         TouchSurface(
-            onTap: { if !model.project.clips.isEmpty { model.togglePlay() } },
+            onTap: {
+                guard !model.project.clips.isEmpty else { return }
+                model.togglePlay()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                let n = (pulse?.id ?? 0) + 1
+                pulse = (model.isPlaying ? "play.fill" : "pause.fill", n)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { if pulse?.id == n { pulse = nil } }
+            },
             onDoubleTap: {
                 guard !model.project.clips.isEmpty else { return }
                 withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
@@ -381,6 +390,24 @@ struct PreviewArea: View {
     }
 }
 
+/// Brief play / pause symbol that pops and fades over the preview.
+private struct PlayPulse: View {
+    let icon: String
+    @State private var on = false
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: 30, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 72, height: 72)
+            .background(.black.opacity(0.45), in: Circle())
+            .scaleEffect(on ? 1.15 : 0.8)
+            .opacity(on ? 0 : 1)
+            .allowsHitTesting(false)
+            .onAppear { withAnimation(.easeOut(duration: 0.55)) { on = true } }
+    }
+}
+
 /// SwiftUI copy of the compositor math, used while fingers are down (instant, no re-render).
 struct LiveFrame: View {
     let live: LiveTransform
@@ -466,7 +493,10 @@ struct FullscreenPlayer: View {
         .onTapGesture(count: 2) {
             withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }
         }
-        .onTapGesture { model.togglePlay() }
+        .onTapGesture {
+            model.togglePlay()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()   // felt, not seen: screen recordings stay clean
+        }
     }
 
     private var scrubBar: some View {
