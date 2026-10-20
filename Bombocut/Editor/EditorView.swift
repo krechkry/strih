@@ -14,6 +14,10 @@ struct EditorView: View {
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @State private var renameText = ""
     @State private var bottomHeight: CGFloat = 0
+    @State private var keyboard: CGFloat = 0
+    /// Typing in a panel: it shrinks to the text field above the keyboard so the preview stays visible.
+    private var typing: Bool { keyboard > 60 && sheet != nil && sheet != .export }
+    private let compactPanel: CGFloat = 150
     @ObservedObject private var speechStatus = SpeechStatus.shared
 
     /// Height of each panel; editing panels leave the preview visible and undimmed.
@@ -39,9 +43,13 @@ struct EditorView: View {
     @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
-            Panel(height: panelHeight(s), close: { sheet = nil }) { panelContent(s) }
-                .id(s)
-                .transition(.move(edge: .bottom))
+            Panel(height: typing ? compactPanel : panelHeight(s), close: { sheet = nil }) {
+                panelContent(s).environment(\.panelCompact, typing)
+            }
+            .id(s)
+            .padding(.bottom, typing ? keyboard : 0)
+            .ignoresSafeArea(.keyboard)
+            .transition(.move(edge: .bottom))
         }
     }
 
@@ -63,6 +71,7 @@ struct EditorView: View {
 
     private var previewLift: CGFloat {
         guard let s = sheet, s != .export else { return 0 }
+        if typing { return max(0, keyboard + compactPanel - 34 - bottomHeight + 6) }
         return max(0, panelHeight(s) - 34 - bottomHeight + 6)
     }
 
@@ -89,12 +98,21 @@ struct EditorView: View {
             }
             .animation(.easeOut(duration: 0.25), value: previewLift)
             .background(Theme.bg.ignoresSafeArea())
+            .ignoresSafeArea(.keyboard)
 
             if model.fullscreen {
                 FullscreenPlayer(model: model)
                     .transition(.opacity)
                     .zIndex(10)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { n in
+            guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds.height ?? f.maxY
+            withAnimation(.easeOut(duration: 0.25)) { keyboard = max(0, screen - f.minY) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) { keyboard = 0 }
         }
         .statusBarHidden(model.fullscreen)
         .persistentSystemOverlays(model.fullscreen ? .hidden : .automatic)
@@ -360,6 +378,13 @@ struct EditorView: View {
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
                     ToolButton(icon: "xmark", label: "Done") { model.selectOverlay(nil) }
+                } else if model.captionsSelected, model.project.captions != nil {
+                    ToolButton(icon: "text.cursor", label: "Edit text") { model.pause(); model.captionTab = 0; sheet = .captions }
+                    ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
+                    if model.captionsMoved {
+                        ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
+                    }
+                    ToolButton(icon: "xmark", label: "Done") { model.captionsSelected = false }
                 } else if let i = model.selectedIndex {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
@@ -605,7 +630,8 @@ private struct Panel<Content: View>: View {
                 .frame(maxWidth: .infinity, minHeight: 22)
                 .contentShape(Rectangle())
                 .gesture(
-                    DragGesture()
+                    // global space: the panel moves under the finger, so local coordinates would feed back and jitter
+                    DragGesture(coordinateSpace: .global)
                         .onChanged { v in drag = max(0, v.translation.height) }
                         .onEnded { v in
                             if v.translation.height > 70 || v.predictedEndTranslation.height > 160 { close() }
@@ -628,11 +654,21 @@ private struct Panel<Content: View>: View {
     }
 }
 
+private struct PanelCompactKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 private struct ClosePanelKey: EnvironmentKey {
     static let defaultValue: () -> Void = {}
 }
 
 extension EnvironmentValues {
+    /// The panel is squeezed above the keyboard: show only the text being typed.
+    var panelCompact: Bool {
+        get { self[PanelCompactKey.self] }
+        set { self[PanelCompactKey.self] = newValue }
+    }
+
     /// Closes the editing panel this view sits in.
     var closePanel: () -> Void {
         get { self[ClosePanelKey.self] }

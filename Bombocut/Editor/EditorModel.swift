@@ -47,7 +47,39 @@ final class EditorModel: ObservableObject {
     @Published var currentTime: Double = 0
     @Published private(set) var isPlaying = false
     @Published var selectedClipID: UUID? {
-        didSet { if selectedClipID != nil && selectedOverlayID != nil { selectedOverlayID = nil } }
+        didSet {
+            if selectedClipID != nil {
+                if selectedOverlayID != nil { selectedOverlayID = nil }
+                if captionsSelected { captionsSelected = false }
+            }
+        }
+    }
+    /// The captions track is selected: fingers on the preview move the captions.
+    @Published var captionsSelected = false {
+        didSet {
+            if captionsSelected {
+                if selectedClipID != nil { selectedClipID = nil }
+                if selectedOverlayID != nil { selectedOverlayID = nil }
+            }
+        }
+    }
+    /// The caption line the captions panel should scroll to and edit.
+    @Published var captionFocus: UUID?
+    /// Tab the captions panel opens on (0 text, 1 style).
+    @Published var captionTab: Int?
+
+    var captionsMoved: Bool {
+        guard let s = project.captions?.style else { return false }
+        return s.x != 0 || s.rotation != 0
+    }
+
+    /// Captions back to the middle, straight.
+    func resetCaptionPlacement() {
+        guard project.captions != nil else { return }
+        mutateLook { p in
+            p.captions?.style.x = 0
+            p.captions?.style.rotation = 0
+        }
     }
     @Published var pxPerSec: CGFloat = 60
     @Published private(set) var canUndo = false
@@ -431,6 +463,7 @@ final class EditorModel: ObservableObject {
     /// Tapping a clip the playhead isn't on puts the playhead on that clip's nearest edge.
     func tapClip(_ id: UUID) {
         selectedOverlayID = nil
+        captionsSelected = false
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         if selectedClipID == id { selectedClipID = nil; return }
         selectedClipID = id
@@ -688,9 +721,12 @@ final class EditorModel: ObservableObject {
     }
 
     /// Tap on a caption in the timeline: go there and open the caption settings.
+    /// Tap on a caption in the timeline: select the captions and edit that line.
     func openCaption(_ cue: CaptionCue) {
         pause()
         scrub(to: cue.start + 0.01)
+        captionsSelected = true
+        captionFocus = cue.id
         openCaptions = true
     }
 
@@ -1061,7 +1097,7 @@ final class EditorModel: ObservableObject {
 
     func selectOverlay(_ id: UUID?) {
         selectedOverlayID = id
-        if id != nil { selectedClipID = nil }
+        if id != nil { selectedClipID = nil; captionsSelected = false }
         // put the playhead on it so you see what you edit
         if let i = selectedOverlayIndex {
             let o = project.overlays[i]
@@ -1240,21 +1276,8 @@ final class EditorModel: ObservableObject {
         return abs(d.x) <= size.width / 2 + pad && abs(d.y) <= size.height / 2 + pad
     }
 
-    /// Tap on the preview: select an overlay (tap again for its settings), open the captions, or nothing hit.
-    func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool {
-        switch hit(p, canvas: canvas) {
-        case .overlay(let id):
-            if selectedOverlayID == id { openOverlayPanel = true } else { selectOverlay(id) }
-            UISelectionFeedbackGenerator().selectionChanged()
-            return true
-        case .captions:
-            pause()
-            openCaptions = true
-            return true
-        case nil:
-            return false
-        }
-    }
+    /// Taps on the preview only play / pause; what you edit is chosen in the timeline.
+    func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool { false }
 
     /// Shows the picked safe zone for a moment.
     func flashSafeZone() {
@@ -1311,18 +1334,12 @@ final class EditorModel: ObservableObject {
 
     private var lastGuides: Set<Guide> = []
 
+    /// Fingers on the preview move only what is selected in the timeline: the selected overlay, the
+    /// captions, or the selected clip (when the playhead is on it). Nothing selected: the clip at the playhead.
     func transformBegan(at p: CGPoint? = nil, canvas: CGSize = .zero) {
-        if let p, let h = hit(p, canvas: canvas) {
-            switch h {
-            case .overlay(let id):
-                selectOverlay(id)
-                if overlayTransformBegan() { return }
-            case .captions:
-                captionTransformBegan()
-                if captionStart != nil { return }
-            }
-        }
-        if overlayTransformBegan() { return }
+        if selectedOverlayID != nil { _ = overlayTransformBegan(); return }
+        if captionsSelected { captionTransformBegan(); return }
+        if selectedIndex != nil && !playheadInSelected { return }
         guard !fullscreen, trim == nil, let hit = project.clipIndex(at: currentTime) else { return }
         pause()
         let c = project.clips[hit.index]

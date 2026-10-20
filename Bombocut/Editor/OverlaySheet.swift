@@ -5,8 +5,11 @@ struct OverlaySheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.closePanel) private var close
     @FocusState private var typing: Bool
+    @Environment(\.panelCompact) private var compact
 
-    var body: some View {
+    var body: some View { full }
+
+    private var full: some View {
         ScrollView {
             if let i = model.selectedOverlayIndex {
                 let o = model.project.overlays[i]
@@ -15,10 +18,32 @@ struct OverlaySheet: View {
                         Label(o.title.components(separatedBy: "\n").first ?? "", systemImage: o.icon)
                             .font(.headline.weight(.heavy)).lineLimit(1)
                         Spacer()
-                        Text(Fmt.duration(o.duration)).font(.subheadline.weight(.bold).monospacedDigit())
-                            .foregroundStyle(Theme.muted)
+                        if compact {
+                            // typing: only the text shows, so the preview stays in view
+                            Button { typing = false } label: {
+                                Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                                    .padding(.horizontal, 14).frame(height: 30)
+                                    .background(Theme.accent, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(Fmt.duration(o.duration)).font(.subheadline.weight(.bold).monospacedDigit())
+                                .foregroundStyle(Theme.muted)
+                        }
                     }
                     if case .text(let text) = o.kind { textEditor(text, o.style) }
+                    if !compact { rest(o) }
+                }
+                .padding(.bottom, 30)
+            }
+        }
+        .scrollDisabled(compact)
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private func rest(_ o: Overlay) -> some View {
                     section("Blend") {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -40,16 +65,9 @@ struct OverlaySheet: View {
                         pill("Duplicate", on: false) { model.duplicateOverlay() }
                         pill("Delete", on: false) { model.deleteOverlay(); close() }
                     }
-                }
-                .padding(.bottom, 30)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
     }
 
-    @ViewBuilder
-    private func textEditor(_ text: String, _ s: CaptionStyle) -> some View {
+    private func textField(_ text: String) -> some View {
         TextField("Text", text: Binding(get: { text }, set: { t in
             model.liveEditBegan()
             model.editOverlay { $0.kind = .text(t) }
@@ -60,6 +78,16 @@ struct OverlaySheet: View {
         .padding(12)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
         .onChange(of: typing) { was, now in if was && !now { model.liveEditEnded() } }
+    }
+
+    @ViewBuilder
+    private func textEditor(_ text: String, _ s: CaptionStyle) -> some View {
+        textField(text)
+        if !compact { textStyle(s) }
+    }
+
+    @ViewBuilder
+    private func textStyle(_ s: CaptionStyle) -> some View {
 
         section("Font") {
             ScrollView(.horizontal, showsIndicators: false) {

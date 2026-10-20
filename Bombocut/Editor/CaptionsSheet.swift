@@ -16,6 +16,7 @@ struct CaptionsSheet: View {
     @State private var askCellular = false
     @State private var askedCellular = false
     @FocusState private var focusedCue: UUID?
+    @Environment(\.panelCompact) private var compact
 
     /// Your languages first (from setup), plus the one in use.
     private var languages: [CaptionLanguage.Item] {
@@ -32,13 +33,17 @@ struct CaptionsSheet: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 20)
+        .padding(.top, compact ? 4 : 20)
         .frame(maxHeight: .infinity, alignment: .top)
         .presentationBackground(Theme.panel)
         .onAppear {
             if Demo.mode == "captionstyle" { tab = 1 }
+            if let t = model.captionTab { tab = t; model.captionTab = nil }
+            if model.captionFocus != nil { tab = 0 }
             model.dismissCaptionJob()
         }
+        .onChange(of: model.captionFocus) { if model.captionFocus != nil { tab = 0 } }
+        .onChange(of: model.captionTab) { if let t = model.captionTab { tab = t; model.captionTab = nil } }
         .alert("Save template", isPresented: $savingTemplate) {
             TextField("Name", text: $templateName)
             Button("Save") { saveTemplate() }
@@ -172,6 +177,18 @@ struct CaptionsSheet: View {
 
     private func editor(_ caps: Captions) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            if compact {
+                HStack {
+                    Text("Captions").font(.headline.weight(.heavy))
+                    Spacer()
+                    Button { focusedCue = nil } label: {
+                        Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                            .padding(.horizontal, 14).frame(height: 30)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
             HStack(spacing: 8) {
                 tabButton("Text", 0)
                 tabButton("Style", 1)
@@ -186,6 +203,7 @@ struct CaptionsSheet: View {
                         .background(Theme.panel2, in: Circle())
                 }
                 .tint(.white)
+            }
             }
             if tab == 0 { textList(caps) } else { styleEditor(caps) }
         }
@@ -245,12 +263,28 @@ struct CaptionsSheet: View {
             }
             .onChange(of: focusedCue) { old, new in
                 if old != nil && new == nil { model.liveEditEnded() }
-                if let new, let cue = caps.cues.first(where: { $0.id == new }) { model.seekToCue(cue) }
+                if let new, let cue = caps.cues.first(where: { $0.id == new }) {
+                    model.seekToCue(cue)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { withAnimation { proxy.scrollTo(new, anchor: .top) } }
+                }
             }
             .onChange(of: model.currentTime) {
                 guard focusedCue == nil, model.isPlaying, let c = caps.cue(at: model.currentTime) else { return }
                 withAnimation { proxy.scrollTo(c.id, anchor: .center) }
             }
+            .onAppear { focusRequested(proxy) }
+            .onChange(of: model.captionFocus) { focusRequested(proxy) }
+        }
+    }
+
+    /// Tapped a caption in the timeline: scroll to its line and start editing it.
+    private func focusRequested(_ proxy: ScrollViewProxy) {
+        guard let id = model.captionFocus else { return }
+        model.captionFocus = nil
+        tab = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            proxy.scrollTo(id, anchor: .top)
+            focusedCue = id
         }
     }
 

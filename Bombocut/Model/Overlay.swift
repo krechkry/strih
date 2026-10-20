@@ -72,7 +72,9 @@ struct Overlay: Codable, Hashable, Identifiable {
         var s = CaptionStyle()
         s.size = 0.075
         s.anim = .none
-        s.shadow = true
+        s.shadow = false       // plain white text, no effects until you add them
+        s.strokeWidth = 0
+        s.box = false
         s.lines = 3
         s.punctuation = true
         return s

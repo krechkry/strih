@@ -51,12 +51,6 @@ final class OverlayRenderer: @unchecked Sendable {
             if o.opacity < 0.999 {
                 img = img.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, o.opacity))])
             }
-            // quick fade in / out so overlays never pop
-            let edge = min(0.12, o.duration / 4)
-            let f = min(1, (t - o.start) / max(edge, 0.001), (o.end - t) / max(edge, 0.001))
-            if f < 0.999 {
-                img = img.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, f))])
-            }
             if let name = o.blend.filter {
                 out = img.applyingFilter(name, parameters: [kCIInputBackgroundImageKey: out]).cropped(to: frame)
             } else {

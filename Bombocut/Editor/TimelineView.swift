@@ -82,6 +82,7 @@ struct TimelineView: View {
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
                     if let caps = model.project.captions, reorder == nil {
                         CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
+                                    selected: model.captionsSelected,
                                     onTap: { cue in model.openCaption(cue) })
                     }
                     if !model.project.overlays.isEmpty, reorder == nil {
@@ -462,6 +463,7 @@ private struct CaptionLane: View {
     let captions: Captions
     let pxPerSec: CGFloat
     let currentTime: Double
+    var selected = false
     var onTap: (CaptionCue) -> Void = { _ in }
 
     var body: some View {
@@ -476,7 +478,8 @@ private struct CaptionLane: View {
                     .lineLimit(1)
                     .padding(.horizontal, 4)
                     .frame(width: max(4, CGFloat(cue.end - cue.start) * pxPerSec - 1), height: 18, alignment: .leading)
-                    .background(on ? Theme.accent : Theme.accent.opacity(0.22), in: RoundedRectangle(cornerRadius: 4))
+                    .background(on ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
                     .clipped()
                     .contentShape(Rectangle())
                     .onTapGesture { onTap(cue) }
