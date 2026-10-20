@@ -85,10 +85,23 @@ final class FrameGrabber {
             generators[file] = gen
         }
         gen.cancelAllCGImageGeneration()
-        gen.generateCGImageAsynchronously(for: CMTime(seconds: t, preferredTimescale: 600)) { cg, _, _ in
-            guard let cg else { return }
-            let img = UIImage(cgImage: cg)
-            Task { @MainActor in completion(img) }
+        let time = CMTime(seconds: t, preferredTimescale: 600)
+        gen.generateCGImageAsynchronously(for: time) { cg, _, error in
+            if let cg {
+                let img = UIImage(cgImage: cg)
+                Task { @MainActor in completion(img) }
+                return
+            }
+            if let e = error as NSError?, e.code == NSUserCancelledError || e.code == -11819 { return }
+            // some files can't hit an exact frame: take the nearest one instead
+            let loose = AVAssetImageGenerator(asset: gen.asset)
+            loose.appliesPreferredTrackTransform = true
+            loose.maximumSize = gen.maximumSize
+            loose.generateCGImageAsynchronously(for: time) { cg2, _, _ in
+                guard let cg2 else { return }
+                let img = UIImage(cgImage: cg2)
+                Task { @MainActor in completion(img) }
+            }
         }
     }
 }

@@ -81,6 +81,8 @@ final class EditorModel: ObservableObject {
     private var trimSnapshot: Project?
     private var trimOriginal: Clip?
     private var liveStart: ClipTransform?
+    private var liveSource: Double?
+    private var gestureSnapshot: Project?
     private var liveGen = 0
     private var clearLiveGen: Int?
 
@@ -908,6 +910,8 @@ final class EditorModel: ObservableObject {
         let keepFrame = live?.clipID == c.id ? live?.frame : nil
         live = LiveTransform(clipID: c.id, frame: keepFrame, t: look.transform, fill: c.fill,
                              aspect: c.aspect ?? project.canvas.aspect)
+        gestureSnapshot = project
+        liveSource = src
         liveGrabber.grab(file: c.mediaFile, at: src) { [weak self] img in
             guard let self, self.live?.clipID == c.id else { return }
             self.live?.frame = EffectsRenderer.still(img, look.effects)
@@ -972,6 +976,12 @@ final class EditorModel: ObservableObject {
         l.t = t
         l.guides = guides
         live = l
+        // the real render follows the fingers too (exact, with effects, stabilization and tracking)
+        if let i = project.clips.firstIndex(where: { $0.id == l.clipID }), let s = liveSource {
+            Self.applyLook(&project.clips[i], atSource: s) { $0.transform = t }
+            LookStore.shared.patch(project.clips[i])
+            refreshFrame()
+        }
     }
 
     func transformEnded() {
@@ -980,14 +990,16 @@ final class EditorModel: ObservableObject {
         l.active = false
         l.guides = []
         live = l
-        guard let i = project.clips.firstIndex(where: { $0.id == l.clipID }), lookAtPlayhead(i).transform != l.t else {
+        let before = gestureSnapshot
+        gestureSnapshot = nil
+        liveSource = nil
+        guard let b = before, b != project else {
             live = nil
             return
         }
         clearLiveGen = liveGen
-        let s = sourceTime(i)
-        let t = l.t
-        mutateLook { p in Self.applyLook(&p.clips[i], atSource: s) { $0.transform = t } }
+        pushUndo(b)
+        commitLook()
     }
 
     /// The transform currently shown for a clip (live while dragging, keyframed or stored otherwise).

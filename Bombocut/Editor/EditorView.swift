@@ -85,10 +85,6 @@ struct EditorView: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward").frame(width: 38, height: 40) }
-                .disabled(!model.canUndo)
-            Button { model.redo() } label: { Image(systemName: "arrow.uturn.forward").frame(width: 38, height: 40) }
-                .disabled(!model.canRedo)
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
                     .font(.subheadline.weight(.bold))
@@ -107,10 +103,13 @@ struct EditorView: View {
     // MARK: Transport
 
     private var transport: some View {
-        HStack {
-            Text(Fmt.time(model.currentTime)).foregroundStyle(.white)
-            Text("/ " + Fmt.time(model.duration)).foregroundStyle(Theme.muted)
-            Spacer()
+        HStack(spacing: 0) {
+            HStack(spacing: 4) {
+                Text(Fmt.time(model.currentTime)).foregroundStyle(.white)
+                Text("/ " + Fmt.time(model.duration)).foregroundStyle(Theme.muted)
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button { model.togglePlay() } label: {
                 Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                     .font(.title2)
@@ -118,21 +117,28 @@ struct EditorView: View {
             }
             .tint(.white)
             .disabled(model.project.clips.isEmpty)
-            Spacer()
-            HStack(spacing: 2) {
-                keyframeButton
+            HStack(spacing: 0) {
+                Button { model.undo() } label: {
+                    Image(systemName: "arrow.uturn.backward").font(.body.weight(.semibold)).frame(width: 36, height: 40)
+                }
+                .disabled(!model.canUndo)
+                Button { model.redo() } label: {
+                    Image(systemName: "arrow.uturn.forward").font(.body.weight(.semibold)).frame(width: 36, height: 40)
+                }
+                .disabled(!model.canRedo)
+                keyframeButton.frame(width: 36)
                 Button { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true } } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .font(.body.weight(.semibold))
-                        .frame(width: 40, height: 40)
+                        .frame(width: 36, height: 40)
                 }
-                .tint(.white)
                 .disabled(model.project.clips.isEmpty)
             }
-            .frame(minWidth: 80, alignment: .trailing)
+            .tint(.white)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .font(.footnote.monospacedDigit().weight(.semibold))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .frame(height: 48)
     }
 
@@ -165,7 +171,7 @@ struct EditorView: View {
                 Image(systemName: k != nil ? "diamond.fill" : "diamond")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(k != nil ? Theme.accent : .white)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 40)
             } primaryAction: {
                 model.toggleKeyframe()
             }

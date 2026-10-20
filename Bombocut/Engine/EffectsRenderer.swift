@@ -16,6 +16,24 @@ final class LookStore: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Fast path while dragging: new look / keyframes for one clip, keeping its stabilization and tracking curves.
+    func patch(_ c: Clip) {
+        lock.lock()
+        if var s = states[c.id] {
+            s.fill = c.fill
+            s.look = c.staticLook
+            s.keyframes = c.keyframes
+            states[c.id] = s
+            lock.unlock()
+        } else {
+            lock.unlock()
+            let s = c.lookState
+            lock.lock()
+            states[c.id] = s
+            lock.unlock()
+        }
+    }
+
     func state(_ id: UUID) -> LookState? {
         lock.lock()
         defer { lock.unlock() }
