@@ -77,14 +77,17 @@ final class Purchases: ObservableObject {
 
     /// TestFlight installs come from the App Store's sandbox.
     private func checkBeta() async {
-        guard let result = try? await AppTransaction.shared, case .verified(let t) = result else { return }
+        // Xcode builds are beta anyway; asking for the app transaction there (or in the simulator)
+        // makes iOS show an Apple Account sign-in
         #if DEBUG
-        let beta = true
+        return
         #else
+        guard Demo.mode == nil else { return }
+        guard let result = try? await AppTransaction.shared, case .verified(let t) = result else { return }
         let beta = t.environment == .sandbox
-        #endif
         isBeta = beta
         UserDefaults.standard.set(beta, forKey: "isBeta")
+        #endif
     }
 
     func load() async {
