@@ -40,12 +40,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "Bombocut"
+        INFOPLIST_KEY_CFBundleDisplayName: "BOMBOCUT"
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Bombocut saves exported videos to your library."
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Bombocut imports videos you pick to edit them."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "BOMBOCUT saves exported videos to your library."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "BOMBOCUT imports videos you pick to edit them."
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait

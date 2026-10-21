@@ -18,10 +18,10 @@ struct AboutView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Bombocut").font(.largeTitle.weight(.heavy))
+                        Text("BOMBOCUT").font(.largeTitle.weight(.heavy))
                         Text(version).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(Theme.muted)
                     }
-                    block("Made by a tiny team", "Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
+                    block("Made by a tiny team", "BOMBOCUT is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
                     HStack(spacing: 10) {
                         if let url = Support.mailURL() {
                             pill("Send feedback", "envelope.fill") { openURL(url) }

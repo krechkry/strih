@@ -76,7 +76,7 @@ struct HomeView: View {
             }
             .scrollDisabled(painting)
             .background(Theme.bg)
-            .navigationTitle(selecting ? String.localizedStringWithFormat(loc("%lld selected"), selected.count) : "Bombocut")
+            .navigationTitle(selecting ? String.localizedStringWithFormat(loc("%lld selected"), selected.count) : "BOMBOCUT")
             .navigationBarTitleDisplayMode(selecting ? .inline : .automatic)
             .overlay(alignment: .bottom) { if selecting { selectionBar } }
             .toolbar {

@@ -200,7 +200,7 @@ enum Support {
     static func mailURL() -> URL? {
         guard !email.isEmpty else { return nil }
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        let subject = "Bombocut \(v) feedback"
+        let subject = "BOMBOCUT \(v) feedback"
         let body = "\n\n\n---\niOS \(UIDevice.current.systemVersion)"
         var c = URLComponents()
         c.scheme = "mailto"

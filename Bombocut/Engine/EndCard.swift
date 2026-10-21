@@ -93,8 +93,10 @@ enum EndCard {
                     Text(verbatim: "Made with")
                         .font(.system(size: 34, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
-                    Text(verbatim: "Bombocut")
+                    Text(verbatim: "BOMBOCUT")
                         .font(.system(size: 76, weight: .heavy))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .foregroundStyle(Theme.accent)
                 }
                 .opacity(max(0, fade))

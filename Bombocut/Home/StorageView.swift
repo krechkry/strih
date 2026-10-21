@@ -89,7 +89,7 @@ struct StorageView: View {
 
     private var total: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Bombocut uses").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            Text("BOMBOCUT uses").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
             Text(Self.size(report.total)).font(.system(size: 40, weight: .heavy).monospacedDigit())
         }
     }

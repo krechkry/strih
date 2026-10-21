@@ -160,12 +160,12 @@
         }
       }
     },
-    "A short Made with Bombocut card after your last clip. Thanks for spreading the word!": {
+    "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Krátká karta „Made with Bombocut“ po posledním klipu. Díky, že o nás dáváš vědět!"
+            "value": "Krátká karta „Made with BOMBOCUT“ po posledním klipu. Díky, že o nás dáváš vědět!"
           }
         }
       }
@@ -620,42 +620,42 @@
         }
       }
     },
-    "Bombocut end card": {
+    "BOMBOCUT end card": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koncová karta Bombocut"
+            "value": "Koncová karta BOMBOCUT"
           }
         }
       }
     },
-    "Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.": {
+    "BOMBOCUT is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut dělá úplně malý tým. Tvůj nákup nám umožní dál vydávat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
+            "value": "BOMBOCUT dělá úplně malý tým. Tvůj nákup nám umožní dál vydávat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
           }
         }
       }
     },
-    "Bombocut measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
+    "BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
+            "value": "BOMBOCUT změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
           }
         }
       }
     },
-    "Bombocut uses": {
+    "BOMBOCUT uses": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut zabírá"
+            "value": "BOMBOCUT zabírá"
           }
         }
       }
@@ -720,12 +720,12 @@
         }
       }
     },
-    "Buy Bombocut once to keep editing. Your projects are safe on your iPhone and open right after.": {
+    "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone and open right after.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kup si Bombocut jednou a stříhej dál. Projekty máš v bezpečí v iPhonu a otevřou se hned po nákupu."
+            "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty máš v bezpečí v iPhonu a otevřou se hned po nákupu."
           }
         }
       }
@@ -1394,12 +1394,12 @@
         }
       }
     },
-    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.": {
+    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Táhni prstem do stran po náhledu a najdi snímek, kde je objekt dobře vidět. Pak klepni na Vybrat objekt a klepni na něj, nebo ho zhruba orámuj. Bombocut ho najde, nakreslí rámeček, který můžeš doladit, a sleduje ho celým klipem."
+            "value": "Táhni prstem do stran po náhledu a najdi snímek, kde je objekt dobře vidět. Pak klepni na Vybrat objekt a klepni na něj, nebo ho zhruba orámuj. BOMBOCUT ho najde, nakreslí rámeček, který můžeš doladit, a sleduje ho celým klipem."
           }
         }
       }
@@ -2038,12 +2038,12 @@
         }
       }
     },
-    "Keep Bombocut": {
+    "Keep BOMBOCUT": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bombocut napořád"
+            "value": "BOMBOCUT napořád"
           }
         }
       }
@@ -2698,12 +2698,12 @@
         }
       }
     },
-    "Pick a subject (a rider, a face, a sign). Bombocut tracks it through the clip and holds it in place, so the shake and the movement go into everything around it.": {
+    "Pick a subject (a rider, a face, a sign). BOMBOCUT tracks it through the clip and holds it in place, so the shake and the movement go into everything around it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyber objekt (jezdce, obličej, ceduli). Bombocut ho sleduje celým klipem a drží ho na místě, takže otřesy a pohyb přejdou na všechno kolem."
+            "value": "Vyber objekt (jezdce, obličej, ceduli). BOMBOCUT ho sleduje celým klipem a drží ho na místě, takže otřesy a pohyb přejdou na všechno kolem."
           }
         }
       }
@@ -3728,12 +3728,12 @@
         }
       }
     },
-    "The 7-day trial is free and has everything unlocked. After 7 days Bombocut stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically.": {
+    "The 7-day trial is free and has everything unlocked. After 7 days BOMBOCUT stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech Bombocut přestane fungovat, pokud si ho jednou nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
+            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech BOMBOCUT přestane fungovat, pokud si ho jednou nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
           }
         }
       }
@@ -4158,12 +4158,12 @@
         }
       }
     },
-    "Words it should spell your way, split with commas. Example: Kryštof, Bombocut, PVP": {
+    "Words it should spell your way, split with commas. Example: Kryštof, BOMBOCUT, PVP": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Slova, která má napsat přesně po tvém, odděl čárkami. Třeba: Kryštof, Bombocut, PVP"
+            "value": "Slova, která má napsat přesně po tvém, odděl čárkami. Třeba: Kryštof, BOMBOCUT, PVP"
           }
         }
       }

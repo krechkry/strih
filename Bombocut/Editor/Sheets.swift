@@ -269,8 +269,8 @@ struct ExportSheet: View {
 
                 group("End card") {
                     card {
-                        OnOffRow(title: "Bombocut end card",
-                                 subtitle: "A short Made with Bombocut card after your last clip. Thanks for spreading the word!",
+                        OnOffRow(title: "BOMBOCUT end card",
+                                 subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
                                  isOn: endCard) { endCard = $0 }
                     }
                 }
@@ -644,7 +644,7 @@ struct StabilizeSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
                 } else {
-                    Text("Bombocut measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.")
+                    Text("BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     Button { model.analyzeStabilization(); dismiss() } label: {
                         Label("Analyze & stabilize", systemImage: "gyroscope")
@@ -720,7 +720,7 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text("Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. Bombocut finds it, draws a box you can fix, and follows it through the whole clip.")
+                Text("Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { dismiss(); model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

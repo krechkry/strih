@@ -16,7 +16,7 @@ https://appstoreconnect.apple.com → Apps → **+** → New App
 | Field | Value |
 |---|---|
 | Platform | iOS |
-| Name | Bombocut (must be unique on the App Store; if taken, e.g. "Bombocut: Video Editor") |
+| Name | BOMBOCUT (all caps is the brand, same as in the app; must be unique on the App Store; if taken, e.g. "BOMBOCUT: Video Editor") |
 | Primary language | English (U.S.) (Czech gets added as a localization later) |
 | Bundle ID | cz.krechler.bombocut (it appears in the list after the first Xcode run with your paid team; if not, register it under Certificates, Identifiers & Profiles → Identifiers) |
 | SKU | bombocut |
@@ -40,11 +40,11 @@ App Store Connect → TestFlight → **Test Information**. Paste:
 
 **Beta App Description (English)**
 
-> Bombocut is a video editor for iPhone made by a tiny team in Prague. Auto subtitles in 25 languages are made on your iPhone, offline: no cloud, no account, no data collection. Fast speed curves with smooth slow motion and motion blur, keyframes, text and overlays with blend modes, subject masks, stabilization and subject tracking, and full export control (resolution, fps, bitrate, HEVC). Everything is free while in beta.
+> BOMBOCUT is a video editor for iPhone made by a tiny team in Prague. Auto subtitles in 25 languages are made on your iPhone, offline: no cloud, no account, no data collection. Fast speed curves with smooth slow motion and motion blur, keyframes, text and overlays with blend modes, subject masks, stabilization and subject tracking, and full export control (resolution, fps, bitrate, HEVC). Everything is free while in beta.
 
 **Beta App Description (Czech, add Czech under localizations)**
 
-> Bombocut je střihač videa pro iPhone od malinkého týmu z Prahy. Automatické titulky ve 25 jazycích vznikají přímo v iPhonu, offline: žádný cloud, žádný účet, žádné sbírání dat. Rychlostní křivky s plynulým zpomalením a motion blurem, keyframy, texty a překrytí s režimy prolnutí, maska objektu, stabilizace a tracking a plná kontrola exportu (rozlišení, fps, bitrate, HEVC). Během bety je všechno zdarma.
+> BOMBOCUT je střihač videa pro iPhone od malinkého týmu z Prahy. Automatické titulky ve 25 jazycích vznikají přímo v iPhonu, offline: žádný cloud, žádný účet, žádné sbírání dat. Rychlostní křivky s plynulým zpomalením a motion blurem, keyframy, texty a překrytí s režimy prolnutí, maska objektu, stabilizace a tracking a plná kontrola exportu (rozlišení, fps, bitrate, HEVC). Během bety je všechno zdarma.
 
 **Feedback Email**: your email (required by Apple, testers can write to it).
 

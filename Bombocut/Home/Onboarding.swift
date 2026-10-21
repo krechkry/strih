@@ -79,7 +79,7 @@ struct OnboardingView: View {
             MemeView(meme: .cameraGrin)
                 .frame(width: 84, height: 84)
             VStack(alignment: .leading, spacing: 10) {
-                Text("Bombocut").font(.system(size: 44, weight: .heavy))
+                Text("BOMBOCUT").font(.system(size: 44, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.7)
                 Text("Subtitles in 25 languages, made on your iPhone. Everything runs offline: no cloud, no account, no data collection. Just the app, your battery and your chip.")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.8))
@@ -195,7 +195,7 @@ struct PaywallView: View {
         .scrollIndicators(.hidden)
         .background(Theme.bg.ignoresSafeArea())
         .onChange(of: purchases.access) { _, a in if mode == .buy && a == .owned { dismiss() } }
-        .alert("Bombocut", isPresented: Binding(get: { purchases.error != nil }, set: { if !$0 { purchases.error = nil } })) {
+        .alert("BOMBOCUT", isPresented: Binding(get: { purchases.error != nil }, set: { if !$0 { purchases.error = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(purchases.error ?? "") }
         .task { if purchases.full == nil { await purchases.load() } }
@@ -204,7 +204,7 @@ struct PaywallView: View {
     private var headline: String {
         switch mode {
         case .start: return loc("Try everything free for 7 days")
-        case .buy: return loc("Keep Bombocut")
+        case .buy: return loc("Keep BOMBOCUT")
         case .expired: return loc("Your 7 free days are over")
         }
     }
@@ -215,12 +215,12 @@ struct PaywallView: View {
         case .buy:
             let d = purchases.daysLeft
             return d == 1 ? loc("1 day of your trial left.") : String.localizedStringWithFormat(loc("%lld days of your trial left."), d)
-        case .expired: return loc("Buy Bombocut once to keep editing. Your projects are safe on your iPhone and open right after.")
+        case .expired: return loc("Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone and open right after.")
         }
     }
 
     private var disclosure: String {
-        String(format: loc("The 7-day trial is free and has everything unlocked. After 7 days Bombocut stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically."), purchases.price)
+        String(format: loc("The 7-day trial is free and has everything unlocked. After 7 days BOMBOCUT stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically."), purchases.price)
     }
 
     private var team: some View {
@@ -228,7 +228,7 @@ struct PaywallView: View {
             Label("Made by a tiny team", systemImage: "heart.fill")
                 .font(.subheadline.weight(.heavy))
                 .foregroundStyle(Theme.accent)
-            Text("Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
+            Text("BOMBOCUT is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
                 .font(.subheadline.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
             if let url = Support.mailURL() {
