@@ -127,7 +127,7 @@ struct TimelineView: View {
                                             .frame(width: overlaps[k], height: stripHeight)
                                             .contentShape(Rectangle())
                                             .onTapGesture { model.openTransition(cut: k - 1) }
-                                            .allowsHitTesting(!busy)
+                                            .allowsHitTesting(!busy && UIMode.isPro)   // Basic has no transitions
                                             .offset(x: slotX(shown, k))
                                     }
                                 }

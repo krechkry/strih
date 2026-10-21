@@ -25,8 +25,8 @@ struct RootView: View {
         Group {
             if Demo.mode == "memes" {
                 MemeGallery()
-            } else if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" {
-                OnboardingView(step: Demo.mode == "paywall" ? 3 : (Demo.mode == "uimode" ? 1 : 0))
+            } else if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" || Demo.mode == "uimodepro" {
+                OnboardingView(step: Demo.mode == "paywall" ? 3 : (Demo.mode?.hasPrefix("uimode") == true ? 1 : 0))
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
             } else if Demo.mode == nil && !inApp && (!onboarded || (gate && purchases.access == .new)) {

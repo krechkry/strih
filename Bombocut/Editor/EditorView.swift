@@ -519,7 +519,7 @@ struct EditorView: View {
                         ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                         ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
                     }
-                    ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openTransitionTool() }
+                    if pro { ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openTransitionTool() } }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }

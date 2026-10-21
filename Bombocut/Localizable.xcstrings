@@ -1474,12 +1474,12 @@
         }
       }
     },
-    "Everything: keyframes, overlays and blend modes, masks, tracking, stabilization, motion blur, speed curves, animations and social layouts.": {
+    "Everything: keyframes, transitions, overlays and blend modes, masks, tracking, stabilization, motion blur, speed curves, animations and social layouts.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno: keyframy, překrytí a režimy prolnutí, masky, tracking, stabilizace, motion blur, rychlostní křivky, animace a layouty sítí."
+            "value": "Všechno: keyframy, přechody, překrytí a režimy prolnutí, masky, tracking, stabilizace, motion blur, rychlostní křivky, animace a layouty sítí."
           }
         }
       }
