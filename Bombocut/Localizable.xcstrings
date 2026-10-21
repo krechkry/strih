@@ -3748,12 +3748,12 @@
         }
       }
     },
-    "Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci, CapCut or Keynote. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.": {
+    "Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Průhledné video: jen objekt, HEVC s alfa kanálem (.mov) pro Final Cut, DaVinci, CapCut nebo Keynote. Alfa maska: bílý objekt na černé, použiješ ji jako masku kdekoli. Změny rychlosti se do souborů nepromítnou."
+            "value": "Průhledné video: jen objekt, HEVC s alfa kanálem (.mov) pro Final Cut, DaVinci Resolve, Keynote a další editory. Alfa maska: bílý objekt na černé, použiješ ji jako masku kdekoli. Změny rychlosti se do souborů nepromítnou."
           }
         }
       }

@@ -115,7 +115,7 @@ struct MaskSheet: View {
                     action("Transparent video", "person.crop.square.filled.and.at.rectangle") { start(.cutout, i) }
                     action("Matte", "circle.lefthalf.filled") { start(.matte, i) }
                 }
-                Text("Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci, CapCut or Keynote. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.")
+                Text("Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.")
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 if let failure {
