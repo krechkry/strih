@@ -101,6 +101,8 @@ struct ExportSheet: View {
     /// What the first clip was, while the settings still match it.
     @State private var matched: (short: Int, fps: Double, hevc: Bool)?
     @State private var phase: Phase = .setup
+    /// Picked when the export finishes, by how much of the editor went into the project.
+    @State private var doneMeme = Meme.absoluteCinema
     @State private var exporter = Exporter()
     @State private var task: Task<Void, Never>?
 
@@ -155,7 +157,10 @@ struct ExportSheet: View {
         .onDisappear { if isExporting { exporter.cancel() } }
         .task { await matchFirstClip() }
         .onAppear {
-            if Demo.mode == "done" { phase = .done(URL(fileURLWithPath: "/dev/null"), saved: true, note: nil) }
+            if Demo.mode == "done" {
+                doneMeme = EditEffort.doneMeme(for: project)
+                phase = .done(URL(fileURLWithPath: "/dev/null"), saved: true, note: nil)
+            }
             if Demo.mode == "exporting" { phase = .exporting(0.42) }
         }
     }
@@ -376,6 +381,7 @@ struct ExportSheet: View {
                         if case .exporting = phase { phase = .exporting(p) }
                     }
                 }
+                doneMeme = EditEffort.doneMeme(for: project)
                 do {
                     try await Exporter.saveToPhotos(url)
                     phase = .done(url, saved: true, note: nil)
@@ -439,7 +445,7 @@ struct ExportSheet: View {
     private func doneView(_ url: URL, _ saved: Bool, _ note: String?) -> some View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
-            MemeView(meme: .absoluteCinema)
+            MemeView(meme: doneMeme)
                 .frame(width: 250, height: 250)
             Text(verbatim: loc(saved ? "Saved to Photos" : "Export finished"))
                 .font(.title3.weight(.heavy))
