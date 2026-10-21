@@ -330,6 +330,16 @@
         }
       }
     },
+    "Amount": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Síla"
+          }
+        }
+      }
+    },
     "Analyze & stabilize": {
       "localizations": {
         "cs": {
@@ -496,6 +506,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Za objekt"
+          }
+        }
+      }
+    },
+    "Between clip %lld and %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mezi klipem %lld a %lld"
           }
         }
       }
@@ -730,6 +750,16 @@
         }
       }
     },
+    "Capital letters": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velká písmena"
+          }
+        }
+      }
+    },
     "Captions": {
       "localizations": {
         "cs": {
@@ -836,6 +866,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Barva"
+          }
+        }
+      }
+    },
+    "Commas and full stops": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čárky a tečky"
           }
         }
       }
@@ -1954,6 +1994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zbytky přerušených stahování"
+          }
+        }
+      }
+    },
+    "Length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka"
           }
         }
       }
@@ -3358,6 +3408,16 @@
         }
       }
     },
+    "The first clip goes out and the next one comes in the same way, through black.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "První klip odejde a další nastoupí stejným způsobem, přes černou."
+          }
+        }
+      }
+    },
     "The matte is ready": {
       "localizations": {
         "cs": {
@@ -3494,6 +3554,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tracking"
+          }
+        }
+      }
+    },
+    "Transition": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přechod"
           }
         }
       }

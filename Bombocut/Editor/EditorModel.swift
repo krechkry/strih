@@ -795,6 +795,55 @@ final class EditorModel: ObservableObject {
         isPlaying = true
     }
 
+    // MARK: Transitions between clips
+
+    /// The cut being edited: between clip `cut` and clip `cut + 1`.
+    @Published var transitionCut: Int?
+    @Published var openTransitionPanel = false
+    @Published var openAddClips = false
+
+    func requestAddClips() {
+        pause()
+        selectedClipID = nil      // new clips go to the end
+        openAddClips = true
+    }
+
+    func openTransition(cut k: Int) {
+        guard k >= 0, k + 1 < project.clips.count else { return }
+        pause()
+        selectedClipID = project.clips[k + 1].id
+        transitionCut = k
+        scrub(to: project.clipStarts[k + 1])
+        openTransitionPanel = true
+    }
+
+    /// One transition for a cut: the clip before goes out and the clip after comes in the same way.
+    func setCutTransition(_ kind: MotionAnim, duration: Double? = nil) {
+        guard let k = transitionCut, k + 1 < project.clips.count else { return }
+        mutateLook { p in
+            p.clips[k].anim.outAnim = kind
+            p.clips[k + 1].anim.inAnim = kind
+            if let d = duration {
+                p.clips[k].anim.outDur = d
+                p.clips[k + 1].anim.inDur = d
+            }
+        }
+    }
+
+    func editCutDuration(_ d: Double) {
+        guard let k = transitionCut, k + 1 < project.clips.count else { return }
+        project.clips[k].anim.outDur = d
+        project.clips[k + 1].anim.inDur = d
+        publishLook()
+    }
+
+    func previewCut() {
+        guard let k = transitionCut, k + 1 < project.clips.count else { return }
+        let t = project.clipStarts[k + 1]
+        let d = max(project.clips[k].anim.outDur, project.clips[k + 1].anim.inDur)
+        playOnce(from: max(0, t - d - 0.4), to: min(duration, t + d + 0.4), back: t)
+    }
+
     func setClipAnim(_ a: AnimPair) {
         guard let i = selectedIndex, project.clips[i].anim != a else { return }
         mutateLook { $0.clips[i].anim = a }
@@ -1299,7 +1348,12 @@ final class EditorModel: ObservableObject {
     // MARK: Motion blur
 
     func setMotionBlur(_ v: Double) {
-        editClip { $0.motionBlur = min(max(v, 0), 1) }
+        editClip { $0.motionBlur = min(max(v, 0.01), 1) }
+    }
+
+    func setMotionBlurOn(_ on: Bool) {
+        guard let i = selectedIndex, project.clips[i].motionBlurOn != on else { return }
+        mutateLook { $0.clips[i].motionBlurOn = on }
     }
 
     func setBlurDirection(_ d: BlurDirection) {
@@ -1320,7 +1374,7 @@ final class EditorModel: ObservableObject {
             case .volume: return "Volume"
             case .mask: return "Mask"
             case .overlayStyle: return "Look of the overlay"
-            case .animation: return "Animation"
+            case .animation: return "Transition"
             }
         }
         /// Copies between overlays instead of clips.
@@ -1342,6 +1396,7 @@ final class EditorModel: ObservableObject {
         switch kind {
         case .motionBlur:
             c.motionBlur = s.motionBlur
+            c.motionBlurOn = s.motionBlurOn
             c.blurDirection = s.blurDirection
         case .adjust:
             c.effects = look.effects

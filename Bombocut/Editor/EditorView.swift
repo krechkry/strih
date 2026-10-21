@@ -10,6 +10,7 @@ struct EditorView: View {
     @State private var addItems: [PhotosPickerItem] = []
     @State private var overlayItems: [PhotosPickerItem] = []
     @State private var showAudioFiles = false
+    @State private var showAddClips = false
     @State private var showAudioVideo = false
     @State private var audioVideoItem: PhotosPickerItem?
     @State private var adding = false
@@ -172,6 +173,7 @@ struct EditorView: View {
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
         .onChange(of: sheet) { _, s in
+            if s != .animation { model.transitionCut = nil }
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
         }
@@ -184,6 +186,14 @@ struct EditorView: View {
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
         }
+        .onChange(of: model.openTransitionPanel) { _, open in
+            if open { model.openTransitionPanel = false; sheet = .animation }
+        }
+        .onChange(of: model.openAddClips) { _, open in
+            if open { model.openAddClips = false; showAddClips = true }
+        }
+        .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
+                      matching: .videos, preferredItemEncoding: .current)
         .onChange(of: model.openOverlayPanel) { _, open in
             if open { model.openOverlayPanel = false; sheet = .overlay }
         }
@@ -243,17 +253,23 @@ struct EditorView: View {
 
     /// Opens the social layout panel; shows which app's layout is on.
     private var safeZoneMenu: some View {
-        Button { model.pause(); sheet = sheet == .layout ? nil : .layout } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "rectangle.dashed")
-                Text(loc(safeZoneAlways && safeZone != .off ? safeZone.short : "Layout"))
-            }
-            .font(.footnote.weight(.bold))
-            .foregroundStyle(safeZoneAlways && safeZone != .off ? .black : .white.opacity(0.85))
-            .padding(.horizontal, 10).frame(height: 28)
-            .background(safeZoneAlways && safeZone != .off ? Theme.accent : Theme.panel2, in: Capsule())
+        let on = safeZoneAlways && safeZone != .off
+        return HStack(spacing: 5) {
+            Image(systemName: "rectangle.dashed")
+            Text(loc(on ? safeZone.short : "Layout"))
         }
-        .buttonStyle(.plain)
+        .font(.footnote.weight(.bold))
+        .foregroundStyle(on ? .black : .white.opacity(0.85))
+        .padding(.horizontal, 10).frame(height: 28)
+        .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        .contentShape(Capsule())
+        // tap: the layout panel; hold: switch the layout on / off right here
+        .onTapGesture { model.pause(); sheet = sheet == .layout ? nil : .layout }
+        .onLongPressGesture(minimumDuration: 0.45) {
+            if safeZone == .off { safeZone = .reels }
+            safeZoneAlways.toggle()
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
     }
 
     /// Top-left status while captions are prepared in the background (you can keep editing).
@@ -472,20 +488,15 @@ struct EditorView: View {
                 } else if let i = model.selectedIndex {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
+                    if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     if pro {
-                        ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
                         ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                         ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                         ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
-                        ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
-                            model.pause()
-                            Task { await model.extractClipAudio() }
-                        }
                     }
-                    ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-                    if pro { ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation } }
+                    ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.pause(); model.transitionCut = nil; sheet = .animation }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }
@@ -495,6 +506,13 @@ struct EditorView: View {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
+                    if pro {
+                        ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
+                            model.pause()
+                            Task { await model.extractClipAudio() }
+                        }
+                    }
+                    ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelected() }
                 } else {
                     PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .videos,

@@ -179,14 +179,9 @@ struct LayoutSheet: View {
             HStack {
                 Text("Social layout").font(.title3.weight(.heavy))
                 Spacer()
-                Button { on.toggle(); if zone == .off { zone = .reels } } label: {
-                    Text(on ? loc("On") : loc("Off"))
-                        .font(.subheadline.weight(.heavy))
-                        .foregroundStyle(on ? .black : .white)
-                        .frame(width: 64, height: 32)
-                        .background(on ? Theme.accent : Theme.panel2, in: Capsule())
-                }
-                .buttonStyle(.plain)
+                Toggle("", isOn: Binding(get: { on }, set: { v in on = v; if zone == .off { zone = .reels } }))
+                    .labelsHidden()
+                    .tint(Theme.accent)
             }
             HStack(spacing: 8) {
                 ForEach(SafeZone.allCases.filter { $0 != .off }) { z in

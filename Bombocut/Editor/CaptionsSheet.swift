@@ -363,22 +363,15 @@ struct CaptionsSheet: View {
                 colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
                 slider("Outline width", value: s.strokeWidth, in: 0...1) { v in { $0.strokeWidth = v } }
 
-                section("Box") {
-                    HStack(spacing: 8) {
-                        pill("Off", on: !s.box) { setStyle { $0.box = false } }
-                        pill("On", on: s.box) { setStyle { $0.box = true } }
-                    }
-                }
+                OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
                 if s.box {
                     colorRow("Box color", s.boxColor) { c in { $0.boxColor = c } }
                     slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
                 }
-                section("Extras") {
-                    HStack(spacing: 8) {
-                        pill("CAPS", on: s.caps) { setStyle { $0.caps.toggle() } }
-                        pill("Shadow", on: s.shadow) { setStyle { $0.shadow.toggle() } }
-                        pill(", and .", on: s.punctuation) { setStyle(recut: true) { $0.punctuation.toggle() } }
-                    }
+                VStack(spacing: 12) {
+                    OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
+                    OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
+                    OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
                 }
             }
             .padding(.bottom, 30)

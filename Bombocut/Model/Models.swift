@@ -170,7 +170,10 @@ struct Clip: Identifiable, Codable, Hashable {
     var aspect: Double?            // source width / height, upright
     var smoothSlowMo = false       // invent in-between frames when slowed down
     var mask: SubjectMask?         // subject cut-out for background effects / overlays behind the subject
-    var motionBlur = 0.0           // 0...1, smear along the movement (Apple Video Toolbox)
+    var motionBlur = 0.5           // 0...1 amount, smear along the movement (Apple Video Toolbox)
+    var motionBlurOn = false       // the switch: the amount stays when it is off
+    /// What the renderer uses.
+    var blurAmount: Double { motionBlurOn ? motionBlur : 0 }
     var blurDirection = BlurDirection.both
     var anim = AnimPair()          // in / out animation of the clip
 
@@ -190,7 +193,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(), track: tracking?.curve(), mask: mask,
-                  motionBlur: motionBlur, blurDirection: blurDirection, anim: anim)
+                  motionBlur: blurAmount, blurDirection: blurDirection, anim: anim)
     }
 
     var retime: Retime { Retime(self) }
@@ -208,7 +211,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, blurDirection, anim
+        case motionBlur, motionBlurOn, blurDirection, anim
     }
 
     init(from d: Decoder) throws {
@@ -233,6 +236,7 @@ struct Clip: Identifiable, Codable, Hashable {
         smoothSlowMo = try c.decodeIfPresent(Bool.self, forKey: .smoothSlowMo) ?? false
         mask = try c.decodeIfPresent(SubjectMask.self, forKey: .mask)
         motionBlur = try c.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 0
+        let savedOn = try c.decodeIfPresent(Bool.self, forKey: .motionBlurOn)
         blurDirection = try c.decodeIfPresent(BlurDirection.self, forKey: .blurDirection) ?? .both
         anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
         // older projects kept motion blur among the Adjust effects
@@ -241,11 +245,14 @@ struct Clip: Identifiable, Codable, Hashable {
         }
         effects.motionBlur = 0
         for i in keyframes.indices { keyframes[i].look.effects.motionBlur = 0 }
+        // projects from before the switch: on when an amount was set
+        motionBlurOn = savedOn ?? (motionBlur > 0.001)
+        if motionBlur < 0.001 { motionBlur = 0.5 }
     }
 
     /// Needs the neighbouring source frames while rendering (motion blur or smooth slow motion).
     var needsNeighbours: Bool {
-        let blur = motionBlur > 0.001
+        let blur = blurAmount > 0.001
         let slow = smoothSlowMo && retime.segs.contains { $0.outLen > $0.srcLen * 1.05 }
         return blur || slow
     }

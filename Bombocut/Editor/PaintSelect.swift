@@ -62,3 +62,23 @@ extension View {
         modifier(PaintSelect(ids: ids, selection: selection, painting: painting, axis: axis, index: index, canSelect: canSelect))
     }
 }
+
+/// A labelled on / off switch in the app's lime.
+struct OnOffRow: View {
+    let title: String
+    var subtitle: String? = nil
+    let isOn: Bool
+    let set: (Bool) -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { isOn }, set: set)) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(loc(title)).font(.body.weight(.semibold))
+                if let subtitle {
+                    Text(loc(subtitle)).font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                }
+            }
+        }
+        .tint(Theme.accent)
+    }
+}

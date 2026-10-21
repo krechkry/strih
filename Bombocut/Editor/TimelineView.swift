@@ -80,6 +80,38 @@ struct TimelineView: View {
                                 .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
                         }
+                        if reorder == nil && model.pick == nil && model.trim == nil {
+                            // add clips at the end
+                            Button { model.requestAddClips() } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 48, height: stripHeight)
+                                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 6)
+                        }
+                    }
+                    .overlay(alignment: .leading) {
+                        // a transition button on every cut
+                        if reorder == nil && model.pick == nil && model.trim == nil && shown.count > 1 {
+                            ZStack(alignment: .leading) {
+                                ForEach(1..<shown.count, id: \.self) { k in
+                                    let has = shown[k - 1].anim.outAnim != .none || shown[k].anim.inAnim != .none
+                                    Button { model.openTransition(cut: k - 1) } label: {
+                                        Image(systemName: has ? "rectangle.lefthalf.inset.filled.arrow.left" : "arrow.left.and.right")
+                                            .font(.system(size: 10, weight: .heavy))
+                                            .foregroundStyle(.black)
+                                            .frame(width: 22, height: 22)
+                                            .background(has ? Theme.accent : .white, in: RoundedRectangle(cornerRadius: 6))
+                                            .shadow(color: .black.opacity(0.4), radius: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .offset(x: slotX(shown, k) - gap / 2 - 11)
+                                }
+                            }
+                        }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
                     .paintSelect(ids: shown.map(\.id),

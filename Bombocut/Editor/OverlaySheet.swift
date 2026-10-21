@@ -142,13 +142,9 @@ struct OverlaySheet: View {
     private func styleTab(_ s: CaptionStyle) -> some View {
         colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
         slider("Outline width", value: s.strokeWidth, in: 0...1) { v in model.editOverlay { $0.style.strokeWidth = v } }
-        section("Extras") {
-            HStack(spacing: 8) {
-                pill("Box", on: s.box) { model.setOverlay { $0.style.box.toggle() } }
-                pill("Shadow", on: s.shadow) { model.setOverlay { $0.style.shadow.toggle() } }
-                pill("CAPS", on: s.caps) { model.setOverlay { $0.style.caps.toggle() } }
-            }
-        }
+        OnOffRow(title: "Box", isOn: s.box) { v in model.setOverlay { $0.style.box = v } }
+        OnOffRow(title: "Shadow", isOn: s.shadow) { v in model.setOverlay { $0.style.shadow = v } }
+        OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
         if s.box {
             colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } }
             slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
@@ -191,14 +187,8 @@ struct OverlaySheet: View {
                 }
             }
         }
-        Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Behind subject").font(.body.weight(.semibold))
-                Text("Needs a subject mask on the clip below (Mask tool)")
-                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-            }
-        }
-        .tint(Theme.accent)
+        OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip below (Mask tool)",
+                 isOn: o.behindSubject) { v in model.setOverlay { $0.behindSubject = v } }
         if model.project.overlays.count > 1 { ApplyRow(model: model, kind: .overlayStyle) }
         HStack(spacing: 10) {
             pill("Duplicate", on: false) { model.duplicateOverlay() }
