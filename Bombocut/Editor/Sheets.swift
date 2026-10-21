@@ -330,7 +330,7 @@ struct ExportSheet: View {
     private func doneView(_ url: URL, _ saved: Bool, _ note: String?) -> some View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
-            DancingBomb()
+            MemeView(meme: .absoluteCinema)
                 .frame(width: 240, height: 240)
             Text("Big up!").font(.system(size: 34, weight: .heavy))
             Text(saved ? "Saved to Photos" : (note ?? "Export finished"))

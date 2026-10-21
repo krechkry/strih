@@ -23,7 +23,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" {
+            if Demo.mode == "memes" {
+                MemeGallery()
+            } else if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" {
                 OnboardingView(step: Demo.mode == "paywall" ? 3 : (Demo.mode == "uimode" ? 1 : 0))
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
@@ -74,7 +76,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 22) {
             Spacer(minLength: 20)
-            DancingBomb()
+            MemeView(meme: .camcorder)
                 .frame(width: 84, height: 84)
             VStack(alignment: .leading, spacing: 10) {
                 Text("Bombocut").font(.system(size: 44, weight: .heavy))
