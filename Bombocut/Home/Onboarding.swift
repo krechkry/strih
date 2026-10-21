@@ -81,13 +81,13 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("BOMBOCUT").font(.system(size: 44, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.7)
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Automatic subtitles in 25 languages. And all the other features you like, but…")
-                    Text("…everything runs offline, on your iPhone. No cloud, no account, no data collection.")
+                    Text("Automatic subtitles in 25 languages. And all the other features you would expect.")
+                    Text("Everything runs offline, on your iPhone. No cloud, no account, no data collection.")
                 }
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
-                Text("Made by a filmmaker, in Prague")
+                Text("Made by a filmmaker, in Prague.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                     .padding(.top, 6)

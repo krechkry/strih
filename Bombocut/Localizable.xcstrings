@@ -3628,32 +3628,32 @@
         }
       }
     },
-    "Automatic subtitles in 25 languages. And all the other features you like, but…": {
+    "Automatic subtitles in 25 languages. And all the other features you would expect.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatické titulky ve 25 jazycích. A všechno ostatní, co od střihače čekáš, ale…"
+            "value": "Automatické titulky ve 25 jazycích. A všechny ostatní funkce, který bys čekal."
           }
         }
       }
     },
-    "…everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
+    "Everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "…všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+            "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
           }
         }
       }
     },
-    "Made by a filmmaker, in Prague": {
+    "Made by a filmmaker, in Prague.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Od filmaře, z Prahy"
+            "value": "Vytvořil jeden filmař v Praze"
           }
         }
       }
