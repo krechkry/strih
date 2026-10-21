@@ -3378,6 +3378,26 @@
         }
       }
     },
+    "Smooth cut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulý střih"
+          }
+        }
+      }
+    },
+    "Smooth cut morphs one shot into the next, so a jump cut in similar footage (someone talking, the same spot) does not jump. Keep it short.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulý střih přetvoří jeden záběr do dalšího, takže střih v podobných záběrech (někdo mluví, stejné místo) neskočí. Nech ho krátký."
+          }
+        }
+      }
+    },
     "Smooth slow motion": {
       "localizations": {
         "cs": {

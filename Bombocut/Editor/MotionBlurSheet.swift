@@ -160,7 +160,7 @@ struct ClipAnimSheet: View {
         cutPicker(k)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(MotionAnim.allCases, id: \.self) { m in
+                ForEach(MotionAnim.transitions, id: \.self) { m in
                     Button {
                         model.setCutTransition(m)
                         if m != .none { model.previewCut() }
@@ -182,10 +182,10 @@ struct ClipAnimSheet: View {
             HStack {
                 Text("Length").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 Spacer()
-                Text(String(format: "%.1fs", length)).font(.subheadline.weight(.bold).monospacedDigit())
+                Text(String(format: current == .smooth ? "%.2fs" : "%.1fs", length)).font(.subheadline.weight(.bold).monospacedDigit())
             }
             Slider(value: Binding(get: { length }, set: { model.cutDurationChanged($0) }),
-                   in: 0.1...max(0.2, min(3, maxLen)),
+                   in: current == .smooth ? 0.04...max(0.08, min(0.6, maxLen)) : 0.1...max(0.2, min(3, maxLen)),
                    onEditingChanged: { e in
                        if !e {
                            model.cutDurationEnded()
@@ -203,7 +203,9 @@ struct ClipAnimSheet: View {
                 .buttonStyle(.plain)
             }
         }
-        Text("Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.")
+        Text(current == .smooth
+             ? "Smooth cut morphs one shot into the next, so a jump cut in similar footage (someone talking, the same spot) does not jump. Keep it short."
+             : "Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
     }

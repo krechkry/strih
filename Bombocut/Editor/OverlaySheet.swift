@@ -290,7 +290,7 @@ struct AnimEditor: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(MotionAnim.allCases, id: \.self) { a in
+                    ForEach(MotionAnim.animations, id: \.self) { a in
                         Button { pick(a) } label: {
                             VStack(spacing: 5) {
                                 Image(systemName: a.icon).font(.system(size: 17, weight: .semibold))

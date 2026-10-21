@@ -157,6 +157,20 @@ final class EditorModel: ObservableObject {
                 self.isPlaying = status != .paused
             }
             .store(in: &cancellables)
+        // played to the end: show the true last frame (the player can stop on one rendered ahead of time)
+        NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] n in
+                guard let self, let item = n.object as? AVPlayerItem, item === self.player.currentItem,
+                      !self.loopSelected else { return }
+                let end = item.duration.seconds
+                guard end.isFinite, end > 0 else { return }
+                self.isPlaying = false
+                let last = max(0, end - 1.0 / 60)
+                self.player.seek(to: CMTime(seconds: last, preferredTimescale: 6000), toleranceBefore: .zero, toleranceAfter: .zero)
+                self.currentTime = min(self.duration, end)
+            }
+            .store(in: &cancellables)
 
         LookStore.shared.update(project.clips)
         CaptionStore.shared.update(project.captions)
@@ -841,7 +855,11 @@ final class EditorModel: ObservableObject {
             if kind == .none {
                 p.clips[k + 1].cut = nil
             } else {
-                p.clips[k + 1].cut = CutTransition(kind: kind, duration: old?.duration ?? 0.5)
+                // a smooth cut is a few frames; the others start at half a second
+                var d = old?.duration ?? 0.5
+                if kind == .smooth && old?.kind != .smooth { d = 0.2 }
+                if kind != .smooth && old?.kind == .smooth { d = 0.5 }
+                p.clips[k + 1].cut = CutTransition(kind: kind, duration: d)
             }
         }
         if let k2 = transitionCut { scrub(to: project.clipStarts[k2 + 1]) }

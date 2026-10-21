@@ -122,10 +122,6 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private func finish(_ request: AVAsynchronousVideoCompositionRequest, _ instr: ClipInstruction, _ clips: [Prepared],
                         _ t: Double, cut: CutInfo?) {
         autoreleasepool {
-            guard let out = request.renderContext.newPixelBuffer() else {
-                request.finish(with: CompositionBuilder.err("Missing frame."))
-                return
-            }
             let size = request.renderContext.size
             let frame = CGRect(origin: .zero, size: size)
             let videoFrame: (UUID) -> (CIImage, CGAffineTransform)? = { id in
@@ -137,18 +133,43 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var masked = false
             var image = clipImage(clips[0], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
             if clips.count > 1, let cut {
+                let top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+                let p = min(max((t - cut.start) / max(cut.length, 1e-6), 0), 1)
+                if cut.cut.kind == .smooth {
+                    // smooth cut: the frame engine morphs the shot going out into the one coming in
+                    smoothCut(request, from: image, to: top, phase: p * p * (3 - 2 * p), t: t,
+                              light: clips[0].layer.info.light, preview: clips[0].layer.info.preview) { morphed in
+                        self.complete(request, morphed, t: t, masked: masked, hasOverlays: hasOverlays, video: videoFrame)
+                    }
+                    return
+                }
                 // both clips move together; the one coming in is drawn over the one going out
                 let poses = cut.cut.poses(t - cut.start, length: cut.length)
-                let top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
                 let bg = CIImage(color: .black).cropped(to: frame)
                 image = Self.posed(top, poses.into, size)
                     .composited(over: Self.posed(image, poses.out, size))
                     .composited(over: bg)
                     .cropped(to: frame)
+                image = Self.transitionBlur(image, cut.cut.motion(t - cut.start, length: cut.length), size: size)
             }
+            complete(request, image, t: t, masked: masked, hasOverlays: hasOverlays, video: videoFrame)
+        }
+    }
+
+    /// Overlays and captions on top, then the frame goes out.
+    private func complete(_ request: AVAsynchronousVideoCompositionRequest, _ base: CIImage, t: Double, masked: Bool,
+                          hasOverlays: Bool, video: @escaping (UUID) -> (CIImage, CGAffineTransform)?) {
+        autoreleasepool {
+            guard let out = request.renderContext.newPixelBuffer() else {
+                request.finish(with: CompositionBuilder.err("Missing frame."))
+                return
+            }
+            let size = request.renderContext.size
+            let frame = CGRect(origin: .zero, size: size)
+            var image = base
             if hasOverlays {
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
-                                                    video: videoFrame)
+                                                    video: video)
             }
             if let caps = CaptionStore.shared.current, let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                 image = text.composited(over: image).cropped(to: frame)
@@ -158,9 +179,73 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
     }
 
+    /// Smooth cut: optical-flow morph between the two shots (Apple's frame engine on the phone; a plain
+    /// blend where it is missing, like the simulator, or in the lighter export).
+    private func smoothCut(_ request: AVAsynchronousVideoCompositionRequest, from a: CIImage, to b: CIImage, phase: Double,
+                           t: Double, light: Bool, preview: Bool, done: @escaping (CIImage) -> Void) {
+        let size = request.renderContext.size
+        let frame = CGRect(origin: .zero, size: size)
+        guard !light, let ba = request.renderContext.newPixelBuffer(), let bb = request.renderContext.newPixelBuffer() else {
+            done(a.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: b,
+                                                                      kCIInputTimeKey: phase]).cropped(to: frame))
+            return
+        }
+        context.render(a, to: ba, bounds: frame, colorSpace: outSpace)
+        context.render(b, to: bb, bounds: frame, colorSpace: outSpace)
+        let work = SmoothFrames.workSize(source: size, render: size, preview: preview)
+        SmoothFrames.shared.interpolate(cur: ba, next: bb, phase: phase, time: CMTime(seconds: t, preferredTimescale: 600),
+                                        work: work, preview: preview) { img in
+            done(img.cropped(to: frame))
+        }
+    }
+
+    /// Motion blur along a slide or a zoom, from how fast the picture moves (a half-frame shutter).
+    private static func transitionBlur(_ img: CIImage, _ m: (dx: Double, dy: Double, zoom: Double), size: CGSize) -> CIImage {
+        let frame = CGRect(origin: .zero, size: size)
+        let shutter = 1.0 / 60
+        var out = img
+        let rx = m.dx * size.width * shutter, ry = m.dy * size.height * shutter
+        let r = hypot(rx, ry)
+        if r > 0.75 {
+            out = out.clampedToExtent().applyingFilter("CIMotionBlur", parameters: [
+                kCIInputRadiusKey: min(r, 140),
+                kCIInputAngleKey: atan2(-ry, rx),       // Core Image is y-up
+            ]).cropped(to: frame)
+        }
+        let z = abs(m.zoom) * shutter * hypot(size.width, size.height) / 2
+        if z > 0.75 {
+            out = out.clampedToExtent().applyingFilter("CIZoomBlur", parameters: [
+                kCIInputCenterKey: CIVector(x: size.width / 2, y: size.height / 2),
+                "inputAmount": min(z, 120),
+            ]).cropped(to: frame)
+        }
+        return out
+    }
+
+    /// The picture with mirrored copies around it, so a clip zoomed out below full size still fills the frame.
+    private static func mirrored(_ img: CIImage, _ r: CGRect) -> CIImage {
+        let base = img.cropped(to: r)
+        var out = base
+        for i in -1...1 {
+            for j in -1...1 where i != 0 || j != 0 {
+                var t = CGAffineTransform.identity
+                if i != 0 {
+                    let edge = i < 0 ? r.minX : r.maxX
+                    t = t.concatenating(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: 2 * edge, ty: 0))
+                }
+                if j != 0 {
+                    let edge = j < 0 ? r.minY : r.maxY
+                    t = t.concatenating(CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: 2 * edge))
+                }
+                out = base.transformed(by: t).composited(over: out)
+            }
+        }
+        return out
+    }
+
     /// A clip frame moved, scaled (around the center) and faded for a transition.
     private static func posed(_ img: CIImage, _ p: CutTransition.Pose, _ size: CGSize) -> CIImage {
-        var out = img
+        var out = p.scale < 0.999 ? mirrored(img, CGRect(origin: .zero, size: size)) : img
         if abs(p.dx) > 1e-4 || abs(p.dy) > 1e-4 || abs(p.scale - 1) > 1e-4 {
             let cx = size.width / 2, cy = size.height / 2
             out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)

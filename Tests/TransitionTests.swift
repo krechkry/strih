@@ -68,6 +68,29 @@ final class TransitionTests: XCTestCase {
         XCTAssertEqual(up.out.dy, -1, accuracy: 1e-9)
     }
 
+    func testZoomsFlyThroughAndBlur() {
+        for kind in [MotionAnim.zoomIn, .zoomOut] {
+            let c = CutTransition(kind: kind, duration: 0.6)
+            // first half: only the clip going out, second half: only the one coming in
+            XCTAssertEqual(c.poses(0.1, length: 0.6).into.opacity, 0)
+            XCTAssertEqual(c.poses(0.5, length: 0.6).out.opacity, 0)
+            // ends where it started: full size
+            XCTAssertEqual(c.poses(0, length: 0.6).out.scale, 1, accuracy: 1e-9)
+            XCTAssertEqual(c.poses(0.6, length: 0.6).into.scale, 1, accuracy: 1e-9)
+            // zoom in grows, zoom out shrinks, fastest around the switch
+            let grow = c.poses(0.25, length: 0.6).out.scale > 1
+            XCTAssertEqual(grow, kind == .zoomIn)
+            XCTAssertGreaterThan(abs(c.motion(0.28, length: 0.6).zoom), abs(c.motion(0.05, length: 0.6).zoom))
+        }
+        // slides move fastest in the middle (that is where the blur is strongest), crossfades do not move
+        let s = CutTransition(kind: .slideLeft, duration: 0.5)
+        XCTAssertGreaterThan(abs(s.motion(0.25, length: 0.5).dx), abs(s.motion(0.05, length: 0.5).dx))
+        XCTAssertEqual(CutTransition(kind: .fade, duration: 0.5).motion(0.25, length: 0.5).dx, 0)
+        // smooth cut is offered between clips only
+        XCTAssertTrue(MotionAnim.transitions.contains(.smooth))
+        XCTAssertFalse(MotionAnim.animations.contains(.smooth))
+    }
+
     // MARK: Rendering
 
     /// Copies the CI's test clips into the app's media folder.

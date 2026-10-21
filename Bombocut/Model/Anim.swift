@@ -4,6 +4,12 @@ import Foundation
 /// Basic in / out animations for text, overlays and clips.
 enum MotionAnim: String, Codable, CaseIterable, Hashable {
     case none, fade, slideUp, slideDown, slideLeft, slideRight, pop, zoomIn, zoomOut
+    case smooth          // between clips only: the cut is morphed away (similar footage, no jump)
+
+    /// In / out animations of text, overlays and clips.
+    static let animations: [MotionAnim] = [.none, .fade, .slideUp, .slideDown, .slideLeft, .slideRight, .pop, .zoomIn, .zoomOut]
+    /// Transitions between two clips, in the order they are offered.
+    static let transitions: [MotionAnim] = [.none, .fade, .smooth, .zoomIn, .zoomOut, .slideLeft, .slideRight, .slideUp, .slideDown, .pop]
 
     var title: String {
         switch self {
@@ -16,6 +22,7 @@ enum MotionAnim: String, Codable, CaseIterable, Hashable {
         case .pop: return "Pop"
         case .zoomIn: return "Zoom in"
         case .zoomOut: return "Zoom out"
+        case .smooth: return "Smooth cut"
         }
     }
 
@@ -30,6 +37,7 @@ enum MotionAnim: String, Codable, CaseIterable, Hashable {
         case .pop: return "sparkle"
         case .zoomIn: return "plus.magnifyingglass"
         case .zoomOut: return "minus.magnifyingglass"
+        case .smooth: return "wand.and.rays"
         }
     }
 }
@@ -66,7 +74,7 @@ struct AnimPair: Codable, Hashable {
             let sign = exiting ? -1.0 : 1.0
             switch a {
             case .none: break
-            case .fade: opacity *= e
+            case .fade, .smooth: opacity *= e
             case .slideUp: dy += sign * 0.12 * (1 - e); opacity *= min(1, p * 2.5)
             case .slideDown: dy -= sign * 0.12 * (1 - e); opacity *= min(1, p * 2.5)
             case .slideLeft: dx += sign * 0.15 * (1 - e); opacity *= min(1, p * 2.5)
@@ -102,15 +110,18 @@ struct CutTransition: Codable, Hashable {
     }
 
     /// Both clips `t` seconds into an overlap of `length` seconds: the one going out and the one coming in
-    /// (drawn on top). They move together: a slide pushes the old clip out as the new one comes in.
+    /// (drawn on top). They move together: a slide pushes the old clip out as the new one comes in, a zoom
+    /// flies into (or out of) the old clip and lands in the new one, with the switch in the middle where
+    /// the motion is fastest (and most blurred).
     func poses(_ t: Double, length: Double) -> (out: Pose, into: Pose) {
         let p = min(max(t / max(length, 1e-6), 0), 1)
         let e = p * p * (3 - 2 * p)
         var o = Pose(), i = Pose()
+        let zoom = 1.6
         switch kind {
         case .none:
             i.opacity = p < 0.5 ? 0 : 1
-        case .fade:
+        case .fade, .smooth:
             i.opacity = e
         case .slideLeft:
             i.dx = 1 - e; o.dx = -e
@@ -120,20 +131,46 @@ struct CutTransition: Codable, Hashable {
             i.dy = 1 - e; o.dy = -e
         case .slideDown:
             i.dy = -(1 - e); o.dy = e
-        case .zoomIn:
-            o.scale = 1 + 0.5 * e
-            i.scale = 0.7 + 0.3 * e
-            i.opacity = e
-        case .zoomOut:
-            o.scale = 1 - 0.3 * e
-            i.scale = 1.4 - 0.4 * e
-            i.opacity = e
+        case .zoomIn, .zoomOut:
+            // speeding up into the switch, slowing down after it (on a log scale, so it feels even)
+            let dir = kind == .zoomIn ? 1.0 : -1.0
+            if p < 0.5 {
+                let q = p / 0.5
+                o.scale = pow(zoom, dir * q * q)
+                i.opacity = 0
+            } else {
+                let q = (p - 0.5) / 0.5
+                let left = 1 - q
+                i.scale = pow(zoom, -dir * left * left)
+                o.opacity = 0
+            }
         case .pop:
             o.scale = 1 - 0.1 * e
             i.scale = p < 0.7 ? 0.5 + 0.6 * (p / 0.7) : 1.1 - 0.1 * ((p - 0.7) / 0.3)
             i.opacity = min(1, p * 3)
         }
         return (o, i)
+    }
+
+    /// How fast the picture moves at time t (for motion blur): canvas fractions per second sideways and
+    /// down, and the zoom speed (change of log scale per second). Zero for blends.
+    func motion(_ t: Double, length: Double) -> (dx: Double, dy: Double, zoom: Double) {
+        switch kind {
+        case .slideLeft, .slideRight, .slideUp, .slideDown, .zoomIn, .zoomOut: break
+        default: return (0, 0, 0)
+        }
+        let h = max(length, 1e-3) / 200
+        func shown(_ at: Double) -> Pose {
+            let ps = poses(at, length: length)
+            return ps.into.opacity >= 0.5 ? ps.into : ps.out
+        }
+        let a = shown(max(0, t - h)), b = shown(min(length, t + h))
+        let dt = min(length, t + h) - max(0, t - h)
+        guard dt > 0 else { return (0, 0, 0) }
+        var dz = (log(b.scale) - log(a.scale)) / dt
+        // across the switch the two clips' scales jump: use the side we are on
+        if abs(dz) > 50 { dz = 0 }
+        return ((b.dx - a.dx) / dt, (b.dy - a.dy) / dt, dz)
     }
 
     /// The incoming clip only (kept for callers that draw just that one).
