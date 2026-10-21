@@ -232,7 +232,7 @@ actor SpeechEngine {
         var state = TdtDecoderState.make(decoderLayers: await m.decoderLayerCount)
         // the language hint keeps the decoder in the right alphabet (no Cyrillic in Czech, no Latin in
         // Ukrainian, ...); Parakeet has no stronger "speak only this language" switch
-        let hint = language.flatMap { FluidAudio.Language(rawValue: $0) }
+        let hint = language.flatMap { Language(rawValue: $0) }
         let r = try await m.transcribe(audio, decoderState: &state, language: hint)
         return Transcriber.words(from: r.tokenTimings ?? [], duration: duration)
     }
