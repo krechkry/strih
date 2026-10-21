@@ -630,16 +630,6 @@
         }
       }
     },
-    "BOMBOCUT is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BOMBOCUT dělá úplně malý tým. Tvůj nákup nám umožní dál vydávat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
-          }
-        }
-      }
-    },
     "BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
       "localizations": {
         "cs": {
@@ -1484,26 +1474,6 @@
         }
       }
     },
-    "Everything runs offline on your iPhone. No cloud, no data collection.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno běží offline v iPhonu. Žádný cloud, žádné sbírání dat."
-          }
-        }
-      }
-    },
-    "Everything unlocked from day one": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno odemčené od prvního dne"
-          }
-        }
-      }
-    },
     "Everything: keyframes, overlays and blend modes, masks, tracking, stabilization, motion blur, speed curves, animations and social layouts.": {
       "localizations": {
         "cs": {
@@ -2258,16 +2228,6 @@
         }
       }
     },
-    "Made by a tiny team": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dělá ho malinký tým"
-          }
-        }
-      }
-    },
     "Made in Prague.": {
       "localizations": {
         "cs": {
@@ -2454,16 +2414,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Další keyframe"
-          }
-        }
-      }
-    },
-    "No locked features, no ads": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Žádné zamčené funkce ani reklamy"
           }
         }
       }
@@ -2664,16 +2614,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí s volbou „Za objekt“ se vykreslí mezi pozadím a objektem."
-          }
-        }
-      }
-    },
-    "Pay once. No subscription, ever.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zaplatíš jednou. Žádné předplatné, nikdy."
           }
         }
       }
@@ -4294,6 +4234,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "např. 18"
+          }
+        }
+      }
+    },
+    "Automatic subtitles in 25 languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatické titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Speed curves, smooth slow motion and motion blur": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlostní křivky, plynulé zpomalení a motion blur"
+          }
+        }
+      }
+    },
+    "Keyframes, transitions, text and overlays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyframy, přechody, texty a překrytí"
+          }
+        }
+      }
+    },
+    "Subject masks, stabilization and tracking": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maska objektu, stabilizace a tracking"
+          }
+        }
+      }
+    },
+    "Export up to 4K and 120 fps, at the bitrate you pick": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export až ve 4K a 120 fps, s bitratem podle tebe"
+          }
+        }
+      }
+    },
+    "Pay once. No subscription, no ads, nothing locked.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatíš jednou. Žádné předplatné, žádné reklamy, nic zamčeného."
+          }
+        }
+      }
+    },
+    "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback decides what gets built next.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
           }
         }
       }

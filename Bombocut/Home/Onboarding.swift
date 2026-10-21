@@ -159,11 +159,13 @@ struct PaywallView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
-                    point("lock.open.fill", "Everything unlocked from day one")
-                    point("creditcard.fill", "Pay once. No subscription, ever.")
-                    point("square.grid.2x2.fill", "No locked features, no ads")
-                    point("captions.bubble.fill", "Subtitles in 25 languages")
-                    point("wifi.slash", "Everything runs offline on your iPhone. No cloud, no data collection.")
+                    point("captions.bubble.fill", "Automatic subtitles in 25 languages")
+                    point("point.topleft.down.to.point.bottomright.curvepath", "Speed curves, smooth slow motion and motion blur")
+                    point("diamond.fill", "Keyframes, transitions, text and overlays")
+                    point("person.fill", "Subject masks, stabilization and tracking")
+                    point("square.and.arrow.up.fill", "Export up to 4K and 120 fps, at the bitrate you pick")
+                    point("wifi.slash", "Everything runs offline, on your iPhone. No cloud, no account, no data collection.")
+                    point("creditcard.fill", "Pay once. No subscription, no ads, nothing locked.")
                     point("arrow.triangle.2.circlepath", "All updates included")
                 }
 
@@ -232,10 +234,10 @@ struct PaywallView: View {
 
     private var team: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Made by a tiny team", systemImage: "heart.fill")
+            Label("Made by a filmmaker, in Prague.", systemImage: "heart.fill")
                 .font(.subheadline.weight(.heavy))
                 .foregroundStyle(Theme.accent)
-            Text("BOMBOCUT is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.")
+            Text("BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback decides what gets built next.")
                 .font(.subheadline.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
             if let url = Support.mailURL() {
