@@ -142,4 +142,3 @@ struct CutTransition: Codable, Hashable {
         return (i.dx, i.dy, i.scale, i.opacity)
     }
 }
-}
