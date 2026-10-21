@@ -211,9 +211,6 @@ deadpan_face = mood_face(
         stroke((224, 264, 240, 268, 256, 264, 3), (240, 265, 240, 265, 240, 265, 0), 0, 0.3),
         # dimple by the raised corner
         stroke((284, 238, 284, 238, 284, 238, 0), (282, 229, 289, 237, 283, 246, 4), 0.45, 1),
-        # goatee: thin mustache, soul patch, chin beard
-        stroke((238, 223, 238, 223, 238, 223, 0), (221, 228, 237, 216, 252, 221, 5), 0.65, 1),
-        stroke((240, 293, 240, 293, 240, 293, 0), (240, 288, 240, 293, 240, 300, 8), 0.6, 1),
     ],
     # narrowed, knowing eyes: heavy upper lid, lower lid pushed up, pupil small and level
     eyes=[(204, 166, 17, 11, 6.5, 3.5, 5, 3.6, 1, -1), (276, 166, 17, 11, 5.5, 3, 5, 3.4, 1, 0)],
