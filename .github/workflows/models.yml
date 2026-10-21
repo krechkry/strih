@@ -1,0 +1,39 @@
+name: Fetch models
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: DeepFilterNet3 (Core ML, Apache-2.0 / MIT) from Hugging Face
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo = "aufklarer/DeepFilterNet3-CoreML"
+          tree = json.load(urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}/tree/main?recursive=true"))
+          out = "Models/DeepFilterNet3"
+          for f in tree:
+              p = f["path"]
+              if f["type"] != "file": continue
+              if not (p.startswith("DeepFilterNet3.mlmodelc/") or p in ("auxiliary.npz", "README.md")): continue
+              dest = os.path.join(out, p)
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              urllib.request.urlretrieve(f"https://huggingface.co/{repo}/resolve/main/{p}", dest)
+              print(p, os.path.getsize(dest))
+          PY
+          ls -laR Models
+
+      - name: Commit
+        run: |
+          git config user.name "bombocut-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Models
+          git commit -qm "DeepFilterNet3 Core ML model (Apache-2.0 / MIT) for speech cleanup" || echo "nothing new"
+          git push -q origin HEAD:main
