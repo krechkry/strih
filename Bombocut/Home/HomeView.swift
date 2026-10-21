@@ -65,7 +65,7 @@ struct HomeView: View {
                                     }
                             }
                         }
-                        .paintSelect(ids: store.projects.map(\.id), selection: $selected, painting: $painting, axis: .vertical,
+                        .paintSelect(enabled: selecting, ids: store.projects.map(\.id), selection: $selected, painting: $painting, axis: .vertical,
                                      canSelect: { _ in selecting }) { pt in
                             store.projects.firstIndex { rowFrames[$0.id].map { pt.y >= $0.minY - 5 && pt.y <= $0.maxY + 5 } ?? false }
                         }

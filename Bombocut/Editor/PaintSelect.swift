@@ -56,10 +56,17 @@ struct PaintSelect<ID: Hashable>: ViewModifier {
 }
 
 extension View {
-    func paintSelect<ID: Hashable>(ids: [ID], selection: Binding<Set<ID>>, painting: Binding<Bool>, axis: Axis,
+    /// Only attached while selecting: a drag gesture inside a scroll view stops it from scrolling on iOS 18,
+    /// so the timeline and the project list must not carry it the rest of the time.
+    @ViewBuilder
+    func paintSelect<ID: Hashable>(enabled: Bool, ids: [ID], selection: Binding<Set<ID>>, painting: Binding<Bool>, axis: Axis,
                                    canSelect: @escaping (ID) -> Bool = { _ in true },
                                    index: @escaping (CGPoint) -> Int?) -> some View {
-        modifier(PaintSelect(ids: ids, selection: selection, painting: painting, axis: axis, index: index, canSelect: canSelect))
+        if enabled {
+            modifier(PaintSelect(ids: ids, selection: selection, painting: painting, axis: axis, index: index, canSelect: canSelect))
+        } else {
+            self
+        }
     }
 }
 

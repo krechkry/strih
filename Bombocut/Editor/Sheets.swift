@@ -429,22 +429,13 @@ struct ChipRow<V: Equatable>: View {
 struct StabilizeSheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.closePanel) private var dismiss
-    @State private var subject: Bool?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Stabilize").font(.title3.weight(.heavy))
             if let i = model.selectedIndex {
                 let c = model.project.clips[i]
-                let locked = c.tracking?.mode == .inPlace
-                let onSubject = subject ?? locked
-                HStack(spacing: 8) {
-                    modeButton("Camera shake", "gyroscope", on: !onSubject) { subject = false }
-                    modeButton("Subject", "person.crop.square", on: onSubject) { subject = true }
-                }
-                if onSubject {
-                    subjectMode(c, locked: locked)
-                } else if let st = c.stabilization {
+                if let st = c.stabilization {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Strength").font(.headline.weight(.bold))
                         Spacer()
@@ -490,61 +481,6 @@ struct StabilizeSheet: View {
         .presentationBackground(Theme.panel)
     }
 
-    /// Stabilize on a tracked subject: the picture moves so the subject stays still.
-    @ViewBuilder
-    private func subjectMode(_ c: Clip, locked: Bool) -> some View {
-        if locked, let tr = c.tracking {
-            Text("Locked on the subject: the picture moves so it stays still, everything else moves around it.")
-                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Text("Smoothness").font(.headline.weight(.bold))
-                Spacer()
-                Text("\(Int((tr.smooth * 100).rounded()))").font(.system(size: 22, weight: .heavy).monospacedDigit())
-                    .foregroundStyle(Theme.accent)
-            }
-            Slider(value: Binding(get: { tr.smooth }, set: { v in model.editClip { $0.tracking?.smooth = v } }), in: 0...1,
-                   onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
-            Toggle(isOn: Binding(get: { tr.noBorders ?? false }, set: { model.setNoBorders($0) })) {
-                Text("Fill, no borders").font(.subheadline.weight(.bold))
-            }
-            .tint(Theme.accent)
-            HStack(spacing: 10) {
-                Button { dismiss(); model.startSubjectStabilization() } label: {
-                    Label("Pick again", systemImage: "scope").font(.subheadline.weight(.bold))
-                        .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
-                }
-                Button(role: .destructive) { model.removeSubjectStabilization() } label: {
-                    Label("Remove", systemImage: "trash").font(.subheadline.weight(.bold))
-                        .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
-                }
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-        } else {
-            Text("Pick a subject (a rider, a face, a sign). Bombocut tracks it through the clip and holds it in place, so the shake and the movement go into everything around it.")
-                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            Button { dismiss(); model.startSubjectStabilization() } label: {
-                Label("Select subject", systemImage: "scope")
-                    .font(.headline.weight(.bold)).foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func modeButton(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(loc(title), systemImage: icon)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(on ? .black : .white)
-                .frame(maxWidth: .infinity, minHeight: 38)
-                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 // MARK: Track

@@ -114,7 +114,7 @@ struct TimelineView: View {
                         }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
-                    .paintSelect(ids: shown.map(\.id),
+                    .paintSelect(enabled: model.pick != nil && model.pick?.kind.forOverlays == false, ids: shown.map(\.id),
                                  selection: Binding(get: { model.pick?.picked ?? [] }, set: { model.setPicked($0) }),
                                  painting: $paintingPick, axis: .horizontal,
                                  canSelect: { id in model.pick.map { !$0.kind.forOverlays && $0.source != id } ?? false }) { pt in
