@@ -645,6 +645,11 @@ struct EditorView: View {
             }
             model.selectedClipID = id
             model.scrub(to: model.project.clipStarts[1] + 1.0)
+        case "transition", "crossfade":
+            guard clips.count > 1 else { break }
+            model.mutate { p in p.clips[1].cut = CutTransition(kind: .fade, duration: 1.2) }
+            model.pxPerSec = 90
+            if Demo.mode == "transition" { model.openTransition(cut: 0) } else { model.scrub(to: model.project.clipStarts[1] + 0.6) }
         case "selected":
             guard clips.count > 1 else { break }
             let id = clips[1].id
