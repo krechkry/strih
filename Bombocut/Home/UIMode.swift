@@ -182,6 +182,7 @@ struct SettingsView: View {
     @AppStorage(UIMode.key) private var mode = UIMode.pro.rawValue
     @State private var language = AppLanguage.current
     @State private var showLanguages = false
+    @AppStorage(AudioMix.key) private var mixAudio = false
 
     var body: some View {
         NavigationStack {
@@ -220,6 +221,16 @@ struct SettingsView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                    }
+                    group("Sound") {
+                        OnOffRow(title: "Keep music from other apps playing",
+                                 subtitle: "Spotify, Apple Music and others keep playing while you edit. The editor's sound plays on top.",
+                                 isOn: mixAudio) { v in
+                            mixAudio = v
+                            AudioMix.apply()
+                        }
+                        .padding(14)
+                        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
                     }
                     group("Subtitles") {
                         Button { showLanguages = true } label: {

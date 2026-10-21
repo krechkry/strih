@@ -1797,8 +1797,37 @@ final class EditorModel: ObservableObject {
         return abs(d.x) <= size.width / 2 + pad && abs(d.y) <= size.height / 2 + pad
     }
 
-    /// Taps on the preview only play / pause; what you edit is chosen in the timeline.
-    func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool { false }
+    /// Tap on the preview: a text under the finger opens with the keyboard up, ready to type.
+    /// Pictures, videos and captions are chosen in the timeline; a tap anywhere else plays / pauses.
+    func tapTitle(_ p: CGPoint, canvas: CGSize) -> Bool {
+        guard let id = textHit(p, canvas: canvas) else { return false }
+        pause()
+        selectOverlay(id)
+        focusNewText = true          // read when the panel opens
+        editTextRequest += 1         // the panel is already open: it switches to Text and raises the keyboard
+        openOverlayPanel = true
+        UISelectionFeedbackGenerator().selectionChanged()
+        return true
+    }
+
+    /// Asks an open text panel to show the Text tab with the keyboard up.
+    @Published private(set) var editTextRequest = 0
+
+    /// The topmost text overlay on screen under a point of the preview (canvas points).
+    private func textHit(_ p: CGPoint, canvas: CGSize) -> UUID? {
+        guard canvas.width > 0, !project.clips.isEmpty else { return nil }
+        for o in project.overlays.reversed() where currentTime >= o.start - 0.01 && currentTime < o.end + 0.01 {
+            guard case .text = o.kind else { continue }
+            let pose = o.pose(at: currentTime)
+            guard pose.opacity > 0.02 else { continue }
+            let t = pose.transform
+            let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
+            let c = CGPoint(x: canvas.width / 2 + t.x * canvas.width, y: canvas.height / 2 + t.y * canvas.height)
+            if Self.inside(p, center: c, size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
+                           rotation: t.rotation) { return o.id }
+        }
+        return nil
+    }
 
     func showSafeZoneForDemo() { safeZoneFlash = true }
 

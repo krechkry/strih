@@ -4,7 +4,7 @@ import AVFoundation
 // MARK: Preview with direct manipulation
 
 /// Canvas preview. One finger moves, two fingers scale and turn around the fingers (with snapping).
-/// Tap = play / pause, double-tap = fullscreen.
+/// Tap = play / pause (on a text: type in it), double-tap = fullscreen.
 /// Every layer has the canvas size fixed, so a clip zoomed far past the canvas can't push the layout around.
 struct PreviewArea: View {
     @ObservedObject var model: EditorModel
@@ -69,7 +69,7 @@ struct PreviewArea: View {
     private func scrubSurface(_ canvas: CGSize) -> some View {
         Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { tapPlay() }
+            .onTapGesture { p in if !model.tapTitle(p, canvas: canvas) { tapPlay() } }
             .gesture(
                 DragGesture(minimumDistance: 2)
                     .onChanged { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false) }
@@ -545,9 +545,7 @@ struct FullscreenPlayer: View {
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }
-        }
+        .onTapGesture(count: 2) { exit() }
         .onTapGesture {
             model.togglePlay()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()   // felt, not seen: screen recordings stay clean
@@ -558,39 +556,55 @@ struct FullscreenPlayer: View {
                 .onEnded { v in
                     let dy = v.translation.height, dx = v.translation.width
                     guard abs(dy) > 80, abs(dy) > abs(dx) * 1.5 else { return }
-                    withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }
+                    exit()
                 }
         )
     }
 
+    private func exit() {
+        withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }
+    }
+
     private var scrubBar: some View {
-        VStack(spacing: 10) {
-            GeometryReader { g in
-                let p = model.duration > 0 ? model.currentTime / model.duration : 0
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.25)).frame(height: 4)
-                    Capsule().fill(Theme.accent).frame(width: max(0, g.size.width * p), height: 4)
-                    Circle().fill(.white).frame(width: 16, height: 16)
-                        .offset(x: g.size.width * p - 8)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(spacing: 10) {
+                GeometryReader { g in
+                    let p = model.duration > 0 ? model.currentTime / model.duration : 0
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.white.opacity(0.25)).frame(height: 4)
+                        Capsule().fill(Theme.accent).frame(width: max(0, g.size.width * p), height: 4)
+                        Circle().fill(.white).frame(width: 16, height: 16)
+                            .offset(x: g.size.width * p - 8)
+                    }
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { v in
+                                model.isScrubbing = true
+                                model.scrub(to: Double(max(0, min(1, v.location.x / g.size.width))) * model.duration)
+                            }
+                            .onEnded { _ in model.isScrubbing = false }
+                    )
                 }
-                .frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { v in
-                            model.isScrubbing = true
-                            model.scrub(to: Double(max(0, min(1, v.location.x / g.size.width))) * model.duration)
-                        }
-                        .onEnded { _ in model.isScrubbing = false }
-                )
+                .frame(height: 30)
+                HStack {
+                    Text(Fmt.time(model.currentTime))
+                    Spacer()
+                    Text(Fmt.time(model.duration)).foregroundStyle(.white.opacity(0.6))
+                }
+                .font(.footnote.monospacedDigit().weight(.semibold))
             }
-            .frame(height: 30)
-            HStack {
-                Text(Fmt.time(model.currentTime))
-                Spacer()
-                Text(Fmt.time(model.duration)).foregroundStyle(.white.opacity(0.6))
+            // a visible way out next to the bar (double-tap and swiping still work too)
+            Button(action: exit) {
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.white.opacity(0.16), in: Circle())
             }
-            .font(.footnote.monospacedDigit().weight(.semibold))
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc("Exit fullscreen"))
         }
         .padding(.horizontal, 22)
         .padding(.top, 50)

@@ -78,7 +78,8 @@ struct OverlaySheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
-            .onAppear { if case .text = o.kind {} else { tab = .animation } }
+            .onAppear { if case .text = o.kind { if model.focusNewText { tab = .text } } else { tab = .animation } }
+            .onChange(of: model.editTextRequest) { editTapped() }
         }
     }
 
@@ -112,6 +113,13 @@ struct OverlaySheet: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { typing = true }
             }
         }
+    }
+
+    /// A text was tapped on the preview while this panel was already open.
+    private func editTapped() {
+        model.focusNewText = false
+        tab = .text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { typing = true }
     }
 
     @ViewBuilder

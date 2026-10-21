@@ -6,8 +6,8 @@ struct BombocutApp: App {
     @StateObject private var store = ProjectStore()
 
     init() {
-        // editor audio plays even when the ring/silent switch is on
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        // editor audio plays even when the ring/silent switch is on (and, if chosen, next to other apps' music)
+        AudioMix.apply()
         Task.detached(priority: .background) { StorageReport.tidyTemp() }
         // the speech model is big: drop it if iOS runs short of memory (it reloads when needed)
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
@@ -24,6 +24,22 @@ struct BombocutApp: App {
                 .tint(Theme.accent)
                 .fontWeight(.medium)
                 .task { if Demo.mode == nil { SpeechEngine.warmUp() } }
+        }
+    }
+}
+
+/// Whether music from other apps (Spotify, Apple Music...) keeps playing while you edit. Set in Settings.
+enum AudioMix {
+    static let key = "mixWithOtherAudio"
+    static var on: Bool { UserDefaults.standard.bool(forKey: key) }
+
+    static func apply() {
+        let s = AVAudioSession.sharedInstance()
+        if on {
+            // the editor's sound plays on top of the other app's, which never gets stopped
+            try? s.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        } else {
+            try? s.setCategory(.playback, mode: .moviePlayback)
         }
     }
 }

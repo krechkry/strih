@@ -1424,6 +1424,16 @@
         }
       }
     },
+    "Exit fullscreen": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukončit celou obrazovku"
+          }
+        }
+      }
+    },
     "Export": {
       "localizations": {
         "cs": {
@@ -1954,6 +1964,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Držet na místě"
+          }
+        }
+      }
+    },
+    "Keep music from other apps playing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechat hrát hudbu z jiných aplikací"
           }
         }
       }
@@ -3278,6 +3298,16 @@
         }
       }
     },
+    "Sound": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk"
+          }
+        }
+      }
+    },
     "Speech model: %@": {
       "localizations": {
         "cs": {
@@ -3304,6 +3334,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rozdělit"
+          }
+        }
+      }
+    },
+    "Spotify, Apple Music and others keep playing while you edit. The editor's sound plays on top.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotify, Apple Music a další hrají dál, i když stříháš. Zvuk editoru hraje přes ně."
           }
         }
       }
