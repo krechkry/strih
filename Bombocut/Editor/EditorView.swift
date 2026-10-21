@@ -753,7 +753,7 @@ struct EditorView: View {
             model.togglePick(clips[2].id)
         case "fullscreen":
             model.fullscreen = true
-        case "export", "done":
+        case "export", "exporting", "done":
             sheet = .export
         case "canvas":
             sheet = .canvas
