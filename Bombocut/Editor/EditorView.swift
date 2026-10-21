@@ -51,7 +51,6 @@ struct EditorView: View {
         Binding(get: { sheet == .export ? sheet : nil }, set: { sheet = $0 })
     }
 
-    @ViewBuilder
     /// With a panel open, the empty space around the video closes it: tap it or swipe down on it.
     @ViewBuilder
     private var panelDismissArea: some View {
@@ -68,6 +67,7 @@ struct EditorView: View {
         }
     }
 
+    @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
             Panel(height: typing ? compactPanel : panelHeight(s), close: { sheet = nil }) {
