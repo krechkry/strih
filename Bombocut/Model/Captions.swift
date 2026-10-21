@@ -71,10 +71,17 @@ struct CaptionStyle: Codable, Hashable {
     var highlight = RGBA.lime
     var stroke = RGBA.black
     var strokeWidth = 0.0        // 0...1
+    var strokeOutside = false    // true = the outline grows outwards only and never eats into the letters
+    var tracking = 0.0           // letter spacing, fraction of the font size (-0.1...0.5)
+    var lineSpacing = 1.0        // line height multiplier
     var box = false
     var boxColor = RGBA.black
     var boxOpacity = 0.7
     var shadow = true
+    var shadowOpacity = 0.75
+    var shadowBlur = 0.18        // fraction of the font size
+    var shadowAngle = 90.0       // degrees, 90 = straight down
+    var shadowDistance = 0.05    // fraction of the font size
     var caps = false
     var y = 0.72                 // vertical position, 0 = top, 1 = bottom
     var x = 0.0                  // sideways shift, fraction of the width (+ = right)
@@ -87,7 +94,8 @@ struct CaptionStyle: Codable, Hashable {
     init() {}
 
     enum CodingKeys: String, CodingKey {
-        case font, size, text, highlight, stroke, strokeWidth, box, boxColor, boxOpacity, shadow, caps, y, x, rotation, lines, maxChars, anim, punctuation
+        case font, size, text, highlight, stroke, strokeWidth, strokeOutside, tracking, lineSpacing, box, boxColor, boxOpacity
+        case shadow, shadowOpacity, shadowBlur, shadowAngle, shadowDistance, caps, y, x, rotation, lines, maxChars, anim, punctuation
     }
 
     init(from d: Decoder) throws {
@@ -99,10 +107,17 @@ struct CaptionStyle: Codable, Hashable {
         highlight = try c.decodeIfPresent(RGBA.self, forKey: .highlight) ?? def.highlight
         stroke = try c.decodeIfPresent(RGBA.self, forKey: .stroke) ?? def.stroke
         strokeWidth = try c.decodeIfPresent(Double.self, forKey: .strokeWidth) ?? def.strokeWidth
+        strokeOutside = try c.decodeIfPresent(Bool.self, forKey: .strokeOutside) ?? def.strokeOutside
+        tracking = try c.decodeIfPresent(Double.self, forKey: .tracking) ?? def.tracking
+        lineSpacing = try c.decodeIfPresent(Double.self, forKey: .lineSpacing) ?? def.lineSpacing
         box = try c.decodeIfPresent(Bool.self, forKey: .box) ?? def.box
         boxColor = try c.decodeIfPresent(RGBA.self, forKey: .boxColor) ?? def.boxColor
         boxOpacity = try c.decodeIfPresent(Double.self, forKey: .boxOpacity) ?? def.boxOpacity
         shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow) ?? def.shadow
+        shadowOpacity = try c.decodeIfPresent(Double.self, forKey: .shadowOpacity) ?? def.shadowOpacity
+        shadowBlur = try c.decodeIfPresent(Double.self, forKey: .shadowBlur) ?? def.shadowBlur
+        shadowAngle = try c.decodeIfPresent(Double.self, forKey: .shadowAngle) ?? def.shadowAngle
+        shadowDistance = try c.decodeIfPresent(Double.self, forKey: .shadowDistance) ?? def.shadowDistance
         caps = try c.decodeIfPresent(Bool.self, forKey: .caps) ?? def.caps
         y = try c.decodeIfPresent(Double.self, forKey: .y) ?? def.y
         x = try c.decodeIfPresent(Double.self, forKey: .x) ?? def.x

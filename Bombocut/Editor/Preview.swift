@@ -488,9 +488,15 @@ struct TrimTwoUp: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.black
-            HStack(spacing: 3) {
-                half(view.left, moving: !view.leading, label: view.leading ? "OUT" : "NEW OUT")
-                half(view.right, moving: view.leading, label: view.leading ? "NEW IN" : "IN")
+            if UIMode.isPro {
+                HStack(spacing: 3) {
+                    half(view.left, moving: !view.leading, label: view.leading ? "OUT" : "NEW OUT")
+                    half(view.right, moving: view.leading, label: view.leading ? "NEW IN" : "IN")
+                }
+            } else if let img = view.leading ? view.right : view.left {
+                // Basic: just the frame at the edge being trimmed
+                Image(uiImage: img).resizable().scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             Text(verbatim: Fmt.delta(view.delta))
                 .font(.system(size: 15, weight: .bold).monospacedDigit())

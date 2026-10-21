@@ -9,7 +9,7 @@ struct PlatformMock: View {
     var active = false     // a title is moving: a bit stronger
     var danger = false     // the title is under the app's buttons / texts: the layout lights up
 
-    private static let warn = Color(red: 1, green: 0.32, blue: 0.25)
+    private static let warn = Color(red: 1, green: 0.68, blue: 0.12)   // yellow-orange, a nudge not an alarm
 
     private var k: CGFloat { size.width / 390 }          // 1 at the width of a phone screen
     private func pt(_ v: CGFloat) -> CGFloat { v * k }
@@ -17,16 +17,17 @@ struct PlatformMock: View {
     var body: some View {
         let free = zone.rect(in: size) ?? CGRect(origin: .zero, size: size)
         ZStack(alignment: .topLeading) {
-            // the covered area: a light veil, red when a title is in it
+            // the covered area: a light veil, orange when a title is in it
             Path { p in
                 p.addRect(CGRect(origin: .zero, size: size))
                 p.addRect(free)
             }
-            .fill(danger ? Self.warn.opacity(0.28) : Color.black.opacity(active ? 0.18 : 0.08), style: FillStyle(eoFill: true))
+            .fill(danger ? Self.warn.opacity(0.3) : Color.black.opacity(active ? 0.18 : 0.08), style: FillStyle(eoFill: true))
             // dashed edge: past it, content may be hidden by the app
+            // (gone while the veil lights up: the tint alone says it)
             Path { p in p.addRect(free) }
-                .stroke(danger ? Self.warn : Color.white.opacity(active ? 0.75 : 0.45),
-                        style: StrokeStyle(lineWidth: danger ? 2 : 1, dash: [6, 5]))
+                .stroke(Color.white.opacity(danger ? 0 : (active ? 0.75 : 0.45)),
+                        style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
             Group {
                 switch zone {
                 case .off: EmptyView()

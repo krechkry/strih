@@ -134,6 +134,8 @@ struct OverlaySheet: View {
         }
         colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
         slider("Size", value: s.size, in: 0.03...0.2) { v in model.editOverlay { $0.style.size = v } }
+        slider("Letter spacing", value: s.tracking, in: -0.1...0.5) { v in model.editOverlay { $0.style.tracking = v } }
+        slider("Line spacing", value: s.lineSpacing, in: 0.6...2) { v in model.editOverlay { $0.style.lineSpacing = v } }
     }
 
     // MARK: Style
@@ -142,13 +144,22 @@ struct OverlaySheet: View {
     private func styleTab(_ s: CaptionStyle) -> some View {
         colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
         slider("Outline width", value: s.strokeWidth, in: 0...1) { v in model.editOverlay { $0.style.strokeWidth = v } }
-        OnOffRow(title: "Box", isOn: s.box) { v in model.setOverlay { $0.style.box = v } }
+        if s.strokeWidth > 0 {
+            OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in model.setOverlay { $0.style.strokeOutside = v } }
+        }
         OnOffRow(title: "Shadow", isOn: s.shadow) { v in model.setOverlay { $0.style.shadow = v } }
-        OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
+        if s.shadow {
+            slider("Shadow opacity", value: s.shadowOpacity, in: 0.05...1) { v in model.editOverlay { $0.style.shadowOpacity = v } }
+            slider("Shadow blur", value: s.shadowBlur, in: 0...0.6) { v in model.editOverlay { $0.style.shadowBlur = v } }
+            slider("Shadow distance", value: s.shadowDistance, in: 0...0.3) { v in model.editOverlay { $0.style.shadowDistance = v } }
+            slider("Shadow angle", value: s.shadowAngle, in: 0...360) { v in model.editOverlay { $0.style.shadowAngle = v } }
+        }
+        OnOffRow(title: "Box", isOn: s.box) { v in model.setOverlay { $0.style.box = v } }
         if s.box {
             colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } }
             slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
         }
+        OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
     }
 
     // MARK: Animation

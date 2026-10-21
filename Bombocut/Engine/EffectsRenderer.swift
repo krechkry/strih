@@ -122,14 +122,11 @@ enum EffectsRenderer {
         let r = scaled(channel(1, 0, 0), 1 + 2 * k)
         let g = scaled(channel(0, 1, 0), 1 + k)
         let b = channel(0, 0, 1)
-        let rg = r.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: g])
-        // adding the three channels also adds their alphas (3); put alpha back to 1, or every effect
-        // after this (grain's soft light) treats the picture as a third as bright
-        return b.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: rg])
-            .applyingFilter("CIColorMatrix", parameters: [
-                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
-                "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: 1),
-            ])
+        // each channel image is opaque and black in the other two channels, so the per-component maximum
+        // puts the picture back together with alpha 1 (adding them gave alpha 3, and fixing that afterwards
+        // through a color matrix divided the colors by 3: the darkening)
+        return b.applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: g])
+            .applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: r])
             .cropped(to: CGRect(origin: .zero, size: size))
     }
 

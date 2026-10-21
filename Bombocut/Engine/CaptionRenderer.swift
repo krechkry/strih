@@ -1,5 +1,6 @@
 import CoreImage
 import UIKit
+import CoreText
 
 /// Captions of the open project, read by the compositor for each frame (live edits, no rebuild).
 final class CaptionStore: @unchecked Sendable {
@@ -134,6 +135,53 @@ final class CaptionRenderer: @unchecked Sendable {
         }
     }
 
+    /// Outlines of the visible letters of one line (hidden letters, drawn in clear, are left out),
+    /// in UIKit coordinates with the line starting at x on the given baseline.
+    private static func glyphPath(_ line: CTLine, x: CGFloat, baseline: CGFloat) -> CGPath? {
+        let path = CGMutablePath()
+        let runs = CTLineGetGlyphRuns(line) as? [CTRun] ?? []
+        for run in runs {
+            let attrs = CTRunGetAttributes(run) as NSDictionary
+            if let c = attrs[NSAttributedString.Key.foregroundColor] as? UIColor, c.cgColor.alpha == 0 { continue }
+            guard let fontRef = attrs[NSAttributedString.Key.font] else { continue }
+            let font = fontRef as! CTFont
+            let n = CTRunGetGlyphCount(run)
+            var glyphs = [CGGlyph](repeating: 0, count: n)
+            var positions = [CGPoint](repeating: .zero, count: n)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: n), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: n), &positions)
+            for k in 0..<n {
+                var t = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: x + positions[k].x, ty: baseline - positions[k].y)
+                if let g = CTFontCreatePathForGlyph(font, glyphs[k], &t) { path.addPath(g) }
+            }
+        }
+        return path.isEmpty ? nil : path
+    }
+
+    /// Outlines of the visible letters of one line (hidden letters, drawn in clear, are left out),
+    /// in UIKit coordinates with the line starting at x on the given baseline.
+    private static func glyphPath(_ line: CTLine, x: CGFloat, baseline: CGFloat) -> CGPath? {
+        let path = CGMutablePath()
+        let runs = CTLineGetGlyphRuns(line) as? [CTRun] ?? []
+        for run in runs {
+            let attrs = CTRunGetAttributes(run) as NSDictionary
+            if let c = attrs[NSAttributedString.Key.foregroundColor] as? UIColor, c.cgColor.alpha == 0 { continue }
+            guard let fontRef = attrs[NSAttributedString.Key.font] else { continue }
+            let font = fontRef as! CTFont
+            let n = CTRunGetGlyphCount(run)
+            guard n > 0 else { continue }
+            var glyphs = [CGGlyph](repeating: 0, count: n)
+            var positions = [CGPoint](repeating: .zero, count: n)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: n), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: n), &positions)
+            for k in 0..<n {
+                var t = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: x + positions[k].x, ty: baseline - positions[k].y)
+                if let g = CTFontCreatePathForGlyph(font, glyphs[k], &t) { path.addPath(g) }
+            }
+        }
+        return path.isEmpty ? nil : path
+    }
+
     private func color(_ c: RGBA) -> UIColor { UIColor(red: c.r, green: c.g, blue: c.b, alpha: c.a) }
 
     /// Renders the text block (all lines, optional box per line) to a CIImage, origin at 0,0.
@@ -148,7 +196,9 @@ final class CaptionRenderer: @unchecked Sendable {
 
         // shrink to fit the widest line
         var font = Self.uiFont(style.font, size: fontSize)
-        let widest = lines.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        let widest = lines.map {
+            ($0 as NSString).size(withAttributes: [.font: font, .kern: CGFloat(style.tracking) * fontSize]).width
+        }.max() ?? 0
         if widest > maxWidth {
             fontSize *= maxWidth / widest
             font = Self.uiFont(style.font, size: fontSize)
@@ -156,9 +206,13 @@ final class CaptionRenderer: @unchecked Sendable {
 
         let padX = style.box ? fontSize * 0.35 : fontSize * 0.15
         let padY = style.box ? fontSize * 0.12 : fontSize * 0.05
-        let lineH = font.lineHeight + padY * 2
+        let rowH = font.lineHeight + padY * 2                    // one line (and its box)
         let gap = style.box ? fontSize * 0.08 : 0
-        let strokePx = style.strokeWidth * 9   // percent of font size for UIKit stroke attribute
+        let step = rowH + gap + CGFloat(style.lineSpacing - 1) * font.lineHeight
+        let kern = CGFloat(style.tracking) * fontSize
+        // outline line width; outside-only draws it twice as wide behind the letters, so the same amount shows
+        let outline = CGFloat(style.strokeWidth) * fontSize * 0.09
+        let outlineReach = style.strokeOutside ? outline : outline / 2
 
         // build attributed lines with per-word colors / visibility
         let totalChars = raw.count
@@ -177,11 +231,11 @@ final class CaptionRenderer: @unchecked Sendable {
                 for ch in piece {
                     var cc = c
                     if let vc = visibleChars, charIndex >= vc { cc = .clear }
-                    var attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: cc]
-                    if strokePx > 0 {
-                        attrs[.strokeColor] = cc == .clear ? UIColor.clear : color(style.stroke)
-                        attrs[.strokeWidth] = -strokePx
-                    }
+                    var attrs: [NSAttributedString.Key: Any] = [
+                        .font: font, .foregroundColor: cc,
+                        NSAttributedString.Key(kCTForegroundColorAttributeName as String): cc.cgColor,
+                    ]
+                    if kern != 0 { attrs[.kern] = kern }
                     m.append(NSAttributedString(string: String(ch), attributes: attrs))
                     charIndex += 1
                 }
@@ -190,30 +244,69 @@ final class CaptionRenderer: @unchecked Sendable {
             attributed.append(m)
         }
 
-        let sizes = attributed.map { $0.size() }
-        let blockW = (sizes.map(\.width).max() ?? 0) + padX * 2 + fontSize * 0.2
-        let blockH = CGFloat(lines.count) * lineH + CGFloat(lines.count - 1) * gap + fontSize * 0.2
+        let ctLines = attributed.map { CTLineCreateWithAttributedString($0 as CFAttributedString) }
+        let widths = ctLines.map { line -> CGFloat in
+            // trailing tracking after the last letter is not part of the text
+            CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil)) - (kern > 0 ? kern : 0)
+        }
+
+        // room around the text for the outline and the shadow
+        let shadowOn = style.shadow && style.shadowOpacity > 0
+        let angle = style.shadowAngle * .pi / 180
+        let shadowOffset = CGSize(width: cos(angle) * style.shadowDistance * Double(fontSize),
+                                  height: sin(angle) * style.shadowDistance * Double(fontSize))
+        let shadowBlur = CGFloat(style.shadowBlur) * fontSize
+        let shadowReach = shadowOn ? max(abs(shadowOffset.width), abs(shadowOffset.height)) + shadowBlur * 1.5 : 0
+        let margin = fontSize * 0.1 + outlineReach + shadowReach
+
+        let contentW = (widths.max() ?? 0) + padX * 2
+        let contentH = rowH + CGFloat(lines.count - 1) * max(step, 0)
+        let blockW = contentW + margin * 2
+        let blockH = contentH + margin * 2
         let fmt = UIGraphicsImageRendererFormat()
         fmt.scale = 1
         fmt.opaque = false
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: ceil(blockW), height: ceil(blockH)), format: fmt)
         let image = renderer.image { ctx in
             let cg = ctx.cgContext
-            for (i, line) in attributed.enumerated() {
-                let s = sizes[i]
-                let y = fontSize * 0.1 + CGFloat(i) * (lineH + gap)
-                let x = (blockW - s.width) / 2
+            for (i, line) in ctLines.enumerated() {
+                let w = widths[i]
+                let y = margin + CGFloat(i) * max(step, 0)
+                let x = (blockW - w) / 2
                 if style.box {
-                    let r = CGRect(x: x - padX, y: y, width: s.width + padX * 2, height: lineH)
+                    let r = CGRect(x: x - padX, y: y, width: w + padX * 2, height: rowH)
                     color(RGBA(r: style.boxColor.r, g: style.boxColor.g, b: style.boxColor.b, a: style.boxOpacity)).setFill()
                     UIBezierPath(roundedRect: r, cornerRadius: fontSize * 0.22).fill()
                 }
+                let baseline = y + padY + font.ascender
                 cg.saveGState()
-                if style.shadow {
-                    cg.setShadow(offset: CGSize(width: 0, height: fontSize * 0.05), blur: fontSize * 0.18,
-                                 color: UIColor.black.withAlphaComponent(0.75).cgColor)
+                if shadowOn {
+                    cg.setShadow(offset: shadowOffset, blur: shadowBlur,
+                                 color: UIColor.black.withAlphaComponent(style.shadowOpacity).cgColor)
+                    cg.beginTransparencyLayer(auxiliaryInfo: nil)
                 }
-                line.draw(at: CGPoint(x: x, y: y + padY))
+                let outlinePath = outline > 0 ? Self.glyphPath(line, x: x, baseline: baseline) : nil
+                func strokeOutline(_ width: CGFloat) {
+                    guard let p = outlinePath else { return }
+                    cg.saveGState()
+                    cg.addPath(p)
+                    cg.setLineWidth(width)
+                    cg.setLineJoin(.round)
+                    cg.setLineCap(.round)
+                    cg.setStrokeColor(color(style.stroke).cgColor)
+                    cg.strokePath()
+                    cg.restoreGState()
+                }
+                if style.strokeOutside { strokeOutline(outline * 2) }
+                cg.saveGState()
+                cg.translateBy(x: x, y: baseline)
+                cg.scaleBy(x: 1, y: -1)
+                cg.textMatrix = .identity
+                cg.textPosition = .zero
+                CTLineDraw(line, cg)
+                cg.restoreGState()
+                if !style.strokeOutside { strokeOutline(outline) }
+                if shadowOn { cg.endTransparencyLayer() }
                 cg.restoreGState()
             }
         }

@@ -362,6 +362,11 @@ struct CaptionsSheet: View {
                 if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
                 colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
                 slider("Outline width", value: s.strokeWidth, in: 0...1) { v in { $0.strokeWidth = v } }
+                if s.strokeWidth > 0 {
+                    OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
+                }
+                slider("Letter spacing", value: s.tracking, in: -0.1...0.5) { v in { $0.tracking = v } }
+                slider("Line spacing", value: s.lineSpacing, in: 0.6...2) { v in { $0.lineSpacing = v } }
 
                 OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
                 if s.box {
@@ -370,8 +375,14 @@ struct CaptionsSheet: View {
                 }
                 VStack(spacing: 12) {
                     OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
-                    OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
                     OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
+                    OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
+                }
+                if s.shadow {
+                    slider("Shadow opacity", value: s.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
+                    slider("Shadow blur", value: s.shadowBlur, in: 0...0.6) { v in { $0.shadowBlur = v } }
+                    slider("Shadow distance", value: s.shadowDistance, in: 0...0.3) { v in { $0.shadowDistance = v } }
+                    slider("Shadow angle", value: s.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
                 }
             }
             .padding(.bottom, 30)

@@ -140,7 +140,9 @@ struct TimelineView: View {
                     }
                     }
                     .padding(.leading, max(0, half + shift))
-                    .padding(.trailing, half)
+                    // the + after the last clip sits inside the trailing room, so the strip stops with the
+                    // playhead on the end of the last clip instead of scrolling past it
+                    .padding(.trailing, max(0, half - (reorder == nil && model.pick == nil && model.trim == nil ? 54 : 0)))
                     .padding(.top, 26)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())

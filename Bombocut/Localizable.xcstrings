@@ -2038,12 +2038,32 @@
         }
       }
     },
+    "Letter spacing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozestup písmen"
+          }
+        }
+      }
+    },
     "Lighten": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Zesvětlit"
+          }
+        }
+      }
+    },
+    "Line spacing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řádkování"
           }
         }
       }
@@ -2464,6 +2484,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obrys"
+          }
+        }
+      }
+    },
+    "Outline outside only": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrys jen zvenku"
           }
         }
       }
@@ -3014,6 +3044,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stín"
+          }
+        }
+      }
+    },
+    "Shadow angle": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úhel stínu"
+          }
+        }
+      }
+    },
+    "Shadow blur": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmazání stínu"
+          }
+        }
+      }
+    },
+    "Shadow distance": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vzdálenost stínu"
+          }
+        }
+      }
+    },
+    "Shadow opacity": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krytí stínu"
           }
         }
       }
