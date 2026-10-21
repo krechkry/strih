@@ -645,6 +645,10 @@ struct EditorView: View {
             model.mutateLook { $0.clips[0].mask = SubjectMask(kind: .person, blur: 0.6, dim: 0.3) }
             try? await Task.sleep(for: .seconds(0.6))
             sheet = .mask
+        case "layout":
+            safeZone = .tiktok
+            safeZoneAlways = true
+            sheet = .layout
         case "zreels", "ztiktok", "zshorts", "zstories":
             safeZone = SafeZone(rawValue: String(mode.dropFirst())) ?? .reels
             safeZoneAlways = true
