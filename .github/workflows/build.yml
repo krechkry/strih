@@ -42,6 +42,16 @@ jobs:
             exit 1
           fi
 
+      - name: Release checks
+        run: |
+          APP=build/Release-iphoneos/Bombocut.app
+          V=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" $APP/Info.plist)
+          B=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" $APP/Info.plist)
+          ENC=$(/usr/libexec/PlistBuddy -c "Print :ITSAppUsesNonExemptEncryption" $APP/Info.plist 2>/dev/null || echo missing)
+          PRIV=$([ -f $APP/PrivacyInfo.xcprivacy ] && echo yes || echo NO)
+          LOC=$(ls -d $APP/*.lproj | xargs -n1 basename | tr '\n' ' ')
+          echo "::notice title=Release checks::version $V build $B · encryption flag $ENC · privacy manifest $PRIV · $LOC"
+
       - name: Package .ipa
         run: |
           mkdir -p Payload
