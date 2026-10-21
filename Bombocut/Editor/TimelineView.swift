@@ -732,12 +732,13 @@ struct AudioLane: View {
         .foregroundStyle(selected ? .black : .white)
         .padding(.horizontal, selected ? 12 : 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background(
+        .background {
             ZStack {
                 (selected ? Theme.accent : Self.tint.opacity(0.45))
                 Wave(seed: a.file.hashValue).fill(.black.opacity(selected ? 0.18 : 0.22))
-            },
-            in: RoundedRectangle(cornerRadius: 5))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+        }
         .clipped()
         .overlay {
             if selected {

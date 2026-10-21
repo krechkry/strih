@@ -91,6 +91,41 @@ struct EditorView: View {
     }
 
     var body: some View {
+        audioHandlers(editor)
+    }
+
+    /// Picking, importing and editing sound (kept apart so the compiler can check the body quickly).
+    private func audioHandlers<V: View>(_ v: V) -> some View {
+        v
+        .onChange(of: model.openAudioPanel) { _, open in
+            if open { model.openAudioPanel = false; sheet = .audio }
+        }
+        .onChange(of: model.selectedAudioID) { _, id in
+            if id == nil && sheet == .audio { sheet = nil }
+        }
+        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: [.audio, .movie]) { result in
+            guard case .success(let url) = result else { return }
+            Task { await model.addAudioFile(url) }
+        }
+        .photosPicker(isPresented: $showAudioVideo, selection: $audioVideoItem, matching: .videos, preferredItemEncoding: .current)
+        .onChange(of: audioVideoItem) { _, item in
+            guard let item else { return }
+            audioVideoItem = nil
+            Task {
+                model.audioBusy = true
+                if let m = try? await item.loadTransferable(type: ImportedMovie.self) {
+                    await model.addAudioFromVideo(m.url)
+                } else {
+                    model.audioBusy = false
+                }
+            }
+        }
+        .alert("Audio", isPresented: Binding(get: { model.audioError != nil }, set: { if !$0 { model.audioError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(model.audioError ?? "") }
+    }
+
+    private var editor: some View {
         ZStack {
             VStack(spacing: 0) {
                 topBar
@@ -147,32 +182,6 @@ struct EditorView: View {
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
         }
-        .onChange(of: model.openAudioPanel) { _, open in
-            if open { model.openAudioPanel = false; sheet = .audio }
-        }
-        .onChange(of: model.selectedAudioID) { _, id in
-            if id == nil && sheet == .audio { sheet = nil }
-        }
-        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: [.audio, .movie]) { result in
-            guard case .success(let url) = result else { return }
-            Task { await model.addAudioFile(url) }
-        }
-        .photosPicker(isPresented: $showAudioVideo, selection: $audioVideoItem, matching: .videos, preferredItemEncoding: .current)
-        .onChange(of: audioVideoItem) { _, item in
-            guard let item else { return }
-            audioVideoItem = nil
-            Task {
-                model.audioBusy = true
-                if let m = try? await item.loadTransferable(type: ImportedMovie.self) {
-                    await model.addAudioFromVideo(m.url)
-                } else {
-                    model.audioBusy = false
-                }
-            }
-        }
-        .alert("Audio", isPresented: Binding(get: { model.audioError != nil }, set: { if !$0 { model.audioError = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(model.audioError ?? "") }
         .onChange(of: model.openOverlayPanel) { _, open in
             if open { model.openOverlayPanel = false; sheet = .overlay }
         }
