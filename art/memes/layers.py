@@ -205,23 +205,24 @@ MEMES["11_deadpan"] = [
     L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-0.8, 4.5, 350, 236)]),
 ]
 
-# 12 suspicious ------------------------------------------------------------------------------
-lines = '<path d="M0 26 Q240 58 480 16 M0 50 Q240 86 480 42 M0 76 Q240 114 480 70" fill="none" stroke="#fff" stroke-width="3"/>'
+# 12 weirded out (confused, looking off to the side) ----------------------------------------------
 suit = obj('path d="M40 480 Q56 410 150 384 L240 432 L330 384 Q424 410 440 480 Z"', 6)
 suit += obj('path d="M156 380 L240 434 L200 480 L132 480 Z"', 6) + obj('path d="M324 380 L240 434 L280 480 L348 480 Z"', 6)
 suit += obj('path d="M226 432 L254 432 L262 480 L218 480 Z"', 6)
 head = obj('path d="M240 40 C360 40 405 120 400 230 C395 340 330 400 240 400 C150 400 85 340 80 230 C75 120 120 40 240 40 Z"', 8)
-head += cut("M150 204 Q175 194 200 206", 10)
-head += cut("M138 160 L206 184", 14) + cut("M258 152 Q292 128 328 146", 13)
-head += solid('circle cx="292" cy="202" r="17"', K) + solid('circle cx="284" cy="204" r="5.5"')
-head += cut("M222 168 L226 192 M238 166 L240 190", 5)
-head += cut("M234 214 Q220 258 240 266", 6)
-head += cut("M220 322 Q236 308 252 320 Q268 332 288 312", 8) + cut("M200 372 Q240 390 280 372", 5)
-head += cut("M138 232 Q150 244 164 238", 5)
+head += solid('ellipse cx="178" cy="208" rx="19" ry="10"', K) + solid('ellipse cx="294" cy="204" rx="19" ry="13"', K)
+head += cut("M156 200 Q178 190 200 202", 6)
+head += cut("M140 170 L206 186", 13) + cut("M262 160 Q294 140 328 154", 12)
+head += cut("M222 170 L226 192 M236 168 L238 190", 5)
+head += cut("M234 216 Q220 258 240 266", 6)
+head += solid('ellipse cx="270" cy="318" rx="12" ry="9" transform="rotate(-15 270 318)"', K) + cut("M290 304 Q298 316 291 330", 4)
+pupils = solid('circle cx="190" cy="205" r="6"') + solid('circle cx="306" cy="200" r="6.5"')
+tilt = rot(3, 3.6, 240, 400)
 MEMES["12_suspicious"] = [
-    L(lines),
     L(suit),
-    L(head, 8, [scale(-0.035, -0.035, 3.2, 240, 400), rot(-3.5, 3.2, 240, 400), shake(0.6, 9)], [(292, 202, 19, 19)], (3.6, 0.7, 0.04)),
+    L(head, 8, [tilt]),
+    # the pupils glance around but never at the camera; blinking shuts them too
+    L(pupils, 0, [move(3, 1, 3.0), tilt], [(178, 208, 21, 12), (294, 204, 21, 15)], (4.2, 0.7, 0.04)),
 ]
 
 # 14 suit cat, thumbs up ---------------------------------------------------------------------
