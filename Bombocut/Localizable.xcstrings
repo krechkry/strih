@@ -196,6 +196,16 @@
         }
       }
     },
+    "Added as an overlay": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidáno jako překrytí"
+          }
+        }
+      }
+    },
     "Adjust": {
       "localizations": {
         "cs": {
@@ -612,6 +622,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mezipaměť"
+          }
+        }
+      }
+    },
+    "Camera shake": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otřesy kamery"
           }
         }
       }
@@ -1590,6 +1610,16 @@
         }
       }
     },
+    "In": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nástup"
+          }
+        }
+      }
+    },
     "Invents in-between frames": {
       "localizations": {
         "cs": {
@@ -1700,6 +1730,16 @@
         }
       }
     },
+    "Layout": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout"
+          }
+        }
+      }
+    },
     "Leave it empty to keep “%@”. You can rename it after export.": {
       "localizations": {
         "cs": {
@@ -1766,6 +1806,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Načítání hlasového modelu"
+          }
+        }
+      }
+    },
+    "Locked on the subject: the picture moves so it stays still, everything else moves around it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamčeno na objektu: obraz se posouvá tak, aby objekt stál, a všechno ostatní se hýbe kolem něj."
           }
         }
       }
@@ -2120,6 +2170,16 @@
         }
       }
     },
+    "Out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odchod"
+          }
+        }
+      }
+    },
     "Outline": {
       "localizations": {
         "cs": {
@@ -2186,6 +2246,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fotky"
+          }
+        }
+      }
+    },
+    "Pick a subject (a rider, a face, a sign). Bombocut tracks it through the clip and holds it in place, so the shake and the movement go into everything around it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber objekt (jezdce, obličej, ceduli). Bombocut ho sleduje celým klipem a drží ho na místě, takže otřesy a pohyb přejdou na všechno kolem."
           }
         }
       }
@@ -2490,6 +2560,16 @@
         }
       }
     },
+    "Save / use": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit / použít"
+          }
+        }
+      }
+    },
     "Save or share": {
       "localizations": {
         "cs": {
@@ -2506,6 +2586,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uložit šablonu"
+          }
+        }
+      }
+    },
+    "Save to Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit do Fotek"
           }
         }
       }
@@ -2590,6 +2680,16 @@
         }
       }
     },
+    "Shows the app's buttons and texts over your video while you edit. The dashed line is where they start; a title that crosses it lights the layout up red.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Při stříhání ukazuje tlačítka a texty aplikace přes tvoje video. Čárkovaná čára značí, kde začínají; titulek, který ji přejede, rozsvítí layout červeně."
+          }
+        }
+      }
+    },
     "Shrink / grow": {
       "localizations": {
         "cs": {
@@ -2616,6 +2716,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přeskočit"
+          }
+        }
+      }
+    },
+    "Slide down": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sjetí dolů"
+          }
+        }
+      }
+    },
+    "Slide left": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posun doleva"
+          }
+        }
+      }
+    },
+    "Slide right": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posun doprava"
           }
         }
       }
@@ -2676,6 +2806,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Plynulost"
+          }
+        }
+      }
+    },
+    "Social layout": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout sítí"
           }
         }
       }
@@ -2786,6 +2926,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Styl"
+          }
+        }
+      }
+    },
+    "Subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objekt"
           }
         }
       }
@@ -2930,6 +3080,16 @@
         }
       }
     },
+    "The matte is ready": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alfa maska je hotová"
+          }
+        }
+      }
+    },
     "The purchase is waiting for approval.": {
       "localizations": {
         "cs": {
@@ -2946,6 +3106,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hlasový model má asi 650 MB. Radši přes Wi-Fi."
+          }
+        }
+      }
+    },
+    "The transparent video is ready": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Průhledné video je hotové"
           }
         }
       }
@@ -3086,6 +3256,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nepoužitá videa"
+          }
+        }
+      }
+    },
+    "Use as overlay": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít jako překrytí"
           }
         }
       }
@@ -3286,6 +3466,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přiblížení %lld %% skryje okraje"
+          }
+        }
+      }
+    },
+    "Zoom in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiblížení"
+          }
+        }
+      }
+    },
+    "Zoom out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oddálení"
           }
         }
       }

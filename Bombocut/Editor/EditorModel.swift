@@ -879,6 +879,7 @@ final class EditorModel: ObservableObject {
     }
 
     func cancelTrackPick() {
+        stabilizeOnSubject = false
         detectTask?.cancel()
         trackPick = false
         pickPhase = .select
@@ -949,6 +950,20 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    /// The next tracking is for subject stabilization: hold the subject in place, no borders.
+    var stabilizeOnSubject = false
+    @Published var openStabilizeSheet = false
+
+    func startSubjectStabilization() {
+        stabilizeOnSubject = true
+        startTrackPick()
+    }
+
+    func removeSubjectStabilization() {
+        guard let i = selectedIndex else { return }
+        mutateLook { $0.clips[i].tracking = nil }
+    }
+
     /// The (adjusted) box on the preview, in canvas points: track forward and backward from here.
     func runTracking(canvasRect r: CGRect, canvas: CGSize) {
         guard let i = selectedIndex, analysis == nil, canvas.width > 0,
@@ -958,7 +973,9 @@ final class EditorModel: ObservableObject {
         let c = project.clips[i]
         let id = c.id
         let anchor = sourceTime(i)
-        let mode = c.tracking?.mode ?? .center
+        let forStab = stabilizeOnSubject
+        stabilizeOnSubject = false
+        let mode: FollowMode = forStab ? .inPlace : (c.tracking?.mode ?? .center)
         let smooth = c.tracking?.smooth ?? 0.5
 
         analysis = AnalysisState(title: "Tracking", progress: 0)
@@ -975,10 +992,10 @@ final class EditorModel: ObservableObject {
                     guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
                     mutateLook {
                         $0.clips[j].tracking = Tracking(samples: samples, mode: mode == .off ? .center : mode,
-                                                        smooth: smooth, anchor: anchor)
+                                                        smooth: smooth, anchor: anchor, noBorders: forStab ? true : nil)
                     }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    openTrackSheet = true
+                    if forStab { openStabilizeSheet = true } else { openTrackSheet = true }
                 } catch {
                     if !(error is CancellationError) { buildError = error.localizedDescription }
                 }

@@ -30,7 +30,7 @@ struct EditorView: View {
         case .speed: return 620
         case .adjust: return 360
         case .captions: return 420
-        case .stabilize: return 280
+        case .stabilize: return 360
         case .track: return 360
         case .overlay: return 430
         case .mask: return 540
@@ -135,6 +135,9 @@ struct EditorView: View {
         }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
+        }
+        .onChange(of: model.openStabilizeSheet) { _, open in
+            if open { model.openStabilizeSheet = false; sheet = .stabilize }
         }
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
