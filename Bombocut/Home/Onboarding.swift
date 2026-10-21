@@ -13,9 +13,9 @@ struct RootView: View {
                 OnboardingView(step: Demo.mode == "paywall" ? 2 : 0)
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
-            } else if Demo.mode == nil && (!onboarded || purchases.access == .new) {
+            } else if Demo.mode == nil && (!onboarded || (purchases.access == .new && !purchases.isBeta)) {
                 OnboardingView(step: onboarded ? 2 : 0)
-            } else if Demo.mode == nil && purchases.access == .expired {
+            } else if Demo.mode == nil && purchases.access == .expired && !purchases.isBeta {
                 PaywallView(mode: .expired)
             } else {
                 HomeView()
@@ -263,7 +263,9 @@ struct TrialPill: View {
     @State private var show = false
 
     var body: some View {
-        if case .trial = purchases.access, Demo.mode == nil || Demo.mode == "home" {
+        if purchases.isBeta || Demo.mode == "beta" {
+            BetaCard()
+        } else if case .trial = purchases.access, Demo.mode == nil || Demo.mode == "home" {
             Button { show = true } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "hourglass").foregroundStyle(Theme.accent)
@@ -282,5 +284,28 @@ struct TrialPill: View {
             .buttonStyle(.plain)
             .sheet(isPresented: $show) { PaywallView(mode: .buy) }
         }
+    }
+}
+
+/// Home during the open beta: it's free, and how to send feedback.
+struct BetaCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(verbatim: "BETA")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Theme.accent, in: Capsule())
+                Text("Free while in beta").font(.subheadline.weight(.bold))
+            }
+            Text("Found a bug or want something? Take a screenshot and tap Share Beta Feedback, or open TestFlight and tap Send Beta Feedback. Every message gets read.")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
     }
 }

@@ -1416,6 +1416,16 @@
         }
       }
     },
+    "Found a bug or want something? Take a screenshot and tap Share Beta Feedback, or open TestFlight and tap Send Beta Feedback. Every message gets read.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Našel jsi chybu nebo ti něco chybí? Udělej screenshot a klepni na Sdílet zpětnou vazbu k betě, nebo otevři TestFlight a klepni na Odeslat zpětnou vazbu. Čteme každou zprávu."
+          }
+        }
+      }
+    },
     "Free trial: %lld days left": {
       "localizations": {
         "cs": {
@@ -1456,6 +1466,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zkušební verze: ještě 1 den"
+          }
+        }
+      }
+    },
+    "Free while in beta": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Během bety zdarma"
           }
         }
       }

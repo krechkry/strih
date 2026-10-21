@@ -21,6 +21,8 @@ final class Purchases: ObservableObject {
     }
 
     @Published private(set) var access: Access = .checking
+    /// TestFlight build (open beta): everything is free, no trial and no paywall.
+    @Published private(set) var isBeta = UserDefaults.standard.bool(forKey: "isBeta")
     @Published private(set) var trial: Product?
     @Published private(set) var full: Product?
     @Published private(set) var busy = false
@@ -43,12 +45,15 @@ final class Purchases: ObservableObject {
                 await self?.refresh()
             }
         }
-        Task { await load() }
+        Task {
+            await checkBeta()
+            await load()
+        }
     }
 
     /// Everything works (trial running or bought).
     var unlocked: Bool {
-        if Demo.mode != nil { return true }
+        if Demo.mode != nil || isBeta { return true }
         switch access {
         case .owned, .trial, .checking: return true
         case .new, .expired: return false
@@ -62,6 +67,14 @@ final class Purchases: ObservableObject {
 
     /// 149 Kč (from the App Store, in the buyer's currency).
     var price: String { full?.displayPrice ?? "149 Kč" }
+
+    /// TestFlight installs come from the App Store's sandbox.
+    private func checkBeta() async {
+        guard let result = try? await AppTransaction.shared, case .verified(let t) = result else { return }
+        let beta = t.environment == .sandbox
+        isBeta = beta
+        UserDefaults.standard.set(beta, forKey: "isBeta")
+    }
 
     func load() async {
         do {
