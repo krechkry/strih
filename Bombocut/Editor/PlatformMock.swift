@@ -6,26 +6,42 @@ import SwiftUI
 struct PlatformMock: View {
     let zone: SafeZone
     let size: CGSize
+    var active = false     // a title is moving: a bit stronger
+    var danger = false     // the title is under the app's buttons / texts: the layout lights up
+
+    private static let warn = Color(red: 1, green: 0.32, blue: 0.25)
 
     private var k: CGFloat { size.width / 390 }          // 1 at the width of a phone screen
     private func pt(_ v: CGFloat) -> CGFloat { v * k }
 
     var body: some View {
+        let free = zone.rect(in: size) ?? CGRect(origin: .zero, size: size)
         ZStack(alignment: .topLeading) {
-            // the apps darken the bottom a little behind their texts
-            LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .init(x: 0.5, y: 0.62), endPoint: .bottom)
-            LinearGradient(colors: [.black.opacity(0.22), .clear], startPoint: .top, endPoint: .init(x: 0.5, y: 0.16))
-            switch zone {
-            case .off: EmptyView()
-            case .reels: reels
-            case .tiktok: tiktok
-            case .shorts: shorts
-            case .stories: stories
+            // the covered area: a light veil, red when a title is in it
+            Path { p in
+                p.addRect(CGRect(origin: .zero, size: size))
+                p.addRect(free)
             }
+            .fill(danger ? Self.warn.opacity(0.28) : Color.black.opacity(active ? 0.18 : 0.08), style: FillStyle(eoFill: true))
+            // dashed edge: past it, content may be hidden by the app
+            Path { p in p.addRect(free) }
+                .stroke(danger ? Self.warn : Color.white.opacity(active ? 0.75 : 0.45),
+                        style: StrokeStyle(lineWidth: danger ? 2 : 1, dash: [6, 5]))
+            Group {
+                switch zone {
+                case .off: EmptyView()
+                case .reels: reels
+                case .tiktok: tiktok
+                case .shorts: shorts
+                case .stories: stories
+                }
+            }
+            .foregroundStyle(danger ? Self.warn : .white)
+            .opacity(danger ? 1 : (active ? 0.8 : 0.5))
+            .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
         }
         .frame(width: size.width, height: size.height)
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+        .animation(.easeOut(duration: 0.15), value: danger)
         .allowsHitTesting(false)
     }
 
@@ -71,7 +87,6 @@ struct PlatformMock: View {
 
     private var reels: some View {
         ZStack(alignment: .topLeading) {
-            sideStripes(0.035)
             icon("chevron.left", 0.1, 0.115, size: 22)
             Text(verbatim: "Reels").font(.system(size: pt(17), weight: .semibold)).position(at(0.5, 0.115))
             icon("camera", 0.88, 0.115, size: 22)
@@ -89,7 +104,6 @@ struct PlatformMock: View {
 
     private var tiktok: some View {
         ZStack(alignment: .topLeading) {
-            sideStripes(0.03)
             icon("play.tv", 0.1, 0.115, size: 18)
             HStack(spacing: pt(14)) {
                 Text(verbatim: "Explore").opacity(0.75)
@@ -116,7 +130,6 @@ struct PlatformMock: View {
 
     private var shorts: some View {
         ZStack(alignment: .topLeading) {
-            sideStripes(0.03)
             icon("magnifyingglass", 0.77, 0.12, size: 20)
             icon("ellipsis", 0.9, 0.12, size: 18)
             icon("hand.thumbsup.fill", 0.87, 0.47, size: 26, label: "3.9M")
@@ -152,5 +165,53 @@ struct PlatformMock: View {
                 }
                 .position(at(0.5, 0.945))
         }
+    }
+}
+
+/// Small panel: which app's screen to lay over the preview, and on / off.
+struct LayoutSheet: View {
+    @ObservedObject var model: EditorModel
+    @AppStorage("safeZone") private var zone = SafeZone.reels
+    @AppStorage("safeZoneAlways") private var on = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Social layout").font(.title3.weight(.heavy))
+                Spacer()
+                Button { on.toggle(); if zone == .off { zone = .reels } } label: {
+                    Text(on ? loc("On") : loc("Off"))
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(on ? .black : .white)
+                        .frame(width: 64, height: 32)
+                        .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            HStack(spacing: 8) {
+                ForEach(SafeZone.allCases.filter { $0 != .off }) { z in
+                    let picked = zone == z && on
+                    Button {
+                        zone = z
+                        on = true
+                    } label: {
+                        Text(loc(z.short))
+                            .font(.subheadline.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(picked ? .black : .white)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(picked ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("Shows the app's buttons and texts over your video while you edit. The dashed line is where they start; a title that crosses it lights the layout up red.")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }

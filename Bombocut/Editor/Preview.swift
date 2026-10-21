@@ -388,12 +388,6 @@ struct PreviewArea: View {
                 if g.contains(.right) { p.move(to: CGPoint(x: w - 1, y: 0)); p.addLine(to: CGPoint(x: w - 1, y: h)) }
                 if g.contains(.top) { p.move(to: CGPoint(x: 0, y: 1)); p.addLine(to: CGPoint(x: w, y: 1)) }
                 if g.contains(.bottom) { p.move(to: CGPoint(x: 0, y: h - 1)); p.addLine(to: CGPoint(x: w, y: h - 1)) }
-                if let r = safeZone.rect(in: canvas) {
-                    if g.contains(.safeLeft) { p.move(to: CGPoint(x: r.minX, y: 0)); p.addLine(to: CGPoint(x: r.minX, y: h)) }
-                    if g.contains(.safeRight) { p.move(to: CGPoint(x: r.maxX, y: 0)); p.addLine(to: CGPoint(x: r.maxX, y: h)) }
-                    if g.contains(.safeTop) { p.move(to: CGPoint(x: 0, y: r.minY)); p.addLine(to: CGPoint(x: w, y: r.minY)) }
-                    if g.contains(.safeBottom) { p.move(to: CGPoint(x: 0, y: r.maxY)); p.addLine(to: CGPoint(x: w, y: r.maxY)) }
-                }
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             .allowsHitTesting(false)
@@ -403,8 +397,8 @@ struct PreviewArea: View {
     /// The picked app's covered areas, dimmed, while a title moves (or right after picking one).
     @ViewBuilder
     private func safeZoneLayer(_ canvas: CGSize) -> some View {
-        if model.movingTitle || model.safeZoneFlash || safeZoneAlways, safeZone != .off {
-            PlatformMock(zone: safeZone, size: canvas)
+        if (safeZoneAlways || model.safeZoneFlash) && safeZone != .off && !model.fullscreen {
+            PlatformMock(zone: safeZone, size: canvas, active: model.movingTitle || model.safeZoneFlash, danger: model.titleInDanger)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .transition(.opacity)
         }
@@ -552,6 +546,15 @@ struct FullscreenPlayer: View {
             model.togglePlay()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()   // felt, not seen: screen recordings stay clean
         }
+        // swipe up (or down) to leave fullscreen
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { v in
+                    let dy = v.translation.height, dx = v.translation.width
+                    guard abs(dy) > 80, abs(dy) > abs(dx) * 1.5 else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }
+                }
+        )
     }
 
     private var scrubBar: some View {

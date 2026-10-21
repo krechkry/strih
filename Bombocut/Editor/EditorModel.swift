@@ -8,6 +8,7 @@ struct TrimState: Equatable {
     var leading: Bool          // true = head (left edge), false = tail (right edge)
     var startDuration: Double  // clip length when the drag began
     var atLimit = false        // ran out of source media
+    var snapped = false        // the edge sits on the playhead
 }
 
 /// Two-up trim viewer: the frames on both sides of the edit point.
@@ -18,7 +19,7 @@ struct TrimView {
     var delta: Double = 0      // timeline seconds, + = clip got longer
 }
 
-enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale, safeLeft, safeRight, safeTop, safeBottom }
+enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
 
 /// A running stabilization / tracking analysis.
 struct AnalysisState {
@@ -1086,9 +1087,16 @@ final class EditorModel: ObservableObject {
     }
 
     /// delta = seconds of timeline movement of the dragged edge since the drag began.
-    func trimChanged(_ id: UUID, leading: Bool, delta: Double) {
+    func trimChanged(_ id: UUID, leading: Bool, delta rawDelta: Double) {
         guard let o = trimOriginal, let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         var c = project.clips[i]
+        // the dragged edge snaps to the playhead
+        var delta = rawDelta
+        let edge0 = project.clipStarts[i] + (leading ? 0 : o.duration)
+        let snap = abs(edge0 + rawDelta - currentTime) < Double(10 / max(pxPerSec, 1))
+        if snap { delta = currentTime - edge0 }
+        if snap && trim?.snapped == false { UISelectionFeedbackGenerator().selectionChanged() }
+        trim?.snapped = snap
         let rt = o.retime
         var hitLimit = false
         if leading {
@@ -1484,21 +1492,17 @@ final class EditorModel: ObservableObject {
         return true
     }
 
-    /// Edges of a title snap to the picked app's safe area (when it is upright or upside down).
-    static func snapToSafeZone(_ c: inout CGPoint, size: CGSize, rotation: Double, canvas: CGSize) -> Set<Guide> {
-        let zone = SafeZone(rawValue: UserDefaults.standard.string(forKey: "safeZone") ?? "reels") ?? .reels
-        guard let r = zone.rect(in: canvas) else { return [] }
-        let turns = Int((rotation / (.pi / 2)).rounded())
-        guard abs(rotation - Double(turns) * .pi / 2) < 1e-6 else { return [] }
-        let sideways = turns % 2 != 0
-        let hw = (sideways ? size.height : size.width) / 2, hh = (sideways ? size.width : size.height) / 2
-        let th: CGFloat = 7
-        var g = Set<Guide>()
-        if abs(c.x - hw - r.minX) < th { c.x = r.minX + hw; g.insert(.safeLeft) }
-        else if abs(c.x + hw - r.maxX) < th { c.x = r.maxX - hw; g.insert(.safeRight) }
-        if abs(c.y - hh - r.minY) < th { c.y = r.minY + hh; g.insert(.safeTop) }
-        else if abs(c.y + hh - r.maxY) < th { c.y = r.maxY - hh; g.insert(.safeBottom) }
-        return g
+    /// A title moving into the area the picked app covers with its buttons and texts (when the layout is on).
+    @Published private(set) var titleInDanger = false
+
+    static func outsideSafeArea(center c: CGPoint, size: CGSize, rotation: Double, canvas: CGSize) -> Bool {
+        let d = UserDefaults.standard
+        guard d.bool(forKey: "safeZoneAlways"),
+              let zone = SafeZone(rawValue: d.string(forKey: "safeZone") ?? "reels"), let r = zone.rect(in: canvas) else { return false }
+        let w = abs(size.width * cos(rotation)) + abs(size.height * sin(rotation))
+        let h = abs(size.width * sin(rotation)) + abs(size.height * cos(rotation))
+        let box = CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
+        return !r.insetBy(dx: -1, dy: -1).contains(box)
     }
 
     private func overlayTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
@@ -1519,11 +1523,9 @@ final class EditorModel: ObservableObject {
         if abs(t.y * h) < 7 { t.y = 0; guides.insert(.centerY) }
         if abs(t.scale - 1) < 0.035 { t.scale = 1; guides.insert(.scale) }
         let base = OverlayRenderer.shared.baseSize(project.overlays[i], canvas: canvas, canvasAspect: project.canvas.aspect)
-        var c = CGPoint(x: w / 2 + t.x * w, y: h / 2 + t.y * h)
-        guides.formUnion(Self.snapToSafeZone(&c, size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
-                                             rotation: t.rotation, canvas: canvas))
-        t.x = (c.x - w / 2) / w
-        t.y = (c.y - h / 2) / h
+        titleInDanger = Self.outsideSafeArea(center: CGPoint(x: w / 2 + t.x * w, y: h / 2 + t.y * h),
+                                             size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
+                                             rotation: t.rotation, canvas: canvas)
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
         let now = currentTime
@@ -1533,6 +1535,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func overlayTransformEnded() {
+        titleInDanger = false
         overlayStart = nil
         overlayGuides = []
         movingTitle = false
@@ -1619,10 +1622,8 @@ final class EditorModel: ObservableObject {
         if abs((st.y - 0.5) * h) < 7 { st.y = 0.5; guides.insert(.centerY) }
         if let caps = project.captions, let cue = caps.cue(at: currentTime),
            let img = CaptionRenderer.shared.textImage(cue.text, style: st, canvas: canvas) {
-            var c = CGPoint(x: w / 2 + st.x * w, y: st.y * h)
-            guides.formUnion(Self.snapToSafeZone(&c, size: img.extent.size, rotation: st.rotation, canvas: canvas))
-            st.x = (c.x - w / 2) / w
-            st.y = c.y / h
+            titleInDanger = Self.outsideSafeArea(center: CGPoint(x: w / 2 + st.x * w, y: st.y * h),
+                                                 size: img.extent.size, rotation: st.rotation, canvas: canvas)
         }
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
@@ -1632,6 +1633,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func captionTransformEnded() {
+        titleInDanger = false
         captionStart = nil
         overlayGuides = []
         movingTitle = false

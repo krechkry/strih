@@ -36,6 +36,7 @@ struct EditorView: View {
         case .mask: return 540
         case .motionBlur: return 350
         case .animation: return 400
+        case .layout: return 250
         }
     }
 
@@ -70,6 +71,7 @@ struct EditorView: View {
         case .mask: MaskSheet(model: model)
         case .motionBlur: MotionBlurSheet(model: model)
         case .animation: ClipAnimSheet(model: model)
+        case .layout: LayoutSheet(model: model)
         }
     }
 
@@ -194,24 +196,19 @@ struct EditorView: View {
         .frame(height: 50)
     }
 
-    /// Which app's safe zone shows while moving titles.
+    /// Opens the social layout panel; shows which app's layout is on.
     private var safeZoneMenu: some View {
-        Menu {
-            Picker("Safe zone", selection: Binding(get: { safeZone }, set: { safeZone = $0; model.flashSafeZone() })) {
-                ForEach(SafeZone.allCases) { z in Text(loc(z.title)).tag(z) }
-            }
-            Toggle("Always show", isOn: $safeZoneAlways)
-        } label: {
-            HStack(spacing: 4) {
+        Button { model.pause(); sheet = sheet == .layout ? nil : .layout } label: {
+            HStack(spacing: 5) {
                 Image(systemName: "rectangle.dashed")
-                Text(loc(safeZone.short))
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                Text(loc(safeZoneAlways && safeZone != .off ? safeZone.short : "Layout"))
             }
             .font(.footnote.weight(.bold))
-            .foregroundStyle(.white.opacity(0.85))
+            .foregroundStyle(safeZoneAlways && safeZone != .off ? .black : .white.opacity(0.85))
             .padding(.horizontal, 10).frame(height: 28)
-            .background(Theme.panel2, in: Capsule())
+            .background(safeZoneAlways && safeZone != .off ? Theme.accent : Theme.panel2, in: Capsule())
         }
+        .buttonStyle(.plain)
     }
 
     /// Top-left status while captions are prepared in the background (you can keep editing).
@@ -647,6 +644,7 @@ struct EditorView: View {
             sheet = .mask
         case "zreels", "ztiktok", "zshorts", "zstories":
             safeZone = SafeZone(rawValue: String(mode.dropFirst())) ?? .reels
+            safeZoneAlways = true
             model.addText()
             model.editOverlay { $0.kind = .text("BIG UP!") }
             model.selectOverlay(nil)
@@ -675,7 +673,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout
     var id: String { rawValue }
 }
 
