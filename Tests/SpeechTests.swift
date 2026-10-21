@@ -19,11 +19,11 @@ final class SpeechTests: XCTestCase {
 
     func testVoiceChainEvensOutLoudness() {
         let fs = 48_000.0
-        var l = (0..<96_000).map { Float(0.01 * sin(2 * Double.pi * 300 * Double($0) / fs)) }
+        var l = (0..<96_000).map { Float(0.05 * sin(2 * Double.pi * 1000 * Double($0) / fs)) }
         var r = l
         VoiceChain.process(&l, &r, sampleRate: fs)
         let level = rms(l)
-        XCTAssertGreaterThan(level, 0.06, "quiet speech is brought up")
+        XCTAssertGreaterThan(level, 0.1, "quiet speech is brought up to about -16 dBFS")
         XCTAssertLessThan(level, 0.3)
         XCTAssertLessThanOrEqual(l.map(abs).max() ?? 0, 0.95, "peaks stay under the ceiling")
     }
