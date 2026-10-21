@@ -99,7 +99,7 @@ struct EditorView: View {
 
     /// Picking, importing and editing sound (kept apart so the compiler can check the body quickly).
     private func audioHandlers<V: View>(_ v: V) -> some View {
-        v
+        clipHandlers(v)
         .onChange(of: model.openAudioPanel) { _, open in
             if open { model.openAudioPanel = false; sheet = .audio }
         }
@@ -126,6 +126,18 @@ struct EditorView: View {
         .alert("Audio", isPresented: Binding(get: { model.audioError != nil }, set: { if !$0 { model.audioError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(model.audioError ?? "") }
+    }
+
+    private func clipHandlers<V: View>(_ v: V) -> some View {
+        v
+        .onChange(of: model.openTransitionPanel) { _, open in
+            if open { model.openTransitionPanel = false; sheet = .animation }
+        }
+        .onChange(of: model.openAddClips) { _, open in
+            if open { model.openAddClips = false; showAddClips = true }
+        }
+        .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
+                      matching: .videos, preferredItemEncoding: .current)
     }
 
     private var editor: some View {
@@ -186,14 +198,6 @@ struct EditorView: View {
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
         }
-        .onChange(of: model.openTransitionPanel) { _, open in
-            if open { model.openTransitionPanel = false; sheet = .animation }
-        }
-        .onChange(of: model.openAddClips) { _, open in
-            if open { model.openAddClips = false; showAddClips = true }
-        }
-        .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
-                      matching: .videos, preferredItemEncoding: .current)
         .onChange(of: model.openOverlayPanel) { _, open in
             if open { model.openOverlayPanel = false; sheet = .overlay }
         }
