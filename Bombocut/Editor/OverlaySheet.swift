@@ -22,7 +22,7 @@ struct OverlaySheet: View {
     }
 
     private func tabs(_ o: Overlay) -> [Tab] {
-        if case .text = o.kind { return Tab.allCases }
+        if case .text = o.kind { return UIMode.isPro ? Tab.allCases : [.text] }
         return [.animation, .blend]
     }
 

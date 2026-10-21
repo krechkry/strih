@@ -280,6 +280,16 @@
         }
       }
     },
+    "All features": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny funkce"
+          }
+        }
+      }
+    },
     "All overlays": {
       "localizations": {
         "cs": {
@@ -466,6 +476,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dozadu"
+          }
+        }
+      }
+    },
+    "Basic": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basic"
           }
         }
       }
@@ -950,6 +970,16 @@
         }
       }
     },
+    "Cut and arrange clips, add text and music, automatic subtitles, speed, volume and the video shape. Nothing else in the way.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stříhání a skládání klipů, text a hudba, automatické titulky, rychlost, hlasitost a formát videa. Nic navíc, co by překáželo."
+          }
+        }
+      }
+    },
     "Darken": {
       "localizations": {
         "cs": {
@@ -1330,6 +1360,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Všechno odemčené od prvního dne"
+          }
+        }
+      }
+    },
+    "Everything: keyframes, overlays and blend modes, masks, tracking, stabilization, motion blur, speed curves, animations and social layouts.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno: keyframy, překrytí a režimy prolnutí, masky, tracking, stabilizace, motion blur, rychlostní křivky, animace a layouty sítí."
           }
         }
       }
@@ -1718,6 +1758,16 @@
         }
       }
     },
+    "How much do you want to see?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kolik toho chceš vidět?"
+          }
+        }
+      }
+    },
     "Import failed": {
       "localizations": {
         "cs": {
@@ -1754,6 +1804,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nástup"
+          }
+        }
+      }
+    },
+    "Interface": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozhraní"
           }
         }
       }
@@ -2498,6 +2558,16 @@
         }
       }
     },
+    "Pro": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro"
+          }
+        }
+      }
+    },
     "Project": {
       "localizations": {
         "cs": {
@@ -2828,6 +2898,16 @@
         }
       }
     },
+    "Settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nastavení"
+          }
+        }
+      }
+    },
     "Shadow": {
       "localizations": {
         "cs": {
@@ -2864,6 +2944,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zúžit / rozšířit"
+          }
+        }
+      }
+    },
+    "Simple": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jednoduše"
           }
         }
       }
@@ -3124,6 +3214,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sledování objektů, masky, motion blur, plynulé zpomalení, efekty."
+          }
+        }
+      }
+    },
+    "Subtitle languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jazyky titulků"
+          }
+        }
+      }
+    },
+    "Subtitles": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky"
           }
         }
       }
@@ -3634,6 +3744,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Panel můžeš zavřít a stříhat dál. Až budou titulky hotové, uvidíš to nahoře."
+          }
+        }
+      }
+    },
+    "You can switch any time in Settings.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přepnout můžeš kdykoli v Nastavení."
           }
         }
       }

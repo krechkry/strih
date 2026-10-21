@@ -18,8 +18,12 @@ struct SpeedSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 8) {
-                tabButton("Constant", 0)
-                tabButton("Curve", 1)
+                if UIMode.isPro || tab == 1 {
+                    tabButton("Constant", 0)
+                    tabButton("Curve", 1)
+                } else {
+                    Text("Speed").font(.title3.weight(.heavy))
+                }
                 Spacer()
                 Button { model.previewSelected() } label: {
                     Image(systemName: model.isPlaying ? "pause.fill" : "repeat")
@@ -56,7 +60,7 @@ struct SpeedSheet: View {
                 .padding(.horizontal, 14).frame(height: 56)
             }
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-            ApplyRow(model: model, kind: .speed)
+            if UIMode.isPro { ApplyRow(model: model, kind: .speed) }
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)

@@ -147,7 +147,7 @@ enum Transcriber {
         }
         phase(.listening(0.1))
         let duration = (try? await AVURLAsset(url: audio).load(.duration).seconds) ?? 0
-        var words = try await SpeechEngine.shared.transcribe(audio, duration: duration)
+        var words = try await SpeechEngine.shared.transcribe(audio, duration: duration, language: language)
         let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
         words = SpellCheck.applyNames(words, typed)
         words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
@@ -227,10 +227,13 @@ actor SpeechEngine {
         }
     }
 
-    func transcribe(_ audio: URL, duration: Double) async throws -> [CaptionWord] {
+    func transcribe(_ audio: URL, duration: Double, language: String? = nil) async throws -> [CaptionWord] {
         let m = try await manager(SpeechModel.parakeet.folder)
         var state = TdtDecoderState.make(decoderLayers: await m.decoderLayerCount)
-        let r = try await m.transcribe(audio, decoderState: &state)
+        // the language hint keeps the decoder in the right alphabet (no Cyrillic in Czech, no Latin in
+        // Ukrainian, ...); Parakeet has no stronger "speak only this language" switch
+        let hint = language.flatMap { FluidAudio.Language(rawValue: $0) }
+        let r = try await m.transcribe(audio, decoderState: &state, language: hint)
         return Transcriber.words(from: r.tokenTimings ?? [], duration: duration)
     }
 
@@ -349,7 +352,7 @@ enum SpellCheck {
         guard let lang = UITextChecker.availableLanguages.first(where: { $0.hasPrefix(language) }) else { return words }
         let checker = UITextChecker()
         return words.map { w in
-            guard (w.confidence ?? 0.5) < 0.6 else { return w }
+            guard (w.confidence ?? 0.5) < 0.72 else { return w }
             let core = w.text.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
             guard core.count >= 4, core.allSatisfy({ $0.isLetter }), !keep.contains(core.lowercased()) else { return w }
             let range = NSRange(location: 0, length: (core as NSString).length)

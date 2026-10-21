@@ -16,6 +16,8 @@ struct EditorView: View {
     @State private var renaming = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @AppStorage("safeZoneAlways") private var safeZoneAlways = false
+    @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
+    private var pro: Bool { uiMode == UIMode.pro.rawValue }
     @State private var renameText = ""
     @State private var bottomHeight: CGFloat = 0
     @State private var keyboard: CGFloat = 0
@@ -223,7 +225,7 @@ struct EditorView: View {
                 pill
             }
             Spacer()
-            safeZoneMenu
+            if pro { safeZoneMenu }
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
                     .font(.footnote.weight(.bold))
@@ -361,7 +363,7 @@ struct EditorView: View {
                     Image(systemName: "arrow.uturn.forward").font(.body.weight(.semibold)).frame(width: 36, height: 40)
                 }
                 .disabled(!model.canRedo)
-                keyframeButton.frame(width: 36)
+                if pro { keyframeButton.frame(width: 36) }
                 Button { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true } } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .font(.body.weight(.semibold))
@@ -471,17 +473,19 @@ struct EditorView: View {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
-                    ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
-                    ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
-                    ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
-                    ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
-                    ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
-                    ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
-                        model.pause()
-                        Task { await model.extractClipAudio() }
+                    if pro {
+                        ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
+                        ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
+                        ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
+                        ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
+                        ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+                        ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
+                            model.pause()
+                            Task { await model.extractClipAudio() }
+                        }
                     }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-                    ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation }
+                    if pro { ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation } }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }
@@ -500,11 +504,13 @@ struct EditorView: View {
                     .tint(Theme.pickerTint)
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
-                    PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
-                                 preferredItemEncoding: .current) {
-                        ToolLabel(icon: "square.on.square", label: "Overlay")
+                    if pro {
+                        PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
+                                     preferredItemEncoding: .current) {
+                            ToolLabel(icon: "square.on.square", label: "Overlay")
+                        }
+                        .tint(Theme.pickerTint)
                     }
-                    .tint(Theme.pickerTint)
                     Menu {
                         Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
                         Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }

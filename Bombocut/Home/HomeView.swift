@@ -92,11 +92,14 @@ struct HomeView: View {
                             .font(.body.weight(.bold))
                     }
                 } else {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showAbout = true } label: { Image(systemName: "info.circle") }
+                        .tint(.white)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 4) {
-                        Button { showAbout = true } label: { Image(systemName: "info.circle") }
                         Button { showStorage = true } label: { Image(systemName: "internaldrive") }
-                        Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
+                        Button { showSettings = true } label: { Image(systemName: "gearshape") }
                     }
                     .tint(.white)
                 }
@@ -176,9 +179,7 @@ struct HomeView: View {
         .sheet(isPresented: $showStorage) {
             StorageView().environmentObject(store)
         }
-        .sheet(isPresented: $showSettings) {
-            LanguageSetupView().presentationDetents([.large])
-        }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("Import failed", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(importError ?? "") }

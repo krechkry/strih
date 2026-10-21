@@ -6,7 +6,6 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @ObservedObject private var purchases = Purchases.shared
-    @State private var language = AppLanguage.current
 
     private var version: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -35,23 +34,6 @@ struct AboutView: View {
                         Label("Bought. Thank you!", systemImage: "checkmark.seal.fill")
                             .font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
                     }
-                    block("App language", nil)
-                    HStack(spacing: 10) {
-                        ForEach(AppLanguage.options, id: \.code) { o in
-                            Button {
-                                language = o.code
-                                AppLanguage.set(o.code)
-                            } label: {
-                                Text(verbatim: "\(o.flag) \(o.name)")
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(language == o.code ? .black : .white)
-                                    .padding(.horizontal, 14).frame(height: 38)
-                                    .background(language == o.code ? Theme.accent : Theme.panel2, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.top, -14)
                     block("Privacy", "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.")
                     block("Credits", nil)
                     credit("Parakeet TDT 0.6B v3", "NVIDIA. Speech recognition model. License: CC BY 4.0.")

@@ -65,7 +65,7 @@ struct VolumeSheet: View {
                     Slider(value: Binding(get: { v }, set: { model.setVolume($0, live: true) }), in: 0...1,
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                 }
-                ApplyRow(model: model, kind: .volume)
+                if UIMode.isPro { ApplyRow(model: model, kind: .volume) }
             } else {
                 Text("Select a clip first.").foregroundStyle(Theme.muted)
             }

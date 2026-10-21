@@ -23,12 +23,12 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if Demo.mode == "welcome" || Demo.mode == "paywall" {
-                OnboardingView(step: Demo.mode == "paywall" ? 2 : 0)
+            if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" {
+                OnboardingView(step: Demo.mode == "paywall" ? 3 : (Demo.mode == "uimode" ? 1 : 0))
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
             } else if Demo.mode == nil && !inApp && (!onboarded || (gate && purchases.access == .new)) {
-                OnboardingView(step: onboarded ? 2 : 0)
+                OnboardingView(step: onboarded ? 3 : 0)
             } else if gate && purchases.access == .expired {
                 PaywallView(mode: .expired)
             } else {
@@ -46,7 +46,7 @@ struct RootView: View {
     }
 }
 
-/// Welcome → app language → caption languages → start the free week.
+/// Welcome + app language → Basic / Pro → caption languages → start the free week.
 struct OnboardingView: View {
     @State var step: Int
     @AppStorage("onboarded") private var onboarded = false
@@ -58,9 +58,12 @@ struct OnboardingView: View {
             switch step {
             case 0: welcome.transition(.move(edge: .leading).combined(with: .opacity))
             case 1:
+                ModePickerView { withAnimation(.snappy) { step = 2 } }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            case 2:
                 LanguageSetupView(firstLaunch: true) {
                     onboarded = true
-                    withAnimation(.snappy) { step = 2 }
+                    withAnimation(.snappy) { step = 3 }
                 }
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             default: PaywallView(mode: .start).transition(.move(edge: .trailing).combined(with: .opacity))
