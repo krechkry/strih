@@ -1438,6 +1438,13 @@ final class EditorModel: ObservableObject {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    /// Drag selection across the timeline.
+    func setPicked(_ ids: Set<UUID>) {
+        guard var p = pick else { return }
+        p.picked = ids.subtracting([p.source])
+        pick = p
+    }
+
     func pickAll() {
         guard var p = pick else { return }
         p.picked = Set(p.kind.forOverlays ? project.overlays.map(\.id) : project.clips.map(\.id)).subtracting([p.source])

@@ -20,6 +20,11 @@ struct HomeView: View {
     @State private var showStorage = false
     @State private var showAbout = false
     @ObservedObject private var speech = SpeechModels.shared
+    @State private var selecting = false
+    @State private var selected: Set<UUID> = []
+    @State private var painting = false
+    @State private var rowFrames: [UUID: CGRect] = [:]
+    @State private var confirmDeleteSelected = false
 
     var body: some View {
         dialogs(stack)
@@ -40,21 +45,53 @@ struct HomeView: View {
                             .padding(.top, 6)
                         LazyVStack(spacing: 10) {
                             ForEach(store.projects) { p in
-                                ProjectRow(project: p)
-                                    .onTapGesture { openProject = p }
+                                ProjectRow(project: p, selecting: selecting, selected: selected.contains(p.id))
+                                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named("paint")) }) { rowFrames[p.id] = $0 }
+                                    .onTapGesture {
+                                        if selecting {
+                                            if selected.contains(p.id) { selected.remove(p.id) } else { selected.insert(p.id) }
+                                        } else {
+                                            openProject = p
+                                        }
+                                    }
                                     .contextMenu {
-                                        Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
-                                        Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
+                                        if !selecting {
+                                            Button("Select", systemImage: "checkmark.circle") {
+                                                withAnimation(.snappy) { selecting = true; selected = [p.id] }
+                                            }
+                                            Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
+                                            Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
+                                        }
                                     }
                             }
+                        }
+                        .paintSelect(ids: store.projects.map(\.id), selection: $selected, painting: $painting, axis: .vertical,
+                                     canSelect: { _ in selecting }) { pt in
+                            store.projects.firstIndex { rowFrames[$0.id].map { pt.y >= $0.minY - 5 && pt.y <= $0.maxY + 5 } ?? false }
                         }
                     }
                 }
                 .padding(16)
+                .padding(.bottom, selecting ? 80 : 0)
             }
+            .scrollDisabled(painting)
             .background(Theme.bg)
-            .navigationTitle("Bombocut")
+            .navigationTitle(selecting ? String.localizedStringWithFormat(loc("%lld selected"), selected.count) : "Bombocut")
+            .navigationBarTitleDisplayMode(selecting ? .inline : .automatic)
+            .overlay(alignment: .bottom) { if selecting { selectionBar } }
             .toolbar {
+                if selecting {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(selected.count == store.projects.count ? loc("Select none") : loc("Select all")) {
+                            selected = selected.count == store.projects.count ? [] : Set(store.projects.map(\.id))
+                        }
+                        .font(.body.weight(.semibold))
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(loc("Done")) { withAnimation(.snappy) { selecting = false; selected = [] } }
+                            .font(.body.weight(.bold))
+                    }
+                } else {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 4) {
                         Button { showAbout = true } label: { Image(systemName: "info.circle") }
@@ -62,6 +99,7 @@ struct HomeView: View {
                         Button { showSettings = true } label: { Image(systemName: "captions.bubble") }
                     }
                     .tint(.white)
+                }
                 }
             }
             .onAppear {
@@ -91,9 +129,39 @@ struct HomeView: View {
         }
     }
 
+    /// Selecting projects: delete them together.
+    private var selectionBar: some View {
+        HStack(spacing: 12) {
+            Text(String.localizedStringWithFormat(loc("%lld selected"), selected.count)).font(.subheadline.weight(.bold))
+            Spacer()
+            Button(role: .destructive) { confirmDeleteSelected = true } label: {
+                Label("Delete", systemImage: "trash")
+                    .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 16).frame(height: 40)
+                    .background(selected.isEmpty ? Color.red.opacity(0.35) : Color.red, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(selected.isEmpty)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 12)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 18))
+        .padding(.horizontal, 12).padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
     /// Sheets and alerts, kept apart so the compiler can check the body quickly.
     private func dialogs<V: View>(_ v: V) -> some View {
         v
+        .alert(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count), isPresented: $confirmDeleteSelected) {
+            Button("Delete forever", role: .destructive) {
+                for p in store.projects where selected.contains(p.id) { store.delete(p) }
+                selected = []
+                selecting = false
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They disappear forever, together with their imported videos. There is no trash bin. Your originals in Photos stay.")
+        }
         .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
             LanguageSetupView(firstLaunch: true).presentationDetents([.large])
         }
@@ -243,6 +311,8 @@ struct HomeView: View {
 
 private struct ProjectRow: View {
     let project: Project
+    var selecting = false
+    var selected = false
     @ObservedObject private var thumbs = ThumbnailCache.shared
 
     /// Space the project's videos take on the phone (a video shared by several clips counts once).
@@ -257,6 +327,12 @@ private struct ProjectRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
+            if selecting {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(selected ? Theme.accent : Theme.muted)
+                    .transition(.scale.combined(with: .opacity))
+            }
             Group {
                 if let c = project.clips.first, let img = thumbs.image(file: c.mediaFile, at: c.inPoint + 0.3) {
                     Image(uiImage: img).resizable().scaledToFill()
@@ -275,10 +351,11 @@ private struct ProjectRow: View {
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
             Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+            if !selecting { Image(systemName: "chevron.right").foregroundStyle(Theme.muted) }
         }
         .padding(10)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 2))
         .contentShape(Rectangle())
     }
 }

@@ -10,6 +10,7 @@ struct TimelineView: View {
     @State private var zoomBase: CGFloat = 60
     @State private var reorder: Reorder?
     @State private var screenW: CGFloat = 390
+    @State private var paintingPick = false
 
     private let stripHeight: CGFloat = 60
     private let gap: CGFloat = 2
@@ -81,6 +82,19 @@ struct TimelineView: View {
                         }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
+                    .paintSelect(ids: shown.map(\.id),
+                                 selection: Binding(get: { model.pick?.picked ?? [] }, set: { model.setPicked($0) }),
+                                 painting: $paintingPick, axis: .horizontal,
+                                 canSelect: { id in model.pick.map { !$0.kind.forOverlays && $0.source != id } ?? false }) { pt in
+                        // which clip is under x (clips are 8 pt apart while picking)
+                        var x: CGFloat = 0
+                        for (k, c) in shown.enumerated() {
+                            let w = width(c)
+                            if pt.x < x + w + 4 { return k }
+                            x += w + 8
+                        }
+                        return shown.isEmpty ? nil : shown.count - 1
+                    }
                     if !model.project.audio.isEmpty, reorder == nil {
                         AudioLane(model: model)
                     }
@@ -101,7 +115,7 @@ struct TimelineView: View {
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil || reorder != nil)
+                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
                     if reorder == nil && (phase == .interacting || phase == .decelerating) {
