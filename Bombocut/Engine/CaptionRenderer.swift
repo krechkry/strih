@@ -158,30 +158,6 @@ final class CaptionRenderer: @unchecked Sendable {
         return path.isEmpty ? nil : path
     }
 
-    /// Outlines of the visible letters of one line (hidden letters, drawn in clear, are left out),
-    /// in UIKit coordinates with the line starting at x on the given baseline.
-    private static func glyphPath(_ line: CTLine, x: CGFloat, baseline: CGFloat) -> CGPath? {
-        let path = CGMutablePath()
-        let runs = CTLineGetGlyphRuns(line) as? [CTRun] ?? []
-        for run in runs {
-            let attrs = CTRunGetAttributes(run) as NSDictionary
-            if let c = attrs[NSAttributedString.Key.foregroundColor] as? UIColor, c.cgColor.alpha == 0 { continue }
-            guard let fontRef = attrs[NSAttributedString.Key.font] else { continue }
-            let font = fontRef as! CTFont
-            let n = CTRunGetGlyphCount(run)
-            guard n > 0 else { continue }
-            var glyphs = [CGGlyph](repeating: 0, count: n)
-            var positions = [CGPoint](repeating: .zero, count: n)
-            CTRunGetGlyphs(run, CFRange(location: 0, length: n), &glyphs)
-            CTRunGetPositions(run, CFRange(location: 0, length: n), &positions)
-            for k in 0..<n {
-                var t = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: x + positions[k].x, ty: baseline - positions[k].y)
-                if let g = CTFontCreatePathForGlyph(font, glyphs[k], &t) { path.addPath(g) }
-            }
-        }
-        return path.isEmpty ? nil : path
-    }
-
     private func color(_ c: RGBA) -> UIColor { UIColor(red: c.r, green: c.g, blue: c.b, alpha: c.a) }
 
     /// Renders the text block (all lines, optional box per line) to a CIImage, origin at 0,0.
