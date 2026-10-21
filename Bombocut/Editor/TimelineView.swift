@@ -599,7 +599,7 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
 
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
         let g = UILongPressGestureRecognizer()
-        g.minimumPressDuration = 0.35
+        g.minimumPressDuration = 0.18
         g.allowableMovement = 10
         g.cancelsTouchesInView = false
         return g

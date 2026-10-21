@@ -46,10 +46,11 @@ struct PreviewArea: View {
                 .scaleEffect(viewZoom)
                 .offset(viewOffset)
                 .frame(width: w, height: h)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
                 if !model.trackPick && model.analysis == nil {
                     if model.previewScrubs {
-                        layer(canvas) { scrubSurface(canvas) }
+                        // zoomed in, the picture spills past the canvas: the whole area takes the fingers
+                        scrubSurface(canvas, area: geo.size)
+                            .frame(width: viewZoom > 1.01 ? geo.size.width : w, height: viewZoom > 1.01 ? geo.size.height : h)
                     } else {
                         layer(canvas) { touch(canvas) }
                     }
@@ -58,7 +59,6 @@ struct PreviewArea: View {
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
                 if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
-                if model.trimView == nil && !model.project.clips.isEmpty { layer(canvas) { playPill } }
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -76,9 +76,10 @@ struct PreviewArea: View {
         panBase = .zero
     }
 
-    /// Keeps the zoomed picture covering the canvas.
-    private func clampedOffset(_ o: CGSize, _ canvas: CGSize) -> CGSize {
-        let mx = (viewZoom - 1) * canvas.width / 2, my = (viewZoom - 1) * canvas.height / 2
+    /// Moving around a zoomed picture: as far as it reaches past the preview area, never further.
+    private func clampedOffset(_ o: CGSize, _ canvas: CGSize, _ area: CGSize) -> CGSize {
+        let mx = max(0, (viewZoom * canvas.width - area.width) / 2)
+        let my = max(0, (viewZoom * canvas.height - area.height) / 2)
         return CGSize(width: min(max(o.width, -mx), mx), height: min(max(o.height, -my), my))
     }
 
@@ -92,33 +93,6 @@ struct PreviewArea: View {
         content().frame(width: canvas.width, height: canvas.height)
     }
 
-    /// Play / pause and the time, on the video's corner (tap the pill or anywhere on the video).
-    private var playPill: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Button { tapPlay() } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .frame(width: 14)
-                        Text(verbatim: Fmt.time(model.currentTime))
-                            .foregroundStyle(.white)
-                        + Text(verbatim: " / " + Fmt.time(model.duration))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10).frame(height: 28)
-                    .background(.black.opacity(0.45), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                Spacer()
-            }
-            .padding(8)
-        }
-    }
-
     /// Tap on the preview: play / pause with a light tap feel and a quick symbol.
     private func tapPlay() {
         guard !model.project.clips.isEmpty else { return }
@@ -130,10 +104,16 @@ struct PreviewArea: View {
     }
 
     /// A panel is open: drag sideways to scrub, tap to play / pause.
-    private func scrubSurface(_ canvas: CGSize) -> some View {
-        Color.clear
+    private func scrubSurface(_ canvas: CGSize, area: CGSize) -> some View {
+        let zoomed = viewZoom > 1.01
+        // the surface is the canvas, or the whole area while zoomed: back to canvas points
+        let inset = zoomed ? CGSize(width: (area.width - canvas.width) / 2, height: (area.height - canvas.height) / 2) : .zero
+        return Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { p in if !model.tapTitle(contentPoint(p, canvas), canvas: canvas) { tapPlay() } }
+            .onTapGesture { p in
+                let q = CGPoint(x: p.x - inset.width, y: p.y - inset.height)
+                if !model.tapTitle(contentPoint(q, canvas), canvas: canvas) { tapPlay() }
+            }
             .gesture(
                 // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
@@ -142,7 +122,7 @@ struct PreviewArea: View {
                         if dragIsPan == true {
                             guard !pinching else { return }
                             viewOffset = clampedOffset(CGSize(width: panBase.width + v.translation.width,
-                                                              height: panBase.height + v.translation.height), canvas)
+                                                              height: panBase.height + v.translation.height), canvas, area)
                         } else {
                             model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false)
                         }
@@ -162,7 +142,7 @@ struct PreviewArea: View {
                     .onChanged { v in
                         pinching = true
                         viewZoom = min(max(zoomBase * v.magnification, 1), 8)
-                        viewOffset = clampedOffset(viewOffset, canvas)
+                        viewOffset = clampedOffset(viewOffset, canvas, area)
                     }
                     .onEnded { _ in
                         pinching = false

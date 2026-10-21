@@ -217,8 +217,37 @@ final class EditorModel: ObservableObject {
         min(max(0, (t * Self.fps).rounded() / Self.fps), lastFrameTime)
     }
 
-    /// Scrubbing by hand (timeline, scrub bars): lands on whole frames.
-    func scrubFrame(to t: Double) { scrub(to: frameTime(t)) }
+    /// Scrubbing by hand (timeline, scrub bars): lands on whole frames, and sticks to a keyframe of the
+    /// selected clip or overlay when it passes close by (so you never make a second one a hair away).
+    func scrubFrame(to t: Double) {
+        let margin = max(12 / max(Double(pxPerSec), 1), 0.6 / Self.fps)
+        let near = selectedKeyframeTimes().min { abs($0 - t) < abs($1 - t) }
+        if let k = near, abs(k - t) <= margin {
+            if snappedKey != k { UISelectionFeedbackGenerator().selectionChanged() }
+            snappedKey = k
+            scrub(to: k)
+            return
+        }
+        snappedKey = nil
+        scrub(to: frameTime(t))
+    }
+
+    private var snappedKey: Double?
+
+    /// Timeline times of the keyframes of what is selected.
+    func selectedKeyframeTimes() -> [Double] {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            return o.keys.map { o.start + $0.t }
+        }
+        if let i = selectedIndex {
+            let c = project.clips[i]
+            let rt = c.retime
+            let start = project.clipStarts[i]
+            return c.keyframes.map { start + rt.local(atSource: $0.t) }
+        }
+        return []
+    }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
     func scrub(to t: Double) {

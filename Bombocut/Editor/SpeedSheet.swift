@@ -25,8 +25,18 @@ struct SpeedSheet: View {
                     Text("Speed").font(.title3.weight(.heavy))
                 }
                 Spacer()
+                Button { model.undo() } label: {
+                    Image(systemName: "arrow.uturn.backward").font(.system(size: 16, weight: .bold)).frame(width: 36, height: 40)
+                }
+                .tint(.white)
+                .disabled(!model.canUndo)
+                Button { model.redo() } label: {
+                    Image(systemName: "arrow.uturn.forward").font(.system(size: 16, weight: .bold)).frame(width: 36, height: 40)
+                }
+                .tint(.white)
+                .disabled(!model.canRedo)
                 Button { model.previewSelected() } label: {
-                    Image(systemName: model.isPlaying ? "pause.fill" : "repeat")
+                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.black)
                         .frame(width: 40, height: 40)

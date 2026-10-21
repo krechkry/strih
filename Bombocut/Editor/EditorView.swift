@@ -286,7 +286,7 @@ struct EditorView: View {
         .contentShape(Capsule())
         // tap: the layout panel; hold: switch the layout on / off right here
         .onTapGesture { model.pause(); sheet = sheet == .layout ? nil : .layout }
-        .onLongPressGesture(minimumDuration: 0.45) {
+        .onLongPressGesture(minimumDuration: 0.22) {
             if safeZone == .off { safeZone = .reels }
             safeZoneAlways.toggle()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -399,76 +399,37 @@ struct EditorView: View {
                 .disabled(model.project.clips.isEmpty)
             }
             .tint(.white)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .overlay {
+            // the time sits here, under the video (nothing is drawn over the picture)
+            HStack(spacing: 4) {
+                Text(Fmt.time(model.currentTime)).foregroundStyle(.white)
+                Text(verbatim: "/ " + Fmt.time(model.duration)).foregroundStyle(Theme.muted)
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .allowsHitTesting(false)
         }
         .font(.footnote.monospacedDigit().weight(.semibold))
         .padding(.horizontal, 12)
         .frame(height: 44)
     }
 
-    /// Tap: add / remove a keyframe at the playhead. Hold: easing, delete, jump between keyframes.
+    /// Tap: add / remove a keyframe at the playhead. Hold (briefly): easing, delete, jump between keyframes.
     @ViewBuilder
     private var keyframeButton: some View {
         if let oi = model.selectedOverlayIndex {
             let o = model.project.overlays[oi]
             let k = model.overlayKeyAtPlayhead
-            Menu {
-                if let k {
-                    let ease = o.keys[k].ease
-                    Button { model.setOverlayEase(.smooth) } label: {
-                        if ease == .smooth { Label("Smooth", systemImage: "checkmark") } else { Text("Smooth") }
-                    }
-                    Button { model.setOverlayEase(.linear) } label: {
-                        if ease == .linear { Label("Linear", systemImage: "checkmark") } else { Text("Linear") }
-                    }
-                    Button(role: .destructive) { model.toggleOverlayKey() } label: {
-                        Label("Delete keyframe", systemImage: "trash")
-                    }
-                } else {
-                    Button { model.toggleOverlayKey() } label: { Label("Add keyframe", systemImage: "plus") }
-                }
-                if !o.keys.isEmpty {
-                    Button { model.stepOverlayKey(-1) } label: { Label("Previous keyframe", systemImage: "chevron.left") }
-                    Button { model.stepOverlayKey(1) } label: { Label("Next keyframe", systemImage: "chevron.right") }
-                }
-            } label: {
-                Image(systemName: k != nil ? "diamond.fill" : "diamond")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(k != nil ? Theme.accent : .white)
-                    .frame(width: 36, height: 40)
-            } primaryAction: {
-                model.toggleOverlayKey()
-            }
+            KeyframeButton(here: k != nil, ease: k.map { o.keys[$0].ease }, hasAny: !o.keys.isEmpty,
+                           toggle: { model.toggleOverlayKey() }, setEase: { model.setOverlayEase($0) },
+                           step: { model.stepOverlayKey($0) })
         } else if let i = model.selectedIndex {
             let k = model.keyframeAtPlayhead(i)
-            let has = !model.project.clips[i].keyframes.isEmpty
-            Menu {
-                if let k {
-                    let ease = model.project.clips[i].keyframes[k].ease
-                    Button { model.setEase(.smooth) } label: {
-                        if ease == .smooth { Label("Smooth", systemImage: "checkmark") } else { Text("Smooth") }
-                    }
-                    Button { model.setEase(.linear) } label: {
-                        if ease == .linear { Label("Linear", systemImage: "checkmark") } else { Text("Linear") }
-                    }
-                    Button(role: .destructive) { model.toggleKeyframe() } label: {
-                        Label("Delete keyframe", systemImage: "trash")
-                    }
-                } else {
-                    Button { model.toggleKeyframe() } label: { Label("Add keyframe", systemImage: "plus") }
-                }
-                if has {
-                    Button { model.stepKeyframe(-1) } label: { Label("Previous keyframe", systemImage: "chevron.left") }
-                    Button { model.stepKeyframe(1) } label: { Label("Next keyframe", systemImage: "chevron.right") }
-                }
-            } label: {
-                Image(systemName: k != nil ? "diamond.fill" : "diamond")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(k != nil ? Theme.accent : .white)
-                    .frame(width: 36, height: 40)
-            } primaryAction: {
-                model.toggleKeyframe()
-            }
+            let c = model.project.clips[i]
+            KeyframeButton(here: k != nil, ease: k.map { c.keyframes[$0].ease }, hasAny: !c.keyframes.isEmpty,
+                           toggle: { model.toggleKeyframe() }, setEase: { model.setEase($0) },
+                           step: { model.stepKeyframe($0) })
         }
     }
 
@@ -893,5 +854,66 @@ extension EnvironmentValues {
     var closePanel: () -> Void {
         get { self[ClosePanelKey.self] }
         set { self[ClosePanelKey.self] = newValue }
+    }
+}
+
+/// The keyframe diamond: tap adds or removes the keyframe at the playhead; a short hold opens its options.
+private struct KeyframeButton: View {
+    let here: Bool
+    let ease: Ease?
+    let hasAny: Bool
+    let toggle: () -> Void
+    let setEase: (Ease) -> Void
+    let step: (Int) -> Void
+    @State private var options = false
+
+    var body: some View {
+        Image(systemName: here ? "diamond.fill" : "diamond")
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(here ? Theme.accent : .white)
+            .frame(width: 36, height: 40)
+            .contentShape(Rectangle())
+            .onTapGesture { toggle() }
+            .onLongPressGesture(minimumDuration: 0.22) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                options = true
+            }
+            .popover(isPresented: $options, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let ease {
+                        row(ease == .smooth ? "checkmark" : "", "Smooth") { setEase(.smooth) }
+                        row(ease == .linear ? "checkmark" : "", "Linear") { setEase(.linear) }
+                        row("trash", "Delete keyframe", tint: .red) { toggle() }
+                    } else {
+                        row("plus", "Add keyframe") { toggle() }
+                    }
+                    if hasAny {
+                        Divider().overlay(Theme.line)
+                        row("chevron.left", "Previous keyframe") { step(-1) }
+                        row("chevron.right", "Next keyframe") { step(1) }
+                    }
+                }
+                .padding(.vertical, 6)
+                .frame(width: 230)
+                .presentationCompactAdaptation(.popover)
+            }
+    }
+
+    private func row(_ icon: String, _ title: String, tint: Color = .white, _ action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            options = false
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon.isEmpty ? "circle" : icon).opacity(icon.isEmpty ? 0 : 1).frame(width: 20)
+                Text(loc(title))
+                Spacer()
+            }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 16).frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
