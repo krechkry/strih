@@ -15,6 +15,9 @@ if [ ! -f Config/Local.xcconfig ]; then
   fi
 fi
 
+# Xcode rewrites the string catalog while building (it adds the strings it finds in the code).
+# Those edits are not yours, so drop them before pulling; the repo has the real translations.
+git checkout -- Bombocut/Localizable.xcstrings 2>/dev/null || true
 git pull --ff-only
 xcodegen generate
 echo "Up to date. Press ▶ in Xcode."
