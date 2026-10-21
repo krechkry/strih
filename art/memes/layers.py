@@ -14,8 +14,16 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gen import obj, solid, limb, cut, text, open_hand, explosion, cat_bust, INTER800, INTER900, K
 
-def L(c, gap=0, anims=(), eyes=(), blink=None):
-    return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink}
+def L(c, gap=0, anims=(), eyes=(), blink=None, mouth=None):
+    return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink, "mouth": mouth}
+
+# A mouth that follows a mood value (0 = the drawing as it is, 1 = big open grin), cut out of its layer.
+# At mood 0 it draws exactly the still: a stroke from (x - half, y) to (x + half, y) through control (x, flat),
+# plus a lower-lip stroke. Mood lifts the corners by lift, widens them by widen, pulls the control to smile,
+# shrinks the lip away by mood 0.3, and opens the mouth from openFrom on.
+def mood_mouth(x, y, half, flat, smile, lift, widen, width, lip_y, lip_half, lip_sag, lip_width, open_from):
+    return {"x": x, "y": y, "half": half, "flat": flat, "smile": smile, "lift": lift, "widen": widen, "width": width,
+            "lipY": lip_y, "lipHalf": lip_half, "lipSag": lip_sag, "lipWidth": lip_width, "openFrom": open_from}
 
 def rot(a, p, x, y, ph=0.0): return {"t": "rot", "a": a, "p": p, "ph": ph, "x": x, "y": y}
 def move(dx, dy, p, ph=0.0): return {"t": "move", "dx": dx, "dy": dy, "p": p, "ph": ph}
@@ -187,11 +195,12 @@ body += solid('ellipse cx="204" cy="166" rx="17" ry="11"', K) + solid('ellipse c
 body += solid('circle cx="204" cy="167" r="5"') + solid('circle cx="276" cy="167" r="5"')
 body += cut("M184 154 Q204 144 224 154 M256 154 Q276 144 296 154", 5)
 body += cut("M240 178 L235 204", 4) + solid('ellipse cx="232" cy="208" rx="5" ry="3.5"', K) + solid('ellipse cx="248" cy="208" rx="5" ry="3.5"', K)
-body += cut("M212 250 Q240 245 268 250", 7) + cut("M224 264 Q240 268 256 264", 3)
+# the mouth is not drawn here: it is the mood mouth below, so the app can make him smile
 body += limb("M210 316 L204 440", 8, 0) + limb("M270 316 L276 440", 8, 0)
 body += solid('ellipse cx="196" cy="446" rx="20" ry="8"') + solid('ellipse cx="284" cy="446" rx="20" ry="8"')
 MEMES["11_deadpan"] = [
-    L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (6.5, 0.2, 0.022)),
+    L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (6.5, 0.2, 0.022),
+      mood_mouth(240, 250, 28, 245, 312, 10, 6, 7, 264, 16, 4, 3, 0.55)),
     L(limb("M130 236 Q108 320 120 400", 8, 0) + solid('ellipse cx="120" cy="410" rx="12" ry="14"'), 0, [rot(0.8, 4.5, 130, 236)]),
     L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-0.8, 4.5, 350, 236)]),
 ]
@@ -271,6 +280,8 @@ def build():
             if lay["eyes"]:
                 entry["eyes"] = [list(e) for e in lay["eyes"]]
                 entry["blink"] = list(lay["blink"])
+            if lay["mouth"]:
+                entry["mouth"] = lay["mouth"]
             out.append(entry)
         data[name] = out
     return data

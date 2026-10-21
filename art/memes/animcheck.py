@@ -47,7 +47,26 @@ def render_svg(body, px):
     svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480"><rect width="480" height="480" fill="#000"/>{body}</svg>'
     return np.array(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=px, output_height=px))).convert("L")).astype(np.float32) / 255
 
-def frame(meme, t, px=480):
+def clamp01(v): return max(0.0, min(1.0, v))
+
+def mouth_svg(m, mood, tf):
+    """The mood mouth as white shapes (they get cut out). Same math as MemeView.swift."""
+    k = clamp01(mood)
+    hw = m["half"] + m["widen"] * k; cy = m["y"] - m["lift"] * k
+    ctrl = m["flat"] + (m["smile"] - m["flat"]) * k
+    x = m["x"]; l, r = (x - hw, cy), (x + hw, cy)
+    s = f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]}" fill="none" stroke="#fff" stroke-width="{m["width"]}" stroke-linecap="round"/>'
+    op = clamp01((k - m["openFrom"]) / (1 - m["openFrom"]))
+    if op > 0:
+        up = ctrl + (cy - 4 - ctrl) * op
+        s += f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]} Q{x} {up} {l[0]} {l[1]} Z" fill="#fff"/>'
+    lk = clamp01(1 - k / 0.3)
+    if lk > 0:
+        lh = m["lipHalf"] * lk; ly = m["lipY"]
+        s += f'<path transform="{tf}" d="M{x-lh} {ly} Q{x} {ly+m["lipSag"]} {x+lh} {ly}" fill="none" stroke="#fff" stroke-width="{m["lipWidth"]}" stroke-linecap="round"/>'
+    return s
+
+def frame(meme, t, px=480, mood=0.0):
     acc = np.zeros((px, px), np.float32)
     for lay in meme:
         m, vis, blink = layer_state(lay, t)
@@ -61,6 +80,8 @@ def frame(meme, t, px=480):
             for cx, cy, rx, ry in lay["eyes"]:
                 body += f'<ellipse transform="{tf}" cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry*blink:.3f}" fill="#fff"/>'
         acc = np.maximum(acc, render_svg(body, px))
+        if "mouth" in lay:
+            acc *= 1 - render_svg(mouth_svg(lay["mouth"], mood, tf), px)
     return acc
 
 def to_img(a):

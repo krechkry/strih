@@ -57,7 +57,13 @@ def main(src, dst):
             out.append(f"                    gap: {gap},")
             out.append(f"                    motions: {mots},")
             out.append(f"                    eyes: {eyes},")
-            out.append(f"                    blink: {blink}")
+            out.append(f"                    blink: {blink},")
+            if "mouth" in lay:
+                m = lay["mouth"]
+                keys = ["x", "y", "half", "flat", "smile", "lift", "widen", "width", "lipY", "lipHalf", "lipSag", "lipWidth", "openFrom"]
+                out.append("                    mouth: MemeMouth(" + ", ".join(f"{k}: {num(m[k])}" for k in keys) + ")")
+            else:
+                out.append("                    mouth: nil")
             out.append("                ),")
         out.append("            ]")
     out += ["        }", "    }", "}", ""]

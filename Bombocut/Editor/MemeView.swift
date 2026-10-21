@@ -11,9 +11,17 @@ enum Meme: String, CaseIterable, Identifiable {
 
 /// A meme, drawn in `color` and moving. Square; it fits the space it gets.
 /// Holds still when the system asks for reduced motion.
-struct MemeView: View {
+/// `mood` (0...1) drives memes that have a mood mouth (the deadpan): 0 is the drawing as it is,
+/// 1 a big open grin. Animate it with `.animation(_:value:)` and it eases between values.
+struct MemeView: View, Animatable {
     let meme: Meme
+    var mood: Double = 0
     var color: Color = Theme.accent
+
+    var animatableData: Double {
+        get { mood }
+        set { mood = newValue }
+    }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start = Date()
@@ -21,10 +29,11 @@ struct MemeView: View {
     var body: some View {
         let layers = MemeCache.shared.layers(meme)
         let still = reduceMotion
+        let mood = self.mood
         SwiftUI.TimelineView(.animation(minimumInterval: nil, paused: still)) { ctx in
             let t = still ? 0 : ctx.date.timeIntervalSince(start)
             SwiftUI.Canvas { g, size in
-                MemeView.draw(layers, in: g, size: size, t: t, color: color)
+                MemeView.draw(layers, in: g, size: size, t: t, mood: mood, color: color)
             }
         }
         .aspectRatio(1, contentMode: .fit)
@@ -32,7 +41,7 @@ struct MemeView: View {
         .accessibilityHidden(true)
     }
 
-    static func draw(_ layers: [MemeLayer], in context: GraphicsContext, size: CGSize, t: Double, color: Color) {
+    static func draw(_ layers: [MemeLayer], in context: GraphicsContext, size: CGSize, t: Double, mood: Double, color: Color) {
         let s = min(size.width, size.height) / 480
         guard s > 0 else { return }
         var g = context
@@ -51,6 +60,9 @@ struct MemeView: View {
                     c.blendMode = .normal
                 }
                 c.fill(layer.path, with: .color(color), style: FillStyle(eoFill: true))
+                if let mouth = layer.spec.mouth {
+                    MemeView.cutMouth(mouth, mood: mood, in: c)
+                }
                 if state.blink > 0 {
                     for eye in layer.spec.eyes {
                         let h = 2 * eye.ry * CGFloat(state.blink)
@@ -61,6 +73,62 @@ struct MemeView: View {
             }
         }
     }
+
+    /// Cuts the mood mouth out of its layer. Same math as art/memes/animcheck.py.
+    static func cutMouth(_ m: MemeMouth, mood: Double, in context: GraphicsContext) {
+        var c = context
+        c.blendMode = .destinationOut
+        let k = CGFloat(min(max(mood, 0), 1))
+        let hw = m.half + m.widen * k
+        let cy = m.y - m.lift * k
+        let ctrl = m.flat + (m.smile - m.flat) * k
+        let left = CGPoint(x: m.x - hw, y: cy)
+        let right = CGPoint(x: m.x + hw, y: cy)
+        let bottom = CGPoint(x: m.x, y: ctrl)
+        if m.openFrom < 1 {
+            let open = min(max((k - m.openFrom) / (1 - m.openFrom), 0), 1)
+            if open > 0 {
+                var grin = Path()
+                grin.move(to: left)
+                grin.addQuadCurve(to: right, control: bottom)
+                grin.addQuadCurve(to: left, control: CGPoint(x: m.x, y: ctrl + (cy - 4 - ctrl) * open))
+                grin.closeSubpath()
+                c.fill(grin, with: .color(.black))
+            }
+        }
+        var line = Path()
+        line.move(to: left)
+        line.addQuadCurve(to: right, control: bottom)
+        c.stroke(line, with: .color(.black), style: StrokeStyle(lineWidth: m.width, lineCap: .round))
+        let lip = min(max(1 - k / 0.3, 0), 1)
+        if lip > 0 {
+            let lh = m.lipHalf * lip
+            var lower = Path()
+            lower.move(to: CGPoint(x: m.x - lh, y: m.lipY))
+            lower.addQuadCurve(to: CGPoint(x: m.x + lh, y: m.lipY), control: CGPoint(x: m.x, y: m.lipY + m.lipSag))
+            c.stroke(lower, with: .color(.black), style: StrokeStyle(lineWidth: m.lipWidth, lineCap: .round))
+        }
+    }
+}
+
+/// A mouth that follows the mood (see art/memes/layers.py, mood_mouth). At mood 0 it is a stroke
+/// from (x - half, y) to (x + half, y) bending toward (x, flat), plus a lower lip. Mood lifts the
+/// corners by `lift`, widens them by `widen`, bends the line toward (x, smile), removes the lip by
+/// mood 0.3 and opens the mouth from `openFrom` on.
+struct MemeMouth {
+    let x: CGFloat
+    let y: CGFloat
+    let half: CGFloat
+    let flat: CGFloat
+    let smile: CGFloat
+    let lift: CGFloat
+    let widen: CGFloat
+    let width: CGFloat
+    let lipY: CGFloat
+    let lipHalf: CGFloat
+    let lipSag: CGFloat
+    let lipWidth: CGFloat
+    let openFrom: CGFloat
 }
 
 /// A blink cover: an ellipse in the meme's color that shuts an eye hole.
@@ -101,6 +169,8 @@ struct MemeLayer {
         let motions: [MemeMotion]
         let eyes: [MemeEye]
         let blink: MemeBlink?
+        /// A mouth that follows the mood, cut out of this layer.
+        let mouth: MemeMouth?
     }
 
     let spec: Spec

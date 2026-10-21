@@ -394,8 +394,10 @@ struct ExportSheet: View {
     private func progressView(_ p: Double) -> some View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
-            MemeView(meme: .deadpan)
+            // Starts deadpan and cheers up as the export gets closer to done
+            MemeView(meme: .deadpan, mood: min(max(p, 0), 1))
                 .frame(width: 230, height: 230)
+                .animation(.easeOut(duration: 0.6), value: p)
             Text(verbatim: "\(Int(p * 100)) %")
                 .font(.system(size: 40, weight: .heavy).monospacedDigit())
                 .contentTransition(.numericText())
