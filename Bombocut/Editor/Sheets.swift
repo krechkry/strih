@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 // MARK: Canvas (aspect ratio)
 
@@ -84,17 +85,21 @@ struct ExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @FocusState private var naming: Bool
+    @FocusState private var typing: Bool
 
-    // Remembered between exports
-    @AppStorage("export.short") private var shortSide = 1080          // 0 = custom
+    // Size, frame rate and codec start from the first clip every time the page opens.
+    @State private var shortSide = 1080          // 0 = custom
     @AppStorage("export.customW") private var customW = 1920
     @AppStorage("export.customH") private var customH = 1080
-    @AppStorage("export.fps") private var fps = 30.0
+    @State private var fps = 30.0
+    @State private var hevc = false
+    // Remembered between exports
     @AppStorage("export.autoBitrate") private var autoBitrate = true
     @AppStorage("export.bitrate") private var bitrate = 12.0
-    @AppStorage("export.hevc") private var hevc = false
 
     @State private var customFPS = ""
+    /// What the first clip was, while the settings still match it.
+    @State private var matched: (short: Int, fps: Double, hevc: Bool)?
     @State private var phase: Phase = .setup
     @State private var exporter = Exporter()
     @State private var task: Task<Void, Never>?
@@ -106,9 +111,9 @@ struct ExportSheet: View {
         case failed(String)
     }
 
-    private let sizes: [(String, Int)] = [("144p", 144), ("240p", 240), ("360p", 360), ("480p", 480),
-                                          ("720p", 720), ("1080p", 1080), ("1440p", 1440), ("4K", 2160), ("Custom", 0)]
-    private let rates: [Double] = [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 120]
+    private static let sizes: [(String, Int)] = [("144p", 144), ("240p", 240), ("360p", 360), ("480p", 480),
+                                                 ("720p", 720), ("1080p", 1080), ("1440p", 1440), ("4K", 2160)]
+    private static let rates: [Double] = [12, 15, 23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 120]
 
     private var outSize: (w: Int, h: Int) {
         if shortSide == 0 {
@@ -118,13 +123,19 @@ struct ExportSheet: View {
         return (Int(s.width), Int(s.height))
     }
 
-    private var effectiveHEVC: Bool { hevc || max(outSize.w, outSize.h) > 4096 }
+    private var tooBigForH264: Bool { max(outSize.w, outSize.h) > 4096 }
+    private var effectiveHEVC: Bool { hevc || tooBigForH264 }
 
     private var mbps: Double {
         autoBitrate ? Exporter.autoBitrate(width: outSize.w, height: outSize.h, fps: fps, hevc: effectiveHEVC) : bitrate
     }
 
     private var estimatedMB: Double { (mbps * 1_000_000 + 192_000) * project.duration / 8 / 1_000_000 }
+
+    private var isMatched: Bool {
+        guard let m = matched else { return false }
+        return m.short == shortSide && m.fps == fps && m.hevc == effectiveHEVC
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -142,8 +153,10 @@ struct ExportSheet: View {
         .interactiveDismissDisabled(isExporting)
         .presentationBackground(Theme.panel)
         .onDisappear { if isExporting { exporter.cancel() } }
+        .task { await matchFirstClip() }
         .onAppear {
             if Demo.mode == "done" { phase = .done(URL(fileURLWithPath: "/dev/null"), saved: true, note: nil) }
+            if Demo.mode == "exporting" { phase = .exporting(0.42) }
         }
     }
 
@@ -151,30 +164,28 @@ struct ExportSheet: View {
         ZStack {
             Text("Export").font(.headline.weight(.bold))
             HStack {
-                if case .setup = phase {
-                    Button("Close") { dismiss() }
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-                } else if case .failed = phase {
-                    Button("Close") { dismiss() }
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                Spacer()
-                if case .setup = phase {
-                    Button { start() } label: {
-                        Text("Export")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 16).frame(height: 34)
-                            .background(Theme.accent, in: Capsule())
+                if showsClose {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 34, height: 34)
+                            .background(Theme.panel2, in: Circle())
                     }
                     .buttonStyle(.plain)
                 }
+                Spacer()
             }
         }
         .padding(.horizontal, 18)
         .frame(height: 60)
+    }
+
+    private var showsClose: Bool {
+        switch phase {
+        case .setup, .failed: return true
+        default: return false
+        }
     }
 
     private var isExporting: Bool { if case .exporting = phase { return true }; return false }
@@ -182,94 +193,171 @@ struct ExportSheet: View {
     // MARK: Setup
 
     private var setupForm: some View {
-        Form {
-            Section("Resolution") {
-                ChipRow(items: sizes.map { ($0.0, $0.1) }, selected: shortSide) { shortSide = $0 }
-                if shortSide == 0 {
-                    HStack {
-                        TextField("Width", value: $customW, format: .number.grouping(.never)).keyboardType(.numberPad)
-                        Text("×").foregroundStyle(Theme.muted)
-                        TextField("Height", value: $customH, format: .number.grouping(.never)).keyboardType(.numberPad)
-                        Button("Canvas") {
-                            customH = Canvas.even(Double(customW) / project.canvas.aspect)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                if isMatched {
+                    Label(loc("Same as your first clip"), systemImage: "film")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 12).frame(height: 30)
+                        .background(Theme.accent.opacity(0.12), in: Capsule())
+                }
+
+                group("Resolution") {
+                    ChipRow(items: Self.sizes + [(loc("Custom"), 0)], selected: shortSide) { shortSide = $0 }
+                    if shortSide == 0 { customSize }
+                }
+
+                group("Frame rate") {
+                    ChipRow(items: Self.rates.map { (String(format: "%g", $0), $0) }, selected: fps) { fps = $0; customFPS = "" }
+                    card {
+                        HStack {
+                            Text("Custom fps").font(.body.weight(.semibold))
+                            Spacer()
+                            TextField("e.g. 18", text: $customFPS)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .font(.body.weight(.semibold).monospacedDigit())
+                                .focused($typing)
+                                .frame(width: 90)
+                                .onChange(of: customFPS) { applyCustomFPS() }
                         }
-                        .font(.footnote)
-                    }
-                    .multilineTextAlignment(.center)
-                    if abs(Double(outSize.w) / Double(outSize.h) - project.canvas.aspect) > 0.01 {
-                        Text("Different shape than the canvas (\(project.canvas.label)). Clips fit or fill this frame instead.")
-                            .font(.footnote).foregroundStyle(Theme.muted)
                     }
                 }
-            }
 
-            Section("Frame rate") {
-                ChipRow(items: rates.map { (String(format: "%g", $0), $0) }, selected: fps) { fps = $0 }
-                HStack {
-                    Text("Custom fps").foregroundStyle(Theme.muted)
-                    TextField("e.g. 18", text: $customFPS)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .onSubmit { applyCustomFPS() }
-                        .onChange(of: customFPS) { applyCustomFPS() }
+                group("Bitrate", footer: String.localizedStringWithFormat(loc("About %.0f MB for %@."), estimatedMB, Fmt.duration(project.duration))) {
+                    card {
+                        VStack(spacing: 12) {
+                            OnOffRow(title: "Automatic", isOn: autoBitrate) { autoBitrate = $0 }
+                            HStack(spacing: 12) {
+                                Slider(value: Binding(
+                                    get: { log(max(mbps, 0.1) / 0.1) / log(2000) },
+                                    set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false }
+                                ), in: 0...1)
+                                .tint(Theme.accent)
+                                TextField("Mbps", value: Binding(get: { (mbps * 10).rounded() / 10 },
+                                                                 set: { bitrate = min(max($0, 0.1), 200); autoBitrate = false }),
+                                          format: .number.precision(.fractionLength(0...1)))
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .font(.body.weight(.semibold).monospacedDigit())
+                                    .focused($typing)
+                                    .frame(width: 56)
+                                Text(verbatim: "Mbps").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                            }
+                        }
+                    }
+                }
+
+                group("Codec", footer: loc(tooBigForH264 ? "Above 4096 px only HEVC works." :
+                                           "H.264 plays everywhere. HEVC is about 40% smaller at the same quality.")) {
+                    ChipRow(items: [("H.264", false), ("HEVC", true)], selected: effectiveHEVC) { hevc = $0 }
+                        .disabled(tooBigForH264)
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.immediately)
+        .safeAreaInset(edge: .bottom) { exportButton }
+    }
 
-            Section {
-                Toggle("Automatic", isOn: $autoBitrate)
-                HStack {
-                    Slider(value: Binding(
-                        get: { log(max(mbps, 0.1) / 0.1) / log(2000) },
-                        set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false }
-                    ), in: 0...1)
-                    TextField("Mbps", value: Binding(get: { (mbps * 10).rounded() / 10 },
-                                                     set: { bitrate = min(max($0, 0.1), 200); autoBitrate = false }),
-                              format: .number.precision(.fractionLength(0...1)))
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 64)
-                    Text("Mbps").foregroundStyle(Theme.muted)
-                }
-            } header: {
-                Text("Bitrate")
-            } footer: {
-                Text(String(format: "About %.0f MB for %@.", estimatedMB, Fmt.duration(project.duration)))
-            }
-
-            Section {
-                Picker("Codec", selection: $hevc) {
-                    Text("H.264").tag(false)
-                    Text("HEVC").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .disabled(max(outSize.w, outSize.h) > 4096)
-            } header: {
-                Text("Codec")
-            } footer: {
-                Text(max(outSize.w, outSize.h) > 4096 ? "Above 4096 px only HEVC works." :
-                     "H.264 plays everywhere. HEVC is about 40% smaller at the same quality.")
-            }
-
-            Section {
+    private var customSize: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                numberField("Width", $customW)
+                Text(verbatim: "×").font(.headline).foregroundStyle(Theme.muted)
+                numberField("Height", $customH)
                 Button {
-                    start()
+                    customH = Canvas.even(Double(customW) / project.canvas.aspect)
                 } label: {
-                    VStack(spacing: 3) {
-                        Text("Export").font(.headline)
-                        Text(verbatim: "\(outSize.w) × \(outSize.h) · \(String(format: "%g", fps)) fps · \(String(format: "%.1f", mbps)) Mbps · \(effectiveHEVC ? "HEVC" : "H.264")")
-                            .font(.caption)
-                    }
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, minHeight: 50)
+                    Text("Canvas").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 44)
+                        .background(Theme.panel2, in: Capsule())
                 }
-                .listRowBackground(Theme.accent)
+                .buttonStyle(.plain)
+            }
+            if abs(Double(outSize.w) / Double(outSize.h) - project.canvas.aspect) > 0.01 {
+                Text("Different shape than the canvas (\(project.canvas.label)). Clips fit or fill this frame instead.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .scrollContentBackground(.hidden)
+    }
+
+    private func numberField(_ title: String, _ value: Binding<Int>) -> some View {
+        TextField(loc(title), value: value, format: .number.grouping(.never))
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.center)
+            .font(.body.weight(.semibold).monospacedDigit())
+            .focused($typing)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var exportButton: some View {
+        Button { typing = false; start() } label: {
+            VStack(spacing: 2) {
+                Text("Export").font(.headline.weight(.bold))
+                Text(verbatim: "\(outSize.w) × \(outSize.h) · \(String(format: "%g", fps)) fps · \(String(format: "%.1f", mbps)) Mbps · \(effectiveHEVC ? "HEVC" : "H.264")")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .opacity(0.65)
+            }
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(Theme.panel)
+    }
+
+    private func group<C: View>(_ title: String, footer: String? = nil, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(loc(title)).font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+            content()
+            if let footer {
+                Text(verbatim: footer).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func card<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        content()
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func applyCustomFPS() {
         if let v = Double(customFPS.replacingOccurrences(of: ",", with: ".")), v >= 1, v <= 240 { fps = v }
+    }
+
+    /// Start from the first clip: its size (as the short side of the canvas), frame rate and codec.
+    private func matchFirstClip() async {
+        guard let c = project.clips.first else { return }
+        let asset = AVURLAsset(url: Paths.mediaURL(c.mediaFile))
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let loaded = try? await track.load(.naturalSize, .preferredTransform, .nominalFrameRate, .formatDescriptions)
+        else { return }
+        let (natural, t, rate, formats) = loaded
+        let r = CGRect(origin: .zero, size: natural).applying(t)
+        let short = Int(min(abs(r.width), abs(r.height)).rounded())
+        guard short > 0 else { return }
+        let side = Self.sizes.min { abs($0.1 - short) < abs($1.1 - short) }?.1 ?? 1080
+        let f = Double(rate)
+        let fr = f > 0 ? (Self.rates.min { abs($0 - f) < abs($1 - f) } ?? 30) : fps
+        let isHEVC = formats.contains { CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_HEVC }
+        guard case .setup = phase else { return }
+        shortSide = side
+        fps = fr
+        hevc = isHEVC
+        customFPS = ""
+        matched = (side, fr, effectiveHEVC)
     }
 
     // MARK: Export run
@@ -304,20 +392,39 @@ struct ExportSheet: View {
     }
 
     private func progressView(_ p: Double) -> some View {
-        VStack(spacing: 22) {
-            Spacer()
-            ZStack {
-                Circle().stroke(Theme.panel2, lineWidth: 8)
-                Circle().trim(from: 0, to: p).stroke(Theme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.2), value: p)
-                Text("\(Int(p * 100)) %").font(.title2.monospacedDigit().weight(.semibold))
+        VStack(spacing: 18) {
+            Spacer(minLength: 0)
+            MemeView(meme: .deadpan)
+                .frame(width: 230, height: 230)
+            Text(verbatim: "\(Int(p * 100)) %")
+                .font(.system(size: 40, weight: .heavy).monospacedDigit())
+                .contentTransition(.numericText())
+                .animation(.snappy, value: Int(p * 100))
+            Capsule().fill(Theme.panel2)
+                .frame(height: 8)
+                .overlay(alignment: .leading) {
+                    GeometryReader { g in
+                        Capsule().fill(Theme.accent)
+                            .frame(width: max(8, g.size.width * min(max(p, 0), 1)))
+                            .animation(.linear(duration: 0.2), value: p)
+                    }
+                }
+                .frame(maxWidth: 260)
+            Text("Keep the app open while exporting.")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+            Spacer(minLength: 0)
+            Button { exporter.cancel(); task?.cancel() } label: {
+                Text("Cancel")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
             }
-            .frame(width: 150, height: 150)
-            Text("Keep the app open while exporting.").font(.footnote).foregroundStyle(Theme.muted)
-            Button("Cancel", role: .destructive) { exporter.cancel(); task?.cancel() }
-            Spacer()
+            .buttonStyle(.plain)
+            .padding(.bottom, 24)
         }
+        .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
     }
 
@@ -331,23 +438,25 @@ struct ExportSheet: View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
             MemeView(meme: .absoluteCinema)
-                .frame(width: 240, height: 240)
-            Text("Big up!").font(.system(size: 34, weight: .heavy))
-            Text(saved ? "Saved to Photos" : (note ?? "Export finished"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.muted)
-                .multilineTextAlignment(.center)
-            ShareLink(item: url) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(Theme.panel2, in: Circle())
+                .frame(width: 250, height: 250)
+            Text(verbatim: loc(saved ? "Saved to Photos" : "Export finished"))
+                .font(.title3.weight(.heavy))
+            if !saved, let note {
+                Text(verbatim: note)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.muted)
+                    .multilineTextAlignment(.center)
             }
-            .padding(.top, 6)
+            ShareLink(item: url) {
+                Label(loc("Share"), systemImage: "square.and.arrow.up")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18).frame(height: 40)
+                    .background(Theme.panel2, in: Capsule())
+            }
             Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Project name").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Project name").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
                 HStack(spacing: 8) {
                     Image(systemName: "pencil").foregroundStyle(Theme.muted)
                     TextField(project.name, text: $name)
@@ -359,13 +468,12 @@ struct ExportSheet: View {
                 .padding(.horizontal, 14).frame(height: 48)
                 .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
             }
-            .padding(.horizontal, 20)
             .onAppear { if name.isEmpty { name = project.name } }
             HStack(spacing: 12) {
                 Button { phase = .setup } label: {
                     Text("Back")
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(.white.opacity(0.85))
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
                 }
@@ -378,23 +486,30 @@ struct ExportSheet: View {
                 }
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
         .onDisappear { saveName() }
     }
 
     private func failedView(_ msg: String) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Spacer()
             Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 44)).foregroundStyle(.orange)
-            Text("Export failed").font(.title3.weight(.semibold))
-            Text(loc(msg)).font(.footnote).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-            Button("Back to settings") { phase = .setup }
+            Text("Export failed").font(.title3.weight(.heavy))
+            Text(loc(msg)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Spacer()
+            Button { phase = .setup } label: {
+                Text("Back to settings")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 24)
         }
-        .padding(24)
+        .padding(.horizontal, 20)
     }
 }
 
@@ -420,7 +535,6 @@ struct ChipRow<V: Equatable>: View {
                 }
         }
         .padding(.vertical, 2)
-        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
     }
 }
 

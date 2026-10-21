@@ -1000,6 +1000,16 @@
         }
       }
     },
+    "Custom": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vlastní"
+          }
+        }
+      }
+    },
     "Custom fps": {
       "localizations": {
         "cs": {
@@ -1434,6 +1444,16 @@
         }
       }
     },
+    "Export finished": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export hotový"
+          }
+        }
+      }
+    },
     "Exposure": {
       "localizations": {
         "cs": {
@@ -1620,6 +1640,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Našel jsi chybu nebo ti něco chybí? Udělej screenshot a klepni na Sdílet zpětnou vazbu k betě, nebo otevři TestFlight a klepni na Odeslat zpětnou vazbu. Čteme každou zprávu."
+          }
+        }
+      }
+    },
+    "Frame rate": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snímková frekvence"
           }
         }
       }
@@ -2768,6 +2798,16 @@
         }
       }
     },
+    "Resolution": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozlišení"
+          }
+        }
+      }
+    },
     "Restore purchase": {
       "localizations": {
         "cs": {
@@ -2794,6 +2834,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bezpečná zóna"
+          }
+        }
+      }
+    },
+    "Same as your first clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stejné jako tvůj první klip"
           }
         }
       }
@@ -2974,6 +3024,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stíny"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sdílet"
           }
         }
       }
