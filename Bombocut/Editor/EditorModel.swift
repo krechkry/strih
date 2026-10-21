@@ -298,6 +298,11 @@ final class EditorModel: ObservableObject {
     private var neighbourSet: Set<UUID> { Set(project.clips.filter(\.needsNeighbours).map(\.id)) }
 
     func rebuild() {
+        // speech settings without their cleaned sound yet: make it, then build again with it
+        let speechWork = project.clips.filter { SpeechCleanup.shared.needsWork($0) }
+        if !speechWork.isEmpty {
+            SpeechCleanup.shared.process(speechWork) { [weak self] in self?.rebuild() }
+        }
         buildTask?.cancel()
         builtNeighbours = neighbourSet
         let p = project
@@ -1235,6 +1240,14 @@ final class EditorModel: ObservableObject {
         mutate { $0.clips[i].speedCurve = pts }
     }
 
+    /// Speech settings of the selected clip (the cleaned sound is made in the background).
+    func setSpeech(_ fx: SpeechFX) {
+        guard let i = selectedIndex else { return }
+        let v: SpeechFX? = fx.isActive ? fx : nil
+        guard project.clips[i].speech != v else { return }
+        mutate { $0.clips[i].speech = v }
+    }
+
     func setSmoothSlowMo(_ on: Bool) {
         guard let i = selectedIndex, project.clips[i].smoothSlowMo != on else { return }
         mutate { $0.clips[i].smoothSlowMo = on }
@@ -1477,7 +1490,7 @@ final class EditorModel: ObservableObject {
     // MARK: Apply a panel's settings to other clips
 
     enum ApplyKind: String {
-        case motionBlur, adjust, speed, volume, mask, overlayStyle, animation
+        case motionBlur, adjust, speed, volume, mask, overlayStyle, animation, speech
 
         var title: String {
             switch self {
@@ -1488,12 +1501,13 @@ final class EditorModel: ObservableObject {
             case .mask: return "Mask"
             case .overlayStyle: return "Look of the overlay"
             case .animation: return "Transition"
+            case .speech: return "Speech"
             }
         }
         /// Copies between overlays instead of clips.
         var forOverlays: Bool { self == .overlayStyle }
         /// Changes clip lengths (captions and overlays follow, the video rebuilds).
-        var retimes: Bool { self == .speed }
+        var retimes: Bool { self == .speed || self == .speech }
     }
 
     struct PickSession: Equatable {
@@ -1529,6 +1543,8 @@ final class EditorModel: ObservableObject {
             c.mask = s.mask
         case .animation:
             c.anim = s.anim
+        case .speech:
+            c.speech = s.speech
         case .overlayStyle:
             break
         }

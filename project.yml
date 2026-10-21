@@ -17,7 +17,12 @@ targets:
   Bombocut:
     type: application
     platform: iOS
-    sources: [Bombocut]
+    sources:
+      - Bombocut
+      # the speech cleanup model (DeepFilterNet3, Core ML), copied into the app as a folder
+      - path: Models/DeepFilterNet3
+        type: folder
+        buildPhase: resources
     scheme:
       storeKitConfiguration: Bombocut.storekit
       testTargets: [BombocutTests]

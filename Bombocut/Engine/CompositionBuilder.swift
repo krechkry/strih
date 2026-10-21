@@ -152,7 +152,9 @@ enum CompositionBuilder {
             let aux = clip.needsNeighbours
             let neighbours: (prev: AVMutableCompositionTrack?, next: AVMutableCompositionTrack?) =
                 aux ? ln.neighbourTracks() : (nil, nil)
-            let srcAudio = try await asset.loadTracks(withMediaType: .audio).first
+            // cleaned-up speech, once made, plays instead of the video's own sound (same timing)
+            let soundAsset: AVAsset = SpeechCleanup.readyURL(clip).map { AVURLAsset(url: $0) } ?? asset
+            let srcAudio = try await soundAsset.loadTracks(withMediaType: .audio).first
             let audioRange = try await srcAudio?.load(.timeRange)
             let audioOut = srcAudio != nil ? ln.audio(keepPitch: clip.pitchCorrect) : nil
             var cursor = start

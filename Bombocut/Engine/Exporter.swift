@@ -48,6 +48,8 @@ final class Exporter: @unchecked Sendable {
                 progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let w = Canvas.even(Double(settings.width)), h = Canvas.even(Double(settings.height))
         let hevc = settings.hevc || max(w, h) > 4096          // H.264 tops out at 4096 px
+        // cleaned-up speech the editor has not made yet
+        await SpeechCleanup.shared.prepare(project)
         let built = try await CompositionBuilder.build(project: project,
                                                        renderSize: CGSize(width: w, height: h),
                                                        fps: settings.fps, endCard: endCard, light: light)

@@ -420,6 +420,16 @@
         }
       }
     },
+    "Apple's voice isolation, for videos recorded with spatial audio on iPhone 16 and newer.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izolace hlasu od Applu, pro videa natočená s prostorovým zvukem na iPhonu 16 a novějším."
+          }
+        }
+      }
+    },
     "Apply (%lld)": {
       "localizations": {
         "cs": {
@@ -460,12 +470,82 @@
         }
       }
     },
+    "Audio Mix": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio Mix"
+          }
+        }
+      }
+    },
     "Automatic": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Automaticky"
+          }
+        }
+      }
+    },
+    "Automatic subtitles in 25 languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatické titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Automatic subtitles in 25 languages. And all the other features you would expect.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatické titulky ve 25 jazycích. A všechny ostatní funkce, který bys čekal."
+          }
+        }
+      }
+    },
+    "BOMBOCUT end card": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koncová karta BOMBOCUT"
+          }
+        }
+      }
+    },
+    "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat updaty a na tvojí zpětné vazbě opravdu záleží."
+          }
+        }
+      }
+    },
+    "BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
+          }
+        }
+      }
+    },
+    "BOMBOCUT uses": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT zabírá"
           }
         }
       }
@@ -616,36 +696,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rozmazat pozadí"
-          }
-        }
-      }
-    },
-    "BOMBOCUT end card": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Koncová karta BOMBOCUT"
-          }
-        }
-      }
-    },
-    "BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BOMBOCUT změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
-          }
-        }
-      }
-    },
-    "BOMBOCUT uses": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BOMBOCUT zabírá"
           }
         }
       }
@@ -860,6 +910,16 @@
         }
       }
     },
+    "Cinematic": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filmový"
+          }
+        }
+      }
+    },
     "Clean up": {
       "localizations": {
         "cs": {
@@ -876,6 +936,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vymazat mezipaměť?"
+          }
+        }
+      }
+    },
+    "Clearer, fuller voice at an even loudness.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čistší a plnější hlas s vyrovnanou hlasitostí."
           }
         }
       }
@@ -966,6 +1036,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kontrast"
+          }
+        }
+      }
+    },
+    "Could not clean up": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nepodařilo se vyčistit"
           }
         }
       }
@@ -1116,6 +1196,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ztmavit pozadí"
+          }
+        }
+      }
+    },
+    "DeepFilterNet3": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepFilterNet3"
           }
         }
       }
@@ -1474,6 +1564,26 @@
         }
       }
     },
+    "Everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+          }
+        }
+      }
+    },
+    "Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno běží v tvém iPhonu. Vyčištěný zvuk se udělá jednou a zůstane uložený, přehrávání i export ho hned použijí."
+          }
+        }
+      }
+    },
     "Everything: keyframes, transitions, overlays and blend modes, masks, tracking, stabilization, motion blur, speed curves, animations and social layouts.": {
       "localizations": {
         "cs": {
@@ -1520,6 +1630,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export hotový"
+          }
+        }
+      }
+    },
+    "Export from 144p to 4K and 120 fps, at the bitrate you pick": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export od 144p až po 4K a 120 fps, s bitratem podle tebe"
           }
         }
       }
@@ -1878,6 +1998,16 @@
         }
       }
     },
+    "Hendrik Schröter. Noise removal for speech, converted to Core ML by aufklarer. License: MIT / Apache 2.0.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hendrik Schröter. Odstranění šumu z řeči, převedeno do Core ML (aufklarer). Licence: MIT / Apache 2.0."
+          }
+        }
+      }
+    },
     "Highlight": {
       "localizations": {
         "cs": {
@@ -1964,6 +2094,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nástup / odchod"
+          }
+        }
+      }
+    },
+    "In frame": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V záběru"
           }
         }
       }
@@ -2084,6 +2224,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zachováno"
+          }
+        }
+      }
+    },
+    "Keyframes, transitions, text and overlays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyframy, přechody, texty a překrytí"
           }
         }
       }
@@ -2224,6 +2374,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vzhled překrytí"
+          }
+        }
+      }
+    },
+    "Made by a filmmaker, in Prague.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořil jeden filmař v Praze"
           }
         }
       }
@@ -2618,6 +2778,16 @@
         }
       }
     },
+    "Pay once. No subscription, no ads, nothing locked.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatíš jednou. Žádné předplatné, žádné reklamy, nic zamčeného."
+          }
+        }
+      }
+    },
     "People": {
       "localizations": {
         "cs": {
@@ -2828,6 +2998,16 @@
         }
       }
     },
+    "Ready": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotovo"
+          }
+        }
+      }
+    },
     "Regenerate": {
       "localizations": {
         "cs": {
@@ -2854,6 +3034,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odstranit titulky"
+          }
+        }
+      }
+    },
+    "Remove noise": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit šum"
           }
         }
       }
@@ -3408,6 +3598,16 @@
         }
       }
     },
+    "Speech": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řeč"
+          }
+        }
+      }
+    },
     "Speech model: %@": {
       "localizations": {
         "cs": {
@@ -3424,6 +3624,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rychlost"
+          }
+        }
+      }
+    },
+    "Speed curves, smooth slow motion and motion blur": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlostní křivky, plynulé zpomalení a motion blur"
           }
         }
       }
@@ -3498,6 +3708,16 @@
         }
       }
     },
+    "Studio": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Studio"
+          }
+        }
+      }
+    },
     "Style": {
       "localizations": {
         "cs": {
@@ -3524,6 +3744,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maska objektu"
+          }
+        }
+      }
+    },
+    "Subject masks, stabilization and tracking": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maska objektu, stabilizace a tracking"
           }
         }
       }
@@ -3564,36 +3794,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky ve 25 jazycích"
-          }
-        }
-      }
-    },
-    "Automatic subtitles in 25 languages. And all the other features you would expect.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automatické titulky ve 25 jazycích. A všechny ostatní funkce, který bys čekal."
-          }
-        }
-      }
-    },
-    "Everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
-          }
-        }
-      }
-    },
-    "Made by a filmmaker, in Prague.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vytvořil jeden filmař v Praze"
           }
         }
       }
@@ -3744,6 +3944,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hlasový model má asi 650 MB. Radši přes Wi-Fi."
+          }
+        }
+      }
+    },
+    "The speech model is missing from the app.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V aplikaci chybí model pro řeč."
           }
         }
       }
@@ -4028,6 +4238,16 @@
         }
       }
     },
+    "Voice enhancer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vylepšení hlasu"
+          }
+        }
+      }
+    },
     "Voice model failed. Tap to retry": {
       "localizations": {
         "cs": {
@@ -4104,6 +4324,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Šířka"
+          }
+        }
+      }
+    },
+    "Wind, traffic, hum and room echo out, the voice stays.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vítr, provoz, brum a ozvěna místnosti pryč, hlas zůstane."
           }
         }
       }
@@ -4238,72 +4468,22 @@
         }
       }
     },
-    "Automatic subtitles in 25 languages": {
+    "soniqo. Signal processing around DeepFilterNet3. License: Apache 2.0.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatické titulky ve 25 jazycích"
+            "value": "soniqo. Zpracování signálu kolem DeepFilterNet3. Licence: Apache 2.0."
           }
         }
       }
     },
-    "Speed curves, smooth slow motion and motion blur": {
+    "speech-swift": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rychlostní křivky, plynulé zpomalení a motion blur"
-          }
-        }
-      }
-    },
-    "Keyframes, transitions, text and overlays": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keyframy, přechody, texty a překrytí"
-          }
-        }
-      }
-    },
-    "Subject masks, stabilization and tracking": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maska objektu, stabilizace a tracking"
-          }
-        }
-      }
-    },
-    "Export from 144p to 4K and 120 fps, at the bitrate you pick": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export od 144p až po 4K a 120 fps, s bitratem podle tebe"
-          }
-        }
-      }
-    },
-    "Pay once. No subscription, no ads, nothing locked.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zaplatíš jednou. Žádné předplatné, žádné reklamy, nic zamčeného."
-          }
-        }
-      }
-    },
-    "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat updaty a na tvojí zpětné vazbě opravdu záleží."
+            "value": "speech-swift"
           }
         }
       }

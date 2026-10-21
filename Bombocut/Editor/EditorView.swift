@@ -44,6 +44,7 @@ struct EditorView: View {
         case .animation: return 400
         case .layout: return 250
         case .audio: return 220
+        case .speech: return 470
         }
     }
 
@@ -96,6 +97,7 @@ struct EditorView: View {
         case .animation: ClipAnimSheet(model: model)
         case .layout: LayoutSheet(model: model)
         case .audio: AudioSheet(model: model)
+        case .speech: SpeechSheet(model: model)
         }
     }
 
@@ -496,6 +498,7 @@ struct EditorView: View {
                             Task { await model.extractClipAudio() }
                         }
                     }
+                    ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelected() }
                 } else {
@@ -754,7 +757,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
     var id: String { rawValue }
 }
 

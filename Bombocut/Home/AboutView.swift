@@ -39,6 +39,8 @@ struct AboutView: View {
                     credit("Parakeet TDT 0.6B v3", "NVIDIA. Speech recognition model. License: CC BY 4.0.")
                     credit("Parakeet Ultra", "Moondream. Further training of Parakeet TDT v3, converted to Core ML by FluidInference. License: CC BY 4.0.")
                     credit("FluidAudio", "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0.")
+                    credit("DeepFilterNet3", "Hendrik Schröter. Noise removal for speech, converted to Core ML by aufklarer. License: MIT / Apache 2.0.")
+                    credit("speech-swift", "soniqo. Signal processing around DeepFilterNet3. License: Apache 2.0.")
                     credit("Apple Vision, Video Toolbox, Core Image", "Subject tracking, masks, motion blur, smooth slow motion, effects.")
                     Text("Made in Prague.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     #if DEBUG

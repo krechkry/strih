@@ -242,3 +242,118 @@ struct AudioSheet: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 }
+
+/// Speech of the selected clip: remove noise, voice enhancer, and Apple's Audio Mix for spatial recordings.
+struct SpeechSheet: View {
+    @ObservedObject var model: EditorModel
+    @ObservedObject private var cleanup = SpeechCleanup.shared
+    @State private var strength: Double?
+    @State private var intensity: Double?
+    @State private var spatial = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let i = model.selectedIndex {
+                    let c = model.project.clips[i]
+                    let fx = c.speech ?? SpeechFX()
+                    HStack {
+                        Text("Speech").font(.title3.weight(.heavy))
+                        Spacer()
+                        status(c)
+                    }
+                    card {
+                        VStack(alignment: .leading, spacing: 12) {
+                            OnOffRow(title: "Remove noise", subtitle: "Wind, traffic, hum and room echo out, the voice stays.",
+                                     isOn: fx.denoise > 0.001) { on in
+                                var f = fx; f.denoise = on ? 0.85 : 0; model.setSpeech(f)
+                            }
+                            if fx.denoise > 0.001 {
+                                HStack {
+                                    Text("Strength").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                                    Spacer()
+                                    Text("\(Int(((strength ?? fx.denoise) * 100).rounded())) %")
+                                        .font(.subheadline.weight(.bold).monospacedDigit())
+                                }
+                                Slider(value: Binding(get: { strength ?? fx.denoise }, set: { strength = $0 }), in: 0.1...1,
+                                       onEditingChanged: { e in
+                                    if !e, let v = strength { var f = fx; f.denoise = v; model.setSpeech(f); strength = nil }
+                                })
+                                .tint(Theme.accent)
+                            }
+                        }
+                    }
+                    card {
+                        OnOffRow(title: "Voice enhancer", subtitle: "Clearer, fuller voice at an even loudness.",
+                                 isOn: fx.enhance) { on in var f = fx; f.enhance = on; model.setSpeech(f) }
+                    }
+                    if spatial || fx.mix != nil {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Audio Mix").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                            HStack(spacing: 8) {
+                                chip("Off", on: fx.mix == nil) { var f = fx; f.mix = nil; model.setSpeech(f) }
+                                ForEach(SpatialMixStyle.allCases, id: \.self) { st in
+                                    chip(st.title, on: fx.mix == st) { var f = fx; f.mix = st; model.setSpeech(f) }
+                                }
+                            }
+                            if fx.mix != nil {
+                                Slider(value: Binding(get: { intensity ?? fx.mixIntensity }, set: { intensity = $0 }), in: 0...1,
+                                       onEditingChanged: { e in
+                                    if !e, let v = intensity { var f = fx; f.mixIntensity = v; model.setSpeech(f); intensity = nil }
+                                })
+                                .tint(Theme.accent)
+                            }
+                            Text("Apple's voice isolation, for videos recorded with spatial audio on iPhone 16 and newer.")
+                                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Text("Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ApplyRow(model: model, kind: .speech)
+                }
+            }
+            .padding(20)
+        }
+        .scrollIndicators(.hidden)
+        .task(id: model.selectedClipID) {
+            spatial = false
+            guard let i = model.selectedIndex else { return }
+            spatial = await SpeechCleanup.hasSpatialAudio(Paths.mediaURL(model.project.clips[i].mediaFile))
+        }
+    }
+
+    @ViewBuilder
+    private func status(_ c: Clip) -> some View {
+        if let p = cleanup.isWorking(c) {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small).tint(Theme.accent)
+                Text("\(Int(p * 100)) %").font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
+            }
+        } else if let k = SpeechCleanup.key(c), cleanup.failed.contains(k) {
+            Label(loc("Could not clean up"), systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.bold)).foregroundStyle(.orange)
+        } else if SpeechCleanup.readyURL(c) != nil {
+            Label(loc("Ready"), systemImage: "checkmark.circle.fill")
+                .font(.footnote.weight(.bold)).foregroundStyle(Theme.accent)
+        }
+    }
+
+    private func card<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        content()
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func chip(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(loc(title)).font(.subheadline.weight(.bold))
+                .foregroundStyle(on ? .black : .white)
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(on ? Theme.accent : Theme.panel, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
