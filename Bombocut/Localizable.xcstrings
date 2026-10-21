@@ -660,12 +660,12 @@
         }
       }
     },
-    "Both clips play while the next one comes in, so the video gets shorter by the length of the transition.": {
+    "Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Oba klipy hrají, zatímco nastupuje další, takže se video zkrátí o délku přechodu."
+            "value": "Oba klipy se během přechodu pohybují spolu, takže se video zkrátí o délku přechodu."
           }
         }
       }
@@ -896,6 +896,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zvuk klipu"
+          }
+        }
+      }
+    },
+    "Clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy"
           }
         }
       }

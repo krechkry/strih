@@ -85,7 +85,6 @@ struct ApplyRow: View {
 struct ClipAnimSheet: View {
     @ObservedObject var model: EditorModel
     @State private var showClipAnim = false
-    @State private var dragLength: Double?
 
     var body: some View {
         ScrollView {
@@ -116,6 +115,7 @@ struct ClipAnimSheet: View {
             .padding(20)
         }
         .scrollIndicators(.hidden)
+        .onDisappear { model.cutDurationEnded() }
     }
 
     private func tab(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
@@ -128,14 +128,36 @@ struct ClipAnimSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// Which cut: a clip in the middle has one before it and one after it.
+    @ViewBuilder
+    private func cutPicker(_ k: Int) -> some View {
+        let n = model.project.clips.count
+        if let i = model.selectedIndex, i > 0, i + 1 < n, k == i - 1 || k == i {
+            HStack(spacing: 8) {
+                ForEach([i - 1, i], id: \.self) { c in
+                    Button { model.openTransition(cut: c) } label: {
+                        Text(verbatim: "\(loc("Clips")) \(c + 1) ↔ \(c + 2)")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(k == c ? .black : .white)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(k == c ? Theme.accent : Theme.panel2, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } else {
+            Text("Between clip \(k + 1) and \(k + 2)").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+        }
+    }
+
     /// The cut between clip k and k + 1: the clip after comes in over the clip before while both play.
     @ViewBuilder
     private func cutEditor(_ k: Int) -> some View {
         let cut = model.cutTransition(k)
         let current = cut?.kind ?? .none
         let maxLen = model.maxCutDuration(k)
-        let length = dragLength ?? min(cut?.duration ?? 0.5, maxLen)
-        Text("Between clip \(k + 1) and \(k + 2)").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+        let length = min(cut?.duration ?? 0.5, maxLen)
+        cutPicker(k)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(MotionAnim.allCases, id: \.self) { m in
@@ -162,12 +184,11 @@ struct ClipAnimSheet: View {
                 Spacer()
                 Text(String(format: "%.1fs", length)).font(.subheadline.weight(.bold).monospacedDigit())
             }
-            Slider(value: Binding(get: { length }, set: { dragLength = $0 }),
+            Slider(value: Binding(get: { length }, set: { model.cutDurationChanged($0) }),
                    in: 0.1...max(0.2, min(3, maxLen)),
                    onEditingChanged: { e in
-                       if !e, let d = dragLength {
-                           model.setCutDuration(d)
-                           dragLength = nil
+                       if !e {
+                           model.cutDurationEnded()
                            model.previewCut()
                        }
                    })
@@ -182,7 +203,7 @@ struct ClipAnimSheet: View {
                 .buttonStyle(.plain)
             }
         }
-        Text("Both clips play while the next one comes in, so the video gets shorter by the length of the transition.")
+        Text("Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
     }

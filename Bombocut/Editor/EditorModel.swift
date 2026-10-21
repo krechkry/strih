@@ -816,9 +816,13 @@ final class EditorModel: ObservableObject {
     func openTransition(cut k: Int) {
         guard k >= 0, k + 1 < project.clips.count else { return }
         pause()
-        selectedClipID = project.clips[k + 1].id
+        // keep the selection when it is one of the two clips (switching between a clip's two cuts)
+        if selectedClipID != project.clips[k].id && selectedClipID != project.clips[k + 1].id {
+            selectedClipID = project.clips[k + 1].id
+        }
+        cutDurationEnded()
         transitionCut = k
-        scrub(to: project.clipStarts[k + 1])
+        scrub(to: project.clipStarts[k + 1] + project.overlap(k + 1) / 2)
         openTransitionPanel = true
     }
 
@@ -831,6 +835,7 @@ final class EditorModel: ObservableObject {
 
     func setCutTransition(_ kind: MotionAnim) {
         guard let k = transitionCut, k + 1 < project.clips.count else { return }
+        cutDurationEnded()
         let old = project.clips[k + 1].cut
         mutate { p in
             if kind == .none {
@@ -843,11 +848,25 @@ final class EditorModel: ObservableObject {
     }
 
     /// Length of the transition at the cut being edited (on release: the clips move).
-    func setCutDuration(_ d: Double) {
-        guard let k = transitionCut, k + 1 < project.clips.count, var c = project.clips[k + 1].cut else { return }
-        c.duration = d
-        mutate { $0.clips[k + 1].cut = c }
+    /// Length slider moving: the overlap (and the diagonal in the timeline) follows the finger.
+    /// `cutDurationEnded` makes it one undo step, moves captions / overlays along and rebuilds the video.
+    func cutDurationChanged(_ d: Double) {
+        guard let k = transitionCut, k + 1 < project.clips.count, project.clips[k + 1].cut != nil else { return }
+        if cutEditBefore == nil { cutEditBefore = project }
+        project.clips[k + 1].cut?.duration = d
     }
+
+    /// Finishes a length change (slider released, panel closed or another cut picked). Safe to call twice.
+    func cutDurationEnded() {
+        guard let before = cutEditBefore else { return }
+        cutEditBefore = nil
+        guard before != project else { return }
+        pushUndo(before)
+        followFootage(from: before)
+        commit()
+    }
+
+    private var cutEditBefore: Project?
 
     /// The longest the transition at cut k can be (45 % of the shorter clip).
     func maxCutDuration(_ k: Int) -> Double {
@@ -866,9 +885,15 @@ final class EditorModel: ObservableObject {
 
     func previewCut() {
         guard let k = transitionCut, k + 1 < project.clips.count else { return }
-        let start = project.clipStarts[k + 1]
-        let ov = project.overlap(k + 1)
-        playOnce(from: max(0, start - 0.6), to: min(duration, start + ov + 0.6), back: start + ov / 2)
+        let build = buildTask
+        Task {
+            // the change just rebuilt the video: play the new one, not the old
+            await build?.value
+            guard let k2 = transitionCut, k2 == k, k + 1 < project.clips.count else { return }
+            let start = project.clipStarts[k + 1]
+            let ov = project.overlap(k + 1)
+            playOnce(from: max(0, start - 0.6), to: min(duration, start + ov + 0.6), back: start + ov / 2)
+        }
     }
 
     func setClipAnim(_ a: AnimPair) {

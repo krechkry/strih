@@ -202,7 +202,7 @@ struct EditorView: View {
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
         .onChange(of: sheet) { _, s in
-            if s != .animation { model.transitionCut = nil }
+            if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
         }
@@ -477,8 +477,9 @@ struct EditorView: View {
     /// Transition tool: the cut into the selected clip (the first clip has its own in / out instead).
     private func openTransitionTool() {
         model.pause()
-        if let i = model.selectedIndex, i > 0 {
-            model.openTransition(cut: i - 1)
+        // the cut after the clip (or before it, for the last clip); the panel switches between the two
+        if let i = model.selectedIndex, model.project.clips.count > 1 {
+            model.openTransition(cut: i + 1 < model.project.clips.count ? i : i - 1)
         } else {
             model.transitionCut = nil
             sheet = .animation

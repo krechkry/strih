@@ -96,17 +96,50 @@ struct CutTransition: Codable, Hashable {
     var kind: MotionAnim = .fade
     var duration = 0.5
 
-    /// How the incoming clip looks `t` seconds into an overlap of `length` seconds.
-    func pose(_ t: Double, length: Double) -> (dx: Double, dy: Double, scale: Double, opacity: Double) {
-        if kind == .fade {
-            // an even dissolve (the other kinds ease out like the in / out animations)
-            let p = min(max(t / max(length, 1e-6), 0), 1)
-            return (0, 0, 1, p * p * (3 - 2 * p))
-        }
-        var a = AnimPair()
-        a.inAnim = kind
-        a.inDur = length
-        // AnimPair caps the in part at half of the length it is given
-        return a.pose(local: t, length: length * 2 + 1)
+    /// Offset (fractions of the canvas, + = right / down), scale and opacity of one clip in a transition.
+    struct Pose: Equatable {
+        var dx = 0.0, dy = 0.0, scale = 1.0, opacity = 1.0
     }
+
+    /// Both clips `t` seconds into an overlap of `length` seconds: the one going out and the one coming in
+    /// (drawn on top). They move together: a slide pushes the old clip out as the new one comes in.
+    func poses(_ t: Double, length: Double) -> (out: Pose, into: Pose) {
+        let p = min(max(t / max(length, 1e-6), 0), 1)
+        let e = p * p * (3 - 2 * p)
+        var o = Pose(), i = Pose()
+        switch kind {
+        case .none:
+            i.opacity = p < 0.5 ? 0 : 1
+        case .fade:
+            i.opacity = e
+        case .slideLeft:
+            i.dx = 1 - e; o.dx = -e
+        case .slideRight:
+            i.dx = -(1 - e); o.dx = e
+        case .slideUp:
+            i.dy = 1 - e; o.dy = -e
+        case .slideDown:
+            i.dy = -(1 - e); o.dy = e
+        case .zoomIn:
+            o.scale = 1 + 0.5 * e
+            i.scale = 0.7 + 0.3 * e
+            i.opacity = e
+        case .zoomOut:
+            o.scale = 1 - 0.3 * e
+            i.scale = 1.4 - 0.4 * e
+            i.opacity = e
+        case .pop:
+            o.scale = 1 - 0.1 * e
+            i.scale = p < 0.7 ? 0.5 + 0.6 * (p / 0.7) : 1.1 - 0.1 * ((p - 0.7) / 0.3)
+            i.opacity = min(1, p * 3)
+        }
+        return (o, i)
+    }
+
+    /// The incoming clip only (kept for callers that draw just that one).
+    func pose(_ t: Double, length: Double) -> (dx: Double, dy: Double, scale: Double, opacity: Double) {
+        let i = poses(t, length: length).into
+        return (i.dx, i.dy, i.scale, i.opacity)
+    }
+}
 }

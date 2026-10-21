@@ -57,6 +57,17 @@ final class TransitionTests: XCTestCase {
         XCTAssertLessThan(c.pose(0.25, length: 1).opacity, c.pose(0.75, length: 1).opacity)
     }
 
+    func testSlidesPushBothClips() {
+        let c = CutTransition(kind: .slideLeft, duration: 1)
+        let mid = c.poses(0.5, length: 1)
+        XCTAssertEqual(mid.into.dx, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(mid.out.dx, -0.5, accuracy: 1e-9, "the clip going out moves the same way")
+        XCTAssertEqual(mid.into.opacity, 1)
+        let up = CutTransition(kind: .slideUp, duration: 1).poses(1, length: 1)
+        XCTAssertEqual(up.into.dy, 0, accuracy: 1e-9)
+        XCTAssertEqual(up.out.dy, -1, accuracy: 1e-9)
+    }
+
     // MARK: Rendering
 
     /// Copies the CI's test clips into the app's media folder.
@@ -82,15 +93,15 @@ final class TransitionTests: XCTestCase {
         return p
     }
 
-    /// Average color of the middle of a frame (0...255).
-    private func color(_ gen: AVAssetImageGenerator, at t: Double) async throws -> (r: Double, g: Double, b: Double) {
+    /// Average color of part of a frame (0...255); `x` is where the sampled quarter-width strip is centered.
+    private func color(_ gen: AVAssetImageGenerator, at t: Double, x: CGFloat = 0.5) async throws -> (r: Double, g: Double, b: Double) {
         let (img, _) = try await gen.image(at: CMTime(seconds: t, preferredTimescale: 600))
         var px = [UInt8](repeating: 0, count: 4)
         let ctx = CGContext(data: &px, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
                             space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        // the middle quarter of the frame, squeezed into one pixel
+        // a small block of the frame, squeezed into one pixel
         let w = CGFloat(img.width), h = CGFloat(img.height)
-        if let crop = img.cropping(to: CGRect(x: w * 0.375, y: h * 0.375, width: w / 4, height: h / 4)) {
+        if let crop = img.cropping(to: CGRect(x: w * (x - 0.1), y: h * 0.375, width: w * 0.2, height: h / 4)) {
             ctx.interpolationQuality = .medium
             ctx.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
         }
@@ -135,6 +146,23 @@ final class TransitionTests: XCTestCase {
         XCTAssertLessThan(early.b, mid.b)
         XCTAssertLessThan(mid.b, late.b)
         XCTAssertGreaterThan(early.r, late.r)
+    }
+
+    func testSlideLeftPushesTheOldClipOut() async throws {
+        var p = try crossfadeProject()
+        p.clips[1].cut = CutTransition(kind: .slideLeft, duration: 0.9)
+        let built = try await CompositionBuilder.build(project: p, renderSize: CGSize(width: 180, height: 320), fps: 30)
+        let gen = AVAssetImageGenerator(asset: built.composition)
+        gen.videoComposition = built.videoComposition
+        gen.requestedTimeToleranceBefore = .zero
+        gen.requestedTimeToleranceAfter = .zero
+        // halfway: the red clip has moved half out to the left, the blue one fills the right half
+        let left = try await color(gen, at: 1.55, x: 0.25)
+        let right = try await color(gen, at: 1.55, x: 0.75)
+        XCTAssertGreaterThan(left.r, 150, "the old clip is still on the left")
+        XCTAssertLessThan(left.b, 90)
+        XCTAssertGreaterThan(right.b, 150, "the new clip comes in on the right")
+        XCTAssertLessThan(right.r, 90)
     }
 
     // MARK: Export

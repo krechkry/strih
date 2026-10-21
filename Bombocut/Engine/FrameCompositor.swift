@@ -137,19 +137,14 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var masked = false
             var image = clipImage(clips[0], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
             if clips.count > 1, let cut {
-                // the clip coming in, over the one going out
-                var top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
-                let a = cut.cut.pose(t - cut.start, length: cut.length)
-                if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
-                    let cx = size.width / 2, cy = size.height / 2
-                    top = top.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
-                        .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
-                        .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
-                }
-                if a.opacity < 0.999 {
-                    top = top.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, a.opacity))])
-                }
-                image = top.composited(over: image).cropped(to: frame)
+                // both clips move together; the one coming in is drawn over the one going out
+                let poses = cut.cut.poses(t - cut.start, length: cut.length)
+                let top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+                let bg = CIImage(color: .black).cropped(to: frame)
+                image = Self.posed(top, poses.into, size)
+                    .composited(over: Self.posed(image, poses.out, size))
+                    .composited(over: bg)
+                    .cropped(to: frame)
             }
             if hasOverlays {
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
@@ -161,6 +156,21 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
             request.finish(withComposedVideoFrame: out)
         }
+    }
+
+    /// A clip frame moved, scaled (around the center) and faded for a transition.
+    private static func posed(_ img: CIImage, _ p: CutTransition.Pose, _ size: CGSize) -> CIImage {
+        var out = img
+        if abs(p.dx) > 1e-4 || abs(p.dy) > 1e-4 || abs(p.scale - 1) > 1e-4 {
+            let cx = size.width / 2, cy = size.height / 2
+            out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                .concatenating(CGAffineTransform(scaleX: p.scale, y: p.scale))
+                .concatenating(CGAffineTransform(translationX: cx + p.dx * size.width, y: cy - p.dy * size.height)))
+        }
+        if p.opacity < 0.999 {
+            out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, p.opacity))])
+        }
+        return out
     }
 
     /// One clip drawn on the full frame (black around it): color, placement, its own in / out animation,
