@@ -3693,7 +3693,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech BOMBOCUT přestane fungovat, pokud si ho jednou nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
+            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech BOMBOCUT přestane fungovat, pokud si ho jednorázově nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
           }
         }
       }
@@ -3763,7 +3763,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pak si ho buď jednou koupíš, nebo ne. Tak jednoduché to je."
+            "value": "Pak si ho můžeš jednorázově zakoupit, nebo ne. Vcelku jednoduché."
           }
         }
       }
@@ -3923,7 +3923,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyzkoušej si všechno 7 dní zdarma"
+            "value": "Vyzkoušej si všechno na 7 dní zdarma"
           }
         }
       }
@@ -4303,7 +4303,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat novinky a na tvojí zpětné vazbě opravdu záleží."
+            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat updaty a na tvojí zpětné vazbě opravdu záleží."
           }
         }
       }
