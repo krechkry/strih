@@ -76,7 +76,7 @@ struct OnboardingView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 22) {
             Spacer(minLength: 20)
-            MemeView(meme: .camcorder)
+            MemeView(meme: .cameraGrin)
                 .frame(width: 84, height: 84)
             VStack(alignment: .leading, spacing: 10) {
                 Text("Bombocut").font(.system(size: 44, weight: .heavy))

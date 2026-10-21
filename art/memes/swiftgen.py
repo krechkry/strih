@@ -2,11 +2,11 @@
 import json, sys
 
 CASES = {
-    "01_camcorder": "camcorder", "02_camera_grin": "cameraGrin", "03_shocked": "shocked",
+    "02_camera_grin": "cameraGrin", "03_shocked": "shocked",
     "04_explosion_cat": "explosionCat", "05_investigating": "investigating", "06_train_duo": "trainDuo",
     "07_smug_cat": "smugCat", "08_nerd_cat": "nerdCat", "09_ipod_float": "ipodFloat",
     "10_absolute_cinema": "absoluteCinema", "11_deadpan": "deadpan", "12_suspicious": "suspicious",
-    "13_time_to_lock_in": "lockIn", "14_thumbs_up_cat": "thumbsUpCat",
+    "14_thumbs_up_cat": "thumbsUpCat",
 }
 
 def num(v):

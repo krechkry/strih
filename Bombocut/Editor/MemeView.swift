@@ -3,8 +3,8 @@ import SwiftUI
 /// The Bombocut meme cast: lime-only memes, drawn live and animated (no GIFs, no image assets).
 /// The art and its motion live in MemeArt.swift, generated from art/memes.
 enum Meme: String, CaseIterable, Identifiable {
-    case camcorder, cameraGrin, shocked, explosionCat, investigating, trainDuo, smugCat
-    case nerdCat, ipodFloat, absoluteCinema, deadpan, suspicious, lockIn, thumbsUpCat
+    case cameraGrin, shocked, explosionCat, investigating, trainDuo, smugCat
+    case nerdCat, ipodFloat, absoluteCinema, deadpan, suspicious, thumbsUpCat
 
     var id: String { rawValue }
 }

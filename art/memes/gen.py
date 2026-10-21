@@ -10,7 +10,6 @@ W, K = "#fff", "#000"
 F = HERE + "/fonts/fontsource-{}-5.3.0/package/files/{}"
 INTER900 = F.format("inter", "inter-latin-900-normal.woff2")
 INTER800 = F.format("inter", "inter-latin-800-normal.woff2")
-ABRIL = F.format("abril-fatface", "abril-fatface-latin-400-normal.woff2")
 
 # ---------- helpers (mask language: white = lime, black = cut out) ----------
 def obj(el, gap=8):
@@ -92,26 +91,6 @@ def piece(name):
         PIECES[name] = f
         return f
     return deco
-
-@piece("01_camcorder")
-def p01():
-    s = solid('path d="M240 110 C320 110 345 170 345 260 C345 360 310 410 240 410 C170 410 135 360 135 260 C135 170 160 110 240 110 Z"')
-    s += limb("M210 400 L205 440", 10, 0) + limb("M270 400 L275 440", 10, 0)
-    s += solid('ellipse cx="198" cy="446" rx="22" ry="10"') + solid('ellipse cx="282" cy="446" rx="22" ry="10"')
-    s += solid('circle cx="288" cy="214" r="9"', K) + cut("M268 192 L304 186", 7)
-    s += cut("M232 292 Q258 302 280 284", 7)
-    s += limb("M138 296 Q112 266 146 246", 11, 0)
-    s += obj('rect x="155" y="150" width="80" height="14" rx="7"', 6)
-    s += obj('rect x="100" y="190" width="44" height="20" rx="10"', 6)
-    s += obj('rect x="138" y="168" width="112" height="76" rx="12"', 8)
-    s += solid('circle cx="192" cy="206" r="27"', K) + solid('circle cx="192" cy="206" r="18"') + solid('circle cx="192" cy="206" r="10"', K) + solid('circle cx="188" cy="201" r="3"')
-    s += solid('circle cx="236" cy="184" r="5"', K)
-    s += obj('circle cx="150" cy="248" r="14"', 5)
-    s += limb("M340 282 L388 256", 11, 0)
-    s += limb("M392 236 L390 180", 18, 7)
-    s += obj('rect x="372" y="226" width="50" height="56" rx="18"', 7)
-    s += cut("M396 240 H420 M396 254 H420 M396 268 H418", 4)
-    return s
 
 @piece("02_camera_grin")
 def p02():
@@ -284,21 +263,12 @@ def p12():
     s += obj('path d="M226 432 L254 432 L262 480 L218 480 Z"', 6)
     s += obj('path d="M240 40 C360 40 405 120 400 230 C395 340 330 400 240 400 C150 400 85 340 80 230 C75 120 120 40 240 40 Z"', 8)
     s += cut("M150 204 Q175 194 200 206", 10)
-    s += cut("M138 160 L206 184", 14) + cut("M256 178 L324 156", 14)
-    s += solid('circle cx="290" cy="204" r="14"', K) + solid('circle cx="295" cy="199" r="4"')
+    s += cut("M138 160 L206 184", 14) + cut("M258 152 Q292 128 328 146", 13)
+    s += solid('circle cx="292" cy="202" r="17"', K) + solid('circle cx="284" cy="204" r="5.5"')
     s += cut("M222 168 L226 192 M238 166 L240 190", 5)
     s += cut("M234 214 Q220 258 240 266", 6)
-    s += solid('ellipse cx="262" cy="316" rx="18" ry="11" transform="rotate(-12 262 316)"', K)
+    s += cut("M220 322 Q236 308 252 320 Q268 332 288 312", 8) + cut("M200 372 Q240 390 280 372", 5)
     s += cut("M138 232 Q150 244 164 238", 5)
-    return s
-
-@piece("13_time_to_lock_in")
-def p13():
-    s = explosion(10, lines=False)
-    s += solid('rect x="18" y="112" width="444" height="84" rx="42"')
-    s += text(ABRIL, "time to lock in.", 66, 240, 172, K, max_w=380)
-    s += limb("M0 310 H480", 5, 0)
-    s += '<g transform="translate(46 36)">' + cat_bust() + "</g>"
     return s
 
 @piece("14_thumbs_up_cat")

@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")"
 if [ ! -d fonts ]; then
   mkdir -p fonts && cd fonts
-  npm pack -q @fontsource/inter@5.3.0 @fontsource/abril-fatface@5.3.0 >/dev/null
+  npm pack -q @fontsource/inter@5.3.0 >/dev/null
   for t in *.tgz; do mkdir -p "${t%.tgz}" && tar xzf "$t" -C "${t%.tgz}"; done
   cd ..
 fi

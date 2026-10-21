@@ -12,7 +12,7 @@ import io, json, sys, os
 import numpy as np, cv2, cairosvg
 from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gen import obj, solid, limb, cut, text, open_hand, explosion, cat_bust, INTER800, INTER900, ABRIL, K
+from gen import obj, solid, limb, cut, text, open_hand, explosion, cat_bust, INTER800, INTER900, K
 
 def L(c, gap=0, anims=(), eyes=(), blink=None):
     return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink}
@@ -24,27 +24,6 @@ def shake(a, f): return {"t": "shake", "a": a, "f": f}
 def flash(p, on, ph=0.0): return {"t": "flash", "p": p, "on": on, "ph": ph}
 
 MEMES = {}
-
-# 01 camcorder blob, thumbs up --------------------------------------------------------------
-base = solid('path d="M240 110 C320 110 345 170 345 260 C345 360 310 410 240 410 C170 410 135 360 135 260 C135 170 160 110 240 110 Z"')
-base += limb("M210 400 L205 440", 10, 0) + limb("M270 400 L275 440", 10, 0)
-base += solid('ellipse cx="198" cy="446" rx="22" ry="10"') + solid('ellipse cx="282" cy="446" rx="22" ry="10"')
-base += solid('circle cx="288" cy="214" r="9"', K) + cut("M268 192 L304 186", 7)
-base += cut("M232 292 Q258 302 280 284", 7)
-base += limb("M138 296 Q112 266 146 246", 11, 0)
-base += obj('rect x="155" y="150" width="80" height="14" rx="7"', 6)
-base += obj('rect x="100" y="190" width="44" height="20" rx="10"', 6)
-base += obj('rect x="138" y="168" width="112" height="76" rx="12"', 8)
-base += solid('circle cx="192" cy="206" r="27"', K) + solid('circle cx="192" cy="206" r="18"') + solid('circle cx="192" cy="206" r="10"', K) + solid('circle cx="188" cy="201" r="3"')
-base += solid('circle cx="236" cy="184" r="5"', K)
-base += obj('circle cx="150" cy="248" r="14"', 5)
-arm = limb("M340 282 L388 256", 11, 0) + limb("M392 236 L390 180", 18, 7)
-arm += obj('rect x="372" y="226" width="50" height="56" rx="18"', 7) + cut("M396 240 H420 M396 254 H420 M396 268 H418", 4)
-MEMES["01_camcorder"] = [
-    L(base, 0, [scale(0, 0.012, 1.6, 240, 450)], [(288, 214, 11, 11)], (3.4, 0.3, 0.05)),
-    L(solid('circle cx="236" cy="184" r="6.5"'), 0, [scale(0, 0.012, 1.6, 240, 450), flash(1.1, 0.5)]),
-    L(arm, 0, [rot(-8, 0.9, 340, 282)]),
-]
 
 # 02 camera grin -----------------------------------------------------------------------------
 blob = solid('path d="M200 90 C290 90 320 160 318 250 C316 350 280 420 200 420 C120 420 84 350 86 250 C88 160 110 90 200 90 Z"')
@@ -197,8 +176,8 @@ blob += cut("M196 174 L228 178 M252 178 L284 174", 7) + cut("M222 246 Q240 236 2
 MEMES["10_absolute_cinema"] = [
     L(chair),
     L(blob, 9, [scale(0, 0.012, 2.4, 240, 332)], [(214, 198, 10, 10), (266, 198, 10, 10)], (4.2, 0.35, 0.04)),
-    L(limb("M162 254 Q100 254 104 178", 12, 7) + open_hand(104, 156), 7, [rot(-4, 0.5, 162, 254)]),
-    L(limb("M318 254 Q380 254 376 178", 12, 7) + open_hand(376, 156, mirror=True), 7, [rot(4, 0.5, 318, 254)]),
+    L(limb("M162 254 Q100 254 104 178", 12, 7) + open_hand(104, 156), 7, [rot(-4, 1.6, 162, 254)]),
+    L(limb("M318 254 Q380 254 376 178", 12, 7) + open_hand(376, 156, mirror=True), 7, [rot(4, 1.6, 318, 254)]),
     L(text(INTER800, "ABSOLUTE", 34, 240, 398) + text(INTER900, "CINEMA", 104, 240, 476, max_w=440)),
 ]
 
@@ -212,9 +191,9 @@ body += cut("M212 250 Q240 245 268 250", 7) + cut("M224 264 Q240 268 256 264", 3
 body += limb("M210 316 L204 440", 8, 0) + limb("M270 316 L276 440", 8, 0)
 body += solid('ellipse cx="196" cy="446" rx="20" ry="8"') + solid('ellipse cx="284" cy="446" rx="20" ry="8"')
 MEMES["11_deadpan"] = [
-    L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (3.2, 0.2, 0.12)),
-    L(limb("M130 236 Q108 320 120 400", 8, 0) + solid('ellipse cx="120" cy="410" rx="12" ry="14"'), 0, [rot(4, 2.6, 130, 236)]),
-    L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-4, 2.6, 350, 236)]),
+    L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (6.5, 0.2, 0.022)),
+    L(limb("M130 236 Q108 320 120 400", 8, 0) + solid('ellipse cx="120" cy="410" rx="12" ry="14"'), 0, [rot(0.8, 4.5, 130, 236)]),
+    L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-0.8, 4.5, 350, 236)]),
 ]
 
 # 12 suspicious ------------------------------------------------------------------------------
@@ -224,26 +203,16 @@ suit += obj('path d="M156 380 L240 434 L200 480 L132 480 Z"', 6) + obj('path d="
 suit += obj('path d="M226 432 L254 432 L262 480 L218 480 Z"', 6)
 head = obj('path d="M240 40 C360 40 405 120 400 230 C395 340 330 400 240 400 C150 400 85 340 80 230 C75 120 120 40 240 40 Z"', 8)
 head += cut("M150 204 Q175 194 200 206", 10)
-head += cut("M138 160 L206 184", 14) + cut("M256 178 L324 156", 14)
-head += solid('circle cx="290" cy="204" r="14"', K) + solid('circle cx="295" cy="199" r="4"')
+head += cut("M138 160 L206 184", 14) + cut("M258 152 Q292 128 328 146", 13)
+head += solid('circle cx="292" cy="202" r="17"', K) + solid('circle cx="284" cy="204" r="5.5"')
 head += cut("M222 168 L226 192 M238 166 L240 190", 5)
 head += cut("M234 214 Q220 258 240 266", 6)
-head += solid('ellipse cx="262" cy="316" rx="18" ry="11" transform="rotate(-12 262 316)"', K)
+head += cut("M220 322 Q236 308 252 320 Q268 332 288 312", 8) + cut("M200 372 Q240 390 280 372", 5)
 head += cut("M138 232 Q150 244 164 238", 5)
 MEMES["12_suspicious"] = [
     L(lines),
     L(suit),
-    L(head, 8, [scale(0.03, 0.03, 2.6, 240, 400), rot(2.2, 2.6, 240, 400, 0.25)], [(290, 204, 16, 16)], (2.9, 0.7, 0.05)),
-]
-
-# 13 time to lock in -------------------------------------------------------------------------
-boom = explosion(10, lines=False) + solid('rect x="18" y="112" width="444" height="84" rx="42"')
-boom += text(ABRIL, "time to lock in.", 66, 240, 172, K, max_w=380)
-MEMES["13_time_to_lock_in"] = [
-    L(boom, 0, [scale(0.02, 0.03, 1.7, 240, 260)]),
-    L(limb("M0 310 H480", 5, 0)),
-    L('<g transform="translate(46 36)">' + cat_bust() + "</g>", 9, [scale(0, 0.012, 2.2, 346, 516)],
-      [(322, 356, 17, 17), (370, 356, 17, 17)], (4.4, 0.15, 0.04)),
+    L(head, 8, [scale(-0.035, -0.035, 3.2, 240, 400), rot(-3.5, 3.2, 240, 400), shake(0.6, 9)], [(292, 202, 19, 19)], (3.6, 0.7, 0.04)),
 ]
 
 # 14 suit cat, thumbs up ---------------------------------------------------------------------
