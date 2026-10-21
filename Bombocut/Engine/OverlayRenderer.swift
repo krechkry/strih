@@ -48,7 +48,8 @@ final class OverlayRenderer: @unchecked Sendable {
         for o in list where t >= o.start && t < o.end {
             if let b = behindOnly, o.behindSubject != b { continue }
             guard var img = layer(o, at: t, size: size, canvasAspect: A, video: video) else { continue }
-            let opacity = o.pose(at: t).opacity
+            let a = o.anim.pose(local: t - o.start, length: o.duration)
+            let opacity = o.pose(at: t).opacity * a.opacity
             if opacity < 0.999 {
                 img = img.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
             }
@@ -89,7 +90,11 @@ final class OverlayRenderer: @unchecked Sendable {
             let base = o.baseFraction(canvasAspect: A)
             s = min(base.width * size.width / w, base.height * size.height / h)
         }
-        let tr = o.pose(at: t).transform
+        var tr = o.pose(at: t).transform
+        let a = o.anim.pose(local: t - o.start, length: o.duration)
+        tr.x += a.dx
+        tr.y += a.dy
+        tr.scale *= a.scale
         let m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
             .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))

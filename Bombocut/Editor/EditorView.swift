@@ -35,6 +35,7 @@ struct EditorView: View {
         case .overlay: return 430
         case .mask: return 540
         case .motionBlur: return 350
+        case .animation: return 400
         }
     }
 
@@ -49,8 +50,7 @@ struct EditorView: View {
                 panelContent(s).environment(\.panelCompact, typing)
             }
             .id(s)
-            .padding(.bottom, typing ? keyboard : 0)
-            .ignoresSafeArea(.keyboard)
+            // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
             .transition(.move(edge: .bottom))
         }
     }
@@ -69,6 +69,7 @@ struct EditorView: View {
         case .overlay: OverlaySheet(model: model)
         case .mask: MaskSheet(model: model)
         case .motionBlur: MotionBlurSheet(model: model)
+        case .animation: ClipAnimSheet(model: model)
         }
     }
 
@@ -427,6 +428,7 @@ struct EditorView: View {
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
                     ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+                    ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation }
                     ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                     ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                     ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
@@ -673,7 +675,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation
     var id: String { rawValue }
 }
 

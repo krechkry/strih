@@ -74,3 +74,27 @@ struct ApplyRow: View {
         .buttonStyle(.plain)
     }
 }
+
+/// In / out animation of the selected clip.
+struct ClipAnimSheet: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Animation").font(.title3.weight(.heavy))
+                if let i = model.selectedIndex {
+                    let c = model.project.clips[i]
+                    AnimEditor(anim: c.anim, maxLength: c.duration,
+                               set: { model.setClipAnim($0) },
+                               live: { a in model.editClip { $0.anim = a } },
+                               began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
+                               preview: { model.previewClipAnim() })
+                    ApplyRow(model: model, kind: .animation)
+                }
+            }
+            .padding(20)
+        }
+        .scrollIndicators(.hidden)
+    }
+}

@@ -11,6 +11,7 @@ struct ClipRenderInfo {
     var srcFps: Double = 30            // source frame rate (smooth slow motion phase)
     var smoothSlowMo = false
     var preview = false                // editor playback (lighter frame-engine work) vs export
+    var duration: Double = 0           // length on the timeline (in / out animations)
 }
 
 /// One instruction per clip. The custom compositor reads `info` for every frame.
@@ -156,7 +157,8 @@ enum CompositionBuilder {
                 placed.append((clipStart, cursor,
                                ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: clipStart.seconds,
                                               retime: clip.retime, state: clip.lookState, srcFps: fps,
-                                              smoothSlowMo: clip.smoothSlowMo, preview: preview), aux))
+                                              smoothSlowMo: clip.smoothSlowMo, preview: preview,
+                                              duration: (cursor - clipStart).seconds), aux))
             }
         }
 

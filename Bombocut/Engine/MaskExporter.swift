@@ -64,43 +64,49 @@ final class MaskExporter: @unchecked Sendable {
         let orientation = FrameCompositor.orientation(for: pref)
         let space = CGColorSpace(name: CGColorSpace.sRGB)!
         _ = fpsRaw
+        var lastPTS = -1.0
 
-        while let sample = output.copyNextSampleBuffer() {
+        while true {
             if cancelled { reader.cancelReading(); writer.cancelWriting(); throw CancellationError() }
-            guard let pb = CMSampleBufferGetImageBuffer(sample) else { continue }
-            let pts = CMSampleBufferGetPresentationTimeStamp(sample) - start
-            var img = CIImage(cvPixelBuffer: pb).oriented(orientation)
-            let e = img.extent
-            img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
-                .transformed(by: CGAffineTransform(scaleX: CGFloat(W) / e.width, y: CGFloat(H) / e.height))
-                .cropped(to: frame)
-
-            var m = masker.mask(for: img, frame: frame, kind: mask.kind, detail: 1024, accurate: true)
-                ?? CIImage(color: .black).cropped(to: frame)
-            m = SubjectMasker.refine(m, mask, frame: frame)
-
-            let result: CIImage
-            switch mode {
-            case .cutout:
-                result = img.applyingFilter("CIBlendWithMask", parameters: [
-                    kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: frame),
-                    kCIInputMaskImageKey: m,
-                ]).cropped(to: frame)
-            case .matte:
-                result = m.composited(over: CIImage(color: .black).cropped(to: frame)).cropped(to: frame)
-            }
-
             while !input.isReadyForMoreMediaData {
                 try await Task.sleep(for: .milliseconds(5))
                 if cancelled { reader.cancelReading(); writer.cancelWriting(); throw CancellationError() }
             }
-            guard let pool = adaptor.pixelBufferPool else { throw writer.error ?? err("Could not write the file.") }
-            var out: CVPixelBuffer?
-            CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out)
-            guard let out else { continue }
-            ctx.render(result, to: out, bounds: frame, colorSpace: space)
-            adaptor.append(out, withPresentationTime: pts)
-            progress(min(1, pts.seconds / total))
+            // one frame per pool: Core Image and Vision leave autoreleased buffers behind, and without
+            // draining them a long clip ran out of memory right at the end
+            let step: (done: Bool, at: Double)? = autoreleasepool {
+                guard let sample = output.copyNextSampleBuffer() else { return (true, 0) }
+                guard let pb = CMSampleBufferGetImageBuffer(sample) else { return nil }
+                let pts = CMSampleBufferGetPresentationTimeStamp(sample) - start
+                var img = CIImage(cvPixelBuffer: pb).oriented(orientation)
+                let e = img.extent
+                img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
+                    .transformed(by: CGAffineTransform(scaleX: CGFloat(W) / e.width, y: CGFloat(H) / e.height))
+                    .cropped(to: frame)
+                var m = masker.mask(for: img, frame: frame, kind: mask.kind, detail: 1024, accurate: true)
+                    ?? CIImage(color: .black).cropped(to: frame)
+                m = SubjectMasker.refine(m, mask, frame: frame)
+                let result: CIImage
+                switch mode {
+                case .cutout:
+                    result = img.applyingFilter("CIBlendWithMask", parameters: [
+                        kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: frame),
+                        kCIInputMaskImageKey: m,
+                    ]).cropped(to: frame)
+                case .matte:
+                    result = m.composited(over: CIImage(color: .black).cropped(to: frame)).cropped(to: frame)
+                }
+                guard let pool = adaptor.pixelBufferPool else { return nil }
+                var out: CVPixelBuffer?
+                CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out)
+                guard let out else { return nil }
+                ctx.render(result, to: out, bounds: frame, colorSpace: space)
+                if pts.seconds >= lastPTS { adaptor.append(out, withPresentationTime: pts); lastPTS = pts.seconds + 1e-6 }
+                return (false, pts.seconds)
+            }
+            guard let step else { continue }
+            if step.done { break }
+            progress(min(1, step.at / total))
         }
         input.markAsFinished()
         await writer.finishWriting()

@@ -101,6 +101,7 @@ struct LookState: Hashable {
     var mask: SubjectMask? = nil
     var motionBlur = 0.0
     var blurDirection = BlurDirection.both
+    var anim = AnimPair()
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }

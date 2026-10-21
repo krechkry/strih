@@ -92,8 +92,20 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
                                follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
                                in: size)
-            if look.opacity < 0.999 {
-                image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, look.opacity))])
+            // in / out animation of the clip
+            var opacity = look.opacity
+            if !state.anim.isNone {
+                let a = state.anim.pose(local: t - info.start, length: info.duration)
+                if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
+                    let cx = size.width / 2, cy = size.height / 2
+                    image = image.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                        .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
+                        .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
+                }
+                opacity *= a.opacity
+            }
+            if opacity < 0.999 {
+                image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
             }
             let bg = CIImage(color: .black).cropped(to: frame)
             image = image.composited(over: bg).cropped(to: frame)

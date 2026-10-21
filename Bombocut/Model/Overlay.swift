@@ -76,6 +76,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     var behindSubject = false          // drawn behind the masked subject (when the clip has a mask)
     var keys: [OverlayKey] = []        // keyframes for move / scale / rotate / opacity (sorted by time)
     var volume = 1.0                   // video overlays: their sound (0 = muted)
+    var anim = AnimPair()              // in / out animation
 
     var end: Double { start + duration }
 
@@ -108,7 +109,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume
+        case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -131,6 +132,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         behindSubject = try c.decodeIfPresent(Bool.self, forKey: .behindSubject) ?? false
         keys = try c.decodeIfPresent([OverlayKey].self, forKey: .keys) ?? []
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
+        anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
     }
 
     /// Placement and opacity at timeline time `now` (keyframes, or the fixed values without them).

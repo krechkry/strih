@@ -7,8 +7,11 @@ struct MaskSheet: View {
     @State private var exporting: MaskExporter.Mode?
     @State private var progress = 0.0
     @State private var result: URL?
+    @State private var lastMode: MaskExporter.Mode = .cutout
     @State private var failure: String?
     @State private var exporter: MaskExporter?
+    @State private var askWhat = false
+    @State private var saved: String?
 
     var body: some View {
         ScrollView {
@@ -60,6 +63,11 @@ struct MaskSheet: View {
             .padding(.bottom, 20)
         }
         .onDisappear { exporter?.cancel() }
+        .confirmationDialog(resultTitle, isPresented: $askWhat, titleVisibility: .visible) {
+            Button("Save to Photos") { saveToPhotos() }
+            Button("Use as overlay") { useAsOverlay() }
+            Button("Later", role: .cancel) {}
+        }
     }
 
     // MARK: Files
@@ -77,7 +85,17 @@ struct MaskSheet: View {
                 ProgressView(value: progress).tint(Theme.accent)
             }
         } else if let url = result {
+            if let saved {
+                Label(saved, systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
+            }
             HStack(spacing: 10) {
+                Button { askWhat = true } label: {
+                    Text("Save / use").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 38)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
                 ShareLink(item: url) {
                     Label("Save or share", systemImage: "square.and.arrow.up")
                         .font(.subheadline.weight(.heavy)).foregroundStyle(.black)
@@ -115,18 +133,54 @@ struct MaskSheet: View {
         progress = 0
         failure = nil
         model.pause()
+        saved = nil
         Task {
             do {
-                let url = try await ex.run(clip: clip, mode: mode) { p in
-                    Task { @MainActor in progress = p }
-                }
+                // the heavy work runs off the main thread so the editor stays smooth
+                let url = try await Task.detached(priority: .userInitiated) {
+                    try await ex.run(clip: clip, mode: mode) { p in
+                        Task { @MainActor in progress = p }
+                    }
+                }.value
                 result = url
+                lastMode = mode
+                askWhat = true
             } catch is CancellationError {
             } catch {
                 failure = error.localizedDescription
             }
             exporting = nil
             exporter = nil
+        }
+    }
+
+    private var resultTitle: String {
+        loc(lastMode == .cutout ? "The transparent video is ready" : "The matte is ready")
+    }
+
+    private func saveToPhotos() {
+        guard let url = result else { return }
+        Task {
+            do {
+                try await Exporter.saveToPhotos(url)
+                saved = loc("Saved to Photos")
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
+    }
+
+    /// The cut-out / matte goes back into the project as a video overlay over its clip.
+    private func useAsOverlay() {
+        guard let url = result, let i = model.selectedIndex else { return }
+        Paths.ensure()
+        let dest = Paths.mediaURL(UUID().uuidString + ".mov")
+        guard (try? FileManager.default.copyItem(at: url, to: dest)) != nil else { return }
+        let start = model.project.clipStarts[i]
+        Task {
+            await model.addMediaOverlay(url: dest, isVideo: true, at: start, fitCanvas: true,
+                                        blend: lastMode == .matte ? .multiply : .normal)
+            saved = loc("Added as an overlay")
         }
     }
 

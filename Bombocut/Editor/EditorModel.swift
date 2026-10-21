@@ -764,6 +764,34 @@ final class EditorModel: ObservableObject {
         isPlaying = true
     }
 
+    /// Plays the selected overlay once from its start so you see its animation, then goes back.
+    func previewOverlayAnim() {
+        guard let i = selectedOverlayIndex else { return }
+        let o = project.overlays[i]
+        playOnce(from: o.start, to: o.end, back: currentTime)
+    }
+
+    /// Plays the selected clip once so you see its in / out animation.
+    func previewClipAnim() {
+        guard let i = selectedIndex else { return }
+        let start = project.clipStarts[i]
+        playOnce(from: start, to: start + project.clips[i].duration, back: currentTime)
+    }
+
+    private func playOnce(from a: Double, to b: Double, back: Double) {
+        pause()
+        scrub(to: a)
+        stopAt = b
+        returnTo = min(max(back, a), b)
+        player.play()
+        isPlaying = true
+    }
+
+    func setClipAnim(_ a: AnimPair) {
+        guard let i = selectedIndex, project.clips[i].anim != a else { return }
+        mutateLook { $0.clips[i].anim = a }
+    }
+
     func setCaptions(_ c: Captions?) {
         mutateLook { $0.captions = c }
     }
@@ -1121,7 +1149,7 @@ final class EditorModel: ObservableObject {
     // MARK: Apply a panel's settings to other clips
 
     enum ApplyKind: String {
-        case motionBlur, adjust, speed, volume, mask, overlayStyle
+        case motionBlur, adjust, speed, volume, mask, overlayStyle, animation
 
         var title: String {
             switch self {
@@ -1131,6 +1159,7 @@ final class EditorModel: ObservableObject {
             case .volume: return "Volume"
             case .mask: return "Mask"
             case .overlayStyle: return "Look of the overlay"
+            case .animation: return "Animation"
             }
         }
         /// Copies between overlays instead of clips.
@@ -1169,6 +1198,8 @@ final class EditorModel: ObservableObject {
             c.volume = s.volume
         case .mask:
             c.mask = s.mask
+        case .animation:
+            c.anim = s.anim
         case .overlayStyle:
             break
         }
@@ -1187,6 +1218,7 @@ final class EditorModel: ObservableObject {
         o.opacity = s.opacity
         for k in o.keys.indices { o.keys[k].opacity = s.opacity }
         o.behindSubject = s.behindSubject
+        o.anim = s.anim
     }
 
     private func applyOverlays(from id: UUID, to ids: Set<UUID>) {
@@ -1297,14 +1329,17 @@ final class EditorModel: ObservableObject {
     }
 
     /// Picture or video from Photos, placed at the playhead.
-    func addMediaOverlay(url: URL, isVideo: Bool) async {
-        let start = min(currentTime, max(0, duration - 0.5))
+    func addMediaOverlay(url: URL, isVideo: Bool, at time: Double? = nil, fitCanvas: Bool = false,
+                         blend: BlendMode = .normal) async {
+        let start = min(time ?? currentTime, max(0, duration - 0.5))
         var o: Overlay
         if isVideo {
             guard let info = try? await Media.probe(url), info.duration > 0.05 else { return }
             o = Overlay(kind: .video(file: url.lastPathComponent, sourceDuration: info.duration, inPoint: 0),
                         start: start, duration: min(info.duration, max(0.5, duration - start)))
             if info.size.height > 0 { o.aspect = info.size.width / info.size.height }
+            if fitCanvas { o.transform.scale = 1 / 0.7 }   // same size as a fitted clip
+            o.blend = blend
             mutate { $0.overlays.append(o) }     // video needs its own track: rebuild
         } else {
             guard let img = UIImage(contentsOfFile: url.path) else { return }

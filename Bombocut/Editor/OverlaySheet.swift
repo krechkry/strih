@@ -1,83 +1,88 @@
 import SwiftUI
 
-/// The selected overlay: its text and look (for text), blend mode and opacity.
+/// The selected overlay, in tabs: Text (words, font, color, size), Style (outline, box, shadow),
+/// Animation (in / out) and Blend (blend mode, opacity, behind subject, sound).
 struct OverlaySheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.closePanel) private var close
     @FocusState private var typing: Bool
     @Environment(\.panelCompact) private var compact
+    @State private var tab: Tab = .text
 
-    var body: some View { full }
-
-    private var full: some View {
-        ScrollView {
-            if let i = model.selectedOverlayIndex {
-                let o = model.project.overlays[i]
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        Label(o.title.components(separatedBy: "\n").first ?? "", systemImage: o.icon)
-                            .font(.headline.weight(.heavy)).lineLimit(1)
-                        Spacer()
-                        if compact {
-                            // typing: only the text shows, so the preview stays in view
-                            Button { typing = false } label: {
-                                Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
-                                    .padding(.horizontal, 14).frame(height: 30)
-                                    .background(Theme.accent, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Text(Fmt.duration(o.duration)).font(.subheadline.weight(.bold).monospacedDigit())
-                                .foregroundStyle(Theme.muted)
-                        }
-                    }
-                    if case .text(let text) = o.kind { textEditor(text, o.style) }
-                    if !compact { rest(o) }
-                }
-                .padding(.bottom, 30)
+    enum Tab: String, CaseIterable {
+        case text, style, animation, blend
+        var title: String {
+            switch self {
+            case .text: return "Text"
+            case .style: return "Style"
+            case .animation: return "Animation"
+            case .blend: return "Blend"
             }
         }
-        .scrollDisabled(compact)
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
     }
 
-    @ViewBuilder
-    private func rest(_ o: Overlay) -> some View {
-                    section("Blend") {
+    private func tabs(_ o: Overlay) -> [Tab] {
+        if case .text = o.kind { return Tab.allCases }
+        return [.animation, .blend]
+    }
+
+    var body: some View {
+        if let i = model.selectedOverlayIndex {
+            let o = model.project.overlays[i]
+            let shown = tabs(o).contains(tab) ? tab : tabs(o)[0]
+            VStack(alignment: .leading, spacing: 14) {
+                // header: tabs, or just Done while typing (the text field below keeps its place, so the keyboard stays)
+                HStack(spacing: 6) {
+                    if compact {
+                        Spacer()
+                        Button { typing = false } label: {
+                            Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                                .padding(.horizontal, 14).frame(height: 30)
+                                .background(Theme.accent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    } else {
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(BlendMode.allCases, id: \.self) { b in
-                                    pill(b.title, on: o.blend == b) { model.setOverlay { $0.blend = b } }
+                            HStack(spacing: 6) {
+                                ForEach(tabs(o), id: \.self) { t in
+                                    Button { tab = t } label: {
+                                        Text(loc(t.title)).font(.subheadline.weight(.bold))
+                                            .foregroundStyle(shown == t ? .black : .white)
+                                            .padding(.horizontal, 14).frame(height: 34)
+                                            .background(shown == t ? Theme.accent : Theme.panel2, in: Capsule())
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }
+                        Text(Fmt.duration(o.duration)).font(.subheadline.weight(.bold).monospacedDigit())
+                            .foregroundStyle(Theme.muted)
                     }
-                    if o.kind.isVideo {
-                        section("Volume") {
-                            HStack(spacing: 12) {
-                                Image(systemName: o.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 24)
-                                Slider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
-                                       onEditingChanged: { e in
-                                    if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
-                                })
+                }
+                if case .text(let text) = o.kind, shown == .text { textField(text) }
+                if !compact {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            switch shown {
+                            case .text: textLook(o.style)
+                            case .style: styleTab(o.style)
+                            case .animation: animationTab(o)
+                            case .blend: blendTab(o)
                             }
                         }
+                        .padding(.bottom, 30)
                     }
-                    slider("Opacity", value: o.pose(at: model.currentTime).opacity, in: 0.05...1) { v in model.editOverlayOpacity(v) }
-                    Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Behind subject").font(.body.weight(.semibold))
-                            Text("Needs a subject mask on the clip below (Mask tool)")
-                                .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-                        }
-                    }
-                    if model.project.overlays.count > 1 { ApplyRow(model: model, kind: .overlayStyle) }
-                    HStack(spacing: 10) {
-                        pill("Duplicate", on: false) { model.duplicateOverlay() }
-                        pill("Delete", on: false) { model.deleteOverlay(); close() }
-                    }
+                    .scrollIndicators(.hidden)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .onAppear { if case .text = o.kind {} else { tab = .animation } }
+        }
     }
+
+    // MARK: Text
 
     private func textField(_ text: String) -> some View {
         TextField("Text", text: Binding(get: { text }, set: { t in
@@ -110,14 +115,7 @@ struct OverlaySheet: View {
     }
 
     @ViewBuilder
-    private func textEditor(_ text: String, _ s: CaptionStyle) -> some View {
-        textField(text)
-        if !compact { textStyle(s) }
-    }
-
-    @ViewBuilder
-    private func textStyle(_ s: CaptionStyle) -> some View {
-
+    private func textLook(_ s: CaptionStyle) -> some View {
         section("Font") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -136,6 +134,12 @@ struct OverlaySheet: View {
         }
         colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
         slider("Size", value: s.size, in: 0.03...0.2) { v in model.editOverlay { $0.style.size = v } }
+    }
+
+    // MARK: Style
+
+    @ViewBuilder
+    private func styleTab(_ s: CaptionStyle) -> some View {
         colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
         slider("Outline width", value: s.strokeWidth, in: 0...1) { v in model.editOverlay { $0.style.strokeWidth = v } }
         section("Extras") {
@@ -145,8 +149,64 @@ struct OverlaySheet: View {
                 pill("CAPS", on: s.caps) { model.setOverlay { $0.style.caps.toggle() } }
             }
         }
-        if s.box { colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } } }
+        if s.box {
+            colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } }
+            slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
+        }
     }
+
+    // MARK: Animation
+
+    @ViewBuilder
+    private func animationTab(_ o: Overlay) -> some View {
+        AnimEditor(anim: o.anim, maxLength: o.duration,
+                   set: { a in model.setOverlay { $0.anim = a } },
+                   live: { a in model.editOverlay { $0.anim = a } },
+                   began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
+                   preview: { model.previewOverlayAnim() })
+    }
+
+    // MARK: Blend
+
+    @ViewBuilder
+    private func blendTab(_ o: Overlay) -> some View {
+        section("Blend") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(BlendMode.allCases, id: \.self) { b in
+                        pill(b.title, on: o.blend == b) { model.setOverlay { $0.blend = b } }
+                    }
+                }
+            }
+        }
+        slider("Opacity", value: o.pose(at: model.currentTime).opacity, in: 0.05...1) { v in model.editOverlayOpacity(v) }
+        if o.kind.isVideo {
+            section("Volume") {
+                HStack(spacing: 12) {
+                    Image(systemName: o.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 24)
+                    Slider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
+                           onEditingChanged: { e in
+                        if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
+                    })
+                }
+            }
+        }
+        Toggle(isOn: Binding(get: { o.behindSubject }, set: { v in model.setOverlay { $0.behindSubject = v } })) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Behind subject").font(.body.weight(.semibold))
+                Text("Needs a subject mask on the clip below (Mask tool)")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+            }
+        }
+        .tint(Theme.accent)
+        if model.project.overlays.count > 1 { ApplyRow(model: model, kind: .overlayStyle) }
+        HStack(spacing: 10) {
+            pill("Duplicate", on: false) { model.duplicateOverlay() }
+            pill("Delete", on: false) { model.deleteOverlay(); close() }
+        }
+    }
+
+    // MARK: Parts
 
     private func section<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -185,6 +245,59 @@ struct OverlaySheet: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+        }
+    }
+}
+
+/// In / out animation picker with lengths, shared by overlays and clips.
+struct AnimEditor: View {
+    let anim: AnimPair
+    let maxLength: Double
+    let set: (AnimPair) -> Void          // one undo step
+    let live: (AnimPair) -> Void         // while a slider moves
+    let began: () -> Void
+    let ended: () -> Void
+    let preview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            row("In", anim.inAnim, anim.inDur) { a in var n = anim; n.inAnim = a; set(n); preview() }
+                dur: { d in var n = anim; n.inDur = d; live(n) }
+            row("Out", anim.outAnim, anim.outDur) { a in var n = anim; n.outAnim = a; set(n); preview() }
+                dur: { d in var n = anim; n.outDur = d; live(n) }
+        }
+    }
+
+    private func row(_ title: String, _ current: MotionAnim, _ duration: Double,
+                     pick: @escaping (MotionAnim) -> Void, dur: @escaping (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                if current != .none {
+                    Text(String(format: "%.1fs", duration)).font(.subheadline.weight(.bold).monospacedDigit())
+                }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(MotionAnim.allCases, id: \.self) { a in
+                        Button { pick(a) } label: {
+                            VStack(spacing: 5) {
+                                Image(systemName: a.icon).font(.system(size: 17, weight: .semibold))
+                                Text(loc(a.title)).font(.caption2.weight(.bold)).lineLimit(1)
+                            }
+                            .foregroundStyle(current == a ? .black : .white)
+                            .frame(width: 72, height: 58)
+                            .background(current == a ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            if current != .none {
+                Slider(value: Binding(get: { duration }, set: dur), in: 0.1...max(0.2, min(2, maxLength / 2)),
+                       onEditingChanged: { e in if e { began() } else { ended(); preview() } })
             }
         }
     }

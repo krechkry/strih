@@ -172,6 +172,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var mask: SubjectMask?         // subject cut-out for background effects / overlays behind the subject
     var motionBlur = 0.0           // 0...1, smear along the movement (Apple Video Toolbox)
     var blurDirection = BlurDirection.both
+    var anim = AnimPair()          // in / out animation of the clip
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -189,7 +190,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(), track: tracking?.curve(), mask: mask,
-                  motionBlur: motionBlur, blurDirection: blurDirection)
+                  motionBlur: motionBlur, blurDirection: blurDirection, anim: anim)
     }
 
     var retime: Retime { Retime(self) }
@@ -207,7 +208,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, blurDirection
+        case motionBlur, blurDirection, anim
     }
 
     init(from d: Decoder) throws {
@@ -233,6 +234,7 @@ struct Clip: Identifiable, Codable, Hashable {
         mask = try c.decodeIfPresent(SubjectMask.self, forKey: .mask)
         motionBlur = try c.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 0
         blurDirection = try c.decodeIfPresent(BlurDirection.self, forKey: .blurDirection) ?? .both
+        anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

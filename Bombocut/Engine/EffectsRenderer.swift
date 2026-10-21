@@ -123,7 +123,14 @@ enum EffectsRenderer {
         let g = scaled(channel(0, 1, 0), 1 + k)
         let b = channel(0, 0, 1)
         let rg = r.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: g])
+        // adding the three channels also adds their alphas (3); put alpha back to 1, or every effect
+        // after this (grain's soft light) treats the picture as a third as bright
         return b.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: rg])
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+            ])
+            .cropped(to: CGRect(origin: .zero, size: size))
     }
 
     /// Monochrome noise that changes every frame, soft-light blended.
