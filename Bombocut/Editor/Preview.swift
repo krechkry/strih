@@ -44,6 +44,7 @@ struct PreviewArea: View {
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
                 if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
+                if model.trimView == nil && !model.project.clips.isEmpty { layer(canvas) { playPill } }
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -53,6 +54,33 @@ struct PreviewArea: View {
 
     private func layer<V: View>(_ canvas: CGSize, @ViewBuilder _ content: () -> V) -> some View {
         content().frame(width: canvas.width, height: canvas.height)
+    }
+
+    /// Play / pause and the time, on the video's corner (tap the pill or anywhere on the video).
+    private var playPill: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Button { tapPlay() } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .frame(width: 14)
+                        Text(verbatim: Fmt.time(model.currentTime))
+                            .foregroundStyle(.white)
+                        + Text(verbatim: " / " + Fmt.time(model.duration))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).frame(height: 28)
+                    .background(.black.opacity(0.45), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .padding(8)
+        }
     }
 
     /// Tap on the preview: play / pause with a light tap feel and a quick symbol.

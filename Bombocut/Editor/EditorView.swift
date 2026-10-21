@@ -52,6 +52,22 @@ struct EditorView: View {
     }
 
     @ViewBuilder
+    /// With a panel open, the empty space around the video closes it: tap it or swipe down on it.
+    @ViewBuilder
+    private var panelDismissArea: some View {
+        if let s = sheet, s != .export {
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .onTapGesture { sheet = nil }
+                .gesture(
+                    DragGesture(minimumDistance: 16)
+                        .onEnded { v in
+                            if v.translation.height > 40 && v.translation.height > abs(v.translation.width) { sheet = nil }
+                        }
+                )
+        }
+    }
+
     private var panelLayer: some View {
         if let s = sheet, s != .export {
             Panel(height: typing ? compactPanel : panelHeight(s), close: { sheet = nil }) {
@@ -147,6 +163,7 @@ struct EditorView: View {
                 PreviewArea(model: model)
                     .padding(.horizontal, 12)
                     .frame(maxHeight: .infinity)
+                    .background { panelDismissArea }
                 // an open panel covers the bottom: shrink the preview so it stays fully visible above it
                 Color.clear.frame(height: previewLift)
                 VStack(spacing: 0) {
@@ -360,20 +377,11 @@ struct EditorView: View {
     // MARK: Transport
 
     private var transport: some View {
+        // play / pause and the time live on the video itself; here: keyframe on the left, undo / redo
+        // and fullscreen on the right
         HStack(spacing: 0) {
-            HStack(spacing: 4) {
-                Text(Fmt.time(model.currentTime)).foregroundStyle(.white)
-                Text("/ " + Fmt.time(model.duration)).foregroundStyle(Theme.muted)
-            }
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Button { model.togglePlay() } label: {
-                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title2)
-                    .frame(width: 48, height: 40)
-            }
-            .tint(.white)
-            .disabled(model.project.clips.isEmpty)
+            if pro { keyframeButton.frame(width: 40) }
+            Spacer(minLength: 0)
             HStack(spacing: 0) {
                 Button { model.undo() } label: {
                     Image(systemName: "arrow.uturn.backward").font(.body.weight(.semibold)).frame(width: 36, height: 40)
@@ -383,7 +391,6 @@ struct EditorView: View {
                     Image(systemName: "arrow.uturn.forward").font(.body.weight(.semibold)).frame(width: 36, height: 40)
                 }
                 .disabled(!model.canRedo)
-                if pro { keyframeButton.frame(width: 36) }
                 Button { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true } } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .font(.body.weight(.semibold))
@@ -396,7 +403,7 @@ struct EditorView: View {
         }
         .font(.footnote.monospacedDigit().weight(.semibold))
         .padding(.horizontal, 12)
-        .frame(height: 48)
+        .frame(height: 44)
     }
 
     /// Tap: add / remove a keyframe at the playhead. Hold: easing, delete, jump between keyframes.
@@ -467,6 +474,17 @@ struct EditorView: View {
 
     // MARK: Toolbar
 
+    /// Transition tool: the cut into the selected clip (the first clip has its own in / out instead).
+    private func openTransitionTool() {
+        model.pause()
+        if let i = model.selectedIndex, i > 0 {
+            model.openTransition(cut: i - 1)
+        } else {
+            model.transitionCut = nil
+            sheet = .animation
+        }
+    }
+
     private var toolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
@@ -500,7 +518,7 @@ struct EditorView: View {
                         ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                         ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
                     }
-                    ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.pause(); model.transitionCut = nil; sheet = .animation }
+                    ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openTransitionTool() }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }
@@ -511,7 +529,7 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
                     if pro {
-                        ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
+                        ToolButton(icon: "waveform.badge.plus", label: "Sound from video") {
                             model.pause()
                             Task { await model.extractClipAudio() }
                         }
@@ -540,7 +558,7 @@ struct EditorView: View {
                         ToolLabel(icon: "music.note", label: "Audio")
                     }
                     ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
-                    ToolButton(icon: "aspectratio", label: "Canvas") { sheet = .canvas }
+                    ToolButton(icon: "aspectratio", label: "Aspect") { sheet = .canvas }
                 }
             }
             .padding(.horizontal, 10)
@@ -753,7 +771,7 @@ struct EditorView: View {
             model.togglePick(clips[2].id)
         case "fullscreen":
             model.fullscreen = true
-        case "export", "exporting", "done":
+        case "export", "exporting", "done", "tooheavy":
             sheet = .export
         case "canvas":
             sheet = .canvas
@@ -807,18 +825,18 @@ private struct Panel<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // a generous grab zone: the handle row, plus a strip just above the panel's edge
             Capsule().fill(.white.opacity(0.3)).frame(width: 38, height: 5)
-                .frame(maxWidth: .infinity, minHeight: 22)
+                .frame(maxWidth: .infinity, minHeight: 30)
                 .contentShape(Rectangle())
-                .gesture(
-                    // global space: the panel moves under the finger, so local coordinates would feed back and jitter
-                    DragGesture(coordinateSpace: .global)
-                        .onChanged { v in drag = max(0, v.translation.height) }
-                        .onEnded { v in
-                            if v.translation.height > 70 || v.predictedEndTranslation.height > 160 { close() }
-                            withAnimation(.spring(duration: 0.25)) { drag = 0 }
-                        }
-                )
+                .gesture(grab)
+                .overlay(alignment: .top) {
+                    Color.clear
+                        .frame(height: 26)
+                        .contentShape(Rectangle())
+                        .offset(y: -26)
+                        .gesture(grab)
+                }
             content()
                 .environment(\.closePanel, close)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -832,6 +850,16 @@ private struct Panel<Content: View>: View {
         )
         .offset(y: drag)
         .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    // global space: the panel moves under the finger, so local coordinates would feed back and jitter
+    private var grab: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { v in drag = max(0, v.translation.height) }
+            .onEnded { v in
+                if v.translation.height > 60 || v.predictedEndTranslation.height > 150 { close() }
+                withAnimation(.spring(duration: 0.25)) { drag = 0 }
+            }
     }
 }
 

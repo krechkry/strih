@@ -91,7 +91,7 @@ struct EditorMock: View {
 
     private var tools: [(String, String)] {
         mode == .basic
-            ? [("plus", "Add"), ("scissors", "Split"), ("textformat", "Text"), ("music.note", "Audio"), ("captions.bubble", "Captions"), ("aspectratio", "Canvas")]
+            ? [("plus", "Add"), ("scissors", "Split"), ("textformat", "Text"), ("music.note", "Audio"), ("captions.bubble", "Captions"), ("aspectratio", "Aspect")]
             : [("plus", "Add"), ("scissors", "Split"), ("textformat", "Text"), ("square.on.square", "Overlay"), ("music.note", "Audio"), ("captions.bubble", "Captions")]
     }
 

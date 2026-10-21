@@ -305,3 +305,18 @@ struct MemeGallery: View {
         .background(Theme.bg.ignoresSafeArea())
     }
 }
+
+/// One frame of a meme at time `t`, without its own clock (for rendering into video: the end card).
+struct MemeFrame: View {
+    let meme: Meme
+    let t: Double
+    var color: Color = Theme.accent
+
+    var body: some View {
+        let layers = MemeCache.shared.layers(meme)
+        SwiftUI.Canvas { g, size in
+            MemeView.draw(layers, in: g, size: size, t: t, mood: 0, color: color)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}

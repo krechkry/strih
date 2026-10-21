@@ -9,8 +9,26 @@ final class SmoothFrames: @unchecked Sendable {
     static let shared = SmoothFrames()
 
     private let ctx = CIContext(options: [.cacheIntermediates: false])
-    private let queue = DispatchQueue(label: "bombocut.smoothframes")
+    // each frame's temporary objects are released right after it (a long export otherwise keeps every
+    // frame's leftovers until the queue goes idle, which is never, and iOS ends the app)
+    private let queue = DispatchQueue(label: "bombocut.smoothframes", autoreleaseFrequency: .workItem)
     private var sessions: [String: AnyObject] = [:]
+    /// At most a few frames wait for the engine at once: each holds full source frames, and an export
+    /// asking faster than the engine works would otherwise pile them up until the memory runs out.
+    private let inFlight = DispatchSemaphore(value: 3)
+    private let onQueue = DispatchSpecificKey<Bool>()
+
+    /// Takes a slot (waits while the engine is busy). Never waits on the engine's own queue: a transition
+    /// asks for its second clip from inside the first one's completion.
+    private func acquire() -> Bool {
+        if DispatchQueue.getSpecific(key: onQueue) == true { return false }
+        inFlight.wait()
+        return true
+    }
+
+    private init() {
+        queue.setSpecific(key: onQueue, value: true)
+    }
 
     /// Editor playback size (fraction of the output): steps down when the engine can't keep up with
     /// ~30 fps on this phone, steps back up when there is room. Export always uses full size.
@@ -54,12 +72,14 @@ final class SmoothFrames: @unchecked Sendable {
                      preview: Bool = false, completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTFrameRateConversionConfiguration.isSupported {
+            let slot = acquire()
             queue.async {
-                if let out = self.frc(cur: cur, next: next, phase: Float(phase), time: time, work: work, preview: preview) {
-                    completion(out)
-                } else {
-                    completion(Self.blend(cur, next, phase))
+                let out = autoreleasepool {
+                    self.frc(cur: cur, next: next, phase: Float(phase), time: time, work: work, preview: preview)
+                        ?? Self.blend(cur, next, phase)
                 }
+                if slot { self.inFlight.signal() }
+                completion(out)
             }
             return
         }
@@ -74,12 +94,14 @@ final class SmoothFrames: @unchecked Sendable {
                     work: CGSize, preview: Bool = false, completion: @escaping (CIImage) -> Void) {
         #if !targetEnvironment(simulator)
         if #available(iOS 26.0, *), VTMotionBlurConfiguration.isSupported {
+            let slot = acquire()
             queue.async {
-                if let out = self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time, work: work, preview: preview) {
-                    completion(out)
-                } else {
-                    completion(Self.average(cur, prev, next, strength))
+                let out = autoreleasepool {
+                    self.blur(cur: cur, prev: prev, next: next, strength: strength, time: time, work: work, preview: preview)
+                        ?? Self.average(cur, prev, next, strength)
                 }
+                if slot { self.inFlight.signal() }
+                completion(out)
             }
             return
         }

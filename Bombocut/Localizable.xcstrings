@@ -160,6 +160,16 @@
         }
       }
     },
+    "A short Made with Bombocut card after your last clip. Thanks for spreading the word!": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krátká karta „Made with Bombocut“ po posledním klipu. Díky, že o nás dáváš vědět!"
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "cs": {
@@ -226,6 +236,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přidat keyframe"
+          }
+        }
+      }
+    },
+    "Add media": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat média"
           }
         }
       }
@@ -420,6 +440,16 @@
         }
       }
     },
+    "Aspect": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poměr stran"
+          }
+        }
+      }
+    },
     "Audio": {
       "localizations": {
         "cs": {
@@ -520,6 +550,16 @@
         }
       }
     },
+    "Between clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mezi klipy"
+          }
+        }
+      }
+    },
     "Big up!": {
       "localizations": {
         "cs": {
@@ -580,6 +620,16 @@
         }
       }
     },
+    "Bombocut end card": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koncová karta Bombocut"
+          }
+        }
+      }
+    },
     "Bombocut is built by a very small team. Buying it is what keeps updates coming, and your feedback decides what gets built next.": {
       "localizations": {
         "cs": {
@@ -606,6 +656,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bombocut zabírá"
+          }
+        }
+      }
+    },
+    "Both clips play while the next one comes in, so the video gets shorter by the length of the transition.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oba klipy hrají, zatímco nastupuje další, takže se video zkrátí o délku přechodu."
           }
         }
       }
@@ -986,6 +1046,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Poděkování"
+          }
+        }
+      }
+    },
+    "Crossfade": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prolínačka"
           }
         }
       }
@@ -1384,6 +1454,16 @@
         }
       }
     },
+    "End card": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koncová karta"
+          }
+        }
+      }
+    },
     "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.": {
       "localizations": {
         "cs": {
@@ -1460,6 +1540,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export hotový"
+          }
+        }
+      }
+    },
+    "Export the lighter version": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportovat lehčí verzi"
           }
         }
       }
@@ -1888,6 +1978,16 @@
         }
       }
     },
+    "In / out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nástup / odchod"
+          }
+        }
+      }
+    },
     "Interface": {
       "localizations": {
         "cs": {
@@ -2254,6 +2354,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Motion blur"
+          }
+        }
+      }
+    },
+    "Motion blur or smooth slow motion at this length and size needs more memory than your iPhone has free, so the export stopped before the app could crash. The lighter version blends frames in a simpler way and uses far less memory.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmazání pohybem nebo plynulé zpomalení v téhle délce a velikosti potřebuje víc paměti, než má tvůj iPhone volné, takže se export zastavil dřív, než by aplikace spadla. Lehčí verze prolíná snímky jednodušeji a potřebuje mnohem méně paměti."
           }
         }
       }
@@ -2898,6 +3008,16 @@
         }
       }
     },
+    "Same on every cut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stejně na každém střihu"
+          }
+        }
+      }
+    },
     "Saturation": {
       "localizations": {
         "cs": {
@@ -3308,6 +3428,16 @@
         }
       }
     },
+    "Sound from video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk z videa"
+          }
+        }
+      }
+    },
     "Speech model: %@": {
       "localizations": {
         "cs": {
@@ -3578,6 +3708,16 @@
         }
       }
     },
+    "The clip comes in from black or goes out to black. For the start and the end of the video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klip naběhne z černé nebo do černé odejde. Hodí se na začátek a konec videa."
+          }
+        }
+      }
+    },
     "The first clip goes out and the next one comes in the same way, through black.": {
       "localizations": {
         "cs": {
@@ -3658,6 +3798,16 @@
         }
       }
     },
+    "This export needs more memory than your iPhone has free, so it stopped before the app could crash. A lower resolution or frame rate uses less.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle export potřebuje víc paměti, než má tvůj iPhone volné, takže se zastavil dřív, než by aplikace spadla. Nižší rozlišení nebo snímková frekvence potřebují méně."
+          }
+        }
+      }
+    },
     "This file has no sound.": {
       "localizations": {
         "cs": {
@@ -3678,6 +3828,16 @@
         }
       }
     },
+    "This video is too heavy for your iPhone's memory with these settings, so the export was stopped before the app could crash.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S tímhle nastavením je video na paměť tvého iPhonu moc těžké, takže se export zastavil dřív, než by aplikace spadla."
+          }
+        }
+      }
+    },
     "Thumbnails and system caches, rebuilt when needed": {
       "localizations": {
         "cs": {
@@ -3694,6 +3854,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odstín"
+          }
+        }
+      }
+    },
+    "Too heavy for this iPhone": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na tenhle iPhone je to moc těžké"
           }
         }
       }

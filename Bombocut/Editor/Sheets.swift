@@ -96,6 +96,7 @@ struct ExportSheet: View {
     // Remembered between exports
     @AppStorage("export.autoBitrate") private var autoBitrate = true
     @AppStorage("export.bitrate") private var bitrate = 12.0
+    @AppStorage("export.endCard") private var endCard = true
 
     @State private var customFPS = ""
     /// What the first clip was, while the settings still match it.
@@ -111,6 +112,7 @@ struct ExportSheet: View {
         case exporting(Double)
         case done(URL, saved: Bool, note: String?)
         case failed(String)
+        case tooHeavy                    // stopped before running out of memory
     }
 
     private static let sizes: [(String, Int)] = [("144p", 144), ("240p", 240), ("360p", 360), ("480p", 480),
@@ -132,7 +134,9 @@ struct ExportSheet: View {
         autoBitrate ? Exporter.autoBitrate(width: outSize.w, height: outSize.h, fps: fps, hevc: effectiveHEVC) : bitrate
     }
 
-    private var estimatedMB: Double { (mbps * 1_000_000 + 192_000) * project.duration / 8 / 1_000_000 }
+    private var estimatedMB: Double {
+        (mbps * 1_000_000 + 192_000) * (project.duration + (endCard ? EndCard.length : 0)) / 8 / 1_000_000
+    }
 
     private var isMatched: Bool {
         guard let m = matched else { return false }
@@ -148,6 +152,7 @@ struct ExportSheet: View {
                 case .exporting(let p): progressView(p)
                 case .done(let url, let saved, let note): doneView(url, saved, note)
                 case .failed(let msg): failedView(msg)
+                case .tooHeavy: tooHeavyView
                 }
             }
             .frame(maxHeight: .infinity)
@@ -162,6 +167,7 @@ struct ExportSheet: View {
                 phase = .done(URL(fileURLWithPath: "/dev/null"), saved: true, note: nil)
             }
             if Demo.mode == "exporting" { phase = .exporting(0.42) }
+            if Demo.mode == "tooheavy" { phase = .tooHeavy }
         }
     }
 
@@ -188,7 +194,7 @@ struct ExportSheet: View {
 
     private var showsClose: Bool {
         switch phase {
-        case .setup, .failed: return true
+        case .setup, .failed, .tooHeavy: return true
         default: return false
         }
     }
@@ -259,6 +265,14 @@ struct ExportSheet: View {
                     ChipRow(items: [("H.264", false), ("HEVC", true)], selected: effectiveHEVC) { hevc = $0 }
                         .disabled(tooBigForH264)
                 }
+
+                group("End card") {
+                    card {
+                        OnOffRow(title: "Bombocut end card",
+                                 subtitle: "A short Made with Bombocut card after your last clip. Thanks for spreading the word!",
+                                 isOn: endCard) { endCard = $0 }
+                    }
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 4)
@@ -278,7 +292,7 @@ struct ExportSheet: View {
                 Button {
                     customH = Canvas.even(Double(customW) / project.canvas.aspect)
                 } label: {
-                    Text("Canvas").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    Text("Aspect").font(.subheadline.weight(.bold)).foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 44)
                         .background(Theme.panel2, in: Capsule())
                 }
@@ -367,8 +381,10 @@ struct ExportSheet: View {
 
     // MARK: Export run
 
-    private func start() {
+    /// `light`: motion blur and smooth slow motion by simple blending (after an export ran short of memory).
+    private func start(light: Bool = false) {
         let settings = ExportSettings(width: outSize.w, height: outSize.h, fps: fps, bitrateMbps: mbps, hevc: effectiveHEVC)
+        let withCard = endCard
         let exp = Exporter()
         exporter = exp
         phase = .exporting(0)
@@ -376,7 +392,7 @@ struct ExportSheet: View {
         task = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
             do {
-                let url = try await exp.export(project: project, settings: settings) { p in
+                let url = try await exp.export(project: project, settings: settings, endCard: withCard, light: light) { p in
                     Task { @MainActor in
                         if case .exporting = phase { phase = .exporting(p) }
                     }
@@ -391,6 +407,9 @@ struct ExportSheet: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch is CancellationError {
                 phase = .setup
+            } catch is Exporter.LowMemory {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                phase = .tooHeavy
             } catch {
                 phase = .failed(error.localizedDescription)
             }
@@ -498,6 +517,44 @@ struct ExportSheet: View {
         }
         .padding(.horizontal, 20)
         .onDisappear { saveName() }
+    }
+
+    /// The export stopped itself before the phone ran out of memory: offer a lighter way.
+    private var tooHeavyView: some View {
+        let heavyFrames = project.clips.contains { $0.needsNeighbours }
+        return VStack(spacing: 14) {
+            Spacer()
+            MemeView(meme: .shocked)
+                .frame(width: 200, height: 200)
+            Text("Too heavy for this iPhone").font(.title3.weight(.heavy))
+            Text(heavyFrames
+                 ? "Motion blur or smooth slow motion at this length and size needs more memory than your iPhone has free, so the export stopped before the app could crash. The lighter version blends frames in a simpler way and uses far less memory."
+                 : "This export needs more memory than your iPhone has free, so it stopped before the app could crash. A lower resolution or frame rate uses less.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            if heavyFrames {
+                Button { start(light: true) } label: {
+                    Text("Export the lighter version")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+            }
+            Button { phase = .setup } label: {
+                Text("Back to settings")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(heavyFrames ? .white.opacity(0.85) : .black)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(heavyFrames ? Theme.panel2 : Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 24)
+        }
+        .padding(.horizontal, 20)
     }
 
     private func failedView(_ msg: String) -> some View {

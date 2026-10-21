@@ -80,15 +80,25 @@ struct ApplyRow: View {
     }
 }
 
-/// Transitions: one cut (from the button between two clips), or the selected clip's in / out.
+/// Transitions: the cut into the selected clip (the two clips overlap and blend), or the clip's own
+/// in / out animation (from and to black, for the start and end of the video).
 struct ClipAnimSheet: View {
     @ObservedObject var model: EditorModel
+    @State private var showClipAnim = false
+    @State private var dragLength: Double?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Transition").font(.title3.weight(.heavy))
-                if let k = model.transitionCut, k + 1 < model.project.clips.count {
+                HStack(spacing: 6) {
+                    Text("Transition").font(.title3.weight(.heavy))
+                    Spacer()
+                    if model.transitionCut != nil && model.selectedIndex != nil {
+                        tab("Between clips", on: !showClipAnim) { showClipAnim = false }
+                        tab("In / out", on: showClipAnim) { showClipAnim = true }
+                    }
+                }
+                if let k = model.transitionCut, k + 1 < model.project.clips.count, !showClipAnim {
                     cutEditor(k)
                 } else if let i = model.selectedIndex {
                     let c = model.project.clips[i]
@@ -97,6 +107,9 @@ struct ClipAnimSheet: View {
                                live: { a in model.editClip { $0.anim = a } },
                                began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
                                preview: { model.previewClipAnim() })
+                    Text("The clip comes in from black or goes out to black. For the start and the end of the video.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                     ApplyRow(model: model, kind: .animation)
                 }
             }
@@ -105,12 +118,23 @@ struct ClipAnimSheet: View {
         .scrollIndicators(.hidden)
     }
 
-    /// The cut between clip k and k + 1: one pick sets how the first goes out and the second comes in.
+    private func tab(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(loc(title)).font(.footnote.weight(.bold))
+                .foregroundStyle(on ? .black : .white)
+                .padding(.horizontal, 12).frame(height: 30)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The cut between clip k and k + 1: the clip after comes in over the clip before while both play.
     @ViewBuilder
     private func cutEditor(_ k: Int) -> some View {
-        let a = model.project.clips[k], b = model.project.clips[k + 1]
-        let current = b.anim.inAnim == a.anim.outAnim ? b.anim.inAnim : (b.anim.inAnim != .none ? b.anim.inAnim : a.anim.outAnim)
-        let d = max(a.anim.outDur, b.anim.inDur)
+        let cut = model.cutTransition(k)
+        let current = cut?.kind ?? .none
+        let maxLen = model.maxCutDuration(k)
+        let length = dragLength ?? min(cut?.duration ?? 0.5, maxLen)
         Text("Between clip \(k + 1) and \(k + 2)").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -120,11 +144,12 @@ struct ClipAnimSheet: View {
                         if m != .none { model.previewCut() }
                     } label: {
                         VStack(spacing: 5) {
-                            Image(systemName: m.icon).font(.system(size: 17, weight: .semibold))
-                            Text(loc(m.title)).font(.caption2.weight(.bold)).lineLimit(1)
+                            Image(systemName: m == .fade ? "square.on.square.intersection.dashed" : m.icon)
+                                .font(.system(size: 17, weight: .semibold))
+                            Text(loc(m == .fade ? "Crossfade" : m.title)).font(.caption2.weight(.bold)).lineLimit(1)
                         }
                         .foregroundStyle(current == m ? .black : .white)
-                        .frame(width: 72, height: 58)
+                        .frame(width: 76, height: 58)
                         .background(current == m ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
@@ -135,14 +160,29 @@ struct ClipAnimSheet: View {
             HStack {
                 Text("Length").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 Spacer()
-                Text(String(format: "%.1fs", d)).font(.subheadline.weight(.bold).monospacedDigit())
+                Text(String(format: "%.1fs", length)).font(.subheadline.weight(.bold).monospacedDigit())
             }
-            Slider(value: Binding(get: { d }, set: { model.editCutDuration($0) }),
-                   in: 0.1...max(0.2, min(2, min(a.duration, b.duration) / 2)),
-                   onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded(); model.previewCut() } })
+            Slider(value: Binding(get: { length }, set: { dragLength = $0 }),
+                   in: 0.1...max(0.2, min(3, maxLen)),
+                   onEditingChanged: { e in
+                       if !e, let d = dragLength {
+                           model.setCutDuration(d)
+                           dragLength = nil
+                           model.previewCut()
+                       }
+                   })
                 .tint(Theme.accent)
+            if model.project.clips.count > 2 {
+                Button { model.applyCutToAll() } label: {
+                    Label(loc("Same on every cut"), systemImage: "square.stack.3d.up.fill")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         }
-        Text("The first clip goes out and the next one comes in the same way, through black.")
+        Text("Both clips play while the next one comes in, so the video gets shorter by the length of the transition.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
     }

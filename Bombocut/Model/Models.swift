@@ -176,6 +176,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var blurAmount: Double { motionBlurOn ? motionBlur : 0 }
     var blurDirection = BlurDirection.both
     var anim = AnimPair()          // in / out animation of the clip
+    var cut: CutTransition?        // how this clip comes in over the one before it (the two overlap)
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -211,7 +212,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim
+        case motionBlur, motionBlurOn, blurDirection, anim, cut
     }
 
     init(from d: Decoder) throws {
@@ -239,6 +240,7 @@ struct Clip: Identifiable, Codable, Hashable {
         let savedOn = try c.decodeIfPresent(Bool.self, forKey: .motionBlurOn)
         blurDirection = try c.decodeIfPresent(BlurDirection.self, forKey: .blurDirection) ?? .both
         anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
+        cut = try? c.decodeIfPresent(CutTransition.self, forKey: .cut)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)
@@ -323,7 +325,35 @@ struct Project: Identifiable, Codable, Hashable {
     var overlays: [Overlay] = []
     var audio: [AudioItem] = []
 
-    var duration: Double { clips.reduce(0) { $0 + $1.duration } }
+    /// Length of the whole video: clips one after another, minus the overlaps of crossfades.
+    var duration: Double {
+        let d = clips.map(\.duration)
+        guard !d.isEmpty else { return 0 }
+        let starts = Self.starts(clips, d)
+        return starts[starts.count - 1] + d[d.count - 1]
+    }
+
+    /// Seconds clip k overlaps the clip before it (its transition in). Never more than 45 % of either
+    /// clip, so a clip with transitions at both ends always keeps a moment of its own.
+    func overlap(_ k: Int) -> Double {
+        guard k > 0, k < clips.count else { return 0 }
+        return Self.overlap(clips[k].cut, clips[k - 1].duration, clips[k].duration)
+    }
+
+    static func overlap(_ cut: CutTransition?, _ before: Double, _ after: Double) -> Double {
+        guard let c = cut, c.kind != .none else { return 0 }
+        return max(0, min(c.duration, before * 0.45, after * 0.45))
+    }
+
+    private static func starts(_ clips: [Clip], _ d: [Double]) -> [Double] {
+        var out: [Double] = []
+        out.reserveCapacity(clips.count)
+        for k in clips.indices {
+            if k == 0 { out.append(0); continue }
+            out.append(out[k - 1] + d[k - 1] - overlap(clips[k].cut, d[k - 1], d[k]))
+        }
+        return out
+    }
 
     init(name: String) { self.name = name }
 
@@ -340,6 +370,20 @@ struct Project: Identifiable, Codable, Hashable {
         captions = try c.decodeIfPresent(Captions.self, forKey: .captions)
         overlays = try c.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
         audio = (try? c.decodeIfPresent([AudioItem].self, forKey: .audio)) ?? []
+        migrateCutTransitions()
+    }
+
+    /// Earlier versions made a transition by fading the clip before out and the clip after in (through
+    /// black). Those become real transitions where the two clips overlap.
+    mutating func migrateCutTransitions() {
+        guard clips.count > 1 else { return }
+        for k in 1..<clips.count where clips[k].cut == nil {
+            let a = clips[k - 1].anim, b = clips[k].anim
+            guard a.outAnim != .none, a.outAnim == b.inAnim else { continue }
+            clips[k].cut = CutTransition(kind: b.inAnim, duration: max(a.outDur, b.inDur))
+            clips[k - 1].anim.outAnim = .none
+            clips[k].anim.inAnim = .none
+        }
     }
 
     /// Every imported file the project needs (clips and overlays).
@@ -348,20 +392,21 @@ struct Project: Identifiable, Codable, Hashable {
     }
 
     /// Timeline start time of each clip.
-    var clipStarts: [Double] {
-        var t = 0.0
-        return clips.map { c in defer { t += c.duration }; return t }
-    }
+    var clipStarts: [Double] { Self.starts(clips, clips.map(\.duration)) }
 
-    /// Index of the clip under timeline time t, and that clip's start.
+    /// Index of the clip under timeline time t, and that clip's start. Inside a crossfade the earlier
+    /// clip counts until the middle of the overlap, the later one after it.
     func clipIndex(at t: Double) -> (index: Int, start: Double)? {
-        var start = 0.0
-        for (i, c) in clips.enumerated() {
-            let d = c.duration
-            if t >= start && t < start + d { return (i, start) }
-            start += d
+        let d = clips.map(\.duration)
+        guard !d.isEmpty else { return nil }
+        let starts = Self.starts(clips, d)
+        for i in clips.indices {
+            let s = i == 0 ? 0 : starts[i] + (starts[i - 1] + d[i - 1] - starts[i]) / 2
+            let e = i + 1 < clips.count ? starts[i + 1] + (starts[i] + d[i] - starts[i + 1]) / 2 : starts[i] + d[i]
+            if t >= s && t < e { return (i, starts[i]) }
         }
-        if let last = clips.indices.last, t >= duration - 0.0001 { return (last, duration - clips[last].duration) }
+        let last = clips.count - 1
+        if t >= starts[last] + d[last] - 0.0001 { return (last, starts[last]) }
         return nil
     }
 }

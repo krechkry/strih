@@ -12,9 +12,27 @@ struct ClipRenderInfo {
     var smoothSlowMo = false
     var preview = false                // editor playback (lighter frame-engine work) vs export
     var duration: Double = 0           // length on the timeline (in / out animations)
+    var light = false                  // simple frame blending instead of Apple's frame engine (less memory)
 }
 
-/// One instruction per clip. The custom compositor reads `info` for every frame.
+/// One clip drawn in a frame: its footage track and, for motion blur / smooth slow motion, the same
+/// footage one frame earlier and later.
+struct ClipLayer {
+    let trackID: CMPersistentTrackID
+    let info: ClipRenderInfo
+    let prevTrackID: CMPersistentTrackID?
+    let nextTrackID: CMPersistentTrackID?
+}
+
+/// A transition in progress: the top layer comes in over the bottom one.
+struct CutInfo {
+    let cut: CutTransition
+    let start: Double                  // composition seconds where the overlap begins
+    let length: Double
+}
+
+/// One instruction per stretch of time: one clip, or two while a transition blends them.
+/// The custom compositor reads it for every frame.
 final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @unchecked Sendable {
     let timeRange: CMTimeRange
     let enablePostProcessing: Bool = false
@@ -22,24 +40,22 @@ final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @u
     let requiredSourceTrackIDs: [NSValue]?
     let passthroughTrackID: CMPersistentTrackID = kCMPersistentTrackID_Invalid
 
-    let trackID: CMPersistentTrackID
-    let info: ClipRenderInfo
+    let layers: [ClipLayer]            // bottom first
+    let cut: CutInfo?
     let overlayTracks: [UUID: OverlayTrack]
-    let prevTrackID: CMPersistentTrackID?     // same footage one frame earlier (motion blur)
-    let nextTrackID: CMPersistentTrackID?     // same footage one frame later (motion blur, smooth slow motion)
 
-    init(timeRange: CMTimeRange, trackID: CMPersistentTrackID, info: ClipRenderInfo,
-         overlayTracks: [UUID: OverlayTrack] = [:], prevTrackID: CMPersistentTrackID? = nil,
-         nextTrackID: CMPersistentTrackID? = nil) {
+    init(timeRange: CMTimeRange, layers: [ClipLayer], cut: CutInfo? = nil, overlayTracks: [UUID: OverlayTrack] = [:]) {
         self.timeRange = timeRange
-        self.trackID = trackID
-        self.info = info
+        self.layers = layers
+        self.cut = cut
         self.overlayTracks = overlayTracks
-        self.prevTrackID = prevTrackID
-        self.nextTrackID = nextTrackID
-        var ids = [NSNumber(value: trackID)] + overlayTracks.values.map { NSNumber(value: $0.trackID) }
-        if let p = prevTrackID { ids.append(NSNumber(value: p)) }
-        if let n = nextTrackID { ids.append(NSNumber(value: n)) }
+        var ids: [NSNumber] = []
+        for l in layers {
+            ids.append(NSNumber(value: l.trackID))
+            if let p = l.prevTrackID { ids.append(NSNumber(value: p)) }
+            if let n = l.nextTrackID { ids.append(NSNumber(value: n)) }
+        }
+        ids += overlayTracks.values.map { NSNumber(value: $0.trackID) }
         self.requiredSourceTrackIDs = ids
         super.init()
     }
@@ -71,42 +87,77 @@ enum CompositionBuilder {
         if end < t { track.insertEmptyTimeRange(CMTimeRange(start: end, end: t)) }
     }
 
-    static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false) async throws -> BuiltComposition {
+    /// One of the two lanes clips alternate on when they overlap (crossfades). Tracks are made on demand.
+    private final class Lane {
+        let comp: AVMutableComposition
+        var video: AVMutableCompositionTrack?
+        var prev: AVMutableCompositionTrack?
+        var next: AVMutableCompositionTrack?
+        var keep: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?
+        var vari: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?
+
+        init(_ comp: AVMutableComposition) { self.comp = comp }
+
+        func videoTrack() throws -> AVMutableCompositionTrack {
+            if let v = video { return v }
+            guard let v = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { throw CompositionBuilder.err("Could not create tracks.") }
+            video = v
+            return v
+        }
+
+        func neighbourTracks() -> (prev: AVMutableCompositionTrack?, next: AVMutableCompositionTrack?) {
+            if next == nil {
+                next = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+                prev = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
+            }
+            return (prev, next)
+        }
+
+        /// One audio track keeps pitch when retimed, the other shifts it like tape (varispeed).
+        func audio(keepPitch: Bool) -> (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)? {
+            if keepPitch, let k = keep { return k }
+            if !keepPitch, let v = vari { return v }
+            guard let t = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { return nil }
+            let p = AVMutableAudioMixInputParameters(track: t)
+            p.audioTimePitchAlgorithm = keepPitch ? .spectral : .varispeed
+            if keepPitch { keep = (t, p) } else { vari = (t, p) }
+            return (t, p)
+        }
+    }
+
+    /// Where a clip landed in the composition.
+    private struct Placed {
+        let start: CMTime
+        let end: CMTime
+        let layer: ClipLayer
+        let cut: CutTransition?                 // how it comes in over the clip before
+        let audio: (AVMutableAudioMixInputParameters, Float)?
+    }
+
+    static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false,
+                      endCard: Bool = false, light: Bool = false) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
-        guard let vTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
-              let keepTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid),
-              let variTrack = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        else { throw err("Could not create tracks.") }
+        let lanes = [Lane(comp), Lane(comp)]
+        var lane = 0
+        var placed: [Placed] = []
 
-        // Two audio tracks: one keeps pitch when retimed, one shifts pitch like tape (varispeed).
-        let keepParams = AVMutableAudioMixInputParameters(track: keepTrack)
-        keepParams.audioTimePitchAlgorithm = .spectral
-        let variParams = AVMutableAudioMixInputParameters(track: variTrack)
-        variParams.audioTimePitchAlgorithm = .varispeed
-
-        var placed: [(start: CMTime, end: CMTime, info: ClipRenderInfo, aux: Bool)] = []
-        var cursor = CMTime.zero
-        // neighbouring-frame tracks, only made when a clip needs them
-        var prevTrack: AVMutableCompositionTrack?
-        var nextTrack: AVMutableCompositionTrack?
-
-        for clip in project.clips {
-            let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
-            guard let src = try await asset.loadTracks(withMediaType: .video).first else { continue }
+        /// Puts one clip on the timeline at `at` on lane `l`. Returns where it ended (nil: no video in the file).
+        func place(_ clip: Clip, asset: AVURLAsset, at start: CMTime, lane l: Int, cut: CutTransition?) async throws -> Placed? {
+            guard let src = try await asset.loadTracks(withMediaType: .video).first else { return nil }
             let (prefTransform, srcRange, nominalFps) = try await src.load(.preferredTransform, .timeRange, .nominalFrameRate)
             let fps = nominalFps > 1 ? Double(nominalFps) : 30
+            let ln = lanes[l]
+            let vTrack = try ln.videoTrack()
             let aux = clip.needsNeighbours
-            if aux && nextTrack == nil {
-                nextTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-                prevTrack = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
-            }
+            let neighbours: (prev: AVMutableCompositionTrack?, next: AVMutableCompositionTrack?) =
+                aux ? ln.neighbourTracks() : (nil, nil)
             let srcAudio = try await asset.loadTracks(withMediaType: .audio).first
             let audioRange = try await srcAudio?.load(.timeRange)
-
-            let aTrack = clip.pitchCorrect ? keepTrack : variTrack
-            let params = clip.pitchCorrect ? keepParams : variParams
-            let clipStart = cursor
-            var audioVolumeSet = false
+            let audioOut = srcAudio != nil ? ln.audio(keepPitch: clip.pitchCorrect) : nil
+            var cursor = start
+            var hadAudio = false
+            pad(vTrack, to: start)
 
             for seg in clip.retime.segs {
                 let r = CMTimeRange(start: time(seg.src0), duration: time(seg.srcLen)).intersection(srcRange)
@@ -119,7 +170,7 @@ enum CompositionBuilder {
                     vTrack.scaleTimeRange(CMTimeRange(start: cursor, duration: r.duration), toDuration: outDur)
                 }
                 if aux {
-                    for (track, shift) in [(nextTrack, 1.0), (prevTrack, -1.0)] {
+                    for (track, shift) in [(neighbours.next, 1.0), (neighbours.prev, -1.0)] {
                         guard let track else { continue }
                         let sr = CMTimeRange(start: r.start + time(shift / fps), duration: r.duration).intersection(srcRange)
                         guard sr.duration.seconds > 0.0005 else { continue }
@@ -132,8 +183,7 @@ enum CompositionBuilder {
                         }
                     }
                 }
-
-                if let srcAudio, let audioRange {
+                if let srcAudio, let audioRange, let aTrack = audioOut?.0 {
                     let ar = r.intersection(audioRange)
                     if ar.duration.seconds > 0.0005 {
                         let at = cursor + time((ar.start - r.start).seconds * ratio)
@@ -143,24 +193,64 @@ enum CompositionBuilder {
                             if aOut != ar.duration {
                                 aTrack.scaleTimeRange(CMTimeRange(start: at, duration: ar.duration), toDuration: aOut)
                             }
-                            if !audioVolumeSet {
-                                params.setVolume(Float(clip.volume), at: clipStart)
-                                audioVolumeSet = true
-                            }
+                            hadAudio = true
                         }
                     }
                 }
                 cursor = cursor + outDur
             }
-
-            if cursor > clipStart {
-                placed.append((clipStart, cursor,
-                               ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: clipStart.seconds,
-                                              retime: clip.retime, state: clip.lookState, srcFps: fps,
-                                              smoothSlowMo: clip.smoothSlowMo, preview: preview,
-                                              duration: (cursor - clipStart).seconds), aux))
-            }
+            guard cursor > start else { return nil }
+            let info = ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: start.seconds,
+                                      retime: clip.retime, state: clip.lookState, srcFps: fps,
+                                      smoothSlowMo: clip.smoothSlowMo, preview: preview,
+                                      duration: (cursor - start).seconds, light: light)
+            let layer = ClipLayer(trackID: vTrack.trackID, info: info,
+                                  prevTrackID: aux ? neighbours.prev?.trackID : nil,
+                                  nextTrackID: aux ? neighbours.next?.trackID : nil)
+            return Placed(start: start, end: cursor, layer: layer, cut: cut,
+                          audio: hadAudio ? audioOut.map { ($0.1, Float(clip.volume)) } : nil)
         }
+
+        for (k, clip) in project.clips.enumerated() {
+            let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
+            var start = placed.last?.end ?? .zero
+            var cut: CutTransition? = nil
+            let ov = project.overlap(k)
+            if ov > 0, let before = placed.last {
+                // the clip comes in over the one before: both play for the length of the transition
+                start = max(before.start, before.end - time(ov))
+                cut = clip.cut
+                lane = 1 - lane
+            }
+            guard let p = try await place(clip, asset: asset, at: start, lane: lane, cut: cut) else {
+                if cut != nil { lane = 1 - lane }
+                continue
+            }
+            // sound: the clip coming in fades up while the one before fades down
+            if case let (params, vol)? = p.audio {
+                if cut != nil, p.start < (placed.last?.end ?? .zero) {
+                    params.setVolumeRamp(fromStartVolume: 0, toEndVolume: vol,
+                                         timeRange: CMTimeRange(start: p.start, end: placed.last!.end))
+                } else {
+                    params.setVolume(vol, at: p.start)
+                }
+            }
+            if cut != nil, let before = placed.last, case let (params, vol)? = before.audio, p.start < before.end {
+                params.setVolumeRamp(fromStartVolume: vol, toEndVolume: 0, timeRange: CMTimeRange(start: p.start, end: before.end))
+            }
+            placed.append(p)
+        }
+        let contentEnd = placed.last?.end ?? .zero
+
+        // the Bombocut end card after the last clip (switch on the export page)
+        if endCard, !placed.isEmpty, let url = await EndCard.url() {
+            let asset = AVURLAsset(url: url)
+            let length = (try? await asset.load(.duration))?.seconds ?? EndCard.length
+            var card = Clip(mediaFile: url.lastPathComponent, sourceDuration: length)
+            card.id = EndCard.clipID
+            if let p = try? await place(card, asset: asset, at: contentEnd, lane: lane, cut: nil) { placed.append(p) }
+        }
+        let cursor = placed.last?.end ?? .zero
 
         guard !placed.isEmpty else { throw err("Nothing to play.") }
 
@@ -168,14 +258,14 @@ enum CompositionBuilder {
         var overlayTracks: [UUID: OverlayTrack] = [:]
         var overlayAudio: [AVAudioMixInputParameters] = []
         for o in project.overlays {
-            guard case .video(let file, _, let inPoint) = o.kind, o.start < cursor.seconds else { continue }
+            guard case .video(let file, _, let inPoint) = o.kind, o.start < contentEnd.seconds else { continue }
             let asset = AVURLAsset(url: Paths.mediaURL(file))
             guard let src = try? await asset.loadTracks(withMediaType: .video).first,
                   let loaded = try? await src.load(.preferredTransform, .timeRange),
                   let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
             let (pref, range) = loaded
-            let len = min(o.duration, range.duration.seconds - inPoint, cursor.seconds - o.start)
+            let len = min(o.duration, range.duration.seconds - inPoint, contentEnd.seconds - o.start)
             guard len > 0.04 else { comp.removeTrack(track); continue }
             let r = CMTimeRange(start: time(inPoint), duration: time(len)).intersection(range)
             if (try? track.insertTimeRange(r, of: src, at: time(o.start))) != nil {
@@ -200,13 +290,13 @@ enum CompositionBuilder {
         }
 
         // Sound on the audio lane: one track each (own volume), cut at the end of the video.
-        for a in project.audio where a.start < cursor.seconds - 0.02 && a.volume > 0.001 {
+        for a in project.audio where a.start < contentEnd.seconds - 0.02 && a.volume > 0.001 {
             let asset = AVURLAsset(url: Paths.mediaURL(a.file))
             guard let src = try? await asset.loadTracks(withMediaType: .audio).first,
                   let range = try? await src.load(.timeRange),
                   let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
-            let len = min(a.duration, cursor.seconds - a.start)
+            let len = min(a.duration, contentEnd.seconds - a.start)
             let r = CMTimeRange(start: time(a.inPoint), duration: time(len * a.speed)).intersection(range)
             guard r.duration.seconds > 0.01, (try? track.insertTimeRange(r, of: src, at: time(a.start))) != nil else {
                 comp.removeTrack(track)
@@ -222,21 +312,38 @@ enum CompositionBuilder {
         }
 
         var mixParams: [AVAudioMixInputParameters] = []
-        for (track, p) in [(keepTrack, keepParams), (variTrack, variParams)] {
-            if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
+        for l in lanes {
+            for pair in [l.keep, l.vari] {
+                guard case let (track, p)? = pair else { continue }
+                if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
+            }
         }
         let mix = AVMutableAudioMix()
         mix.inputParameters = mixParams + overlayAudio
 
-        // Instructions must cover the whole composition without gaps.
+        // Instructions must cover the whole composition without gaps: each clip alone, and both clips
+        // while one comes in over the other.
         let total = max(cursor, comp.duration)
         var instructions: [ClipInstruction] = []
+        var t = CMTime.zero
         for (i, p) in placed.enumerated() {
-            let end = i == placed.count - 1 ? total : p.end
-            instructions.append(ClipInstruction(timeRange: CMTimeRange(start: p.start, end: end),
-                                                trackID: vTrack.trackID, info: p.info, overlayTracks: overlayTracks,
-                                                prevTrackID: p.aux ? prevTrack?.trackID : nil,
-                                                nextTrackID: p.aux ? nextTrack?.trackID : nil))
+            if i > 0, let cut = p.cut, p.start < placed[i - 1].end {
+                let a = placed[i - 1]
+                let r = CMTimeRange(start: t, end: min(a.end, p.end))
+                if r.duration > .zero {
+                    instructions.append(ClipInstruction(timeRange: r, layers: [a.layer, p.layer],
+                                                        cut: CutInfo(cut: cut, start: p.start.seconds,
+                                                                     length: (min(a.end, p.end) - p.start).seconds),
+                                                        overlayTracks: overlayTracks))
+                    t = r.end
+                }
+            }
+            let soloEnd = i == placed.count - 1 ? total : min(placed[i + 1].start, p.end)
+            if soloEnd > t {
+                instructions.append(ClipInstruction(timeRange: CMTimeRange(start: t, end: soloEnd), layers: [p.layer],
+                                                    overlayTracks: overlayTracks))
+                t = soloEnd
+            }
         }
 
         let vc = AVMutableVideoComposition()

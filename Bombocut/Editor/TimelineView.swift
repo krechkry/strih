@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Edits/CapCut style timeline: fixed playhead in the middle, the strip scrolls under it.
+/// Timeline: fixed playhead in the middle, the strip scrolls under it.
 /// Swipe to scrub, pinch to zoom, tap a clip to select, drag its edges to ripple-trim.
 struct TimelineView: View {
     @ObservedObject var model: EditorModel
@@ -45,10 +45,27 @@ struct TimelineView: View {
 
     private func width(_ c: Clip) -> CGFloat { max(6, CGFloat(c.duration) * model.pxPerSec) }
 
-    /// Left edge of slot k when `clips` are laid out in a row.
+    /// Left edge of slot k when `clips` are laid out in a row (overlapping where a transition blends them).
     private func slotX(_ clips: [Clip], _ k: Int) -> CGFloat {
-        clips.prefix(k).reduce(0) { $0 + width($1) + gap }
+        let ov = overlapsPx(clips)
+        var x: CGFloat = 0
+        for j in 0..<min(k, clips.count) {
+            x += width(clips[j]) + gap
+            if j + 1 < ov.count, ov[j + 1] > 0 { x -= ov[j + 1] + gap }
+        }
+        return x
     }
+
+    /// How far each clip slides over the one before it (transitions), in points. None while reordering or
+    /// picking: then clips sit side by side.
+    private func overlapsPx(_ clips: [Clip]) -> [CGFloat] {
+        guard reorder == nil, model.pick == nil, clips.map(\.id) == model.project.clips.map(\.id) else {
+            return Array(repeating: 0, count: clips.count)
+        }
+        return clips.indices.map { CGFloat(model.project.overlap($0)) * model.pxPerSec }
+    }
+
+    private let addWidth: CGFloat = 124
 
     var body: some View {
         GeometryReader { geo in
@@ -62,8 +79,9 @@ struct TimelineView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 6) {
+                    let overlaps = overlapsPx(shown)
                     HStack(spacing: model.pick == nil ? gap : 8) {
-                        ForEach(shown) { clip in
+                        ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
                             let dragged = reorder?.id == clip.id
                             ClipTile(clip: clip,
                                      pxPerSec: model.pxPerSec,
@@ -79,36 +97,39 @@ struct TimelineView: View {
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
                                 .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
+                                // a transition: this clip slides over the end of the one before
+                                .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -(overlaps[k] + gap) : 0)
                         }
                         if reorder == nil && model.pick == nil && model.trim == nil {
-                            // add clips at the end
+                            // add media at the end
                             Button { model.requestAddClips() } label: {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 48, height: stripHeight)
-                                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 8))
+                                Label(loc("Add media"), systemImage: "plus")
+                                    .font(.footnote.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(width: addWidth - 10, height: 36)
+                                    .background(.white.opacity(0.12), in: Capsule())
                             }
                             .buttonStyle(.plain)
-                            .padding(.leading, 6)
+                            .padding(.leading, 10)
                         }
                     }
                     .overlay(alignment: .leading) {
-                        // a transition button on every cut
-                        if reorder == nil && model.pick == nil && model.trim == nil && shown.count > 1 {
+                        // transitions: a diagonal across the overlap, tap it to change the transition
+                        if reorder == nil && model.pick == nil && shown.count > 1 {
                             ZStack(alignment: .leading) {
                                 ForEach(1..<shown.count, id: \.self) { k in
-                                    let has = shown[k - 1].anim.outAnim != .none || shown[k].anim.inAnim != .none
-                                    Button { model.openTransition(cut: k - 1) } label: {
-                                        Image(systemName: has ? "rectangle.lefthalf.inset.filled.arrow.left" : "arrow.left.and.right")
-                                            .font(.system(size: 10, weight: .heavy))
-                                            .foregroundStyle(.black)
-                                            .frame(width: 22, height: 22)
-                                            .background(has ? Theme.accent : .white, in: RoundedRectangle(cornerRadius: 6))
-                                            .shadow(color: .black.opacity(0.4), radius: 2)
+                                    if k < overlaps.count, overlaps[k] > 0 {
+                                        let busy = model.trim != nil || shown[k].id == model.selectedClipID
+                                            || shown[k - 1].id == model.selectedClipID
+                                        TransitionMark(selected: model.transitionCut == k - 1)
+                                            .frame(width: overlaps[k], height: stripHeight)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture { model.openTransition(cut: k - 1) }
+                                            .allowsHitTesting(!busy)
+                                            .offset(x: slotX(shown, k))
                                     }
-                                    .buttonStyle(.plain)
-                                    .offset(x: slotX(shown, k) - gap / 2 - 11)
                                 }
                             }
                         }
@@ -142,7 +163,7 @@ struct TimelineView: View {
                     .padding(.leading, max(0, half + shift))
                     // the + after the last clip sits inside the trailing room, so the strip stops with the
                     // playhead on the end of the last clip instead of scrolling past it
-                    .padding(.trailing, max(0, half - (reorder == nil && model.pick == nil && model.trim == nil ? 54 : 0)))
+                    .padding(.trailing, max(0, half - (reorder == nil && model.pick == nil && model.trim == nil ? addWidth + 10 : 0)))
                     .padding(.top, 26)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
@@ -869,5 +890,25 @@ private struct Wave: Shape {
             p.addRect(CGRect(x: CGFloat(i) * 3, y: r.midY - h / 2, width: 2, height: h))
         }
         return p
+    }
+}
+
+/// Where two clips overlap in a transition: the clip coming in is shaded, with a line rising across it.
+struct TransitionMark: View {
+    var selected = false
+
+    var body: some View {
+        GeometryReader { g in
+            ZStack {
+                Rectangle().fill(.black.opacity(0.35))
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: g.size.height))
+                    p.addLine(to: CGPoint(x: g.size.width, y: 0))
+                }
+                .stroke(selected ? Theme.accent : .white, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .shadow(color: .black.opacity(0.5), radius: 1)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }

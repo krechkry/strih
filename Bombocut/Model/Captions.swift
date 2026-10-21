@@ -342,7 +342,10 @@ extension Project {
 
     /// Fingerprint of everything that decides where clips sit in time.
     var timingKey: [Double] {
-        clips.flatMap { [Double($0.id.hashValue), $0.inPoint, $0.outPoint, $0.duration] }
+        clips.indices.flatMap { k -> [Double] in
+            let c = clips[k]
+            return [Double(c.id.hashValue), c.inPoint, c.outPoint, c.duration, overlap(k)]
+        }
     }
 }
 

@@ -89,3 +89,24 @@ struct AnimPair: Codable, Hashable {
         return (dx, dy, scale, max(0, opacity))
     }
 }
+
+/// A transition between two clips: the clip after comes in over the clip before while both play
+/// (a real crossfade when `kind` is .fade). The overlap makes the video shorter by `duration`.
+struct CutTransition: Codable, Hashable {
+    var kind: MotionAnim = .fade
+    var duration = 0.5
+
+    /// How the incoming clip looks `t` seconds into an overlap of `length` seconds.
+    func pose(_ t: Double, length: Double) -> (dx: Double, dy: Double, scale: Double, opacity: Double) {
+        if kind == .fade {
+            // an even dissolve (the other kinds ease out like the in / out animations)
+            let p = min(max(t / max(length, 1e-6), 0), 1)
+            return (0, 0, 1, p * p * (3 - 2 * p))
+        }
+        var a = AnimPair()
+        a.inAnim = kind
+        a.inDur = length
+        // AnimPair caps the in part at half of the length it is given
+        return a.pose(local: t, length: length * 2 + 1)
+    }
+}

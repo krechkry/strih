@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pick newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+
+      - name: Tools
+        run: brew install xcodegen ffmpeg
+
+      - name: Test clips
+        run: |
+          mkdir -p testmedia
+          ffmpeg -loglevel error -f lavfi -i "color=c=red:s=180x320:r=30:d=2" -f lavfi -i "sine=frequency=440:duration=2" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest testmedia/test-red.mp4
+          ffmpeg -loglevel error -f lavfi -i "color=c=blue:s=180x320:r=30:d=2" -f lavfi -i "sine=frequency=660:duration=2" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest testmedia/test-blue.mp4
+
+      - name: Run tests on the simulator
+        run: |
+          xcodegen generate
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]
+          print(sorted(c,key=lambda x:x['name'])[-1]['udid'])")
+          FAILED=0
+          TEST_RUNNER_BOMBOCUT_TEST_MEDIA="$PWD/testmedia" xcodebuild test -project Bombocut.xcodeproj -scheme Bombocut \
+            -destination "id=$UDID" ARCHS=arm64 CODE_SIGNING_ALLOWED=NO > test.log 2>&1 || FAILED=1
+          # results as annotations (readable through the API)
+          RES=$(grep -E "Test Case .*(passed|failed|skipped)|error: |Executed [0-9]+ test" test.log | sed "s#$PWD/##" | sort -u | head -60 | awk '{printf "%s%%0A", $0}')
+          [ -n "$RES" ] && echo "::notice title=Test results::$RES"
+          if [ "$FAILED" = 1 ]; then
+            echo "::error title=Tests failed::$(grep -E ': error|failed|Testing failed' test.log | sed "s#$PWD/##" | sort -u | head -40 | awk '{printf "%s%%0A", $0}')"
+            tail -40 test.log
+            exit 1
+          fi

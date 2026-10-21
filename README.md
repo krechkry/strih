@@ -1,6 +1,6 @@
 # Bombocut
 
-A no-nonsense iPhone video editor. Edits-style layout, CapCut-grade speed retiming, on-device Czech/Slovak/English captions, full export control. No AI gimmicks, no filter packs.
+A no-nonsense iPhone video editor. Precise speed retiming with curves, on-device subtitles in 25 languages, full export control. No AI gimmicks, no filter packs.
 
 Target: iPhone 16 Pro, iOS 18+.
 
@@ -35,7 +35,7 @@ Then press ▶ in Xcode.
 
 **Editing**
 - Projects list, import from Photos (pick order, original quality) or Files
-- Edits-style editor: preview on top, fixed center playhead, filmstrip timeline, pinch to zoom
+- Editor: preview on top, fixed center playhead, filmstrip timeline, pinch to zoom
 - Ripple trim like DaVinci trim mode: clips stay glued, two-up trim viewer, +/− badge, cut/added band
 - Split, duplicate, delete, volume, fit/fill, undo/redo, autosave
 - Hold a clip and slide it to reorder (the strip zooms out so the neighbours are visible); captions travel with their footage

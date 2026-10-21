@@ -26,22 +26,51 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
 
     func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
+    /// One clip's frame, ready to be drawn: the (maybe motion-blurred) source and how it should look.
+    private struct Prepared {
+        let layer: ClipLayer
+        let source: CIImage
+        let look: Look
+        let state: LookState
+        let srcT: Double
+    }
+
     func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
-        guard let instr = request.videoCompositionInstruction as? ClipInstruction,
-              let src = request.sourceFrame(byTrackID: instr.trackID)
-        else {
+        guard let instr = request.videoCompositionInstruction as? ClipInstruction, let first = instr.layers.first else {
             request.finish(with: CompositionBuilder.err("Missing frame."))
             return
         }
-        let info = instr.info
         let t = request.compositionTime.seconds
+        prepare(first, request, t) { a in
+            if instr.layers.count > 1 {
+                self.prepare(instr.layers[1], request, t) { b in
+                    let both = [a, b].compactMap { $0 }
+                    guard !both.isEmpty else { request.finish(with: CompositionBuilder.err("Missing frame.")); return }
+                    // a transition: the second clip comes in over the first (only one there: draw that one)
+                    self.finish(request, instr, both, t, cut: both.count == 2 ? instr.cut : nil)
+                }
+            } else if let a {
+                self.finish(request, instr, [a], t, cut: nil)
+            } else {
+                request.finish(with: CompositionBuilder.err("Missing frame."))
+            }
+        }
+    }
+
+    /// Gets a clip's source frame for time t, through the frame engine when it needs smooth slow motion or
+    /// motion blur. nil when the frame is missing.
+    private func prepare(_ layer: ClipLayer, _ request: AVAsynchronousVideoCompositionRequest, _ t: Double,
+                         _ done: @escaping (Prepared?) -> Void) {
+        guard let src = request.sourceFrame(byTrackID: layer.trackID) else { done(nil); return }
+        let info = layer.info
         let state = LookStore.shared.state(info.clipID) ?? info.state
         let srcT = info.retime.source(atLocal: t - info.start)
         let look = state.look(atSource: srcT)
-        let next = instr.nextTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
-        let prev = instr.prevTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
+        let next = layer.nextTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
+        let prev = layer.prevTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         let speed = info.retime.speed(atLocal: t - info.start)
         let srcTime = CMTime(seconds: srcT, preferredTimescale: 600)
+        func ready(_ img: CIImage) { done(Prepared(layer: layer, source: img, look: look, state: state, srcT: srcT)) }
         // the frame engine works at (about) the output size, not the source's 4K: much faster, same look
         let work = SmoothFrames.workSize(source: CGSize(width: CVPixelBufferGetWidth(src), height: CVPixelBufferGetHeight(src)),
                                          render: request.renderContext.size, preview: info.preview)
@@ -53,6 +82,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let pos = srcT * info.srcFps
             let phase = pos - pos.rounded(.down)
             if phase > 0.04 && phase < 0.96 {
+                if info.light {
+                    var img = SmoothFrames.blend(src, next, phase)
+                    if state.motionBlur > 0.001 { img = Self.lightBlur(img, src, nil, next, state.motionBlur) }
+                    ready(img)
+                    return
+                }
                 SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime, work: work,
                                                 preview: info.preview) { img in
                     var image = img
@@ -60,24 +95,32 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                         image = SmoothFrames.average(src, nil, next, state.motionBlur * 0.5)
                             .applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: img, kCIInputTimeKey: 0.6])
                     }
-                    self.finish(request, instr, source: image, look: look, state: state, srcT: srcT, t: t)
+                    ready(image)
                 }
                 return
             }
         }
         // motion blur from the neighbouring frames
         if state.motionBlur > 0.001, blurPrev != nil || blurNext != nil {
-            SmoothFrames.shared.motionBlur(cur: src, prev: blurPrev, next: blurNext, strength: state.motionBlur,
-                                           time: srcTime, work: work, preview: info.preview) { img in
-                self.finish(request, instr, source: img, look: look, state: state, srcT: srcT, t: t)
+            if info.light {
+                ready(SmoothFrames.average(src, blurPrev, blurNext, state.motionBlur))
+                return
             }
+            SmoothFrames.shared.motionBlur(cur: src, prev: blurPrev, next: blurNext, strength: state.motionBlur,
+                                           time: srcTime, work: work, preview: info.preview) { img in ready(img) }
             return
         }
-        finish(request, instr, source: CIImage(cvPixelBuffer: src), look: look, state: state, srcT: srcT, t: t)
+        ready(CIImage(cvPixelBuffer: src))
     }
 
-    private func finish(_ request: AVAsynchronousVideoCompositionRequest, _ instr: ClipInstruction, source: CIImage,
-                        look: Look, state: LookState, srcT: Double, t: Double) {
+    private static func lightBlur(_ img: CIImage, _ cur: CVPixelBuffer, _ prev: CVPixelBuffer?, _ next: CVPixelBuffer?,
+                                  _ amount: Double) -> CIImage {
+        SmoothFrames.average(cur, prev, next, amount * 0.5)
+            .applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: img, kCIInputTimeKey: 0.6])
+    }
+
+    private func finish(_ request: AVAsynchronousVideoCompositionRequest, _ instr: ClipInstruction, _ clips: [Prepared],
+                        _ t: Double, cut: CutInfo?) {
         autoreleasepool {
             guard let out = request.renderContext.newPixelBuffer() else {
                 request.finish(with: CompositionBuilder.err("Missing frame."))
@@ -85,49 +128,29 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             let size = request.renderContext.size
             let frame = CGRect(origin: .zero, size: size)
-            let info = instr.info
-
-            var image = EffectsRenderer.color(source, look.effects)
-            image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
-                               stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
-                               follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
-                               in: size)
-            // in / out animation of the clip
-            var opacity = look.opacity
-            if !state.anim.isNone {
-                let a = state.anim.pose(local: t - info.start, length: info.duration)
-                if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
-                    let cx = size.width / 2, cy = size.height / 2
-                    image = image.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
-                        .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
-                        .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
-                }
-                opacity *= a.opacity
-            }
-            if opacity < 0.999 {
-                image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
-            }
-            let bg = CIImage(color: .black).cropped(to: frame)
-            image = image.composited(over: bg).cropped(to: frame)
             let videoFrame: (UUID) -> (CIImage, CGAffineTransform)? = { id in
                 guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
                 return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
             }
             let hasOverlays = !OverlayStore.shared.current.overlays.isEmpty
 
-            // subject cut-out: background effects and overlays that go behind the subject
             var masked = false
-            if let m = state.mask, let raw = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
-                let mask = SubjectMasker.refine(raw, m, frame: frame)
-                var back = SubjectMasker.background(image, m, frame: frame)
-                if hasOverlays {
-                    back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: videoFrame)
+            var image = clipImage(clips[0], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+            if clips.count > 1, let cut {
+                // the clip coming in, over the one going out
+                var top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+                let a = cut.cut.pose(t - cut.start, length: cut.length)
+                if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
+                    let cx = size.width / 2, cy = size.height / 2
+                    top = top.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                        .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
+                        .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
                 }
-                image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
-                                                                            kCIInputMaskImageKey: mask]).cropped(to: frame)
-                masked = true
+                if a.opacity < 0.999 {
+                    top = top.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, a.opacity))])
+                }
+                image = top.composited(over: image).cropped(to: frame)
             }
-            image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
             if hasOverlays {
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
                                                     video: videoFrame)
@@ -138,6 +161,49 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
             request.finish(withComposedVideoFrame: out)
         }
+    }
+
+    /// One clip drawn on the full frame (black around it): color, placement, its own in / out animation,
+    /// subject mask with the overlays behind the subject, and the frame effects.
+    private func clipImage(_ p: Prepared, t: Double, size: CGSize, hasOverlays: Bool,
+                           video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool) -> CIImage {
+        let frame = CGRect(origin: .zero, size: size)
+        let info = p.layer.info, state = p.state, look = p.look, srcT = p.srcT
+        var image = EffectsRenderer.color(p.source, look.effects)
+        image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
+                           stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
+                           follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
+                           in: size)
+        // in / out animation of the clip
+        var opacity = look.opacity
+        if !state.anim.isNone {
+            let a = state.anim.pose(local: t - info.start, length: info.duration)
+            if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
+                let cx = size.width / 2, cy = size.height / 2
+                image = image.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                    .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
+                    .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
+            }
+            opacity *= a.opacity
+        }
+        if opacity < 0.999 {
+            image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
+        }
+        let bg = CIImage(color: .black).cropped(to: frame)
+        image = image.composited(over: bg).cropped(to: frame)
+
+        // subject cut-out: background effects and overlays that go behind the subject
+        if let m = state.mask, let raw = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+            let mask = SubjectMasker.refine(raw, m, frame: frame)
+            var back = SubjectMasker.background(image, m, frame: frame)
+            if hasOverlays {
+                back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: video)
+            }
+            image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
+                                                                        kCIInputMaskImageKey: mask]).cropped(to: frame)
+            masked = true
+        }
+        return EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
     }
 
     /// Rotates the source upright, removes camera shake, fits or fills it into the frame, applies the clip's

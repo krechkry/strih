@@ -429,6 +429,10 @@ final class EditorModel: ObservableObject {
         a.outPoint = src
         b.id = UUID()
         b.inPoint = src
+        // the cut in stays with the first piece; the clip's in / out animations stay at its ends
+        b.cut = nil
+        a.anim.outAnim = .none
+        b.anim.inAnim = .none
         if c.hasCurve {
             let u = (src - c.inPoint) / (c.outPoint - c.inPoint)
             a.speedCurve = c.subCurve(0, u)
@@ -451,6 +455,7 @@ final class EditorModel: ObservableObject {
         guard let i = selectedIndex else { return }
         var copy = project.clips[i]
         copy.id = UUID()
+        copy.cut = nil
         mutate { $0.clips.insert(copy, at: i + 1) }
         selectedClipID = copy.id
     }
@@ -817,31 +822,53 @@ final class EditorModel: ObservableObject {
         openTransitionPanel = true
     }
 
-    /// One transition for a cut: the clip before goes out and the clip after comes in the same way.
-    func setCutTransition(_ kind: MotionAnim, duration: Double? = nil) {
-        guard let k = transitionCut, k + 1 < project.clips.count else { return }
-        mutateLook { p in
-            p.clips[k].anim.outAnim = kind
-            p.clips[k + 1].anim.inAnim = kind
-            if let d = duration {
-                p.clips[k].anim.outDur = d
-                p.clips[k + 1].anim.inDur = d
-            }
-        }
+    /// The transition at cut k (between clip k and k + 1): the clip after comes in over the clip before,
+    /// both playing, so the video gets shorter by the transition's length.
+    func cutTransition(_ k: Int) -> CutTransition? {
+        guard k >= 0, k + 1 < project.clips.count else { return nil }
+        return project.clips[k + 1].cut
     }
 
-    func editCutDuration(_ d: Double) {
+    func setCutTransition(_ kind: MotionAnim) {
         guard let k = transitionCut, k + 1 < project.clips.count else { return }
-        project.clips[k].anim.outDur = d
-        project.clips[k + 1].anim.inDur = d
-        publishLook()
+        let old = project.clips[k + 1].cut
+        mutate { p in
+            if kind == .none {
+                p.clips[k + 1].cut = nil
+            } else {
+                p.clips[k + 1].cut = CutTransition(kind: kind, duration: old?.duration ?? 0.5)
+            }
+        }
+        if let k2 = transitionCut { scrub(to: project.clipStarts[k2 + 1]) }
+    }
+
+    /// Length of the transition at the cut being edited (on release: the clips move).
+    func setCutDuration(_ d: Double) {
+        guard let k = transitionCut, k + 1 < project.clips.count, var c = project.clips[k + 1].cut else { return }
+        c.duration = d
+        mutate { $0.clips[k + 1].cut = c }
+    }
+
+    /// The longest the transition at cut k can be (45 % of the shorter clip).
+    func maxCutDuration(_ k: Int) -> Double {
+        guard k >= 0, k + 1 < project.clips.count else { return 0.5 }
+        return max(0.1, min(project.clips[k].duration, project.clips[k + 1].duration) * 0.45)
+    }
+
+    /// Same transition on every cut.
+    func applyCutToAll() {
+        guard let k = transitionCut, let c = cutTransition(k), project.clips.count > 2 else { return }
+        mutate { p in
+            for i in 1..<p.clips.count { p.clips[i].cut = c }
+        }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     func previewCut() {
         guard let k = transitionCut, k + 1 < project.clips.count else { return }
-        let t = project.clipStarts[k + 1]
-        let d = max(project.clips[k].anim.outDur, project.clips[k + 1].anim.inDur)
-        playOnce(from: max(0, t - d - 0.4), to: min(duration, t + d + 0.4), back: t)
+        let start = project.clipStarts[k + 1]
+        let ov = project.overlap(k + 1)
+        playOnce(from: max(0, start - 0.6), to: min(duration, start + ov + 0.6), back: start + ov / 2)
     }
 
     func setClipAnim(_ a: AnimPair) {
