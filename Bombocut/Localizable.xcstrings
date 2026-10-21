@@ -4278,12 +4278,12 @@
         }
       }
     },
-    "Export up to 4K and 120 fps, at the bitrate you pick": {
+    "Export from 144p to 4K and 120 fps, at the bitrate you pick": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Export až ve 4K a 120 fps, s bitratem podle tebe"
+            "value": "Export od 144p až po 4K a 120 fps, s bitratem podle tebe"
           }
         }
       }
@@ -4298,12 +4298,12 @@
         }
       }
     },
-    "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback decides what gets built next.": {
+    "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat novinky a tvoje zpětná vazba rozhoduje, co přijde dál."
+            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat novinky a na tvojí zpětné vazbě opravdu záleží."
           }
         }
       }

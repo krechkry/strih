@@ -163,7 +163,7 @@ struct PaywallView: View {
                     point("point.topleft.down.to.point.bottomright.curvepath", "Speed curves, smooth slow motion and motion blur")
                     point("diamond.fill", "Keyframes, transitions, text and overlays")
                     point("person.fill", "Subject masks, stabilization and tracking")
-                    point("square.and.arrow.up.fill", "Export up to 4K and 120 fps, at the bitrate you pick")
+                    point("square.and.arrow.up.fill", "Export from 144p to 4K and 120 fps, at the bitrate you pick")
                     point("wifi.slash", "Everything runs offline, on your iPhone. No cloud, no account, no data collection.")
                     point("creditcard.fill", "Pay once. No subscription, no ads, nothing locked.")
                     point("arrow.triangle.2.circlepath", "All updates included")
@@ -237,7 +237,7 @@ struct PaywallView: View {
             Label("Made by a filmmaker, in Prague.", systemImage: "heart.fill")
                 .font(.subheadline.weight(.heavy))
                 .foregroundStyle(Theme.accent)
-            Text("BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback decides what gets built next.")
+            Text("BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.")
                 .font(.subheadline.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
             if let url = Support.mailURL() {
