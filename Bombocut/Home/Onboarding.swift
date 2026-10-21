@@ -6,6 +6,20 @@ struct RootView: View {
     @AppStorage("onboarded") private var onboarded = false
     @State private var language = AppLanguage.current
     @Environment(\.scenePhase) private var scenePhase
+    /// Once the app is open it stays open: the trial is only checked when the app starts,
+    /// never when you come back to it (that used to throw you out of your project).
+    @State private var inApp = false
+
+    private var gate: Bool { !inApp && Demo.mode == nil && !purchases.isBeta }
+
+    /// Home is showing and the App Store has answered (or this is a beta): stay in the app from now on.
+    private func latch() {
+        guard onboarded || Demo.mode != nil else { return }
+        switch purchases.access {
+        case .owned, .trial: inApp = true
+        default: if purchases.isBeta || Demo.mode != nil { inApp = true }
+        }
+    }
 
     var body: some View {
         Group {
@@ -13,12 +27,12 @@ struct RootView: View {
                 OnboardingView(step: Demo.mode == "paywall" ? 2 : 0)
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
-            } else if Demo.mode == nil && (!onboarded || (purchases.access == .new && !purchases.isBeta)) {
+            } else if Demo.mode == nil && !inApp && (!onboarded || (gate && purchases.access == .new)) {
                 OnboardingView(step: onboarded ? 2 : 0)
-            } else if Demo.mode == nil && purchases.access == .expired && !purchases.isBeta {
+            } else if gate && purchases.access == .expired {
                 PaywallView(mode: .expired)
             } else {
-                HomeView()
+                HomeView().onAppear(perform: latch)
             }
         }
         .environment(\.locale, Locale(identifier: language))
@@ -26,7 +40,9 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: AppLanguage.changed)) { n in
             if let c = n.object as? String { language = c }
         }
-        .onChange(of: scenePhase) { _, p in if p == .active { purchases.recheck() } }
+        .onChange(of: scenePhase) { _, p in if p == .active && !inApp { purchases.recheck() } }
+        .onChange(of: purchases.access) { latch() }
+        .onChange(of: purchases.isBeta) { latch() }
     }
 }
 

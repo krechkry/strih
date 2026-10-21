@@ -22,7 +22,14 @@ final class Purchases: ObservableObject {
 
     @Published private(set) var access: Access = .checking
     /// TestFlight build (open beta): everything is free, no trial and no paywall.
-    @Published private(set) var isBeta = UserDefaults.standard.bool(forKey: "isBeta")
+    /// Builds run from Xcode count as beta too, so testing never hits the trial screen.
+    @Published private(set) var isBeta: Bool = {
+        #if DEBUG
+        return true
+        #else
+        return UserDefaults.standard.bool(forKey: "isBeta")
+        #endif
+    }()
     @Published private(set) var trial: Product?
     @Published private(set) var full: Product?
     @Published private(set) var busy = false
@@ -71,7 +78,11 @@ final class Purchases: ObservableObject {
     /// TestFlight installs come from the App Store's sandbox.
     private func checkBeta() async {
         guard let result = try? await AppTransaction.shared, case .verified(let t) = result else { return }
+        #if DEBUG
+        let beta = true
+        #else
         let beta = t.environment == .sandbox
+        #endif
         isBeta = beta
         UserDefaults.standard.set(beta, forKey: "isBeta")
     }
