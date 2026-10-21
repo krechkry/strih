@@ -3628,12 +3628,32 @@
         }
       }
     },
-    "Subtitles in 25 languages, made on your iPhone. Everything runs offline: no cloud, no account, no data collection. Just the app, your battery and your chip.": {
+    "Automatic subtitles in 25 languages. And all the other features you like, but…": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Titulky ve 25 jazycích, vytvořené přímo v iPhonu. Všechno běží offline: žádný cloud, žádný účet, žádné sbírání dat. Jen aplikace, tvoje baterka a tvůj čip."
+            "value": "Automatické titulky ve 25 jazycích. A všechno ostatní, co od střihače čekáš, ale…"
+          }
+        }
+      }
+    },
+    "…everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+          }
+        }
+      }
+    },
+    "Made by a filmmaker, in Prague": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Od filmaře, z Prahy"
           }
         }
       }

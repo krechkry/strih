@@ -80,10 +80,17 @@ struct OnboardingView: View {
                 .frame(width: 84, height: 84)
             VStack(alignment: .leading, spacing: 10) {
                 Text("BOMBOCUT").font(.system(size: 44, weight: .heavy)).lineLimit(1).minimumScaleFactor(0.7)
-                Text("Subtitles in 25 languages, made on your iPhone. Everything runs offline: no cloud, no account, no data collection. Just the app, your battery and your chip.")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Automatic subtitles in 25 languages. And all the other features you like, but…")
+                    Text("…everything runs offline, on your iPhone. No cloud, no account, no data collection.")
+                }
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+                Text("Made by a filmmaker, in Prague")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.muted)
+                    .padding(.top, 6)
             }
             Spacer(minLength: 10)
             Text("App language").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
