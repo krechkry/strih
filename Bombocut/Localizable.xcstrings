@@ -366,6 +366,16 @@
         }
       }
     },
+    "Audio": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk"
+          }
+        }
+      }
+    },
     "Automatic": {
       "localizations": {
         "cs": {
@@ -732,6 +742,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vymazat mezipaměť?"
+          }
+        }
+      }
+    },
+    "Clip sound": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk klipu"
           }
         }
       }
@@ -1276,6 +1296,16 @@
         }
       }
     },
+    "Extract audio": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oddělit zvuk"
+          }
+        }
+      }
+    },
     "Extras": {
       "localizations": {
         "cs": {
@@ -1500,6 +1530,26 @@
         }
       }
     },
+    "From Files": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ze Souborů"
+          }
+        }
+      }
+    },
+    "From a video in Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z videa ve Fotkách"
+          }
+        }
+      }
+    },
     "Generate captions": {
       "localizations": {
         "cs": {
@@ -1516,6 +1566,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vytvořit titulky znovu? Tvoje úpravy textu se přepíšou."
+          }
+        }
+      }
+    },
+    "Getting the sound…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získávám zvuk…"
           }
         }
       }
@@ -1576,6 +1636,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Světla"
+          }
+        }
+      }
+    },
+    "Hold and slide the sound on the timeline to move it; drag its edges to trim.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Podrž a posuň zvuk na časové ose, okraji ho zkrátíš."
           }
         }
       }
@@ -3140,6 +3210,26 @@
         }
       }
     },
+    "This file has no sound.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento soubor nemá zvuk."
+          }
+        }
+      }
+    },
+    "This video has no sound.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toto video nemá zvuk."
+          }
+        }
+      }
+    },
     "Thumbnails and system caches, rebuilt when needed": {
       "localizations": {
         "cs": {
@@ -3286,6 +3376,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Video"
+          }
+        }
+      }
+    },
+    "Video sound": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk z videa"
           }
         }
       }

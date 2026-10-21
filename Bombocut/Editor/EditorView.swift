@@ -9,6 +9,9 @@ struct EditorView: View {
     @State private var sheet: EditorSheet?
     @State private var addItems: [PhotosPickerItem] = []
     @State private var overlayItems: [PhotosPickerItem] = []
+    @State private var showAudioFiles = false
+    @State private var showAudioVideo = false
+    @State private var audioVideoItem: PhotosPickerItem?
     @State private var adding = false
     @State private var renaming = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
@@ -37,6 +40,7 @@ struct EditorView: View {
         case .motionBlur: return 350
         case .animation: return 400
         case .layout: return 250
+        case .audio: return 220
         }
     }
 
@@ -72,6 +76,7 @@ struct EditorView: View {
         case .motionBlur: MotionBlurSheet(model: model)
         case .animation: ClipAnimSheet(model: model)
         case .layout: LayoutSheet(model: model)
+        case .audio: AudioSheet(model: model)
         }
     }
 
@@ -97,7 +102,7 @@ struct EditorView: View {
                 VStack(spacing: 0) {
                     transport
                     TimelineView(model: model)
-                        .frame(height: (model.project.captions == nil ? 112 : 136) + OverlayLane.height(model.project.overlays))
+                        .frame(height: (model.project.captions == nil ? 112 : 136) + OverlayLane.height(model.project.overlays) + AudioLane.height(model.project.audio))
                     toolbar
                 }
                 .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = $0 }
@@ -142,6 +147,32 @@ struct EditorView: View {
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
         }
+        .onChange(of: model.openAudioPanel) { _, open in
+            if open { model.openAudioPanel = false; sheet = .audio }
+        }
+        .onChange(of: model.selectedAudioID) { _, id in
+            if id == nil && sheet == .audio { sheet = nil }
+        }
+        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: [.audio, .movie]) { result in
+            guard case .success(let url) = result else { return }
+            Task { await model.addAudioFile(url) }
+        }
+        .photosPicker(isPresented: $showAudioVideo, selection: $audioVideoItem, matching: .videos, preferredItemEncoding: .current)
+        .onChange(of: audioVideoItem) { _, item in
+            guard let item else { return }
+            audioVideoItem = nil
+            Task {
+                model.audioBusy = true
+                if let m = try? await item.loadTransferable(type: ImportedMovie.self) {
+                    await model.addAudioFromVideo(m.url)
+                } else {
+                    model.audioBusy = false
+                }
+            }
+        }
+        .alert("Audio", isPresented: Binding(get: { model.audioError != nil }, set: { if !$0 { model.audioError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(model.audioError ?? "") }
         .onChange(of: model.openOverlayPanel) { _, open in
             if open { model.openOverlayPanel = false; sheet = .overlay }
         }
@@ -159,8 +190,8 @@ struct EditorView: View {
             Task { await add(items) }
         }
         .overlay {
-            if adding {
-                ProgressView("Importing…")
+            if adding || model.audioBusy {
+                ProgressView(model.audioBusy ? loc("Getting the sound…") : loc("Importing…"))
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
@@ -410,6 +441,11 @@ struct EditorView: View {
             HStack(spacing: 4) {
                 if let pk = model.pick {
                     pickBar(pk)
+                } else if model.selectedAudioIndex != nil {
+                    ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
+                    ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
+                    ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
+                    ToolButton(icon: "xmark", label: "Done") { model.selectAudio(nil) }
                 } else if model.selectedOverlayIndex != nil {
                     ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
@@ -427,16 +463,21 @@ struct EditorView: View {
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
-                    ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
-                    ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation }
-                    ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                     ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                     ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
+                    ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
+                    ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+                    ToolButton(icon: "waveform.badge.plus", label: "Extract audio") {
+                        model.pause()
+                        Task { await model.extractClipAudio() }
+                    }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-                    ToolButton(icon: "arrow.down.right.and.arrow.up.left", label: "Fit") { model.fitClip(fill: false) }
-                        .contextMenu { Button("Fit all clips", systemImage: "square.stack.3d.up") { model.fitAll(fill: false) } }
+                    ToolButton(icon: "sparkles", label: "Animation") { model.pause(); sheet = .animation }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
-                        .contextMenu { Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) } }
+                        .contextMenu {
+                            Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }
+                            Button("Fit all clips", systemImage: "square.stack.3d.up") { model.fitAll(fill: false) }
+                        }
                     if !clip.transform.isIdentity {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
@@ -455,6 +496,12 @@ struct EditorView: View {
                         ToolLabel(icon: "square.on.square", label: "Overlay")
                     }
                     .tint(Theme.pickerTint)
+                    Menu {
+                        Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
+                        Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
+                    } label: {
+                        ToolLabel(icon: "music.note", label: "Audio")
+                    }
                     ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
                     ToolButton(icon: "aspectratio", label: "Canvas") { sheet = .canvas }
                 }
@@ -680,7 +727,7 @@ struct EditorView: View {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio
     var id: String { rawValue }
 }
 

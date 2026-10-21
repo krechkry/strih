@@ -314,12 +314,13 @@ struct Project: Identifiable, Codable, Hashable {
     var clips: [Clip] = []
     var captions: Captions?
     var overlays: [Overlay] = []
+    var audio: [AudioItem] = []
 
     var duration: Double { clips.reduce(0) { $0 + $1.duration } }
 
     init(name: String) { self.name = name }
 
-    enum CodingKeys: String, CodingKey { case id, name, created, modified, canvas, clips, captions, overlays }
+    enum CodingKeys: String, CodingKey { case id, name, created, modified, canvas, clips, captions, overlays, audio }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -331,11 +332,12 @@ struct Project: Identifiable, Codable, Hashable {
         clips = try c.decodeIfPresent([Clip].self, forKey: .clips) ?? []
         captions = try c.decodeIfPresent(Captions.self, forKey: .captions)
         overlays = try c.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
+        audio = (try? c.decodeIfPresent([AudioItem].self, forKey: .audio)) ?? []
     }
 
     /// Every imported file the project needs (clips and overlays).
     var mediaFiles: Set<String> {
-        Set(clips.map(\.mediaFile)).union(overlays.compactMap(\.kind.mediaFile))
+        Set(clips.map(\.mediaFile)).union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
     }
 
     /// Timeline start time of each clip.

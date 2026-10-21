@@ -98,3 +98,35 @@ struct ClipAnimSheet: View {
         .scrollIndicators(.hidden)
     }
 }
+
+/// The selected sound on the audio lane.
+struct AudioSheet: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let i = model.selectedAudioIndex {
+                let a = model.project.audio[i]
+                HStack {
+                    Label(a.name, systemImage: "waveform").font(.title3.weight(.heavy)).lineLimit(1)
+                    Spacer()
+                    Text(Fmt.duration(a.duration)).font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
+                }
+                HStack(spacing: 14) {
+                    Button { model.setAudioVolume(a.volume < 0.01 ? 1 : 0, done: true) } label: {
+                        Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
+                    }
+                    .tint(.white)
+                    Slider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
+                           onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
+                    Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
+                        .frame(width: 52, alignment: .trailing)
+                }
+                Text("Hold and slide the sound on the timeline to move it; drag its edges to trim.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            }
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}

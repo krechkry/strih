@@ -52,6 +52,7 @@ final class EditorModel: ObservableObject {
             if selectedClipID != nil {
                 if selectedOverlayID != nil { selectedOverlayID = nil }
                 if captionsSelected { captionsSelected = false }
+                if selectedAudioID != nil { selectedAudioID = nil }
             }
         }
     }
@@ -61,6 +62,7 @@ final class EditorModel: ObservableObject {
             if captionsSelected {
                 if selectedClipID != nil { selectedClipID = nil }
                 if selectedOverlayID != nil { selectedOverlayID = nil }
+                if selectedAudioID != nil { selectedAudioID = nil }
             }
         }
     }
@@ -298,6 +300,9 @@ final class EditorModel: ObservableObject {
         if !project.overlays.isEmpty {
             project.overlays = Captions.remapOverlays(project.overlays, from: before, to: project)
         }
+        if !project.audio.isEmpty {
+            project.audio = Captions.remapAudio(project.audio, from: before, to: project)
+        }
     }
 
     private func pushUndo(_ p: Project) {
@@ -313,6 +318,7 @@ final class EditorModel: ObservableObject {
         canRedo = !redoStack.isEmpty
         if let id = selectedClipID, !project.clips.contains(where: { $0.id == id }) { selectedClipID = nil }
         if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
+        if let id = selectedAudioID, !project.audio.contains(where: { $0.id == id }) { selectedAudioID = nil }
         currentTime = min(currentTime, duration)
         LookStore.shared.update(project.clips)
         CaptionStore.shared.update(project.captions)
@@ -465,6 +471,7 @@ final class EditorModel: ObservableObject {
     func tapClip(_ id: UUID) {
         selectedOverlayID = nil
         captionsSelected = false
+        selectedAudioID = nil
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         if selectedClipID == id { selectedClipID = nil; return }
         selectedClipID = id
@@ -1160,6 +1167,135 @@ final class EditorModel: ObservableObject {
         commit()
     }
 
+    // MARK: Audio lane
+
+    @Published var selectedAudioID: UUID? {
+        didSet {
+            if selectedAudioID != nil {
+                if selectedClipID != nil { selectedClipID = nil }
+                if selectedOverlayID != nil { selectedOverlayID = nil }
+                if captionsSelected { captionsSelected = false }
+            }
+        }
+    }
+    @Published var audioBusy = false
+    @Published var openAudioPanel = false
+    @Published var audioError: String?
+    private var audioSnapshot: Project?
+
+    var selectedAudioIndex: Int? { project.audio.firstIndex { $0.id == selectedAudioID } }
+
+    func selectAudio(_ id: UUID?) {
+        selectedAudioID = id
+        if let i = selectedAudioIndex {
+            let a = project.audio[i]
+            if currentTime < a.start || currentTime >= a.end { pause(); scrub(to: a.start + min(0.05, a.duration / 2)) }
+        }
+    }
+
+    /// Music or sound from Files (audio files, or the sound of a video file), at the playhead.
+    func addAudioFile(_ url: URL) async {
+        audioBusy = true
+        defer { audioBusy = false }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let (file, d) = try await AudioExtract.importFile(url)
+            placeAudio(file: file, name: url.deletingPathExtension().lastPathComponent, sourceDuration: d, at: currentTime)
+        } catch {
+            audioError = error.localizedDescription
+        }
+    }
+
+    /// The sound of a video picked from Photos, at the playhead (the video itself is not kept).
+    func addAudioFromVideo(_ url: URL) async {
+        audioBusy = true
+        defer { audioBusy = false }
+        do {
+            let (file, d) = try await AudioExtract.extract(from: url)
+            try? FileManager.default.removeItem(at: url)
+            placeAudio(file: file, name: loc("Video sound"), sourceDuration: d, at: currentTime)
+        } catch {
+            audioError = error.localizedDescription
+        }
+    }
+
+    /// Takes the selected clip's sound out onto the audio lane, right under the clip, and mutes the clip.
+    func extractClipAudio() async {
+        guard let i = selectedIndex else { return }
+        let c = project.clips[i]
+        let start = project.clipStarts[i]
+        audioBusy = true
+        defer { audioBusy = false }
+        do {
+            let (file, d) = try await AudioExtract.extract(from: Paths.mediaURL(c.mediaFile), range: c.inPoint...c.outPoint)
+            var a = AudioItem(file: file, name: loc("Clip sound"), sourceDuration: d, start: start, duration: c.duration)
+            a.speed = c.hasCurve ? 1 : c.speed
+            a.duration = c.hasCurve ? min(d, c.duration) : c.duration
+            a.volume = c.volume
+            let id = c.id
+            mutate { p in
+                p.audio.append(a)
+                if let j = p.clips.firstIndex(where: { $0.id == id }) { p.clips[j].volume = 0 }
+            }
+            selectedAudioID = a.id
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch {
+            audioError = error.localizedDescription
+        }
+    }
+
+    private func placeAudio(file: String, name: String, sourceDuration d: Double, at time: Double) {
+        let start = min(max(0, time), max(0, duration - 0.2))
+        let a = AudioItem(file: file, name: name, sourceDuration: d, start: start, duration: min(d, max(0.2, duration - start)))
+        mutate { $0.audio.append(a) }
+        selectedAudioID = a.id
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// Moving / trimming on the audio lane (done = finger lifted: one undo step, rebuild).
+    func audioTiming(_ id: UUID, start: Double, duration: Double, inPoint: Double? = nil, done: Bool) {
+        guard let i = project.audio.firstIndex(where: { $0.id == id }) else { return }
+        if audioSnapshot == nil { audioSnapshot = project }
+        var a = project.audio[i]
+        if let inPoint { a.inPoint = min(max(0, inPoint), a.sourceDuration - 0.1) }
+        let maxLen = (a.sourceDuration - a.inPoint) / max(a.speed, 0.01)
+        a.start = min(max(0, start), max(0, self.duration - 0.2))
+        a.duration = min(max(0.2, duration), maxLen, max(0.2, self.duration - a.start))
+        project.audio[i] = a
+        if done {
+            if let s = audioSnapshot, s != project { pushUndo(s) }
+            audioSnapshot = nil
+            commit()
+        }
+    }
+
+    func setAudioVolume(_ v: Double, done: Bool) {
+        guard let i = selectedAudioIndex else { return }
+        if audioSnapshot == nil { audioSnapshot = project }
+        project.audio[i].volume = v
+        if done {
+            if let s = audioSnapshot, s != project { pushUndo(s) }
+            audioSnapshot = nil
+            commit()
+        }
+    }
+
+    func deleteAudio() {
+        guard let i = selectedAudioIndex else { return }
+        mutate { $0.audio.remove(at: i) }
+        selectedAudioID = nil
+    }
+
+    func duplicateAudio() {
+        guard let i = selectedAudioIndex else { return }
+        var a = project.audio[i]
+        a.id = UUID()
+        a.start = min(a.end, max(0, duration - 0.2))
+        mutate { $0.audio.insert(a, at: i + 1) }
+        selectedAudioID = a.id
+    }
+
     // MARK: Motion blur
 
     func setMotionBlur(_ v: Double) {
@@ -1334,7 +1470,7 @@ final class EditorModel: ObservableObject {
 
     func selectOverlay(_ id: UUID?) {
         selectedOverlayID = id
-        if id != nil { selectedClipID = nil; captionsSelected = false }
+        if id != nil { selectedClipID = nil; captionsSelected = false; selectedAudioID = nil }
         // put the playhead on it so you see what you edit
         if let i = selectedOverlayIndex {
             let o = project.overlays[i]

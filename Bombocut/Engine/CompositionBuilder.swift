@@ -199,6 +199,28 @@ enum CompositionBuilder {
             }
         }
 
+        // Sound on the audio lane: one track each (own volume), cut at the end of the video.
+        for a in project.audio where a.start < cursor.seconds - 0.02 && a.volume > 0.001 {
+            let asset = AVURLAsset(url: Paths.mediaURL(a.file))
+            guard let src = try? await asset.loadTracks(withMediaType: .audio).first,
+                  let range = try? await src.load(.timeRange),
+                  let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { continue }
+            let len = min(a.duration, cursor.seconds - a.start)
+            let r = CMTimeRange(start: time(a.inPoint), duration: time(len * a.speed)).intersection(range)
+            guard r.duration.seconds > 0.01, (try? track.insertTimeRange(r, of: src, at: time(a.start))) != nil else {
+                comp.removeTrack(track)
+                continue
+            }
+            if abs(a.speed - 1) > 0.001 {
+                track.scaleTimeRange(CMTimeRange(start: time(a.start), duration: r.duration), toDuration: time(r.duration.seconds / a.speed))
+            }
+            let p = AVMutableAudioMixInputParameters(track: track)
+            p.audioTimePitchAlgorithm = .spectral
+            p.setVolume(Float(a.volume), at: .zero)
+            overlayAudio.append(p)
+        }
+
         var mixParams: [AVAudioMixInputParameters] = []
         for (track, p) in [(keepTrack, keepParams), (variTrack, variParams)] {
             if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }

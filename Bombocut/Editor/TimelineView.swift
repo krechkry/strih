@@ -81,6 +81,9 @@ struct TimelineView: View {
                         }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
+                    if !model.project.audio.isEmpty, reorder == nil {
+                        AudioLane(model: model)
+                    }
                     if let caps = model.project.captions, reorder == nil {
                         CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
                                     selected: model.captionsSelected,
@@ -95,7 +98,7 @@ struct TimelineView: View {
                     .padding(.top, 26)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
-                    .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil }
+                    .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
                 }
                 .scrollPosition($scrollPos)
                 .scrollDisabled(model.trim != nil || reorder != nil)
@@ -676,5 +679,146 @@ struct OverlayLane: View {
                         dragStart = nil
                     }
             )
+    }
+}
+
+/// Sound under the clips: tap to select, hold and slide to move (snaps to the playhead), drag the edges to trim.
+struct AudioLane: View {
+    @ObservedObject var model: EditorModel
+    @State private var dragStart: (start: Double, duration: Double, inPoint: Double)?
+
+    static let rowHeight: CGFloat = 26
+    static let maxRows = 3
+    static let tint = Color(red: 0.25, green: 0.78, blue: 0.62)
+
+    static func rows(_ list: [AudioItem]) -> [[AudioItem]] {
+        var rows: [[AudioItem]] = []
+        for a in list {
+            if let i = rows.firstIndex(where: { r in r.allSatisfy { $0.end <= a.start + 0.001 || $0.start >= a.end - 0.001 } }),
+               i < maxRows {
+                rows[i].append(a)
+            } else if rows.count < maxRows {
+                rows.append([a])
+            } else {
+                rows[maxRows - 1].append(a)
+            }
+        }
+        return rows
+    }
+
+    static func height(_ list: [AudioItem]) -> CGFloat {
+        list.isEmpty ? 0 : CGFloat(rows(list).count) * (rowHeight + 3) + 3
+    }
+
+    var body: some View {
+        let px = model.pxPerSec
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(Self.rows(model.project.audio).enumerated()), id: \.offset) { _, row in
+                ZStack(alignment: .topLeading) {
+                    Color.clear.frame(width: CGFloat(model.duration) * px, height: Self.rowHeight)
+                    ForEach(row) { a in block(a, px: px) }
+                }
+            }
+        }
+    }
+
+    private func block(_ a: AudioItem, px: CGFloat) -> some View {
+        let selected = a.id == model.selectedAudioID
+        let w = max(10, CGFloat(a.duration) * px)
+        return HStack(spacing: 4) {
+            Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "waveform").font(.system(size: 10, weight: .bold))
+            Text(a.name).font(.system(size: 9, weight: .bold)).lineLimit(1)
+        }
+        .foregroundStyle(selected ? .black : .white)
+        .padding(.horizontal, selected ? 12 : 5)
+        .frame(width: w, height: Self.rowHeight, alignment: .leading)
+        .background(
+            ZStack {
+                (selected ? Theme.accent : Self.tint.opacity(0.45))
+                Wave(seed: a.file.hashValue).fill(.black.opacity(selected ? 0.18 : 0.22))
+            },
+            in: RoundedRectangle(cornerRadius: 5))
+        .clipped()
+        .overlay {
+            if selected {
+                HStack(spacing: 0) {
+                    edge(a, leading: true, px: px)
+                    Spacer(minLength: 0)
+                    edge(a, leading: false, px: px)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if selected { model.openAudioPanel = true } else { model.selectAudio(a.id) }
+        }
+        .gesture(HoldToDrag(
+            onBegan: { _ in
+                model.selectAudio(a.id)
+                dragStart = (a.start, a.duration, a.inPoint)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            },
+            onChanged: { dx, _ in
+                guard let d = dragStart else { return }
+                var s = d.start + Double(dx / px)
+                if abs((s - model.currentTime) * Double(px)) < 8 { s = model.currentTime }
+                model.audioTiming(a.id, start: s, duration: d.duration, done: false)
+            },
+            onEnded: {
+                if let cur = model.project.audio.first(where: { $0.id == a.id }) {
+                    model.audioTiming(a.id, start: cur.start, duration: cur.duration, done: true)
+                }
+                dragStart = nil
+            }))
+        .offset(x: CGFloat(a.start) * px)
+    }
+
+    private func edge(_ a: AudioItem, leading: Bool, px: CGFloat) -> some View {
+        Rectangle().fill(.black.opacity(0.35))
+            .frame(width: 10, height: Self.rowHeight)
+            .overlay(Capsule().fill(.black).frame(width: 2, height: 10))
+            .contentShape(Rectangle().inset(by: -8))
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                    .onChanged { v in
+                        if dragStart == nil { dragStart = (a.start, a.duration, a.inPoint) }
+                        guard let d = dragStart else { return }
+                        var dt = Double(v.translation.width / px)
+                        let edgeT = leading ? d.start + dt : d.start + d.duration + dt
+                        if abs((edgeT - model.currentTime) * Double(px)) < 8 { dt += model.currentTime - edgeT }
+                        if leading {
+                            // trimming the head moves into the file too, so the sound stays in sync
+                            let shift = max(-d.inPoint / a.speed, min(dt, d.duration - 0.2))
+                            model.audioTiming(a.id, start: d.start + shift, duration: d.duration - shift,
+                                              inPoint: d.inPoint + shift * a.speed, done: false)
+                        } else {
+                            model.audioTiming(a.id, start: d.start, duration: d.duration + dt, done: false)
+                        }
+                    }
+                    .onEnded { _ in
+                        if let cur = model.project.audio.first(where: { $0.id == a.id }) {
+                            model.audioTiming(a.id, start: cur.start, duration: cur.duration, done: true)
+                        }
+                        dragStart = nil
+                    }
+            )
+    }
+}
+
+/// A made-up waveform so a block reads as sound at a glance (cheap, the same every time).
+private struct Wave: Shape {
+    let seed: Int
+
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        let n = max(4, Int(r.width / 3))
+        var x = UInt64(bitPattern: Int64(seed))
+        for i in 0..<n {
+            x = x &* 6364136223846793005 &+ 1442695040888963407
+            let v = 0.25 + Double((x >> 33) % 1000) / 1000 * 0.7
+            let h = r.height * CGFloat(v) * 0.8
+            p.addRect(CGRect(x: CGFloat(i) * 3, y: r.midY - h / 2, width: 2, height: h))
+        }
+        return p
     }
 }
