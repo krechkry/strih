@@ -168,6 +168,7 @@ struct ExportSheet: View {
             }
             if Demo.mode == "exporting" { phase = .exporting(0.42) }
             if Demo.mode == "tooheavy" { phase = .tooHeavy }
+            if Demo.mode == "exportinglate" { phase = .exporting(0.96) }
         }
     }
 
@@ -419,7 +420,7 @@ struct ExportSheet: View {
     private func progressView(_ p: Double) -> some View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
-            // Starts deadpan and cheers up as the export gets closer to done
+            // Starts deadpan and turns into a knowing smirk as the export gets closer to done
             MemeView(meme: .deadpan, mood: min(max(p, 0), 1))
                 .frame(width: 230, height: 230)
                 .animation(.easeOut(duration: 0.6), value: p)
