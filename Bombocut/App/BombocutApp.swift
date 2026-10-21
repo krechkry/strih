@@ -8,6 +8,7 @@ struct BombocutApp: App {
     init() {
         // editor audio plays even when the ring/silent switch is on (and, if chosen, next to other apps' music)
         AudioMix.apply()
+        FirstLaunch.checkNewBuild()
         Task.detached(priority: .background) { StorageReport.tidyTemp() }
         // the speech model is big: drop it if iOS runs short of memory (it reloads when needed)
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
@@ -25,6 +26,38 @@ struct BombocutApp: App {
                 .fontWeight(.medium)
                 .task { if Demo.mode == nil { SpeechEngine.warmUp() } }
         }
+    }
+}
+
+/// Test builds (run from Xcode, or TestFlight) show the first-launch screens again after every update,
+/// so each new build can be tried the way a new user meets it. App Store installs show them once.
+enum FirstLaunch {
+    private static let key = "seenBuild"
+
+    /// Something that changes with every build: the build number and when the app binary was made.
+    private static var buildStamp: String {
+        let v = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let made = Bundle.main.executableURL
+            .flatMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }
+            .map { String(Int($0.timeIntervalSince1970)) } ?? ""
+        return v + "|" + made
+    }
+
+    private static var isTestBuild: Bool {
+        #if DEBUG
+        return true
+        #else
+        return UserDefaults.standard.bool(forKey: "isBeta")   // remembered from the last TestFlight launch
+        #endif
+    }
+
+    static func checkNewBuild() {
+        guard Demo.mode == nil else { return }
+        let d = UserDefaults.standard
+        let stamp = buildStamp
+        guard d.string(forKey: key) != stamp else { return }
+        d.set(stamp, forKey: key)
+        if isTestBuild { d.set(false, forKey: "onboarded") }
     }
 }
 
