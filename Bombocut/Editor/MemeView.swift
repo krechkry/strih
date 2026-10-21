@@ -12,7 +12,7 @@ enum Meme: String, CaseIterable, Identifiable {
 /// A meme, drawn in `color` and moving. Square; it fits the space it gets.
 /// Holds still when the system asks for reduced motion.
 /// `mood` (0...1) drives memes that have a mood mouth (the deadpan): 0 is the drawing as it is,
-/// 1 a big open grin. Animate it with `.animation(_:value:)` and it eases between values.
+/// 1 the full expression (the deadpan's smirk). Animate it with `.animation(_:value:)` and it eases between values.
 struct MemeView: View, Animatable {
     let meme: Meme
     var mood: Double = 0
@@ -80,26 +80,36 @@ struct MemeView: View, Animatable {
         c.blendMode = .destinationOut
         let k = CGFloat(min(max(mood, 0), 1))
         let hw = m.half + m.widen * k
-        let cy = m.y - m.lift * k
-        let ctrl = m.flat + (m.smile - m.flat) * k
-        let left = CGPoint(x: m.x - hw, y: cy)
-        let right = CGPoint(x: m.x + hw, y: cy)
-        let bottom = CGPoint(x: m.x, y: ctrl)
+        let left = CGPoint(x: m.x - hw, y: m.y - m.liftLeft * k)
+        let right = CGPoint(x: m.x + hw, y: m.y - m.liftRight * k)
+        let bend = CGPoint(x: m.x + m.shift * k, y: m.flat + (m.smile - m.flat) * k)
         if m.openFrom < 1 {
             let open = min(max((k - m.openFrom) / (1 - m.openFrom), 0), 1)
             if open > 0 {
+                let top = bend.y + ((left.y + right.y) / 2 - 4 - bend.y) * open
                 var grin = Path()
                 grin.move(to: left)
-                grin.addQuadCurve(to: right, control: bottom)
-                grin.addQuadCurve(to: left, control: CGPoint(x: m.x, y: ctrl + (cy - 4 - ctrl) * open))
+                grin.addQuadCurve(to: right, control: bend)
+                grin.addQuadCurve(to: left, control: CGPoint(x: bend.x, y: top))
                 grin.closeSubpath()
                 c.fill(grin, with: .color(.black))
             }
         }
         var line = Path()
         line.move(to: left)
-        line.addQuadCurve(to: right, control: bottom)
+        line.addQuadCurve(to: right, control: bend)
         c.stroke(line, with: .color(.black), style: StrokeStyle(lineWidth: m.width, lineCap: .round))
+        if m.dimpleFrom < 1 {
+            let d = min(max((k - m.dimpleFrom) / (1 - m.dimpleFrom), 0), 1)
+            if d > 0 {
+                let h = 8 * d
+                var dimple = Path()
+                dimple.move(to: CGPoint(x: right.x + 10, y: right.y - h + 1))
+                dimple.addQuadCurve(to: CGPoint(x: right.x + 11, y: right.y + h + 1),
+                                    control: CGPoint(x: right.x + 16, y: right.y + 1))
+                c.stroke(dimple, with: .color(.black), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+            }
+        }
         let lip = min(max(1 - k / 0.3, 0), 1)
         if lip > 0 {
             let lh = m.lipHalf * lip
@@ -112,23 +122,27 @@ struct MemeView: View, Animatable {
 }
 
 /// A mouth that follows the mood (see art/memes/layers.py, mood_mouth). At mood 0 it is a stroke
-/// from (x - half, y) to (x + half, y) bending toward (x, flat), plus a lower lip. Mood lifts the
-/// corners by `lift`, widens them by `widen`, bends the line toward (x, smile), removes the lip by
-/// mood 0.3 and opens the mouth from `openFrom` on.
+/// from (x - half, y) to (x + half, y) bending toward (x, flat), plus a lower lip. With mood the
+/// corners widen by `widen` and rise by `liftLeft` / `liftRight` (different values make a smirk),
+/// the bend moves to (x + shift, smile), the lip goes by mood 0.3, the mouth opens from `openFrom`
+/// on and a dimple grows at the right corner from `dimpleFrom` on (1 = never, for both).
 struct MemeMouth {
     let x: CGFloat
     let y: CGFloat
     let half: CGFloat
     let flat: CGFloat
     let smile: CGFloat
-    let lift: CGFloat
+    let liftLeft: CGFloat
+    let liftRight: CGFloat
     let widen: CGFloat
+    let shift: CGFloat
     let width: CGFloat
     let lipY: CGFloat
     let lipHalf: CGFloat
     let lipSag: CGFloat
     let lipWidth: CGFloat
     let openFrom: CGFloat
+    let dimpleFrom: CGFloat
 }
 
 /// A blink cover: an ellipse in the meme's color that shuts an eye hole.

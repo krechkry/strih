@@ -17,13 +17,16 @@ from gen import obj, solid, limb, cut, text, open_hand, explosion, cat_bust, INT
 def L(c, gap=0, anims=(), eyes=(), blink=None, mouth=None):
     return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink, "mouth": mouth}
 
-# A mouth that follows a mood value (0 = the drawing as it is, 1 = big open grin), cut out of its layer.
-# At mood 0 it draws exactly the still: a stroke from (x - half, y) to (x + half, y) through control (x, flat),
-# plus a lower-lip stroke. Mood lifts the corners by lift, widens them by widen, pulls the control to smile,
-# shrinks the lip away by mood 0.3, and opens the mouth from openFrom on.
-def mood_mouth(x, y, half, flat, smile, lift, widen, width, lip_y, lip_half, lip_sag, lip_width, open_from):
-    return {"x": x, "y": y, "half": half, "flat": flat, "smile": smile, "lift": lift, "widen": widen, "width": width,
-            "lipY": lip_y, "lipHalf": lip_half, "lipSag": lip_sag, "lipWidth": lip_width, "openFrom": open_from}
+# A mouth that follows a mood value (0 = the drawing as it is, 1 = full expression), cut out of its layer.
+# At mood 0 it draws exactly the still: a stroke from (x - half, y) to (x + half, y) bending toward (x, flat),
+# plus a lower-lip stroke. With mood the corners widen by widen and rise by lift_left / lift_right (different
+# values make a smirk), the bend point moves to (x + shift, smile), the lip shrinks away by mood 0.3, the
+# mouth opens from open_from on (1 = never) and a dimple grows at the right corner from dimple_from on (1 = never).
+def mood_mouth(x, y, half, flat, smile, lift_left, lift_right, widen, shift, width,
+               lip_y, lip_half, lip_sag, lip_width, open_from, dimple_from):
+    return {"x": x, "y": y, "half": half, "flat": flat, "smile": smile, "liftLeft": lift_left, "liftRight": lift_right,
+            "widen": widen, "shift": shift, "width": width, "lipY": lip_y, "lipHalf": lip_half, "lipSag": lip_sag,
+            "lipWidth": lip_width, "openFrom": open_from, "dimpleFrom": dimple_from}
 
 def rot(a, p, x, y, ph=0.0): return {"t": "rot", "a": a, "p": p, "ph": ph, "x": x, "y": y}
 def move(dx, dy, p, ph=0.0): return {"t": "move", "dx": dx, "dy": dy, "p": p, "ph": ph}
@@ -200,7 +203,7 @@ body += limb("M210 316 L204 440", 8, 0) + limb("M270 316 L276 440", 8, 0)
 body += solid('ellipse cx="196" cy="446" rx="20" ry="8"') + solid('ellipse cx="284" cy="446" rx="20" ry="8"')
 MEMES["11_deadpan"] = [
     L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (6.5, 0.2, 0.022),
-      mood_mouth(240, 250, 28, 245, 312, 10, 6, 7, 264, 16, 4, 3, 0.55)),
+      mood_mouth(240, 250, 28, 245, 258, -2, 17, 4, -12, 7, 264, 16, 4, 3, 1, 0.45)),
     L(limb("M130 236 Q108 320 120 400", 8, 0) + solid('ellipse cx="120" cy="410" rx="12" ry="14"'), 0, [rot(0.8, 4.5, 130, 236)]),
     L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-0.8, 4.5, 350, 236)]),
 ]

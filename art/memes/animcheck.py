@@ -52,14 +52,20 @@ def clamp01(v): return max(0.0, min(1.0, v))
 def mouth_svg(m, mood, tf):
     """The mood mouth as white shapes (they get cut out). Same math as MemeView.swift."""
     k = clamp01(mood)
-    hw = m["half"] + m["widen"] * k; cy = m["y"] - m["lift"] * k
-    ctrl = m["flat"] + (m["smile"] - m["flat"]) * k
-    x = m["x"]; l, r = (x - hw, cy), (x + hw, cy)
-    s = f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]}" fill="none" stroke="#fff" stroke-width="{m["width"]}" stroke-linecap="round"/>'
-    op = clamp01((k - m["openFrom"]) / (1 - m["openFrom"]))
-    if op > 0:
-        up = ctrl + (cy - 4 - ctrl) * op
-        s += f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]} Q{x} {up} {l[0]} {l[1]} Z" fill="#fff"/>'
+    hw = m["half"] + m["widen"] * k
+    x = m["x"]; l = (x - hw, m["y"] - m["liftLeft"] * k); r = (x + hw, m["y"] - m["liftRight"] * k)
+    cx = x + m["shift"] * k; ctrl = m["flat"] + (m["smile"] - m["flat"]) * k
+    s = f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{cx} {ctrl} {r[0]} {r[1]}" fill="none" stroke="#fff" stroke-width="{m["width"]}" stroke-linecap="round"/>'
+    if m["openFrom"] < 1:
+        op = clamp01((k - m["openFrom"]) / (1 - m["openFrom"]))
+        if op > 0:
+            up = ctrl + ((l[1] + r[1]) / 2 - 4 - ctrl) * op
+            s += f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{cx} {ctrl} {r[0]} {r[1]} Q{cx} {up} {l[0]} {l[1]} Z" fill="#fff"/>'
+    if m["dimpleFrom"] < 1:
+        dk = clamp01((k - m["dimpleFrom"]) / (1 - m["dimpleFrom"]))
+        if dk > 0:
+            h = 8 * dk
+            s += f'<path transform="{tf}" d="M{r[0]+10} {r[1]-h+1} Q{r[0]+16} {r[1]+1} {r[0]+11} {r[1]+h+1}" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>'
     lk = clamp01(1 - k / 0.3)
     if lk > 0:
         lh = m["lipHalf"] * lk; ly = m["lipY"]

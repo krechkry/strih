@@ -60,7 +60,7 @@ def main(src, dst):
             out.append(f"                    blink: {blink},")
             if "mouth" in lay:
                 m = lay["mouth"]
-                keys = ["x", "y", "half", "flat", "smile", "lift", "widen", "width", "lipY", "lipHalf", "lipSag", "lipWidth", "openFrom"]
+                keys = ["x", "y", "half", "flat", "smile", "liftLeft", "liftRight", "widen", "shift", "width", "lipY", "lipHalf", "lipSag", "lipWidth", "openFrom", "dimpleFrom"]
                 out.append("                    mouth: MemeMouth(" + ", ".join(f"{k}: {num(m[k])}" for k in keys) + ")")
             else:
                 out.append("                    mouth: nil")
