@@ -1499,8 +1499,9 @@ final class EditorModel: ObservableObject {
         let d = UserDefaults.standard
         guard d.bool(forKey: "safeZoneAlways"),
               let zone = SafeZone(rawValue: d.string(forKey: "safeZone") ?? "reels"), let r = zone.rect(in: canvas) else { return false }
-        let w = abs(size.width * cos(rotation)) + abs(size.height * sin(rotation))
-        let h = abs(size.width * sin(rotation)) + abs(size.height * cos(rotation))
+        let co = CGFloat(abs(cos(rotation))), si = CGFloat(abs(sin(rotation)))
+        let w: CGFloat = size.width * co + size.height * si
+        let h: CGFloat = size.width * si + size.height * co
         let box = CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
         return !r.insetBy(dx: -1, dy: -1).contains(box)
     }
