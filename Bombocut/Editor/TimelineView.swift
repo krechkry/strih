@@ -174,7 +174,7 @@ struct TimelineView: View {
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
                     if reorder == nil && (phase == .interacting || phase == .decelerating) {
-                        model.scrub(to: Double(max(0, x) / model.pxPerSec))
+                        model.scrubFrame(to: Double(max(0, x) / model.pxPerSec))
                     }
                 }
                 .onScrollPhaseChange { _, new in

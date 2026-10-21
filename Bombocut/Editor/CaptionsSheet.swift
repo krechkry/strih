@@ -342,7 +342,7 @@ struct CaptionsSheet: View {
                     }
                 }
 
-                slider("Size", value: s.size, in: 0.03...0.14) { v in { $0.size = v } }
+                slider("Size", value: s.size, in: 0.03...0.28) { v in { $0.size = v } }
                 slider("Position", value: s.y, in: 0.08...0.92) { v in { $0.y = v } }
 
                 section("Lines") {
@@ -361,12 +361,12 @@ struct CaptionsSheet: View {
                 colorRow("Text", s.text) { c in { $0.text = c } }
                 if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
                 colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
-                slider("Outline width", value: s.strokeWidth, in: 0...1) { v in { $0.strokeWidth = v } }
+                slider("Outline width", value: s.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
                 if s.strokeWidth > 0 {
                     OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
                 }
-                slider("Letter spacing", value: s.tracking, in: -0.1...0.5) { v in { $0.tracking = v } }
-                slider("Line spacing", value: s.lineSpacing, in: 0.6...2) { v in { $0.lineSpacing = v } }
+                slider("Letter spacing", value: s.tracking, in: -0.2...1) { v in { $0.tracking = v } }
+                slider("Line spacing", value: s.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
 
                 OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
                 if s.box {
@@ -380,8 +380,8 @@ struct CaptionsSheet: View {
                 }
                 if s.shadow {
                     slider("Shadow opacity", value: s.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
-                    slider("Shadow blur", value: s.shadowBlur, in: 0...0.6) { v in { $0.shadowBlur = v } }
-                    slider("Shadow distance", value: s.shadowDistance, in: 0...0.3) { v in { $0.shadowDistance = v } }
+                    slider("Shadow blur", value: s.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
+                    slider("Shadow distance", value: s.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
                     slider("Shadow angle", value: s.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
                 }
             }

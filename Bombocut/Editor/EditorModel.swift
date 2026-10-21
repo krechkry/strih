@@ -163,12 +163,9 @@ final class EditorModel: ObservableObject {
             .sink { [weak self] n in
                 guard let self, let item = n.object as? AVPlayerItem, item === self.player.currentItem,
                       !self.loopSelected else { return }
-                let end = item.duration.seconds
-                guard end.isFinite, end > 0 else { return }
                 self.isPlaying = false
-                let last = max(0, end - 1.0 / 60)
-                self.player.seek(to: CMTime(seconds: last, preferredTimescale: 6000), toleranceBefore: .zero, toleranceAfter: .zero)
-                self.currentTime = min(self.duration, end)
+                // the start of the last frame, the same spot scrubbing to the end lands on
+                self.scrub(to: self.lastFrameTime)
             }
             .store(in: &cancellables)
 
@@ -193,18 +190,35 @@ final class EditorModel: ObservableObject {
     func togglePlay() {
         if isPlaying { pause(); return }
         loopSelected = false
-        if currentTime >= duration - 0.05 { scrub(to: 0) }
+        if currentTime >= lastFrameTime - 0.001 { scrub(to: 0) }
         player.play()
         isPlaying = true      // flip immediately so UI (fullscreen bar) reacts on the same tap
     }
 
     func pause() {
+        let wasPlaying = isPlaying
         player.pause()
         isPlaying = false
+        // stopped mid-play: rest on the frame that is showing
+        if wasPlaying && stopAt == nil { scrub(to: frameTime(currentTime)) }
         loopSelected = false
         stopAt = nil
         returnTo = nil
     }
+
+    /// The editor plays at 30 fps: the playhead rests on whole frames, so keyframes made at "the same
+    /// frame" really are the same, however far the timeline is zoomed.
+    static let fps = 30.0
+
+    /// Start of the last frame of the video (where the playhead stops at the end).
+    var lastFrameTime: Double { max(0, (ceil(duration * Self.fps - 1e-6) - 1) / Self.fps) }
+
+    func frameTime(_ t: Double) -> Double {
+        min(max(0, (t * Self.fps).rounded() / Self.fps), lastFrameTime)
+    }
+
+    /// Scrubbing by hand (timeline, scrub bars): lands on whole frames.
+    func scrubFrame(to t: Double) { scrub(to: frameTime(t)) }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
     func scrub(to t: Double) {
@@ -572,7 +586,7 @@ final class EditorModel: ObservableObject {
         let c = project.clips[i]
         let rt = c.retime
         let here = currentTime - project.clipStarts[i]
-        return c.keyframes.firstIndex { abs(rt.local(atSource: $0.t) - here) < 0.025 }
+        return c.keyframes.firstIndex { abs(rt.local(atSource: $0.t) - here) < 0.5 / Self.fps + 1e-3 }
     }
 
     var playheadInSelected: Bool {

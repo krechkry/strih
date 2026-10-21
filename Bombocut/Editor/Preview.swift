@@ -17,6 +17,14 @@ struct PreviewArea: View {
 
     private enum Grab { case move, corner(Int), draw }
 
+    // Looking closer while a panel is open: pinch to zoom the view (not the edit), drag to move around.
+    @State private var viewZoom: CGFloat = 1
+    @State private var zoomBase: CGFloat = 1
+    @State private var viewOffset: CGSize = .zero
+    @State private var panBase: CGSize = .zero
+    @State private var pinching = false
+    @State private var dragIsPan: Bool?
+
     var body: some View {
         GeometryReader { geo in
             let a = model.project.canvas.aspect
@@ -25,14 +33,20 @@ struct PreviewArea: View {
             let canvas = CGSize(width: w, height: h)
 
             ZStack {
-                layer(canvas) { media(canvas).clipShape(RoundedRectangle(cornerRadius: 6)) }
-                layer(canvas) { selectionBox(canvas) }
-                layer(canvas) { overlayBox(canvas) }
-                layer(canvas) { trackedBox(canvas) }
-                layer(canvas) { safeZoneLayer(canvas) }
-                layer(canvas) { captionBox(canvas) }
-                layer(canvas) { guides(canvas) }
-                layer(canvas) { readout }
+                ZStack {
+                    layer(canvas) { media(canvas).clipShape(RoundedRectangle(cornerRadius: 6)) }
+                    layer(canvas) { selectionBox(canvas) }
+                    layer(canvas) { overlayBox(canvas) }
+                    layer(canvas) { trackedBox(canvas) }
+                    layer(canvas) { safeZoneLayer(canvas) }
+                    layer(canvas) { captionBox(canvas) }
+                    layer(canvas) { guides(canvas) }
+                    layer(canvas) { readout }
+                }
+                .scaleEffect(viewZoom)
+                .offset(viewOffset)
+                .frame(width: w, height: h)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
                 if !model.trackPick && model.analysis == nil {
                     if model.previewScrubs {
                         layer(canvas) { scrubSurface(canvas) }
@@ -50,6 +64,28 @@ struct PreviewArea: View {
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
         .clipped()
+        .onChange(of: model.previewScrubs) { _, on in if !on { resetViewZoom() } }
+    }
+
+    private func resetViewZoom() {
+        withAnimation(.snappy(duration: 0.25)) {
+            viewZoom = 1
+            viewOffset = .zero
+        }
+        zoomBase = 1
+        panBase = .zero
+    }
+
+    /// Keeps the zoomed picture covering the canvas.
+    private func clampedOffset(_ o: CGSize, _ canvas: CGSize) -> CGSize {
+        let mx = (viewZoom - 1) * canvas.width / 2, my = (viewZoom - 1) * canvas.height / 2
+        return CGSize(width: min(max(o.width, -mx), mx), height: min(max(o.height, -my), my))
+    }
+
+    /// A point on the screen to the same point on the (zoomed) picture.
+    private func contentPoint(_ p: CGPoint, _ canvas: CGSize) -> CGPoint {
+        let cx = canvas.width / 2, cy = canvas.height / 2
+        return CGPoint(x: (p.x - cx - viewOffset.width) / viewZoom + cx, y: (p.y - cy - viewOffset.height) / viewZoom + cy)
     }
 
     private func layer<V: View>(_ canvas: CGSize, @ViewBuilder _ content: () -> V) -> some View {
@@ -97,11 +133,43 @@ struct PreviewArea: View {
     private func scrubSurface(_ canvas: CGSize) -> some View {
         Color.clear
             .contentShape(Rectangle())
-            .onTapGesture { p in if !model.tapTitle(p, canvas: canvas) { tapPlay() } }
+            .onTapGesture { p in if !model.tapTitle(contentPoint(p, canvas), canvas: canvas) { tapPlay() } }
             .gesture(
+                // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
-                    .onChanged { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false) }
-                    .onEnded { v in model.previewScrub(dx: v.translation.width, width: canvas.width, ended: true) }
+                    .onChanged { v in
+                        if dragIsPan == nil { dragIsPan = viewZoom > 1.02 || pinching }
+                        if dragIsPan == true {
+                            guard !pinching else { return }
+                            viewOffset = clampedOffset(CGSize(width: panBase.width + v.translation.width,
+                                                              height: panBase.height + v.translation.height), canvas)
+                        } else {
+                            model.previewScrub(dx: v.translation.width, width: canvas.width, ended: false)
+                        }
+                    }
+                    .onEnded { v in
+                        if dragIsPan == true {
+                            panBase = viewOffset
+                        } else {
+                            model.previewScrub(dx: v.translation.width, width: canvas.width, ended: true)
+                        }
+                        dragIsPan = nil
+                    }
+            )
+            .simultaneousGesture(
+                // two fingers: look closer (pinch back out to fit)
+                MagnifyGesture()
+                    .onChanged { v in
+                        pinching = true
+                        viewZoom = min(max(zoomBase * v.magnification, 1), 8)
+                        viewOffset = clampedOffset(viewOffset, canvas)
+                    }
+                    .onEnded { _ in
+                        pinching = false
+                        zoomBase = viewZoom
+                        panBase = viewOffset
+                        if viewZoom < 1.05 { resetViewZoom() }
+                    }
             )
     }
 
@@ -610,7 +678,7 @@ struct FullscreenPlayer: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged { v in
                                 model.isScrubbing = true
-                                model.scrub(to: Double(max(0, min(1, v.location.x / g.size.width))) * model.duration)
+                                model.scrubFrame(to: Double(max(0, min(1, v.location.x / g.size.width))) * model.duration)
                             }
                             .onEnded { _ in model.isScrubbing = false }
                     )

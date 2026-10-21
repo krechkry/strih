@@ -22,12 +22,7 @@ struct PlatformMock: View {
                 p.addRect(CGRect(origin: .zero, size: size))
                 p.addRect(free)
             }
-            .fill(danger ? Self.warn.opacity(0.3) : Color.black.opacity(active ? 0.18 : 0.08), style: FillStyle(eoFill: true))
-            // dashed edge: past it, content may be hidden by the app
-            // (gone while the veil lights up: the tint alone says it)
-            Path { p in p.addRect(free) }
-                .stroke(Color.white.opacity(danger ? 0 : (active ? 0.75 : 0.45)),
-                        style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
+            .fill(danger ? Self.warn.opacity(0.3) : Color.black.opacity(active ? 0.32 : 0.22), style: FillStyle(eoFill: true))
             Group {
                 switch zone {
                 case .off: EmptyView()
@@ -202,7 +197,7 @@ struct LayoutSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Shows the app's buttons and texts over your video while you edit. The dashed line is where they start; a title that crosses it lights the layout up red.")
+            Text("Shows the app's buttons and texts over your video while you edit. The shaded area is what they cover; a title that goes into it lights the layout up orange.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)

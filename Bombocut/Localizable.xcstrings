@@ -3258,12 +3258,12 @@
         }
       }
     },
-    "Shows the app's buttons and texts over your video while you edit. The dashed line is where they start; a title that crosses it lights the layout up red.": {
+    "Shows the app's buttons and texts over your video while you edit. The shaded area is what they cover; a title that goes into it lights the layout up orange.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Při stříhání ukazuje tlačítka a texty aplikace přes tvoje video. Čárkovaná čára značí, kde začínají; titulek, který ji přejede, rozsvítí layout červeně."
+            "value": "Při stříhání ukazuje tlačítka a texty aplikace přes tvoje video. Stínovaná plocha je to, co zakrývají; titulek, který do ní zajede, rozsvítí layout oranžově."
           }
         }
       }

@@ -86,6 +86,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         s.anim = .none
         s.shadow = false       // plain white text, no effects until you add them
         s.strokeWidth = 0
+        s.strokeOutside = true // an outline, once added, grows around the letters
         s.box = false
         s.lines = 3
         s.punctuation = true
