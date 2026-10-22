@@ -266,7 +266,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let info = p.layer.info, state = p.state, look = p.look, srcT = p.srcT
         var image = EffectsRenderer.color(p.source, look.effects)
         image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
-                           stab: state.stab.map { let c = $0.at(srcT); return (c.x, c.y, $0.crop) },
+                           stab: state.stab.map { $0.pose(at: srcT) },
                            follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
                            in: size)
         // in / out animation of the clip
@@ -305,7 +305,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// move / scale / rotate around the canvas center, then (if tracking) shifts so the subject stays put.
     /// The SwiftUI live preview uses the same math.
     static func place(_ input: CIImage, prefTransform: CGAffineTransform, fill: Bool, transform t: ClipTransform,
-                      stab: (x: Double, y: Double, crop: Double)? = nil,
+                      stab: StabPose? = nil,
                       follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))? = nil,
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
@@ -322,14 +322,18 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// The two transforms used by `place` (Core Image coordinates: y-up, source pixels -> output pixels).
     /// `stab` moves and zooms the upright source (it is then cropped to the source rect); `place` puts it on the canvas.
     static func placement(source: CGSize, fill: Bool, transform t: ClipTransform,
-                          stab: (x: Double, y: Double, crop: Double)?,
+                          stab: StabPose?,
                           follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
                           in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
         let w = source.width, h = source.height
-        // stabilization: shift by the correction, zoom in just enough to hide the edges
+        // stabilization: undo the shake (zoom, turn, shift around the frame's center), then zoom in just
+        // enough to hide the edges
         var stabT = CGAffineTransform.identity
         if let st = stab {
-            stabT = CGAffineTransform(translationX: st.x * w - w / 2, y: st.y * h - h / 2)
+            stabT = CGAffineTransform(translationX: -w / 2, y: -h / 2)
+                .concatenating(CGAffineTransform(scaleX: exp(st.z), y: exp(st.z)))
+                .concatenating(CGAffineTransform(rotationAngle: st.a))
+                .concatenating(CGAffineTransform(translationX: st.x * w, y: st.y * h))
                 .concatenating(CGAffineTransform(scaleX: st.crop, y: st.crop))
                 .concatenating(CGAffineTransform(translationX: w / 2, y: h / 2))
         }

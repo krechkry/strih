@@ -1069,7 +1069,7 @@ final class EditorModel: ObservableObject {
         let a = c.aspect ?? project.canvas.aspect
         let src = CGSize(width: 1000 * a, height: 1000)
         let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
-                                          stab: st.stab.map { let v = $0.at(s); return (v.x, v.y, $0.crop) },
+                                          stab: st.stab.map { $0.pose(at: s) },
                                           follow: st.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders, $0.span) },
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)

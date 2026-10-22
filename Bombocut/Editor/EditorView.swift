@@ -36,7 +36,7 @@ struct EditorView: View {
         case .speed: return 620
         case .adjust: return 360
         case .captions: return 420
-        case .stabilize: return 290
+        case .stabilize: return 440
         case .track: return 360
         case .overlay: return 430
         case .mask: return 540

@@ -1,66 +1,174 @@
 import Foundation
 import CoreGraphics
 
-/// Camera path measured from the footage (cumulative alignment, fraction of frame size, Core Image y-up).
+/// Camera path measured from the footage: the cumulative alignment that puts each frame back onto the first
+/// (shift as a fraction of the frame size, Core Image y-up; turn in radians; zoom as a log scale).
 struct PathSample: Codable, Hashable {
     var t: Double   // source seconds
     var x: Double
     var y: Double
+    var a = 0.0     // rotation (older analyses: shift only)
+    var z = 0.0     // log scale
+}
+
+extension PathSample {
+    enum CodingKeys: String, CodingKey { case t, x, y, a, z }
+
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        t = try c.decode(Double.self, forKey: .t)
+        x = try c.decode(Double.self, forKey: .x)
+        y = try c.decode(Double.self, forKey: .y)
+        a = try c.decodeIfPresent(Double.self, forKey: .a) ?? 0
+        z = try c.decodeIfPresent(Double.self, forKey: .z) ?? 0
+    }
+}
+
+enum StabMode: String, Codable, CaseIterable {
+    case smooth, locked
+
+    var title: String { self == .smooth ? "Smooth" : "Locked" }
 }
 
 struct Stabilization: Codable, Hashable {
-    var strength = 0.6          // 0...1, how calm the result is
+    var strength = 0.6          // 0...1, how calm the result is (Smooth)
     var path: [PathSample]
+    var mode = StabMode.smooth  // Locked: as if on a tripod, as far as the zoom allows
+    var maxZoom = 0.15          // most it may zoom in to hide the moving edges
 
-    /// Per-frame corrections (shake removed, intended moves kept) and the zoom needed to hide the edges.
-    func curve() -> StabCurve? {
+    enum CodingKeys: String, CodingKey { case strength, path, mode, maxZoom }
+
+    init(strength: Double, path: [PathSample], mode: StabMode = .smooth, maxZoom: Double = 0.15) {
+        self.strength = strength
+        self.path = path
+        self.mode = mode
+        self.maxZoom = maxZoom
+    }
+
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        strength = try c.decodeIfPresent(Double.self, forKey: .strength) ?? 0.6
+        path = try c.decodeIfPresent([PathSample].self, forKey: .path) ?? []
+        mode = (try? c.decodeIfPresent(StabMode.self, forKey: .mode)) ?? .smooth
+        maxZoom = try c.decodeIfPresent(Double.self, forKey: .maxZoom) ?? 0.15
+    }
+
+    /// Per-frame corrections (shake and roll removed, intended moves kept, never more than the zoom allows)
+    /// and the one zoom for the whole clip that hides the edges. `aspect`: frame width / height.
+    func curve(aspect: Double = 16.0 / 9) -> StabCurve? {
         guard path.count > 2 else { return nil }
         let n = path.count
         let dt = max((path[n - 1].t - path[0].t) / Double(n - 1), 1.0 / 120)
-        let sigma = (0.15 + strength * 1.6) / dt             // in samples
-        let radius = min(n - 1, Int((sigma * 2.5).rounded(.up)))
-        var weights = [Double](repeating: 0, count: radius + 1)
-        for k in 0...radius { weights[k] = exp(-Double(k * k) / (2 * sigma * sigma)) }
+        let raw: [[Double]] = [path.map(\.x), path.map(\.y), path.map(\.a), path.map(\.z)]
 
-        var cx = [Double](repeating: 0, count: n), cy = [Double](repeating: 0, count: n)
-        for i in 0..<n {
-            var sx = 0.0, sy = 0.0, sw = 0.0
-            for k in -radius...radius {
-                let j = min(max(i + k, 0), n - 1)   // hold the ends
-                let w = weights[abs(k)]
-                sx += path[j].x * w
-                sy += path[j].y * w
-                sw += w
-            }
-            cx[i] = path[i].x - sx / sw
-            cy[i] = path[i].y - sy / sw
+        // where the camera should be: a gentle version of its path, or one fixed spot
+        let target: [[Double]]
+        switch mode {
+        case .smooth:
+            let sigma = (0.15 + strength * 1.6) / dt
+            target = raw.map { Self.gauss($0, sigma: sigma) }
+        case .locked:
+            target = raw.map { v in Array(repeating: v.reduce(0, +) / Double(n), count: n) }
         }
-        // zoom so that 98% of frames have no visible edge
-        var m = zip(cx, cy).map { max(abs($0), abs($1)) }.sorted()
-        let edge = m.isEmpty ? 0 : m[min(m.count - 1, Int(Double(m.count) * 0.98))]
-        m.removeAll()
-        let crop = 1 / max(0.6, 1 - 2 * min(edge, 0.18))
-        return StabCurve(t: path.map(\.t), x: cx, y: cy, crop: crop)
+        var c = (0..<4).map { k in zip(raw[k], target[k]).map { $0 - $1 } }
+
+        // never more correction than the zoom limit hides: shrink it where needed, smoothly over time
+        let limit = 1 + max(0, maxZoom)
+        var f = [Double](repeating: 1, count: n)
+        for i in 0..<n {
+            let p = StabPose(x: c[0][i], y: c[1][i], a: c[2][i], z: c[3][i], crop: 1)
+            if Self.zoomNeeded(p, aspect: aspect) <= limit { continue }
+            var lo = 0.0, hi = 1.0
+            for _ in 0..<24 {
+                let m = (lo + hi) / 2
+                if Self.zoomNeeded(p.scaled(m), aspect: aspect) <= limit { lo = m } else { hi = m }
+            }
+            f[i] = lo
+        }
+        let w = max(1, Int((0.25 / dt).rounded()))
+        f = (0..<n).map { i in f[max(0, i - w)...min(n - 1, i + w)].min() ?? 1 }
+        f = Self.gauss(f, sigma: 0.12 / dt).enumerated().map { min($0.element, 1) }
+        for k in 0..<4 { for i in 0..<n { c[k][i] *= f[i] } }
+
+        var crop = 1.0
+        for i in 0..<n {
+            crop = max(crop, Self.zoomNeeded(StabPose(x: c[0][i], y: c[1][i], a: c[2][i], z: c[3][i], crop: 1), aspect: aspect))
+        }
+        return StabCurve(t: path.map(\.t), x: c[0], y: c[1], a: c[2], z: c[3], crop: min(crop, limit + 0.02))
     }
+
+    /// Gaussian smoothing that holds the ends.
+    static func gauss(_ v: [Double], sigma: Double) -> [Double] {
+        let n = v.count
+        guard n > 1, sigma > 0.01 else { return v }
+        let radius = min(n - 1, Int((sigma * 2.5).rounded(.up)))
+        let weights = (0...radius).map { k in exp(-Double(k * k) / (2 * sigma * sigma)) }
+        return (0..<n).map { i in
+            var s = 0.0, sw = 0.0
+            for k in -radius...radius {
+                let j = min(max(i + k, 0), n - 1)
+                s += v[j] * weights[abs(k)]
+                sw += weights[abs(k)]
+            }
+            return s / sw
+        }
+    }
+
+    /// How much the corrected frame has to be zoomed so no edge shows (1 = none).
+    static func zoomNeeded(_ p: StabPose, aspect A: Double) -> Double {
+        // frame A x 1 around its center; corrected point = R(a) e^z q + t, then zoomed by `crop` around the center
+        let tx = p.x * A, ty = p.y
+        let ca = cos(-p.a), sa = sin(-p.a), ez = exp(p.z)
+        func fits(_ crop: Double) -> Bool {
+            for (cx, cy) in [(-A / 2, -0.5), (A / 2, -0.5), (A / 2, 0.5), (-A / 2, 0.5)] {
+                let ux = cx / crop - tx, uy = cy / crop - ty
+                let qx = (ca * ux - sa * uy) / ez, qy = (sa * ux + ca * uy) / ez
+                if abs(qx) > A / 2 + 1e-9 || abs(qy) > 0.5 + 1e-9 { return false }
+            }
+            return true
+        }
+        if fits(1) { return 1 }
+        var lo = 1.0, hi = 4.0
+        for _ in 0..<30 {
+            let m = (lo + hi) / 2
+            if fits(m) { hi = m } else { lo = m }
+        }
+        return hi
+    }
+}
+
+/// One frame's correction: shift (fraction of the frame), turn (radians), zoom (log), and the clip's zoom.
+struct StabPose: Hashable {
+    var x: Double
+    var y: Double
+    var a: Double
+    var z: Double
+    var crop: Double
+
+    func scaled(_ f: Double) -> StabPose { StabPose(x: x * f, y: y * f, a: a * f, z: z * f, crop: crop) }
 }
 
 struct StabCurve: Hashable {
     var t: [Double]
     var x: [Double]
     var y: [Double]
+    var a: [Double]
+    var z: [Double]
     var crop: Double
 
-    func at(_ s: Double) -> (x: Double, y: Double) {
-        guard let first = t.first, let last = t.last else { return (0, 0) }
-        if s <= first { return (x[0], y[0]) }
-        if s >= last { return (x[x.count - 1], y[y.count - 1]) }
+    func pose(at s: Double) -> StabPose {
+        guard let first = t.first, let last = t.last else { return StabPose(x: 0, y: 0, a: 0, z: 0, crop: crop) }
+        func at(_ i: Int) -> StabPose { StabPose(x: x[i], y: y[i], a: a[i], z: z[i], crop: crop) }
+        if s <= first { return at(0) }
+        if s >= last { return at(t.count - 1) }
         var lo = 0, hi = t.count - 1
         while hi - lo > 1 {
             let mid = (lo + hi) / 2
             if t[mid] <= s { lo = mid } else { hi = mid }
         }
         let f = (s - t[lo]) / max(t[hi] - t[lo], 1e-9)
-        return (x[lo] + (x[hi] - x[lo]) * f, y[lo] + (y[hi] - y[lo]) * f)
+        func mix(_ v: [Double]) -> Double { v[lo] + (v[hi] - v[lo]) * f }
+        return StabPose(x: mix(x), y: mix(y), a: mix(a), z: mix(z), crop: crop)
     }
 }
 

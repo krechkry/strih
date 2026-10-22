@@ -611,25 +611,60 @@ struct StabilizeSheet: View {
     @Environment(\.closePanel) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Stabilize").font(.title3.weight(.heavy))
             if let i = model.selectedIndex {
                 let c = model.project.clips[i]
                 if let st = c.stabilization {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("Strength").font(.headline.weight(.bold))
-                        Spacer()
-                        Text("\(Int((st.strength * 100).rounded()))").font(.system(size: 26, weight: .heavy).monospacedDigit())
-                            .foregroundStyle(Theme.accent)
+                    HStack(spacing: 8) {
+                        ForEach(StabMode.allCases, id: \.self) { m in
+                            Button { model.liveEditBegan(); model.editClip { $0.stabilization?.mode = m }; model.liveEditEnded() } label: {
+                                Text(loc(m.title)).font(.subheadline.weight(.bold))
+                                    .foregroundStyle(st.mode == m ? .black : .white)
+                                    .frame(maxWidth: .infinity, minHeight: 38)
+                                    .background(st.mode == m ? Theme.accent : Theme.panel2, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    Slider(value: Binding(get: { st.strength }, set: { v in
-                        model.editClip { $0.stabilization?.strength = v }
-                    }), in: 0...1, onEditingChanged: { e in
+                    if st.mode == .smooth {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("Strength").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                            Spacer()
+                            Text("\(Int((st.strength * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
+                        }
+                        Slider(value: Binding(get: { st.strength }, set: { v in
+                            model.editClip { $0.stabilization?.strength = v }
+                        }), in: 0...1, onEditingChanged: { e in
+                            if e { model.liveEditBegan() } else { model.liveEditEnded() }
+                        })
+                        .tint(Theme.accent)
+                    } else {
+                        Text("Holds the shot still as if on a tripod. Where the camera really moves, it follows as little as the zoom allows.")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Max zoom").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                        Spacer()
+                        Text(verbatim: "\(Int((st.maxZoom * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
+                    }
+                    Slider(value: Binding(get: { st.maxZoom }, set: { v in
+                        model.editClip { $0.stabilization?.maxZoom = v }
+                    }), in: 0.03...0.4, onEditingChanged: { e in
                         if e { model.liveEditBegan() } else { model.liveEditEnded() }
                     })
-                    if let curve = st.curve() {
-                        Text("Zoom \(Int((curve.crop * 100).rounded())) % to hide the moving edges")
+                    .tint(Theme.accent)
+                    if let curve = st.curve(aspect: c.aspect ?? 16.0 / 9) {
+                        Text("Zoomed in \(Int(((curve.crop - 1) * 100).rounded())) % to hide the moving edges. More zoom lets it take out bigger shakes.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if !st.path.contains(where: { $0.a != 0 || $0.z != 0 }) {
+                        Text("Analyzed by an older version (shake only). Analyze again to also straighten tilting and zoom wobble.")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     HStack(spacing: 10) {
                         Button { model.analyzeStabilization(); dismiss() } label: {
@@ -644,7 +679,7 @@ struct StabilizeSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
                 } else {
-                    Text("BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.")
+                    Text("BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges.")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     Button { model.analyzeStabilization(); dismiss() } label: {
                         Label("Analyze & stabilize", systemImage: "gyroscope")
@@ -657,7 +692,8 @@ struct StabilizeSheet: View {
             }
         }
         .padding(20)
-        .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .scrollIndicators(.hidden)
         .presentationBackground(Theme.panel)
     }
 

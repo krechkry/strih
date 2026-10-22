@@ -380,6 +380,16 @@
         }
       }
     },
+    "Analyzed by an older version (shake only). Analyze again to also straighten tilting and zoom wobble.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzováno starší verzí (jen otřesy). Analyzuj znovu, ať se vyrovná i naklánění a houpání."
+          }
+        }
+      }
+    },
     "Analyzing shake": {
       "localizations": {
         "cs": {
@@ -526,6 +536,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat updaty a na tvojí zpětné vazbě opravdu záleží."
+          }
+        }
+      }
+    },
+    "BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT změří, jak se kamera v klipu třese, naklání a houpe (co se v záběru hýbe, nevadí), pak to vyhladí a lehce přiblíží, aby nebyly vidět okraje."
           }
         }
       }
@@ -2038,6 +2058,16 @@
         }
       }
     },
+    "Holds the shot still as if on a tripod. Where the camera really moves, it follows as little as the zoom allows.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drží záběr na místě jako ze stativu. Kde se kamera opravdu hýbe, jde za ní jen tolik, kolik přiblížení dovolí."
+          }
+        }
+      }
+    },
     "How much do you want to see?": {
       "localizations": {
         "cs": {
@@ -2358,6 +2388,16 @@
         }
       }
     },
+    "Locked": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamčeno"
+          }
+        }
+      }
+    },
     "Locked on the subject: the picture moves so it stays still, everything else moves around it.": {
       "localizations": {
         "cs": {
@@ -2444,6 +2484,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alfa maska"
+          }
+        }
+      }
+    },
+    "Max zoom": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max. přiblížení"
           }
         }
       }
@@ -4444,6 +4494,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oddálení"
+          }
+        }
+      }
+    },
+    "Zoomed in %lld %% to hide the moving edges. More zoom lets it take out bigger shakes.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiblíženo o %lld %%, aby nebyly vidět okraje. Víc přiblížení odstraní i větší otřesy."
           }
         }
       }

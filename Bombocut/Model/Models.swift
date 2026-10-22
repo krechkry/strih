@@ -194,7 +194,7 @@ struct Clip: Identifiable, Codable, Hashable {
 
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
-                  stab: stabilization?.curve(), track: tracking?.curve(), mask: mask,
+                  stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
                   motionBlur: blurAmount, blurDirection: blurDirection, anim: anim)
     }
 

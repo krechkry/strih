@@ -45,23 +45,23 @@ enum Analyzer {
         if reader.status == .failed { throw reader.error ?? CompositionBuilder.err("Reading failed.") }
     }
 
-    /// Cumulative camera path (how far each frame must move to line up with the first one).
+    /// Cumulative camera path: how each frame must shift, turn and zoom to line up with the first one.
     static func cameraPath(file: String, from t0: Double, to t1: Double,
                            progress: @escaping @Sendable (Double) -> Void,
                            isCancelled: @escaping @Sendable () -> Bool) async throws -> [PathSample] {
         var prev: CGImage?
-        var ax = 0.0, ay = 0.0
+        var acc = PathSample(t: 0, x: 0, y: 0)
         var out: [PathSample] = []
         try await readFrames(file: file, from: t0, to: t1, maxSide: 480, rate: 30, isCancelled: isCancelled) { t, cg in
-            if let prev {
-                let req = VNTranslationalImageRegistrationRequest(targetedCGImage: cg, options: [:])
-                try VNImageRequestHandler(cgImage: prev, options: [:]).perform([req])
-                if let o = req.results?.first {
-                    ax += Double(o.alignmentTransform.tx) / Double(cg.width)
-                    ay += Double(o.alignmentTransform.ty) / Double(cg.height)
-                }
+            if let prev, let m = CameraMotion.estimate(from: prev, to: cg) {
+                // the picture moved by m: the alignment moves it back
+                acc.x -= m.dx / Double(cg.width)
+                acc.y -= m.dy / Double(cg.height)
+                acc.a -= m.angle
+                acc.z -= m.logScale
             }
-            out.append(PathSample(t: t, x: ax, y: ay))
+            acc.t = t
+            out.append(acc)
             prev = cg
             progress(min(1, (t - t0) / max(t1 - t0, 0.01)))
         }
@@ -285,5 +285,101 @@ enum Analyzer {
         let all = (backward + forward).sorted { $0.t < $1.t }
         guard !all.isEmpty else { throw CompositionBuilder.err("Could not follow the subject.") }
         return all
+    }
+}
+
+/// How the picture moved from one frame to the next: shift (pixels, Core Image y-up), turn (radians,
+/// counterclockwise) and zoom (log scale), around the frame's center. Measured from dense optical flow
+/// (Vision) with a robust fit, so things moving in the shot (a rider, a car) do not count as camera motion.
+struct CameraMotion: Equatable {
+    var dx: Double
+    var dy: Double
+    var angle: Double
+    var logScale: Double
+    var inliers: Double
+
+    static func estimate(from a: CGImage, to b: CGImage) -> CameraMotion? {
+        let req = VNGenerateOpticalFlowRequest(targetedCGImage: b, options: [:])
+        req.computationAccuracy = .medium
+        req.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
+        guard (try? VNImageRequestHandler(cgImage: a, options: [:]).perform([req])) != nil,
+              let pb = req.results?.first?.pixelBuffer else { return nil }
+        let fw = CVPixelBufferGetWidth(pb), fh = CVPixelBufferGetHeight(pb)
+        guard fw > 8, fh > 8 else { return nil }
+        let W = Double(a.width), H = Double(a.height)
+        let kx = W / Double(fw), ky = H / Double(fh)   // flow grid to image pixels
+
+        CVPixelBufferLockBaseAddress(pb, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(pb) else { return nil }
+        let row = CVPixelBufferGetBytesPerRow(pb)
+
+        // a grid of points away from the borders: where each one is now (y-up, centered on the frame)
+        var src: [(Double, Double)] = [], dst: [(Double, Double)] = []
+        let cols = 28, rows = max(8, Int(Double(cols) * H / W))
+        for r in 0..<rows {
+            for c in 0..<cols {
+                let u = (Double(c) + 0.5) / Double(cols), v = (Double(r) + 0.5) / Double(rows)
+                guard u > 0.04, u < 0.96, v > 0.04, v < 0.96 else { continue }
+                let px = min(fw - 1, Int(u * Double(fw))), py = min(fh - 1, Int(v * Double(fh)))
+                let p = base.advanced(by: py * row + px * 8).assumingMemoryBound(to: Float.self)
+                let vx = Double(p[0]) * kx, vy = Double(p[1]) * ky
+                guard vx.isFinite, vy.isFinite else { continue }
+                let x = u * W - W / 2, y = (1 - v) * H - H / 2
+                src.append((x, y))
+                dst.append((x + vx, y - vy))   // image rows go down, Core Image goes up
+            }
+        }
+        guard src.count >= 12 else { return nil }
+        return fit(src, dst, tolerance: max(0.8, W / 500))
+    }
+
+    /// Robust similarity fit (RANSAC on pairs of points, then least squares on the inliers).
+    static func fit(_ src: [(Double, Double)], _ dst: [(Double, Double)], tolerance: Double) -> CameraMotion? {
+        let n = src.count
+        guard n >= 2 else { return nil }
+        var seed: UInt64 = 0x9E3779B97F4A7C15
+        func rnd(_ m: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 33) % UInt64(m))
+        }
+        func model(_ idx: [Int]) -> (a: Double, b: Double, tx: Double, ty: Double)? {
+            var mx = 0.0, my = 0.0, nx = 0.0, ny = 0.0
+            for i in idx { mx += src[i].0; my += src[i].1; nx += dst[i].0; ny += dst[i].1 }
+            let k = Double(idx.count)
+            mx /= k; my /= k; nx /= k; ny /= k
+            var sxx = 0.0, sab = 0.0, sba = 0.0
+            for i in idx {
+                let px = src[i].0 - mx, py = src[i].1 - my, qx = dst[i].0 - nx, qy = dst[i].1 - ny
+                sxx += px * px + py * py
+                sab += px * qx + py * qy
+                sba += px * qy - py * qx
+            }
+            guard sxx > 1e-6 else { return nil }
+            let a = sab / sxx, b = sba / sxx
+            return (a, b, nx - (a * mx - b * my), ny - (b * mx + a * my))
+        }
+        func inliers(_ m: (a: Double, b: Double, tx: Double, ty: Double)) -> [Int] {
+            (0..<n).filter { i in
+                let x = src[i].0, y = src[i].1
+                let ex = m.a * x - m.b * y + m.tx - dst[i].0, ey = m.b * x + m.a * y + m.ty - dst[i].1
+                return ex * ex + ey * ey <= tolerance * tolerance
+            }
+        }
+        var best: [Int] = []
+        for _ in 0..<160 {
+            let i = rnd(n), j = rnd(n)
+            guard i != j, let m = model([i, j]) else { continue }
+            let s = hypot(m.a, m.b)
+            guard s > 0.8, s < 1.25 else { continue }
+            let inl = inliers(m)
+            if inl.count > best.count { best = inl }
+        }
+        guard best.count >= max(6, n / 5), var m = model(best) else { return nil }
+        // once more on everything that agrees with the refined fit
+        let again = inliers(m)
+        if again.count >= best.count, let m2 = model(again) { m = m2; best = again }
+        return CameraMotion(dx: m.tx, dy: m.ty, angle: atan2(m.b, m.a), logScale: log(hypot(m.a, m.b)),
+                            inliers: Double(best.count) / Double(n))
     }
 }
