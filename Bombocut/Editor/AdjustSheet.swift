@@ -290,7 +290,7 @@ private struct CurveGraph: View {
     var body: some View {
         GeometryReader { g in
             let w = g.size.width, h = g.size.height
-            Canvas { ctx, size in
+            SwiftUI.Canvas { ctx, size in
                 // grid
                 for k in 1..<4 {
                     let x = size.width * CGFloat(k) / 4, y = size.height * CGFloat(k) / 4
