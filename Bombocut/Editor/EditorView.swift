@@ -786,6 +786,18 @@ struct EditorView: View {
                             SpeedPoint(t: 0.72, v: 4), SpeedPoint(t: 1, v: 1)])
             try? await Task.sleep(for: .seconds(0.6))
             sheet = .speed
+        case "curves":
+            guard let first = clips.first else { break }
+            model.selectedClipID = first.id
+            model.mutateLook { p in
+                p.clips[0].effects.curve = [0.06, 0.22, 0.5, 0.8, 0.96]
+                p.clips[0].effects.curveB = [0.1, 0.3, 0.5, 0.7, 0.9]
+                p.clips[0].effects.halation = 0.6
+            }
+            UserDefaults.standard.set(1, forKey: "adjustTab")
+            UserDefaults.standard.set(0, forKey: "adjustAdvanced")
+            try? await Task.sleep(for: .seconds(0.6))
+            sheet = .adjust
         case "look", "adjust":
             guard let first = clips.first else { break }
             let id = first.id
