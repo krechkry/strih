@@ -9,6 +9,14 @@ What is left needs your Apple account. About 30 minutes, then Apple's beta revie
 TestFlight needs the paid membership (99 USD / year): https://developer.apple.com/programs/enroll/
 If you enroll as an individual, the App Store shows your name as the seller.
 
+### After enrolling: switch Xcode to the paid team (once)
+
+Your earlier runs used the free "Personal Team", and `update.sh` remembered it in `Config/Local.xcconfig`.
+
+1. In Terminal: `rm ~/strih/Config/Local.xcconfig`
+2. Open the project in Xcode → target **Bombocut** → **Signing & Capabilities** → Team: pick your name **without** "(Personal Team)".
+3. Run `~/strih/update.sh` (it saves the new team), then ▶ once on your iPhone to check it still installs.
+
 ## 2. Create the app in App Store Connect (once)
 
 https://appstoreconnect.apple.com → Apps → **+** → New App
@@ -64,18 +72,20 @@ TestFlight → **External Testing** → **+** → group name "Open beta" → add
 
 > Thanks for testing! Most useful right now:
 > 1. Auto subtitles in your language: are the words and the timing right?
-> 2. Motion blur and smooth slow motion: do they play smoothly while editing?
-> 3. Text and overlays: move, pinch, rotate, keyframes, safe zones for Reels / TikTok / Shorts.
-> 4. Anything that crashes, freezes or feels slow.
+> 2. Transitions between clips (crossfade, zoom, slides, smooth cut): do they look smooth?
+> 3. Speech (select a clip → Speech): remove noise and voice enhancer on a noisy talking clip.
+> 4. Stabilize on shaky handheld footage, Smooth and Locked.
+> 5. Long exports with motion blur, and anything that crashes, freezes or feels slow.
 > Take a screenshot in the app and tap Share Beta Feedback. Every message gets read.
 
 **What to Test (Czech)**
 
 > Díky, že testuješ! Teď nejvíc pomůže:
 > 1. Automatické titulky v tvém jazyce: sedí slova a časování?
-> 2. Motion blur a plynulé zpomalení: hrají v editoru plynule?
-> 3. Texty a překrytí: posun, zvětšení, otočení, keyframy, bezpečné zóny pro Reels / TikTok / Shorts.
-> 4. Cokoli, co spadne, zamrzne nebo je pomalé.
+> 2. Přechody mezi klipy (prolínačka, přiblížení, posuny, plynulý střih): vypadají plynule?
+> 3. Řeč (vyber klip → Řeč): odstranění šumu a vylepšení hlasu na hlučném klipu s mluvením.
+> 4. Stabilizace na roztřeseném záběru z ruky, Plynule i Zamčeno.
+> 5. Dlouhé exporty s motion blurem a cokoli, co spadne, zamrzne nebo je pomalé.
 > Udělej v aplikaci screenshot a klepni na Sdílet zpětnou vazbu k betě. Čteme každou zprávu.
 
 Where to share the link: your Instagram (PVP), BMX and filmmaker friends, Czech and Slovak creator groups, and communities for the languages the big apps skip (Baltic, Balkan, Hungarian, Greek, Maltese editors).
@@ -88,4 +98,4 @@ Where to share the link: your Instagram (PVP), BMX and filmmaker friends, Czech 
 
 ## Privacy policy page
 
-A ready privacy policy (English and Czech) is published as a Claude artifact titled "Bombocut Privacy". Share it publicly and use its link as the Privacy Policy URL. It says what the app really does: nothing collected, nothing tracked, the only network use is the one-time speech model download and the App Store purchase check.
+A ready privacy policy (English and Czech) is published as a Claude artifact titled "Bombocut Privacy" (https://claude.ai/artifact/QACyEYJCM5LmJACkh4kxdD). Open it, Share → make the link public, and use that link as the Privacy Policy URL. It says what the app really does: nothing collected, nothing tracked, the only network use is the one-time speech model download and the App Store purchase check.
