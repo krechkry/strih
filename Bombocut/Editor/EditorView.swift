@@ -539,7 +539,9 @@ struct EditorView: View {
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
                 } else if model.captionsSelected, model.project.captions != nil {
-                    ToolButton(icon: "text.cursor", label: "Edit text") { model.pause(); model.captionTab = 0; sheet = .captions }
+                    ToolButton(icon: "text.cursor", label: "Edit text") {
+                        model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
+                    }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }

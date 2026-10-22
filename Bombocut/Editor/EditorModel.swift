@@ -541,8 +541,11 @@ final class EditorModel: ObservableObject {
         captionsSelected = false
         selectedAudioID = nil
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
-        // tapping the selected clip again: its quick tools (tap once more to hide them)
-        if selectedClipID == id { quickMenuClipID = quickMenuClipID == id ? nil : id; return }
+        // tap 1 selects, tap 2 opens its quick tools, tap 3 deselects
+        if selectedClipID == id {
+            if quickMenuClipID == id { selectedClipID = nil } else { quickMenuClipID = id }
+            return
+        }
         selectedClipID = id
         let start = project.clipStarts[i], end = start + project.clips[i].duration
         guard currentTime < start || currentTime >= end else { return }
@@ -865,6 +868,23 @@ final class EditorModel: ObservableObject {
 
     /// Tap on a caption in the timeline: go there and open the caption settings.
     /// Tap on a caption in the timeline: select the captions and edit that line.
+    /// Tap on the captions lane: tap 1 selects the captions (on that line), tapping the same line again deselects.
+    /// The line is remembered, so "Edit text" opens right there.
+    func tapCaption(_ cue: CaptionCue) {
+        if captionsSelected && tappedCue == cue.id {
+            captionsSelected = false
+            tappedCue = nil
+            return
+        }
+        pause()
+        scrub(to: cue.start + 0.01)
+        captionsSelected = true
+        tappedCue = cue.id
+    }
+
+    /// The caption line tapped last on the timeline ("Edit text" opens it).
+    private(set) var tappedCue: UUID?
+
     func openCaption(_ cue: CaptionCue) {
         pause()
         scrub(to: cue.start + 0.01)

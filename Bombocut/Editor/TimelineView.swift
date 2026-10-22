@@ -154,7 +154,7 @@ struct TimelineView: View {
                         if let caps = model.project.captions {
                             CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
                                         selected: model.captionsSelected,
-                                        onTap: { cue in model.openCaption(cue) })
+                                        onTap: { cue in model.tapCaption(cue) })
                                 .frame(height: lanes.captions, alignment: .top)
                         }
                     }
@@ -685,7 +685,7 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     }
 }
 
-/// Overlay blocks under the clips: tap to select (again to edit), hold and slide to move, drag the ends to trim.
+/// Overlay blocks under the clips: tap to select (again to deselect), hold and slide to move, drag the ends to trim.
 struct OverlayLane: View {
     @ObservedObject var model: EditorModel
     /// Text lane or the lane for pictures and videos.
@@ -767,7 +767,8 @@ struct OverlayLane: View {
         .contentShape(Rectangle())
         .onTapGesture {
             if model.pick != nil { model.togglePick(o.id); return }
-            if selected { model.openOverlayPanel = true } else { model.selectOverlay(o.id) }
+            // tap 1 selects, tap 2 deselects
+            if selected { model.selectOverlay(nil) } else { model.selectOverlay(o.id) }
         }
         .gesture(HoldToDrag(
             onBegan: { _ in
@@ -889,7 +890,8 @@ struct AudioLane: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if selected { model.openAudioPanel = true } else { model.selectAudio(a.id) }
+            // tap 1 selects, tap 2 deselects
+            if selected { model.selectAudio(nil) } else { model.selectAudio(a.id) }
         }
         .gesture(HoldToDrag(
             onBegan: { _ in
