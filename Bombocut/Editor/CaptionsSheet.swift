@@ -80,7 +80,7 @@ struct CaptionsSheet: View {
                 for r in responses {
                     if let id = r.clientIdentifier, let k = Int(id), out.indices.contains(k) { out[k] = r.targetText }
                 }
-                await progress(1)
+                progress(1)
                 return out
             }
         }

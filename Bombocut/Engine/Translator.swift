@@ -72,7 +72,7 @@ final class TranslationModel: ObservableObject {
     static var totalBytes: Int64 { files.reduce(0) { $0 + $1.1 } }
     var sizeLabel: String { ByteCountFormatter.string(fromByteCount: Self.totalBytes, countStyle: .file) }
 
-    static let folder: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    nonisolated static let folder: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("TranslateGemma", isDirectory: true)
 
     /// It needs about 3 GB of memory while translating: iPhones with 8 GB (15 Pro and newer).
@@ -222,7 +222,7 @@ actor GemmaTranslator {
 
     private func load() async throws -> ModelContainer {
         if let container { return container }
-        MLX.GPU.set(cacheLimit: 32 * 1024 * 1024)
+        Memory.cacheLimit = 32 * 1024 * 1024
         let config = ModelConfiguration(directory: TranslationModel.folder, extraEOSTokens: ["<end_of_turn>"])
         let c = try await LLMModelFactory.shared.loadContainer(configuration: config)
         container = c
@@ -231,7 +231,7 @@ actor GemmaTranslator {
 
     func unload() {
         container = nil
-        MLX.GPU.clearCache()
+        Memory.clearCache()
     }
 
     /// The model's own instructions, word for word (its chat template).

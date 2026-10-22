@@ -906,7 +906,7 @@ final class EditorModel: ObservableObject {
                     for (i, t) in texts.enumerated() {
                         try Task.checkCancellation()
                         out.append(try await GemmaTranslator.shared.translate(t, from: src, to: target))
-                        await progress(Double(i + 1) / Double(texts.count))
+                        progress(Double(i + 1) / Double(texts.count))
                     }
                     await GemmaTranslator.shared.unload()
                     return out
