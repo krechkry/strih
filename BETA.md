@@ -42,6 +42,16 @@ Then in the app: **App Privacy** → Get Started → "No, we do not collect data
 
 Every run of `update.sh` sets a new build number (date and time), so run it before each archive and you can upload again any time without touching settings.
 
+### If the upload fails with "Invalid Signature (90035)"
+
+That is an Apple bug with team names that have letters like Š (Apple reproduced it, FB24633162). Until Apple renames the team to plain letters, upload this way:
+
+1. Organizer: select the archive → **Distribute App → Custom → App Store Connect → Export** → save it (Desktop is fine).
+2. Terminal: `~/strih/fix-upload.sh` and drag the exported `Bombocut.ipa` into the Terminal window before pressing Enter. It signs the app again, naming the team by its ID instead of by name, and writes `Bombocut-fixed.ipa` next to it.
+3. **Transporter** app (free on the Mac App Store): sign in with your Apple ID, drag `Bombocut-fixed.ipa` in, press **Deliver**.
+
+Lasting fix: ask Apple (developer.apple.com/contact → Membership and Account) to change the team name to "KRYSTOF KRECHLER", then delete the old Apple Distribution certificate in Xcode → Settings → Accounts → Manage Certificates so Xcode makes a new one with the new name. After that the normal Distribute App upload works.
+
 ## 4. TestFlight: test information (once)
 
 App Store Connect → TestFlight → **Test Information**. Paste:
