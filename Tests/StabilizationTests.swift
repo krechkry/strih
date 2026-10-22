@@ -37,7 +37,7 @@ final class StabilizationTests: XCTestCase {
     func testMeasuresShiftTurnAndZoom() throws {
         let a = frame(texture)
         let b = frame(moved(texture, dx: 6, dy: -4, deg: 1.5, scale: 1.02))
-        let m = try XCTUnwrap(CameraMotion.estimate(from: a, to: b), "no motion measured")
+        let m = try XCTUnwrap(CameraMotion.estimate(from: a, to: b), "no motion measured: \(CameraMotion.lastIssue)")
         XCTAssertEqual(m.dx, 6, accuracy: 1.2, "shift x: \(m)")
         XCTAssertEqual(m.dy, -4, accuracy: 1.2, "shift y (y-up): \(m)")
         XCTAssertEqual(m.angle * 180 / .pi, 1.5, accuracy: 0.35, "turn: \(m)")
@@ -51,7 +51,7 @@ final class StabilizationTests: XCTestCase {
         let patch = CGRect(x: window.minX + 60, y: window.minY + 60, width: 150, height: 120)
         let rider = moved(texture, dx: -30, dy: 8, deg: 0, scale: 1).cropped(to: patch)
         let b = frame(rider.composited(over: camera))
-        let m = try XCTUnwrap(CameraMotion.estimate(from: a, to: b))
+        let m = try XCTUnwrap(CameraMotion.estimate(from: a, to: b), CameraMotion.lastIssue)
         XCTAssertEqual(m.dx, 5, accuracy: 1.2, "\(m)")
         XCTAssertEqual(m.dy, 0, accuracy: 1.2, "\(m)")
     }

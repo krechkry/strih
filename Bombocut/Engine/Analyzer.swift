@@ -298,14 +298,30 @@ struct CameraMotion: Equatable {
     var logScale: Double
     var inliers: Double
 
+    /// Why the last measurement came back empty (for tests and logs).
+    nonisolated(unsafe) static var lastIssue = ""
+
     static func estimate(from a: CGImage, to b: CGImage) -> CameraMotion? {
+        if let m = fromFlow(a, b) { return m }
+        // no usable flow (some devices, the simulator): Vision's whole-frame registration instead
+        return fromRegistration(a, b)
+    }
+
+    private static func fromFlow(_ a: CGImage, _ b: CGImage) -> CameraMotion? {
         let req = VNGenerateOpticalFlowRequest(targetedCGImage: b, options: [:])
         req.computationAccuracy = .medium
         req.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
-        guard (try? VNImageRequestHandler(cgImage: a, options: [:]).perform([req])) != nil,
-              let pb = req.results?.first?.pixelBuffer else { return nil }
+        do {
+            try VNImageRequestHandler(cgImage: a, options: [:]).perform([req])
+        } catch {
+            lastIssue = "flow failed: \(error.localizedDescription)"
+            return nil
+        }
+        guard let pb = req.results?.first?.pixelBuffer else { lastIssue = "flow: no result"; return nil }
         let fw = CVPixelBufferGetWidth(pb), fh = CVPixelBufferGetHeight(pb)
-        guard fw > 8, fh > 8 else { return nil }
+        guard fw > 8, fh > 8 else { lastIssue = "flow: tiny buffer \(fw)x\(fh)"; return nil }
+        let format = CVPixelBufferGetPixelFormatType(pb)
+        let half = format == kCVPixelFormatType_TwoComponent16Half
         let W = Double(a.width), H = Double(a.height)
         let kx = W / Double(fw), ky = H / Double(fh)   // flow grid to image pixels
 
@@ -322,16 +338,55 @@ struct CameraMotion: Equatable {
                 let u = (Double(c) + 0.5) / Double(cols), v = (Double(r) + 0.5) / Double(rows)
                 guard u > 0.04, u < 0.96, v > 0.04, v < 0.96 else { continue }
                 let px = min(fw - 1, Int(u * Double(fw))), py = min(fh - 1, Int(v * Double(fh)))
-                let p = base.advanced(by: py * row + px * 8).assumingMemoryBound(to: Float.self)
-                let vx = Double(p[0]) * kx, vy = Double(p[1]) * ky
+                let fx: Double, fy: Double
+                if half {
+                    let p = base.advanced(by: py * row + px * 4).assumingMemoryBound(to: Float16.self)
+                    fx = Double(p[0]); fy = Double(p[1])
+                } else {
+                    let p = base.advanced(by: py * row + px * 8).assumingMemoryBound(to: Float.self)
+                    fx = Double(p[0]); fy = Double(p[1])
+                }
+                let vx = fx * kx, vy = fy * ky
                 guard vx.isFinite, vy.isFinite else { continue }
                 let x = u * W - W / 2, y = (1 - v) * H - H / 2
                 src.append((x, y))
                 dst.append((x + vx, y - vy))   // image rows go down, Core Image goes up
             }
         }
-        guard src.count >= 12 else { return nil }
-        return fit(src, dst, tolerance: max(0.8, W / 500))
+        guard src.count >= 12 else { lastIssue = "flow: \(src.count) points (format \(format))"; return nil }
+        guard let m = fit(src, dst, tolerance: max(0.8, W / 500)) else {
+            let sample = zip(src, dst).prefix(3).map { String(format: "(%.1f,%.1f)->(%.1f,%.1f)", $0.0.0, $0.0.1, $0.1.0, $0.1.1) }
+            lastIssue = "flow: no consistent motion, \(src.count) points, e.g. \(sample)"
+            return nil
+        }
+        return m
+    }
+
+    /// Whole-frame registration (homography) turned into point pairs and fitted the same way.
+    private static func fromRegistration(_ a: CGImage, _ b: CGImage) -> CameraMotion? {
+        let req = VNHomographicImageRegistrationRequest(targetedCGImage: b, options: [:])
+        do {
+            try VNImageRequestHandler(cgImage: a, options: [:]).perform([req])
+        } catch {
+            lastIssue += " | registration failed: \(error.localizedDescription)"
+            return nil
+        }
+        guard let obs = req.results?.first else { lastIssue += " | registration: no result"; return nil }
+        let m = obs.warpTransform   // maps the second frame onto the first (pixels, origin bottom-left)
+        let W = Double(a.width), H = Double(a.height)
+        var src: [(Double, Double)] = [], dst: [(Double, Double)] = []
+        for u in stride(from: 0.1, through: 0.9, by: 0.1) {
+            for v in stride(from: 0.1, through: 0.9, by: 0.1) {
+                let q = SIMD3<Float>(Float(u * W), Float(v * H), 1)
+                let r = m * q
+                guard abs(r.z) > 1e-6 else { continue }
+                let px = Double(r.x / r.z), py = Double(r.y / r.z)
+                src.append((px - W / 2, py - H / 2))
+                dst.append((u * W - W / 2, v * H - H / 2))
+            }
+        }
+        guard let fitted = fit(src, dst, tolerance: max(1.5, W / 200)) else { lastIssue += " | registration: no fit"; return nil }
+        return fitted
     }
 
     /// Robust similarity fit (RANSAC on pairs of points, then least squares on the inliers).
