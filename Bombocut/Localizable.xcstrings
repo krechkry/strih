@@ -440,6 +440,26 @@
         }
       }
     },
+    "Apple's translator can't translate %@.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladač od Applu neumí jazyk %@."
+          }
+        }
+      }
+    },
+    "Apple's translator: quick, on your iPhone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladač od Applu: rychlý, v iPhonu."
+          }
+        }
+      }
+    },
     "Apple's voice isolation, for videos recorded with spatial audio on iPhone 16 and newer.": {
       "localizations": {
         "cs": {
@@ -656,6 +676,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Za objekt"
+          }
+        }
+      }
+    },
+    "Best quality, on your iPhone, offline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejlepší kvalita, v iPhonu, offline."
           }
         }
       }
@@ -1120,6 +1150,16 @@
         }
       }
     },
+    "Could not download the translation model.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladový model se nepodařilo stáhnout."
+          }
+        }
+      }
+    },
     "Could not follow the subject.": {
       "localizations": {
         "cs": {
@@ -1384,6 +1424,26 @@
         }
       }
     },
+    "Delete the model (%@)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat model (%@)"
+          }
+        }
+      }
+    },
+    "Delete the translation model?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat překladový model?"
+          }
+        }
+      }
+    },
     "Delete the voice model optimization?": {
       "localizations": {
         "cs": {
@@ -1504,6 +1564,16 @@
         }
       }
     },
+    "Download the model (%@)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stáhnout model (%@)"
+          }
+        }
+      }
+    },
     "Downloaded": {
       "localizations": {
         "cs": {
@@ -1530,6 +1600,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stahování hlasového modelu %lld %%"
+          }
+        }
+      }
+    },
+    "Downloading the translation model %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuji překladový model %lld %%"
           }
         }
       }
@@ -2358,6 +2438,16 @@
         }
       }
     },
+    "Keep the app open. Wi-Fi recommended.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nech aplikaci otevřenou. Doporučujeme Wi-Fi."
+          }
+        }
+      }
+    },
     "Kept": {
       "localizations": {
         "cs": {
@@ -2524,6 +2614,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamčeno na objektu: obraz se posouvá tak, aby objekt stál, a všechno ostatní se hýbe kolem něj."
+          }
+        }
+      }
+    },
+    "Look": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vzhled"
           }
         }
       }
@@ -3064,6 +3164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obrázek"
+          }
+        }
+      }
+    },
+    "Play the first line": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrát první řádek"
           }
         }
       }
@@ -4168,12 +4278,32 @@
         }
       }
     },
+    "The captions are in %@.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky jsou v jazyce %@."
+          }
+        }
+      }
+    },
     "The clip comes in from black or goes out to black. For the start and the end of the video.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Klip naběhne z černé nebo do černé odejde. Hodí se na začátek a konec videa."
+          }
+        }
+      }
+    },
+    "The download was incomplete. Try again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahování se nedokončilo. Zkus to znovu."
           }
         }
       }
@@ -4224,6 +4354,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "V aplikaci chybí model pro řeč."
+          }
+        }
+      }
+    },
+    "The translation model needs an iPhone 15 Pro or newer.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladový model potřebuje iPhone 15 Pro nebo novější."
+          }
+        }
+      }
+    },
+    "The translation model translates better and knows more languages, Czech and Slovak too. One download, %@, then it works offline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladový model překládá lépe a umí víc jazyků, i češtinu a slovenštinu. Stáhne se jednou (%@), pak funguje offline."
+          }
+        }
+      }
+    },
+    "The translation replaces the captions, with the same style and timing. Undo brings the original back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překlad nahradí titulky, se stejným stylem i časováním. Zpět vrátí původní."
           }
         }
       }
@@ -4374,6 +4534,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přechod"
+          }
+        }
+      }
+    },
+    "Translate": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přeložit"
+          }
+        }
+      }
+    },
+    "Translate to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přeložit do"
+          }
+        }
+      }
+    },
+    "Translate to %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přeložit do: %@"
+          }
+        }
+      }
+    },
+    "Translating %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překládám %lld %%"
+          }
+        }
+      }
+    },
+    "Translation model": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladový model"
           }
         }
       }

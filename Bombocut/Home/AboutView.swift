@@ -41,6 +41,8 @@ struct AboutView: View {
                     credit("FluidAudio", "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0.")
                     credit("DeepFilterNet3", "Hendrik Schröter. Noise removal for speech, converted to Core ML by aufklarer. License: MIT / Apache 2.0.")
                     credit("speech-swift", "soniqo. Signal processing around DeepFilterNet3. License: Apache 2.0.")
+                    credit("TranslateGemma", "Google. Caption translation model, downloaded on request. Gemma is provided under and subject to the Gemma Terms of Use (ai.google.dev/gemma/terms).")
+                    credit("MLX Swift", "Apple. Runs the translation model on the iPhone. License: MIT.")
                     credit("Apple Vision, Video Toolbox, Core Image", "Subject tracking, masks, motion blur, smooth slow motion, effects.")
                     Text("Made in Prague.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     #if DEBUG

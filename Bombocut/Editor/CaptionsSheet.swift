@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 /// Auto captions: generate on the phone, fix the text, style with templates.
 struct CaptionsSheet: View {
@@ -8,7 +9,15 @@ struct CaptionsSheet: View {
     @AppStorage("captionNames") private var names = ""
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
-    @State private var tab = 0
+    @State private var tab = 0                 // 0 text, 1 style, 2 animation, 3 translate
+    @AppStorage("captionStyleSection") private var styleSection = 0
+    @AppStorage("translateTarget") private var translateTarget = "en"
+    @ObservedObject private var translationModel = TranslationModel.shared
+    /// Apple's translator: what it can do for the picked pair, and the run it is asked for.
+    @State private var appleStatus: LanguageAvailability.Status?
+    @State private var appleConfig: TranslationSession.Configuration?
+    @State private var appleTarget = ""
+    @State private var confirmModelDelete = false
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
     @State private var savingTemplate = false
     @State private var templateName = ""
@@ -60,6 +69,23 @@ struct CaptionsSheet: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("The speech model is about 650 MB. Wi-Fi is better.")
+        }
+        .translationTask(appleConfig) { session in
+            let target = appleTarget
+            await model.translateCaptions(to: target) { texts, progress in
+                try await session.prepareTranslation()
+                let requests = texts.enumerated().map { TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset)) }
+                let responses = try await session.translations(from: requests)
+                var out = texts
+                for r in responses {
+                    if let id = r.clientIdentifier, let k = Int(id), out.indices.contains(k) { out[k] = r.targetText }
+                }
+                await progress(1)
+                return out
+            }
+        }
+        .confirmationDialog("Delete the translation model?", isPresented: $confirmModelDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { translationModel.delete() }
         }
         .confirmationDialog("Generate captions again? Your text edits will be replaced.", isPresented: $confirmRegenerate,
                             titleVisibility: .visible) {
@@ -226,9 +252,14 @@ struct CaptionsSheet: View {
                 }
             } else {
             HStack(spacing: 8) {
-                tabButton("Text", 0)
-                tabButton("Style", 1)
-                Spacer()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        tabButton("Text", 0)
+                        tabButton("Style", 1)
+                        tabButton("Animation", 2)
+                        tabButton("Translate", 3)
+                    }
+                }
                 Menu {
                     Button { confirmRegenerate = true } label: { Label("Regenerate", systemImage: "arrow.clockwise") }
                     if model.project.clips.count > 1 {
@@ -248,7 +279,12 @@ struct CaptionsSheet: View {
                 .tint(.white)
             }
             }
-            if tab == 0 { textList(caps) } else { styleEditor(caps) }
+            switch tab {
+            case 0: textList(caps)
+            case 1: styleEditor(caps)
+            case 2: animationEditor(caps)
+            default: translator(caps)
+            }
         }
     }
 
@@ -257,7 +293,8 @@ struct CaptionsSheet: View {
             Text(loc(title))
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(tab == i ? .black : .white)
-                .padding(.horizontal, 16).frame(height: 36)
+                .lineLimit(1)
+                .padding(.horizontal, 14).frame(height: 36)
                 .background(tab == i ? Theme.accent : Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)
@@ -333,101 +370,311 @@ struct CaptionsSheet: View {
 
     // MARK: Style
 
+    private static let styleSections = ["Look", "Layout", "Outline", "Shadow", "Box"]
+
     private func styleEditor(_ caps: Captions) -> some View {
         let s = caps.style
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(CaptionTemplate.builtIns + templates) { t in templateCard(t, selected: caps.templateID == t.id) }
-                        Button { templateName = ""; savingTemplate = true } label: {
-                            VStack(spacing: 6) {
-                                Image(systemName: "plus").font(.system(size: 22, weight: .bold))
-                                Text("Save").font(.caption2.weight(.bold))
-                            }
-                            .foregroundStyle(.white)
-                            .frame(width: 84, height: 84)
-                            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+        return VStack(alignment: .leading, spacing: 14) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Self.styleSections.indices, id: \.self) { i in
+                        Button { styleSection = i } label: {
+                            Text(loc(Self.styleSections[i])).font(.footnote.weight(.bold))
+                                .foregroundStyle(styleSection == i ? .black : .white.opacity(0.85))
+                                .padding(.horizontal, 12).frame(height: 30)
+                                .background(styleSection == i ? Color.white : Theme.panel2, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                 }
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    switch styleSection {
+                    case 1: layoutSection(s)
+                    case 2: outlineSection(s)
+                    case 3: shadowSection(s)
+                    case 4: boxSection(s)
+                    default: lookSection(caps, s)
+                    }
+                }
+                .padding(.bottom, 30)
+            }
+        }
+    }
 
-                section("Font") {
+    /// Templates, font, colors, capitals.
+    @ViewBuilder
+    private func lookSection(_ caps: Captions, _ s: CaptionStyle) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(CaptionTemplate.builtIns + templates) { t in templateCard(t, selected: caps.templateID == t.id) }
+                Button { templateName = ""; savingTemplate = true } label: {
+                    VStack(spacing: 6) {
+                        Image(systemName: "plus").font(.system(size: 22, weight: .bold))
+                        Text("Save").font(.caption2.weight(.bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: 84, height: 84)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        section("Font") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CaptionFont.allCases, id: \.self) { f in
+                        Button { setStyle { $0.font = f } } label: {
+                            Text("Aa")
+                                .font(Font(CaptionRenderer.uiFont(f, size: 20) as CTFont))
+                                .foregroundStyle(s.font == f ? .black : .white)
+                                .frame(width: 54, height: 44)
+                                .background(s.font == f ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        colorRow("Text", s.text) { c in { $0.text = c } }
+        if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
+        OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
+    }
+
+    /// Size, position, lines, spacing, punctuation.
+    @ViewBuilder
+    private func layoutSection(_ s: CaptionStyle) -> some View {
+        slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
+        slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
+        section("Lines") {
+            HStack(spacing: 8) {
+                pill("1 line", on: s.lines == 1) { setStyle(recut: true) { $0.lines = 1; $0.maxChars = min($0.maxChars, 20) } }
+                pill("2 lines", on: s.lines == 2) { setStyle(recut: true) { $0.lines = 2; $0.maxChars = max($0.maxChars, 28) } }
+                Spacer()
+                Stepper(value: Binding(get: { s.maxChars }, set: { v in setStyle(recut: true) { $0.maxChars = v } }),
+                        in: 8...48, step: 2) {
+                    Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
+                }
+                .fixedSize()
+            }
+        }
+        slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
+        slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
+        OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
+    }
+
+    @ViewBuilder
+    private func outlineSection(_ s: CaptionStyle) -> some View {
+        colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
+        slider("Outline width", value: s.strokeWidth, def: Self.base.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
+        if s.strokeWidth > 0 {
+            OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
+        }
+    }
+
+    @ViewBuilder
+    private func shadowSection(_ s: CaptionStyle) -> some View {
+        OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
+        if s.shadow {
+            slider("Shadow opacity", value: s.shadowOpacity, def: Self.base.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
+            slider("Shadow blur", value: s.shadowBlur, def: Self.base.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
+            slider("Shadow distance", value: s.shadowDistance, def: Self.base.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
+            slider("Shadow angle", value: s.shadowAngle, def: Self.base.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
+        }
+    }
+
+    @ViewBuilder
+    private func boxSection(_ s: CaptionStyle) -> some View {
+        OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
+        if s.box {
+            colorRow("Box color", s.boxColor) { c in { $0.boxColor = c } }
+            slider("Box opacity", value: s.boxOpacity, def: Self.base.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
+        }
+    }
+
+    // MARK: Animation
+
+    private func animationEditor(_ caps: Captions) -> some View {
+        let s = caps.style
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                section("Animation") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
+                        ForEach(CaptionAnim.allCases, id: \.self) { a in
+                            pill(a.title, on: s.anim == a) {
+                                setStyle { $0.anim = a }
+                                model.previewCaption()
+                            }
+                        }
+                    }
+                }
+                if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
+                Button { model.previewCaption() } label: {
+                    Label(loc("Play the first line"), systemImage: "play.fill")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 38)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.bottom, 30)
+        }
+    }
+
+    // MARK: Translate
+
+    private var targets: [TranslateLanguage.Item] {
+        TranslateLanguage.all.filter { $0.code != model.project.captions?.language }
+    }
+
+    private func translator(_ caps: Captions) -> some View {
+        let target = translateTarget == caps.language ? (caps.language == "en" ? "cs" : "en") : translateTarget
+        let useModel = translationModel.isReady
+        let appleCan = appleStatus == .installed || appleStatus == .supported
+        let busy = model.translateJob != nil && model.translateJob?.error == nil
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(String(format: loc("The captions are in %@."), TranslateLanguage.item(caps.language)?.name ?? caps.language))
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                section("Translate to") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(CaptionFont.allCases, id: \.self) { f in
-                                Button { setStyle { $0.font = f } } label: {
-                                    Text("Aa")
-                                        .font(Font(CaptionRenderer.uiFont(f, size: 20) as CTFont))
-                                        .foregroundStyle(s.font == f ? .black : .white)
-                                        .frame(width: 54, height: 44)
-                                        .background(s.font == f ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
+                            ForEach(targets) { l in
+                                Button { translateTarget = l.code } label: {
+                                    Text(verbatim: "\(l.flag) \(l.name)")
+                                        .font(.subheadline.weight(.bold))
+                                        .foregroundStyle(target == l.code ? .black : .white)
+                                        .padding(.horizontal, 12).frame(height: 38)
+                                        .background(target == l.code ? Theme.accent : Theme.panel2, in: Capsule())
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
+                    .disabled(busy)
                 }
 
-                section("Animation") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(CaptionAnim.allCases, id: \.self) { a in
-                                pill(a.title, on: s.anim == a) {
-                                    setStyle { $0.anim = a }
-                                    model.previewCaption()
+                engineCard(useModel: useModel, appleCan: appleCan, source: caps.language)
+
+                if let job = model.translateJob {
+                    if let e = job.error {
+                        Text(e).font(.footnote.weight(.semibold)).foregroundStyle(.red)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(String(format: loc("Translating %lld %%"), Int(job.progress * 100)))
+                                    .font(.subheadline.weight(.bold))
+                                Spacer()
+                                if useModel {
+                                    Button(loc("Cancel")) { model.cancelTranslation() }
+                                        .font(.subheadline.weight(.bold)).tint(.white)
                                 }
                             }
+                            ProgressView(value: max(job.progress, 0.02)).tint(Theme.accent)
                         }
+                        .padding(14)
+                        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
                     }
                 }
 
-                slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
-                slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
-
-                section("Lines") {
-                    HStack(spacing: 8) {
-                        pill("1 line", on: s.lines == 1) { setStyle(recut: true) { $0.lines = 1; $0.maxChars = min($0.maxChars, 20) } }
-                        pill("2 lines", on: s.lines == 2) { setStyle(recut: true) { $0.lines = 2; $0.maxChars = max($0.maxChars, 28) } }
-                        Spacer()
-                        Stepper(value: Binding(get: { s.maxChars }, set: { v in setStyle(recut: true) { $0.maxChars = v } }),
-                                in: 8...48, step: 2) {
-                            Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
-                        }
-                        .fixedSize()
+                Button {
+                    model.pause()
+                    model.dismissTranslateError()
+                    if useModel {
+                        model.translateWithModel(to: target)
+                    } else {
+                        appleTarget = target
+                        let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
+                                                                   target: Locale.Language(identifier: target))
+                        if appleConfig == cfg { appleConfig?.invalidate() } else { appleConfig = cfg }
                     }
+                } label: {
+                    Label(String(format: loc("Translate to %@"), TranslateLanguage.item(target)?.name ?? target),
+                          systemImage: "character.bubble.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.accent.opacity(useModel || appleCan ? 1 : 0.35), in: RoundedRectangle(cornerRadius: 16))
                 }
+                .buttonStyle(.plain)
+                .disabled(busy || !(useModel || appleCan))
 
-                colorRow("Text", s.text) { c in { $0.text = c } }
-                if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
-                colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
-                slider("Outline width", value: s.strokeWidth, def: Self.base.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
-                if s.strokeWidth > 0 {
-                    OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
-                }
-                slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
-                slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
-
-                OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
-                if s.box {
-                    colorRow("Box color", s.boxColor) { c in { $0.boxColor = c } }
-                    slider("Box opacity", value: s.boxOpacity, def: Self.base.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
-                }
-                VStack(spacing: 12) {
-                    OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
-                    OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
-                    OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
-                }
-                if s.shadow {
-                    slider("Shadow opacity", value: s.shadowOpacity, def: Self.base.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
-                    slider("Shadow blur", value: s.shadowBlur, def: Self.base.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
-                    slider("Shadow distance", value: s.shadowDistance, def: Self.base.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
-                    slider("Shadow angle", value: s.shadowAngle, def: Self.base.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
-                }
+                Text("The translation replaces the captions, with the same style and timing. Undo brings the original back.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.bottom, 30)
         }
+        .task(id: caps.language + ">" + target) {
+            appleStatus = await LanguageAvailability().status(from: Locale.Language(identifier: caps.language),
+                                                              to: Locale.Language(identifier: target))
+        }
+    }
+
+    /// Which translator runs, and the download of the model.
+    @ViewBuilder
+    private func engineCard(useModel: Bool, appleCan: Bool, source: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            switch translationModel.state {
+            case .ready:
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(Theme.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Translation model").font(.subheadline.weight(.bold))
+                        Text("Best quality, on your iPhone, offline.").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
+                    Spacer()
+                    Menu {
+                        Button(role: .destructive) { confirmModelDelete = true } label: {
+                            Label(String(format: loc("Delete the model (%@)"), translationModel.sizeLabel), systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis").font(.system(size: 15, weight: .bold))
+                            .frame(width: 34, height: 34).background(Theme.panel, in: Circle())
+                    }
+                    .tint(.white)
+                }
+            case .downloading(let f):
+                HStack {
+                    Text(String(format: loc("Downloading the translation model %lld %%"), Int(f * 100)))
+                        .font(.subheadline.weight(.bold))
+                    Spacer()
+                    Button(loc("Cancel")) { translationModel.cancel() }.font(.subheadline.weight(.bold)).tint(.white)
+                }
+                ProgressView(value: max(f, 0.01)).tint(Theme.accent)
+                Text("Keep the app open. Wi-Fi recommended.").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+            case .missing, .failed:
+                if appleCan {
+                    Text("Apple's translator: quick, on your iPhone.").font(.subheadline.weight(.bold))
+                } else {
+                    Text(String(format: loc("Apple's translator can't translate %@."), TranslateLanguage.item(source)?.name ?? source))
+                        .font(.subheadline.weight(.bold))
+                }
+                if TranslationModel.deviceCanRun {
+                    Text(String(format: loc("The translation model translates better and knows more languages, Czech and Slovak too. One download, %@, then it works offline."),
+                                translationModel.sizeLabel))
+                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button { translationModel.download() } label: {
+                        Label(String(format: loc("Download the model (%@)"), translationModel.sizeLabel), systemImage: "arrow.down.circle.fill")
+                            .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 38)
+                            .background(Theme.panel, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else if !appleCan {
+                    Text("The translation model needs an iPhone 15 Pro or newer.")
+                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                }
+                if case .failed(let e) = translationModel.state {
+                    Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func templateCard(_ t: CaptionTemplate, selected: Bool) -> some View {

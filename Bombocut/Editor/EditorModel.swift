@@ -861,6 +861,73 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    // MARK: Caption translation
+
+    struct TranslateJob: Equatable {
+        var progress: Double
+        var error: String?
+    }
+    @Published private(set) var translateJob: TranslateJob?
+    private var translateTask: Task<Void, Never>?
+
+    /// Translates the captions sentence by sentence and replaces them (one undo step; your edits go with it).
+    /// `engine` turns the sentences into translated sentences, reporting progress.
+    func translateCaptions(to target: String,
+                           engine: @escaping ([String], @escaping @MainActor (Double) -> Void) async throws -> [String]) async {
+        guard let caps = project.captions, !caps.words.isEmpty, caps.language != target else { return }
+        let snapshot = project
+        let sentences = CaptionTranslate.sentences(caps.words)
+        translateJob = TranslateJob(progress: 0)
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer { UIApplication.shared.isIdleTimerDisabled = false }
+        do {
+            let out = try await engine(sentences.map(\.text)) { [weak self] p in self?.translateJob?.progress = p }
+            guard out.count == sentences.count else { throw CancellationError() }
+            var c = CaptionTranslate.captions(caps, sentences: sentences, translated: out, language: target)
+            // you kept editing meanwhile: move the captions onto the timeline as it is now
+            if snapshot.timingKey != project.timingKey { c = c.remapped(from: snapshot, to: project) }
+            setCaptions(c)
+            translateJob = nil
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch is CancellationError {
+            translateJob = nil
+        } catch {
+            translateJob = TranslateJob(progress: 0, error: error.localizedDescription)
+        }
+    }
+
+    /// With the downloaded model (keeps going when the panel closes).
+    func translateWithModel(to target: String) {
+        guard let src = project.captions?.language, translateJob == nil || translateJob?.error != nil else { return }
+        translateTask = Task {
+            await translateCaptions(to: target) { texts, progress in
+                do {
+                    var out: [String] = []
+                    for (i, t) in texts.enumerated() {
+                        try Task.checkCancellation()
+                        out.append(try await GemmaTranslator.shared.translate(t, from: src, to: target))
+                        await progress(Double(i + 1) / Double(texts.count))
+                    }
+                    await GemmaTranslator.shared.unload()
+                    return out
+                } catch {
+                    await GemmaTranslator.shared.unload()
+                    throw error
+                }
+            }
+        }
+    }
+
+    func cancelTranslation() {
+        translateTask?.cancel()
+        translateTask = nil
+        translateJob = nil
+    }
+
+    func dismissTranslateError() {
+        if translateJob?.error != nil { translateJob = nil }
+    }
+
     func dismissCaptionJob() {
         if captionJob?.error != nil { captionJob = nil }
         captionsReady = false

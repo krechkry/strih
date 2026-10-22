@@ -46,3 +46,31 @@ final class AdjustTests: XCTestCase {
         XCTAssertTrue(a.hasCanvasFX)
     }
 }
+
+final class CaptionTranslateTests: XCTestCase {
+    private func w(_ t: String, _ s: Double, _ e: Double) -> CaptionWord { CaptionWord(text: t, start: s, end: e) }
+
+    func testSentencesSplitAtFullStopsAndPauses() {
+        let words = [w("Ahoj,", 0, 0.3), w("jak", 0.35, 0.5), w("se", 0.5, 0.6), w("máš?", 0.6, 0.9),
+                     w("Dobře", 1.0, 1.3), w("díky", 3.0, 3.3), w("moc", 3.35, 3.6)]
+        let s = CaptionTranslate.sentences(words)
+        XCTAssertEqual(s.map(\.text), ["Ahoj, jak se máš?", "Dobře", "díky moc"])
+    }
+
+    func testTranslationFillsTheSpokenTimeAndSkipsPauses() {
+        let original = [w("Jedna", 1.0, 1.5), w("dva", 3.0, 3.5)]
+        let out = CaptionTranslate.words("one two", over: original[...])
+        XCTAssertEqual(out.count, 2)
+        XCTAssertEqual(out[0].start, 1.0, accuracy: 1e-6)
+        XCTAssertLessThanOrEqual(out[1].end, 3.5 + 1e-6)
+        // the second word starts after the pause, in the second spoken stretch
+        XCTAssertGreaterThanOrEqual(out[1].start, 3.0 - 1e-6)
+    }
+
+    func testModelPromptFollowsItsTemplate() {
+        let p = GemmaTranslator.prompt("Ahoj", from: "cs", to: "en")
+        XCTAssertTrue(p.hasPrefix("<start_of_turn>user\nYou are a professional Czech (cs) to English (en) translator."))
+        XCTAssertTrue(p.hasSuffix("Please translate the following Czech text into English:\n\n\nAhoj<end_of_turn>\n<start_of_turn>model\n"))
+        XCTAssertEqual(GemmaTranslator.clean(" Hello there\n<end_of_turn>"), "Hello there")
+    }
+}

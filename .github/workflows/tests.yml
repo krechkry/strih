@@ -28,6 +28,8 @@ jobs:
       - name: Run tests on the simulator
         run: |
           xcodegen generate
+          # MLX compiles Metal shaders: Xcode 26 ships the Metal toolchain separately
+          xcodebuild -downloadComponent MetalToolchain || true
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys
           d=json.load(sys.stdin)['devices']
