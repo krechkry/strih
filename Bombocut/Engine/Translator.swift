@@ -305,11 +305,12 @@ enum CaptionTranslate {
         let spans = original.map { (max($0.start, 0), max($0.end, $0.start + 0.02)) }
         let speech = spans.reduce(0) { $0 + ($1.1 - $1.0) }
         // time at a fraction of the speaking time, skipping the pauses between words
-        func time(_ f: Double) -> Double {
+        // (a word starting exactly where a spoken stretch ends starts after the pause instead)
+        func time(_ f: Double, start: Bool) -> Double {
             var left = f * speech
-            for (a, b) in spans {
+            for (k, (a, b)) in spans.enumerated() {
                 let d = b - a
-                if left <= d { return a + left }
+                if left < d - 1e-9 || (left <= d + 1e-9 && (!start || k == spans.count - 1)) { return a + min(left, d) }
                 left -= d
             }
             return spans.last!.1
@@ -319,9 +320,9 @@ enum CaptionTranslate {
         var acc = 0.0
         var out: [CaptionWord] = []
         for (k, p) in parts.enumerated() {
-            let a = time(acc / total)
+            let a = time(acc / total, start: true)
             acc += weights[k]
-            let b = time(acc / total)
+            let b = time(acc / total, start: false)
             out.append(CaptionWord(text: p, start: a, end: max(b - 0.01, a + 0.02)))
         }
         return out
