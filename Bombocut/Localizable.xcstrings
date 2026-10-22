@@ -2758,6 +2758,16 @@
         }
       }
     },
+    "Make captions first.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív vytvoř titulky."
+          }
+        }
+      }
+    },
     "Makes the voice model load fast. Deleting means the next load takes minutes again.": {
       "localizations": {
         "cs": {
@@ -4664,6 +4674,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přeložit"
+          }
+        }
+      }
+    },
+    "Translate captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přeložit titulky"
           }
         }
       }

@@ -42,7 +42,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export, .translate: return true
         default: return false
         }
     }
@@ -64,6 +64,7 @@ struct EditorView: View {
         case .layout: return 250
         case .audio: return 220
         case .speech: return 470
+        case .translate: return 560
         }
     }
 
@@ -126,6 +127,7 @@ struct EditorView: View {
         case .layout: LayoutSheet(model: model)
         case .audio: AudioSheet(model: model)
         case .speech: SpeechSheet(model: model)
+        case .translate: TranslateSheet(model: model)
         }
     }
 
@@ -543,6 +545,7 @@ struct EditorView: View {
                         model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
                     }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
+                    ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); sheet = .translate }
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
@@ -822,7 +825,7 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .adjust
             }
-        case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim", "captiontr":
+        case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim":
             let text = "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark v Karlíně a natočíme nový díl. Robin jede první, pak zbytek party. To je ono!"
             var t = 0.3
             let words = text.split(separator: " ").map { w -> CaptionWord in
@@ -913,6 +916,7 @@ struct EditorView: View {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
+    case translate
     var id: String { rawValue }
 }
 
