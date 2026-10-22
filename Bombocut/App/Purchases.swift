@@ -27,7 +27,7 @@ final class Purchases: ObservableObject {
         #if DEBUG
         return true
         #else
-        return UserDefaults.standard.bool(forKey: "isBeta")
+        return UserDefaults.standard.bool(forKey: "isBeta") || Purchases.receiptSaysSandbox
         #endif
     }()
     @Published private(set) var trial: Product?
@@ -83,11 +83,31 @@ final class Purchases: ObservableObject {
         return
         #else
         guard Demo.mode == nil else { return }
-        guard let result = try? await AppTransaction.shared, case .verified(let t) = result else { return }
-        let beta = t.environment == .sandbox
+        if Self.receiptSaysSandbox { setBeta(true) }
+        // The app transaction can take a moment (or fail) on the very first launch, so try a few times.
+        // Its environment is read even when the device can't verify it yet: it only decides whether
+        // TestFlight users skip the trial screen.
+        for _ in 0..<4 {
+            if let result = try? await AppTransaction.shared {
+                let env = result.unsafePayloadValue.environment
+                setBeta(env == .sandbox || env == .xcode)
+                return
+            }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        #endif
+    }
+
+    private func setBeta(_ beta: Bool) {
         isBeta = beta
         UserDefaults.standard.set(beta, forKey: "isBeta")
-        #endif
+    }
+
+    /// TestFlight installs carry a sandbox receipt. Known right at launch, before the App Store answers.
+    /// (Read by key: the property is deprecated in favor of AppTransaction, which needs a round trip.)
+    nonisolated static var receiptSaysSandbox: Bool {
+        let url = (Bundle.main as AnyObject).value(forKey: "appStoreReceiptURL") as? URL
+        return url?.lastPathComponent == "sandboxReceipt"
     }
 
     func load() async {
