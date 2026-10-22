@@ -1115,10 +1115,37 @@ private struct KeyframeButton: View {
 
 extension View {
     /// Double tap on a slider: back to its default.
+    /// A UIKit recognizer: SwiftUI's own tap gesture never sees taps that land on a slider.
     func doubleTapReset(_ reset: @escaping () -> Void) -> some View {
-        simultaneousGesture(TapGesture(count: 2).onEnded {
+        gesture(DoubleTapRecognizer {
             reset()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         })
+    }
+}
+
+/// Two quick taps, recognized alongside whatever else the view does (the slider keeps working).
+struct DoubleTapRecognizer: UIGestureRecognizerRepresentable {
+    let action: () -> Void
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            true
+        }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
+        let g = UITapGestureRecognizer()
+        g.numberOfTapsRequired = 2
+        g.cancelsTouchesInView = false
+        g.delaysTouchesEnded = false
+        g.delegate = context.coordinator
+        return g
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UITapGestureRecognizer, context: Context) {
+        if g.state == .ended { action() }
     }
 }

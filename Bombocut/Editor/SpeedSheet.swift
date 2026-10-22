@@ -14,6 +14,11 @@ struct SpeedSheet: View {
     @State private var snapped = false
     @State private var snappedHead = false
     @State private var loaded = false
+    /// This panel's own undo / redo: only the speed of this clip, not the whole timeline.
+    private struct Snap: Equatable { var tab: Int; var speed: Double; var points: [SpeedPoint] }
+    @State private var past: [Snap] = []
+    @State private var future: [Snap] = []
+    @State private var committed: Snap?
 
     private var clip: Clip? { model.selectedIndex.map { model.project.clips[$0] } }
 
@@ -27,16 +32,16 @@ struct SpeedSheet: View {
                     Text("Speed").font(.title3.weight(.heavy))
                 }
                 Spacer()
-                Button { model.undo() } label: {
+                Button { undoSpeed() } label: {
                     Image(systemName: "arrow.uturn.backward").font(.system(size: 16, weight: .bold)).frame(width: 36, height: 40)
                 }
                 .tint(.white)
-                .disabled(!model.canUndo)
-                Button { model.redo() } label: {
+                .disabled(past.isEmpty)
+                Button { redoSpeed() } label: {
                     Image(systemName: "arrow.uturn.forward").font(.system(size: 16, weight: .bold)).frame(width: 36, height: 40)
                 }
                 .tint(.white)
-                .disabled(!model.canRedo)
+                .disabled(future.isEmpty)
                 Button { model.previewSelected() } label: {
                     Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 16, weight: .bold))
@@ -88,6 +93,44 @@ struct SpeedSheet: View {
             points = pts
             tab = 1
         }
+        committed = now
+    }
+
+    // MARK: Undo / redo (this clip's speed only)
+
+    private var now: Snap { Snap(tab: tab, speed: speed, points: points) }
+
+    /// After a change was applied: the state before it becomes one undo step.
+    private func record() {
+        if let c = committed, c != now {
+            past.append(c)
+            future = []
+        }
+        committed = now
+    }
+
+    private func commitCurve() { model.setCurve(points); record() }
+    private func commitSpeed(_ v: Double) { model.setSpeed(v); record() }
+
+    private func restore(_ s: Snap) {
+        tab = s.tab
+        speed = s.speed
+        points = s.points
+        selected = nil
+        if s.tab == 0 { model.setSpeed(s.speed) } else { model.setCurve(s.points) }
+        committed = s
+    }
+
+    private func undoSpeed() {
+        guard let p = past.popLast() else { return }
+        if let c = committed { future.append(c) }
+        restore(p)
+    }
+
+    private func redoSpeed() {
+        guard let n = future.popLast() else { return }
+        if let c = committed { past.append(c) }
+        restore(n)
     }
 
     private func tabButton(_ title: String, _ i: Int) -> some View {
@@ -95,10 +138,10 @@ struct SpeedSheet: View {
             guard tab != i else { return }
             tab = i
             if i == 0 {
-                model.setSpeed(speed)
+                commitSpeed(speed)
             } else {
                 if clip?.hasCurve != true { points = SpeedCurve.flat(speed) }
-                model.setCurve(points)
+                commitCurve()
             }
         } label: {
             Text(loc(title))
@@ -146,9 +189,9 @@ struct SpeedSheet: View {
                     speed = s >= 10 ? s.rounded() : (s * 100).rounded() / 100
                 }
             ), in: Self.lo...Self.hi, onEditingChanged: { editing in
-                if !editing { model.setSpeed(speed) }
+                if !editing { commitSpeed(speed) }
             })
-            .doubleTapReset { speed = 1; model.setSpeed(1) }
+            .doubleTapReset { speed = 1; commitSpeed(1) }
             GeometryReader { g in
                 ForEach([0.1, 0.5, 1, 2, 10, 100], id: \.self) { t in
                     Text(verbatim: Fmt.speed(t))
@@ -189,14 +232,14 @@ struct SpeedSheet: View {
                     guard let i = selected, i > 0, i < points.count - 1 else { return }
                     points.remove(at: i)
                     selected = nil
-                    model.setCurve(points)
+                    commitCurve()
                 }
                 .disabled(selected == nil || selected == 0 || selected == points.count - 1)
                 Spacer(minLength: 0)
                 Button {
                     points = SpeedCurve.flat(1)
                     selected = nil
-                    model.setCurve(points)
+                    commitCurve()
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.subheadline.weight(.bold))
@@ -260,7 +303,7 @@ struct SpeedSheet: View {
         points.append(p)
         points.sort { $0.t < $1.t }
         selected = points.firstIndex(of: p)
-        model.setCurve(points)
+        commitCurve()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -314,7 +357,9 @@ struct SpeedSheet: View {
                     .background(Theme.accent, in: Capsule())
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
                     .fixedSize()
-                    .position(x: min(max(f.x, 34), w - 34), y: f.y > 60 ? f.y - 48 : f.y + 48)
+                    // beside the finger (never under it), inside the graph so nothing cuts it off
+                    .position(x: f.x > w / 2 ? max(f.x - 62, 34) : min(f.x + 62, w - 34),
+                              y: min(max(f.y - 34, 16), h - 16))
                     .allowsHitTesting(false)
             }
         }
@@ -406,12 +451,12 @@ struct SpeedSheet: View {
             points.append(p)
             points.sort { $0.t < $1.t }
             selected = points.firstIndex(of: p)
-            model.setCurve(points)
+            commitCurve()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } else if i == -1 {
             if !dragMoved { scrub(toU: Double(g.location.x / w)) }
         } else if dragMoved {
-            model.setCurve(points)
+            commitCurve()
         }
     }
 }
