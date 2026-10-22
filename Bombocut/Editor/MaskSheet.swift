@@ -33,7 +33,7 @@ struct MaskSheet: View {
                     }
                     if let m {
                         group("Edge") {
-                            slider("Softness", m.feather) { v in model.editClip { $0.mask?.feather = v } }
+                            slider("Softness", m.feather, def: SubjectMask().feather) { v in model.editClip { $0.mask?.feather = v } }
                             slider("Shrink / grow", m.grow, range: -1...1, center: true) { v in model.editClip { $0.mask?.grow = v } }
                             Toggle(isOn: Binding(get: { m.invert }, set: { v in model.mutateLook { $0.clips[i].mask?.invert = v } })) {
                                 Text("Invert (swap subject and background)").font(.subheadline.weight(.bold))
@@ -214,7 +214,7 @@ struct MaskSheet: View {
     }
 
     private func slider(_ title: String, _ value: Double, range: ClosedRange<Double> = 0...1, center: Bool = false,
-                        _ set: @escaping (Double) -> Void) -> some View {
+                        def: Double = 0, _ set: @escaping (Double) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
@@ -226,6 +226,7 @@ struct MaskSheet: View {
                    onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })
+            .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
         }
     }
 }

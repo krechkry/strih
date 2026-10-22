@@ -270,6 +270,16 @@
         }
       }
     },
+    "Advanced": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokročilé"
+          }
+        }
+      }
+    },
     "Again": {
       "localizations": {
         "cs": {
@@ -456,6 +466,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Použít na"
+          }
+        }
+      }
+    },
+    "Aqua": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tyrkysová"
           }
         }
       }
@@ -696,6 +716,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prolnutí"
+          }
+        }
+      }
+    },
+    "Bloom": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Záře"
+          }
+        }
+      }
+    },
+    "Blue": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modrá"
           }
         }
       }
@@ -1170,6 +1210,16 @@
         }
       }
     },
+    "Curves": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křivky"
+          }
+        }
+      }
+    },
     "Custom": {
       "localizations": {
         "cs": {
@@ -1514,6 +1564,16 @@
         }
       }
     },
+    "Drag the points up or down. Double tap the graph to straighten it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body táhni nahoru nebo dolů. Dvojklepnutím na graf ho narovnáš."
+          }
+        }
+      }
+    },
     "Duplicate": {
       "localizations": {
         "cs": {
@@ -1560,6 +1620,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Upravuješ keyframe v %@"
+          }
+        }
+      }
+    },
+    "Effects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efekty"
           }
         }
       }
@@ -1998,12 +2068,42 @@
         }
       }
     },
+    "Green": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zelená"
+          }
+        }
+      }
+    },
     "HEVC": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "HEVC"
+          }
+        }
+      }
+    },
+    "HSL": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HSL"
+          }
+        }
+      }
+    },
+    "Halation": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halace"
           }
         }
       }
@@ -2074,6 +2174,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kolik toho chceš vidět?"
+          }
+        }
+      }
+    },
+    "Hue": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstín"
           }
         }
       }
@@ -2428,6 +2538,16 @@
         }
       }
     },
+    "Luminance": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jas"
+          }
+        }
+      }
+    },
     "Made by a filmmaker, in Prague.": {
       "localizations": {
         "cs": {
@@ -2444,6 +2564,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyrobeno v Praze."
+          }
+        }
+      }
+    },
+    "Magenta": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purpurová"
           }
         }
       }
@@ -2778,6 +2908,16 @@
         }
       }
     },
+    "Orange": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oranžová"
+          }
+        }
+      }
+    },
     "Out": {
       "localizations": {
         "cs": {
@@ -3028,6 +3168,16 @@
         }
       }
     },
+    "Purple": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fialová"
+          }
+        }
+      }
+    },
     "Reading audio": {
       "localizations": {
         "cs": {
@@ -3064,6 +3214,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hotovo"
+          }
+        }
+      }
+    },
+    "Red": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Červená"
           }
         }
       }
@@ -4474,6 +4634,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zápis selhal."
+          }
+        }
+      }
+    },
+    "Yellow": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žlutá"
           }
         }
       }

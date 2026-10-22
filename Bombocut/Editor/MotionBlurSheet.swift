@@ -21,6 +21,7 @@ struct MotionBlurSheet: View {
                 Slider(value: Binding(get: { c.motionBlur }, set: { model.setMotionBlur($0) }), in: 0.01...1,
                        onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
                     .tint(Theme.accent)
+                    .doubleTapReset { model.liveEditBegan(); model.setMotionBlur(0.5); model.liveEditEnded() }
                     .disabled(!c.motionBlurOn)
                     .opacity(c.motionBlurOn ? 1 : 0.4)
                 HStack(spacing: 8) {
@@ -193,6 +194,11 @@ struct ClipAnimSheet: View {
                        }
                    })
                 .tint(Theme.accent)
+                .doubleTapReset {
+                    model.cutDurationChanged(current == .smooth ? 0.2 : 0.5)
+                    model.cutDurationEnded()
+                    model.previewCut()
+                }
             if model.project.clips.count > 2 {
                 Button { model.applyCutToAll() } label: {
                     Label(loc("Same on every cut"), systemImage: "square.stack.3d.up.fill")
@@ -231,6 +237,7 @@ struct AudioSheet: View {
                     .tint(.white)
                     Slider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
                            onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
+                        .doubleTapReset { model.setAudioVolume(1, done: true) }
                     Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
                         .frame(width: 52, alignment: .trailing)
                 }
@@ -280,6 +287,7 @@ struct SpeechSheet: View {
                                     if !e, let v = strength { var f = fx; f.denoise = v; model.setSpeech(f); strength = nil }
                                 })
                                 .tint(Theme.accent)
+                                .doubleTapReset { var f = fx; f.denoise = 0.85; model.setSpeech(f); strength = nil }
                             }
                         }
                     }
@@ -302,6 +310,7 @@ struct SpeechSheet: View {
                                     if !e, let v = intensity { var f = fx; f.mixIntensity = v; model.setSpeech(f); intensity = nil }
                                 })
                                 .tint(Theme.accent)
+                                .doubleTapReset { var f = fx; f.mixIntensity = SpeechFX().mixIntensity; model.setSpeech(f); intensity = nil }
                             }
                             Text("Apple's voice isolation, for videos recorded with spatial audio on iPhone 16 and newer.")
                                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)

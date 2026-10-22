@@ -80,7 +80,130 @@ enum EffectsRenderer {
                 "inputPoint4": CIVector(x: 1, y: 1),
             ])
         }
+        if e.hasCurves { out = curves(out, e) }
+        if e.hasHSL { out = hsl(out, e) }
         return out
+    }
+
+    // MARK: Curves
+
+    /// The tone curves as one lookup table (all channels first, then each channel's own), in sRGB like the eye sees it.
+    private static func curves(_ img: CIImage, _ e: Effects) -> CIImage {
+        let n = 256
+        var table = [Float](repeating: 0, count: n * 3)
+        for i in 0..<n {
+            let x = Double(i) / Double(n - 1)
+            let m = ToneCurve.value(e.curve, x)
+            table[i * 3] = Float(ToneCurve.value(e.curveR, m))
+            table[i * 3 + 1] = Float(ToneCurve.value(e.curveG, m))
+            table[i * 3 + 2] = Float(ToneCurve.value(e.curveB, m))
+        }
+        let data = table.withUnsafeBufferPointer { Data(buffer: $0) }
+        return img.applyingFilter("CIColorCurves", parameters: [
+            "inputCurvesData": data,
+            "inputCurvesDomain": CIVector(x: 0, y: 1),
+            "inputColorSpace": srgb,
+        ])
+    }
+
+    private static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+
+    // MARK: HSL
+
+    private static let cubeSize = 25
+    private static let cubeLock = NSLock()
+    private static var cubes: [[Double]: Data] = [:]
+
+    /// Hue / saturation / lightness per color band, as a 3D color lookup table (made once per setting).
+    private static func hsl(_ img: CIImage, _ e: Effects) -> CIImage {
+        // two decimals are plenty, and keyframes in between then mostly hit the cache
+        let key = (e.hslHue + e.hslSat + e.hslLum).map { ($0 * 100).rounded() / 100 }
+        cubeLock.lock()
+        var data = cubes[key]
+        cubeLock.unlock()
+        if data == nil {
+            let made = makeCube(hue: Array(key[0..<8]), sat: Array(key[8..<16]), lum: Array(key[16..<24]))
+            cubeLock.lock()
+            if cubes.count > 24 { cubes.removeAll() }
+            cubes[key] = made
+            cubeLock.unlock()
+            data = made
+        }
+        return img.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+            "inputCubeDimension": cubeSize,
+            "inputCubeData": data!,
+            "inputColorSpace": srgb,
+        ])
+    }
+
+    /// How much each band applies to a hue: full at its center, fading out towards the neighbouring bands.
+    private static func weights(_ h: Double) -> [Double] {
+        let centers = HSLBand.allCases.map(\.hue)
+        var w = [Double](repeating: 0, count: centers.count)
+        for i in centers.indices {
+            let a = centers[i], b = centers[(i + 1) % centers.count] + (i + 1 == centers.count ? 360 : 0)
+            var hh = h
+            if hh < a { hh += 360 }
+            if hh >= a && hh < b {
+                let f = (hh - a) / (b - a)
+                let s = f * f * (3 - 2 * f)
+                w[i] = 1 - s
+                w[(i + 1) % centers.count] = s
+                break
+            }
+        }
+        return w
+    }
+
+    private static func makeCube(hue: [Double], sat: [Double], lum: [Double]) -> Data {
+        let n = cubeSize
+        var cube = [Float](repeating: 0, count: n * n * n * 4)
+        var o = 0
+        for bi in 0..<n {
+            for gi in 0..<n {
+                for ri in 0..<n {
+                    let r = Double(ri) / Double(n - 1), g = Double(gi) / Double(n - 1), b = Double(bi) / Double(n - 1)
+                    let mx = max(r, g, b), mn = min(r, g, b)
+                    var l = (mx + mn) / 2
+                    let d = mx - mn
+                    var out = (r, g, b)
+                    if d > 1e-5 {
+                        var s = d / (1 - abs(2 * l - 1))
+                        var h: Double
+                        if mx == r { h = 60 * ((g - b) / d).truncatingRemainder(dividingBy: 6) }
+                        else if mx == g { h = 60 * ((b - r) / d + 2) }
+                        else { h = 60 * ((r - g) / d + 4) }
+                        if h < 0 { h += 360 }
+                        let w = weights(h)
+                        var dh = 0.0, ds = 0.0, dl = 0.0
+                        for k in 0..<8 where w[k] > 0 { dh += w[k] * hue[k]; ds += w[k] * sat[k]; dl += w[k] * lum[k] }
+                        // grays have no hue: the less color, the less it changes
+                        let chroma = min(1, s)
+                        h = (h + dh * 30).truncatingRemainder(dividingBy: 360)
+                        if h < 0 { h += 360 }
+                        s = min(1, max(0, s * (1 + ds)))
+                        l = min(1, max(0, l + dl * 0.25 * chroma))
+                        let c = (1 - abs(2 * l - 1)) * s
+                        let x = c * (1 - abs((h / 60).truncatingRemainder(dividingBy: 2) - 1))
+                        let m = l - c / 2
+                        let (r1, g1, b1): (Double, Double, Double) = {
+                            switch Int(h / 60) % 6 {
+                            case 0: return (c, x, 0)
+                            case 1: return (x, c, 0)
+                            case 2: return (0, c, x)
+                            case 3: return (0, x, c)
+                            case 4: return (x, 0, c)
+                            default: return (c, 0, x)
+                            }
+                        }()
+                        out = (r1 + m, g1 + m, b1 + m)
+                    }
+                    cube[o] = Float(out.0); cube[o + 1] = Float(out.1); cube[o + 2] = Float(out.2); cube[o + 3] = 1
+                    o += 4
+                }
+            }
+        }
+        return cube.withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
     /// Lens and film effects, applied to the finished canvas.
@@ -98,8 +221,40 @@ enum EffectsRenderer {
                 "inputFalloff": 0.6,
             ])
         }
+        if e.halation > 0 { out = halation(out, amount: e.halation, size: size) }
+        if e.bloom > 0 {
+            out = out.clampedToExtent().applyingFilter("CIBloom", parameters: [
+                kCIInputRadiusKey: min(size.width, size.height) * 0.03,
+                kCIInputIntensityKey: e.bloom * 1.1,
+            ]).cropped(to: rect)
+        }
         if e.grain > 0 { out = grain(out, amount: e.grain, size: e.grainSize, canvas: size, frame: frame) }
         return out.cropped(to: rect)
+    }
+
+    /// Film halation: the brightest parts glow red-orange into their surroundings.
+    private static func halation(_ img: CIImage, amount: Double, size: CGSize) -> CIImage {
+        let rect = CGRect(origin: .zero, size: size)
+        let a = CGFloat(amount)
+        let glow = img
+            .applyingFilter("CIColorControls", parameters: ["inputSaturation": 0, "inputContrast": 1, "inputBrightness": 0])
+            .applyingFilter("CIToneCurve", parameters: [
+                "inputPoint0": CIVector(x: 0, y: 0),
+                "inputPoint1": CIVector(x: 0.55, y: 0),
+                "inputPoint2": CIVector(x: 0.75, y: 0.08),
+                "inputPoint3": CIVector(x: 0.9, y: 0.5),
+                "inputPoint4": CIVector(x: 1, y: 1),
+            ])
+            .clampedToExtent()
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: min(size.width, size.height) * 0.014])
+            .cropped(to: rect)
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: 1.0 * a, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0.3 * a, y: 0, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0.12 * a, y: 0, z: 0, w: 0),
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+            ])
+        return glow.applyingFilter("CIScreenBlendMode", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: rect)
     }
 
     /// Red and green pushed outwards from the center, like a cheap lens.

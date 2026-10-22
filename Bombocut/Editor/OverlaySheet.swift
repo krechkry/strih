@@ -136,9 +136,9 @@ struct OverlaySheet: View {
             }
         }
         colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
-        slider("Size", value: s.size, in: 0.03...0.4) { v in model.editOverlay { $0.style.size = v } }
-        slider("Letter spacing", value: s.tracking, in: -0.2...1) { v in model.editOverlay { $0.style.tracking = v } }
-        slider("Line spacing", value: s.lineSpacing, in: 0.2...4) { v in model.editOverlay { $0.style.lineSpacing = v } }
+        slider("Size", value: s.size, def: Overlay.defaultTextStyle.size, in: 0.03...0.4) { v in model.editOverlay { $0.style.size = v } }
+        slider("Letter spacing", value: s.tracking, def: Overlay.defaultTextStyle.tracking, in: -0.2...1) { v in model.editOverlay { $0.style.tracking = v } }
+        slider("Line spacing", value: s.lineSpacing, def: Overlay.defaultTextStyle.lineSpacing, in: 0.2...4) { v in model.editOverlay { $0.style.lineSpacing = v } }
     }
 
     // MARK: Style
@@ -146,21 +146,21 @@ struct OverlaySheet: View {
     @ViewBuilder
     private func styleTab(_ s: CaptionStyle) -> some View {
         colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
-        slider("Outline width", value: s.strokeWidth, in: 0...2) { v in model.editOverlay { $0.style.strokeWidth = v } }
+        slider("Outline width", value: s.strokeWidth, def: Overlay.defaultTextStyle.strokeWidth, in: 0...2) { v in model.editOverlay { $0.style.strokeWidth = v } }
         if s.strokeWidth > 0 {
             OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in model.setOverlay { $0.style.strokeOutside = v } }
         }
         OnOffRow(title: "Shadow", isOn: s.shadow) { v in model.setOverlay { $0.style.shadow = v } }
         if s.shadow {
-            slider("Shadow opacity", value: s.shadowOpacity, in: 0.05...1) { v in model.editOverlay { $0.style.shadowOpacity = v } }
-            slider("Shadow blur", value: s.shadowBlur, in: 0...1.2) { v in model.editOverlay { $0.style.shadowBlur = v } }
-            slider("Shadow distance", value: s.shadowDistance, in: 0...0.6) { v in model.editOverlay { $0.style.shadowDistance = v } }
-            slider("Shadow angle", value: s.shadowAngle, in: 0...360) { v in model.editOverlay { $0.style.shadowAngle = v } }
+            slider("Shadow opacity", value: s.shadowOpacity, def: Overlay.defaultTextStyle.shadowOpacity, in: 0.05...1) { v in model.editOverlay { $0.style.shadowOpacity = v } }
+            slider("Shadow blur", value: s.shadowBlur, def: Overlay.defaultTextStyle.shadowBlur, in: 0...1.2) { v in model.editOverlay { $0.style.shadowBlur = v } }
+            slider("Shadow distance", value: s.shadowDistance, def: Overlay.defaultTextStyle.shadowDistance, in: 0...0.6) { v in model.editOverlay { $0.style.shadowDistance = v } }
+            slider("Shadow angle", value: s.shadowAngle, def: Overlay.defaultTextStyle.shadowAngle, in: 0...360) { v in model.editOverlay { $0.style.shadowAngle = v } }
         }
         OnOffRow(title: "Box", isOn: s.box) { v in model.setOverlay { $0.style.box = v } }
         if s.box {
             colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } }
-            slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
+            slider("Box opacity", value: s.boxOpacity, def: Overlay.defaultTextStyle.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
         }
         OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
     }
@@ -189,7 +189,7 @@ struct OverlaySheet: View {
                 }
             }
         }
-        slider("Opacity", value: o.pose(at: model.currentTime).opacity, in: 0.05...1) { v in model.editOverlayOpacity(v) }
+        slider("Opacity", value: o.pose(at: model.currentTime).opacity, def: 1, in: 0.05...1) { v in model.editOverlayOpacity(v) }
         if o.kind.isVideo {
             section("Volume") {
                 HStack(spacing: 12) {
@@ -198,6 +198,7 @@ struct OverlaySheet: View {
                            onEditingChanged: { e in
                         if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
                     })
+                    .doubleTapReset { model.liveEditBegan(); model.editOverlay { $0.volume = 1 }; model.overlayVolumeEnded() }
                 }
             }
         }
@@ -229,12 +230,13 @@ struct OverlaySheet: View {
         .buttonStyle(.plain)
     }
 
-    private func slider(_ title: String, value: Double, in range: ClosedRange<Double>,
+    private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>,
                         _ set: @escaping (Double) -> Void) -> some View {
         section(title) {
             Slider(value: Binding(get: { value }, set: set), in: range, onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })
+            .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
         }
     }
 
@@ -302,6 +304,7 @@ struct AnimEditor: View {
             if current != .none {
                 Slider(value: Binding(get: { duration }, set: dur), in: 0.1...max(0.2, min(2, maxLength / 2)),
                        onEditingChanged: { e in if e { began() } else { ended(); preview() } })
+                    .doubleTapReset { began(); dur(0.4); ended(); preview() }
             }
         }
     }

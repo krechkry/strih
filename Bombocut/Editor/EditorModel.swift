@@ -113,8 +113,7 @@ final class EditorModel: ObservableObject {
     private var seekTarget: Double?
     private var seeking = false
 
-    private let edgeGrabber = FrameGrabber()
-    private let neighborGrabber = FrameGrabber()
+    private let edgeGrabber = LiveFrameGrabber()
     private let liveGrabber = FrameGrabber(maxSize: 1600)
     private var trimSnapshot: Project?
     private var trimOriginal: Clip?
@@ -1333,18 +1332,6 @@ final class EditorModel: ObservableObject {
         trim = TrimState(id: id, leading: leading, startDuration: c.duration)
         trimView = TrimView(leading: leading)
 
-        // Static side of the edit: the neighbour's frame at the cut.
-        if leading, i > 0 {
-            let p = project.clips[i - 1]
-            neighborGrabber.grab(file: p.mediaFile, at: max(p.inPoint, p.outPoint - 0.04)) { [weak self] img in
-                self?.trimView?.left = img
-            }
-        } else if !leading, i + 1 < project.clips.count {
-            let n = project.clips[i + 1]
-            neighborGrabber.grab(file: n.mediaFile, at: n.inPoint) { [weak self] img in
-                self?.trimView?.right = img
-            }
-        }
         grabEdge(c, leading: leading)
     }
 
@@ -1398,6 +1385,7 @@ final class EditorModel: ObservableObject {
         trimOriginal = nil
         trim = nil
         trimView = nil
+        edgeGrabber.reset()
         if let i = project.clips.firstIndex(where: { $0.id == id }) {
             let start = project.clipStarts[i]
             currentTime = leading ? start : start + project.clips[i].duration - 0.001

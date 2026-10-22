@@ -105,3 +105,47 @@ final class FrameGrabber {
         }
     }
 }
+
+/// Frames while dragging (trim): finishes the frame it is making, then jumps to the newest request.
+/// Cancelling on every finger move meant a long drag often showed nothing new at all.
+@MainActor
+final class LiveFrameGrabber {
+    private var generators: [String: AVAssetImageGenerator] = [:]
+    private var busy = false
+    private var next: (file: String, t: Double, done: (UIImage) -> Void)?
+
+    func grab(file: String, at t: Double, completion: @escaping (UIImage) -> Void) {
+        if busy { next = (file, t, completion); return }
+        busy = true
+        let gen = generator(file)
+        gen.generateCGImageAsynchronously(for: CMTime(seconds: t, preferredTimescale: 600)) { cg, _, _ in
+            let img = cg.map { UIImage(cgImage: $0) }
+            Task { @MainActor [weak self] in
+                if let img { completion(img) }
+                self?.finished()
+            }
+        }
+    }
+
+    private func finished() {
+        busy = false
+        if let n = next {
+            next = nil
+            grab(file: n.file, at: n.t, completion: n.done)
+        }
+    }
+
+    func reset() { next = nil }
+
+    private func generator(_ file: String) -> AVAssetImageGenerator {
+        if let g = generators[file] { return g }
+        let g = AVAssetImageGenerator(asset: AVURLAsset(url: Paths.mediaURL(file)))
+        g.appliesPreferredTrackTransform = true
+        g.maximumSize = CGSize(width: 720, height: 720)
+        // close to the frame is enough while the finger moves, and much faster on long-GOP video
+        g.requestedTimeToleranceBefore = CMTime(seconds: 0.05, preferredTimescale: 600)
+        g.requestedTimeToleranceAfter = CMTime(seconds: 0.05, preferredTimescale: 600)
+        generators[file] = g
+        return g
+    }
+}

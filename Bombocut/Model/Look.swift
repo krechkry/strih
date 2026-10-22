@@ -13,14 +13,35 @@ struct Effects: Codable, Hashable {
     var aberration = 0.0    //  0...1  chromatic aberration
     var grain = 0.0         //  0...1  animated film grain
     var grainSize = 0.4     //  0...1
+    var bloom = 0.0         //  0...1  soft glow around bright parts
+    var halation = 0.0      //  0...1  red film glow around highlights
     var motionBlur = 0.0    //  old projects only: motion blur now lives on the clip (Clip.motionBlur)
+
+    /// Tone curves: output levels at input 0, ¼, ½, ¾ and 1. `curve` acts on all channels, then each channel's own.
+    static let flatCurve: [Double] = [0, 0.25, 0.5, 0.75, 1]
+    var curve = Effects.flatCurve
+    var curveR = Effects.flatCurve
+    var curveG = Effects.flatCurve
+    var curveB = Effects.flatCurve
+
+    /// HSL per color band (see `HSLBand`): hue shift, saturation and lightness, each -1...1.
+    static let flatHSL = [Double](repeating: 0, count: 8)
+    var hslHue = Effects.flatHSL
+    var hslSat = Effects.flatHSL
+    var hslLum = Effects.flatHSL
 
     init() {}
 
+    var hasCurves: Bool {
+        curve != Self.flatCurve || curveR != Self.flatCurve || curveG != Self.flatCurve || curveB != Self.flatCurve
+    }
+    var hasHSL: Bool { hslHue != Self.flatHSL || hslSat != Self.flatHSL || hslLum != Self.flatHSL }
+
     var hasColor: Bool {
         exposure != 0 || contrast != 0 || saturation != 0 || temperature != 0 || tint != 0 || highlights != 0 || shadows != 0
+            || hasCurves || hasHSL
     }
-    var hasCanvasFX: Bool { vignette > 0 || aberration > 0 || grain > 0 }
+    var hasCanvasFX: Bool { vignette > 0 || aberration > 0 || grain > 0 || bloom > 0 || halation > 0 }
 
     static func lerp(_ a: Effects, _ b: Effects, _ f: Double) -> Effects {
         func m(_ x: Double, _ y: Double) -> Double { x + (y - x) * f }
@@ -36,12 +57,25 @@ struct Effects: Codable, Hashable {
         e.aberration = m(a.aberration, b.aberration)
         e.grain = m(a.grain, b.grain)
         e.grainSize = m(a.grainSize, b.grainSize)
+        e.bloom = m(a.bloom, b.bloom)
+        e.halation = m(a.halation, b.halation)
+        func ms(_ x: [Double], _ y: [Double]) -> [Double] {
+            guard x.count == y.count else { return f < 0.5 ? x : y }
+            return zip(x, y).map { m($0, $1) }
+        }
+        e.curve = ms(a.curve, b.curve)
+        e.curveR = ms(a.curveR, b.curveR)
+        e.curveG = ms(a.curveG, b.curveG)
+        e.curveB = ms(a.curveB, b.curveB)
+        e.hslHue = ms(a.hslHue, b.hslHue)
+        e.hslSat = ms(a.hslSat, b.hslSat)
+        e.hslLum = ms(a.hslLum, b.hslLum)
         return e
     }
 
     enum CodingKeys: String, CodingKey {
         case exposure, contrast, saturation, temperature, tint, highlights, shadows, vignette, aberration, grain, grainSize
-        case motionBlur
+        case motionBlur, bloom, halation, curve, curveR, curveG, curveB, hslHue, hslSat, hslLum
     }
 
     init(from d: Decoder) throws {
@@ -59,6 +93,19 @@ struct Effects: Codable, Hashable {
         grain = try v(.grain)
         grainSize = try v(.grainSize, 0.4)
         motionBlur = try v(.motionBlur)
+        bloom = try v(.bloom)
+        halation = try v(.halation)
+        func arr(_ k: CodingKeys, _ def: [Double]) -> [Double] {
+            guard let a = try? c.decodeIfPresent([Double].self, forKey: k), a.count == def.count else { return def }
+            return a
+        }
+        curve = arr(.curve, Self.flatCurve)
+        curveR = arr(.curveR, Self.flatCurve)
+        curveG = arr(.curveG, Self.flatCurve)
+        curveB = arr(.curveB, Self.flatCurve)
+        hslHue = arr(.hslHue, Self.flatHSL)
+        hslSat = arr(.hslSat, Self.flatHSL)
+        hslLum = arr(.hslLum, Self.flatHSL)
     }
 }
 
@@ -121,9 +168,13 @@ struct LookState: Hashable {
 /// The sliders in the Adjust sheet.
 enum LookParam: String, CaseIterable, Identifiable {
     case exposure, contrast, saturation, temperature, tint, highlights, shadows
-    case vignette, aberration, grain, grainSize, opacity
+    case vignette, aberration, grain, grainSize, opacity, bloom, halation
 
     var id: String { rawValue }
+
+    /// Basic tab (light and color) and Effects tab (lens and film).
+    static let basic: [LookParam] = [.exposure, .contrast, .saturation, .temperature, .tint, .highlights, .shadows, .opacity]
+    static let effects: [LookParam] = [.bloom, .halation, .vignette, .aberration, .grain, .grainSize]
 
     var title: String {
         switch self {
@@ -139,6 +190,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grain: return "Grain"
         case .grainSize: return "Grain size"
         case .opacity: return "Opacity"
+        case .bloom: return "Bloom"
+        case .halation: return "Halation"
         }
     }
 
@@ -156,12 +209,14 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grain: return "circle.grid.3x3.fill"
         case .grainSize: return "circle.grid.2x2"
         case .opacity: return "square.on.square"
+        case .bloom: return "sparkles"
+        case .halation: return "sun.haze.fill"
         }
     }
 
     var range: ClosedRange<Double> {
         switch self {
-        case .vignette, .aberration, .grain, .grainSize, .opacity: return 0...1
+        case .vignette, .aberration, .grain, .grainSize, .opacity, .bloom, .halation: return 0...1
         default: return -1...1
         }
     }
@@ -188,6 +243,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grain: return l.effects.grain
         case .grainSize: return l.effects.grainSize
         case .opacity: return l.opacity
+        case .bloom: return l.effects.bloom
+        case .halation: return l.effects.halation
         }
     }
 
@@ -206,6 +263,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grain: l.effects.grain = v
         case .grainSize: l.effects.grainSize = v
         case .opacity: l.opacity = v
+        case .bloom: l.effects.bloom = v
+        case .halation: l.effects.halation = v
         }
     }
 
@@ -227,5 +286,52 @@ enum BlurDirection: String, Codable, CaseIterable, Hashable {
         case .forward: return "Forward"
         case .backward: return "Backward"
         }
+    }
+}
+
+/// The color bands of the HSL editor (hue centers in degrees).
+enum HSLBand: Int, CaseIterable, Identifiable {
+    case red, orange, yellow, green, aqua, blue, purple, magenta
+    var id: Int { rawValue }
+
+    var hue: Double { [0, 30, 60, 120, 180, 225, 270, 315][rawValue] }
+
+    var title: String {
+        switch self {
+        case .red: return "Red"
+        case .orange: return "Orange"
+        case .yellow: return "Yellow"
+        case .green: return "Green"
+        case .aqua: return "Aqua"
+        case .blue: return "Blue"
+        case .purple: return "Purple"
+        case .magenta: return "Magenta"
+        }
+    }
+}
+
+/// Smooth curve through the 5 points of a tone curve (monotone, so it never overshoots).
+enum ToneCurve {
+    static func value(_ ys: [Double], _ x: Double) -> Double {
+        guard ys.count == 5 else { return x }
+        let xs = [0, 0.25, 0.5, 0.75, 1.0]
+        let x = min(max(x, 0), 1)
+        var k = min(Int(x / 0.25), 3)
+        if k < 0 { k = 0 }
+        // tangents (Fritsch-Carlson)
+        let d = (0..<4).map { (ys[$0 + 1] - ys[$0]) / 0.25 }
+        var m = [Double](repeating: 0, count: 5)
+        m[0] = d[0]; m[4] = d[3]
+        for i in 1..<4 { m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2 }
+        for i in 0..<4 where d[i] != 0 {
+            let a = m[i] / d[i], b = m[i + 1] / d[i]
+            let s = a * a + b * b
+            if s > 9 { let t = 3 / s.squareRoot(); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i] }
+        }
+        let h = 0.25, t = (x - xs[k]) / h
+        let t2 = t * t, t3 = t2 * t
+        let y = (2 * t3 - 3 * t2 + 1) * ys[k] + (t3 - 2 * t2 + t) * h * m[k]
+            + (-2 * t3 + 3 * t2) * ys[k + 1] + (t3 - t2) * h * m[k + 1]
+        return min(max(y, 0), 1)
     }
 }

@@ -27,14 +27,33 @@ struct EditorView: View {
     private let compactPanel: CGFloat = 150
     @ObservedObject private var speechStatus = SpeechStatus.shared
 
+    /// Half and half: a panel never takes more than about half the screen, so the video stays big
+    /// while you edit (taller panels scroll).
+    private var maxPanel: CGFloat {
+        let h = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds.height ?? 852
+        return (h * 0.47).rounded()
+    }
+
     /// Height of each panel; editing panels leave the preview visible and undimmed.
     private func panelHeight(_ s: EditorSheet) -> CGFloat {
+        min(naturalHeight(s), maxPanel)
+    }
+
+    /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
+    private func scrollsItself(_ s: EditorSheet) -> Bool {
+        switch s {
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export: return true
+        default: return false
+        }
+    }
+
+    private func naturalHeight(_ s: EditorSheet) -> CGFloat {
         switch s {
         case .export: return 0
         case .canvas: return 124
         case .volume: return 260
         case .speed: return 620
-        case .adjust: return 360
+        case .adjust: return 470
         case .captions: return 420
         case .stabilize: return 440
         case .track: return 360
@@ -73,7 +92,15 @@ struct EditorView: View {
         if let s = sheet, s != .export {
             Panel(height: typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra, check: !typing,
                   close: { sheet = nil }) {
-                panelContent(s).environment(\.panelCompact, typing)
+                if scrollsItself(s) || typing {
+                    panelContent(s).environment(\.panelCompact, typing)
+                } else {
+                    ScrollView(.vertical) {
+                        panelContent(s).environment(\.panelCompact, typing)
+                    }
+                    .scrollIndicators(.hidden)
+                    .scrollBounceBehavior(.basedOnSize)
+                }
             }
             .id(s)
             // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
@@ -461,11 +488,24 @@ struct EditorView: View {
         return nil
     }
 
+    /// A clip is selected: the pinned button on the right deletes it (everything else gets the check).
+    private var clipPinned: Bool {
+        model.pick == nil && model.selectedAudioIndex == nil && model.selectedOverlayIndex == nil
+            && !(model.captionsSelected && model.project.captions != nil) && model.selectedIndex != nil
+    }
+
     private var toolbar: some View {
         HStack(spacing: 0) {
             toolScroller
             if let finish = finishSelection {
-                DoneCheck(action: finish)
+                Group {
+                    if clipPinned {
+                        DoneCheck(icon: "trash", fill: Color(red: 0.95, green: 0.27, blue: 0.25), ink: .white,
+                                  label: "Delete") { model.deleteSelected() }
+                    } else {
+                        DoneCheck(action: finish)
+                    }
+                }
                     .padding(.leading, 6)
                     .padding(.trailing, 14)
                     .background(alignment: .leading) {
@@ -533,7 +573,6 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-                    ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelected() }
                 } else {
                     PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .videos,
                                  preferredItemEncoding: .current) {
@@ -895,19 +934,24 @@ struct ToolLabel: View {
 /// Lime check: finish editing (closes a panel, or ends the selection on the timeline).
 struct DoneCheck: View {
     var size: CGFloat = 44
+    var icon = "checkmark"
+    var fill: Color = Theme.accent
+    var ink: Color = .black
+    var label = "Done"
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "checkmark")
-                .font(.system(size: size * 0.42, weight: .heavy))
-                .foregroundStyle(.black)
+            Image(systemName: icon)
+                .font(.system(size: size * (icon == "checkmark" ? 0.42 : 0.4), weight: icon == "checkmark" ? .heavy : .bold))
+                .foregroundStyle(ink)
                 .frame(width: size, height: size)
-                .background(Theme.accent, in: Circle())
+                .background(fill, in: Circle())
                 .contentShape(Circle())
+                .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(loc("Done"))
+        .accessibilityLabel(loc(label))
     }
 }
 
@@ -1052,5 +1096,15 @@ private struct KeyframeButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    /// Double tap on a slider: back to its default.
+    func doubleTapReset(_ reset: @escaping () -> Void) -> some View {
+        simultaneousGesture(TapGesture(count: 2).onEnded {
+            reset()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        })
     }
 }

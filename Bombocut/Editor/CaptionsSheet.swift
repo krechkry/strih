@@ -383,8 +383,8 @@ struct CaptionsSheet: View {
                     }
                 }
 
-                slider("Size", value: s.size, in: 0.03...0.28) { v in { $0.size = v } }
-                slider("Position", value: s.y, in: 0.08...0.92) { v in { $0.y = v } }
+                slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
+                slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
 
                 section("Lines") {
                     HStack(spacing: 8) {
@@ -402,17 +402,17 @@ struct CaptionsSheet: View {
                 colorRow("Text", s.text) { c in { $0.text = c } }
                 if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
                 colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
-                slider("Outline width", value: s.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
+                slider("Outline width", value: s.strokeWidth, def: Self.base.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
                 if s.strokeWidth > 0 {
                     OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
                 }
-                slider("Letter spacing", value: s.tracking, in: -0.2...1) { v in { $0.tracking = v } }
-                slider("Line spacing", value: s.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
+                slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
+                slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
 
                 OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
                 if s.box {
                     colorRow("Box color", s.boxColor) { c in { $0.boxColor = c } }
-                    slider("Box opacity", value: s.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
+                    slider("Box opacity", value: s.boxOpacity, def: Self.base.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
                 }
                 VStack(spacing: 12) {
                     OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
@@ -420,10 +420,10 @@ struct CaptionsSheet: View {
                     OnOffRow(title: "Shadow", isOn: s.shadow) { v in setStyle { $0.shadow = v } }
                 }
                 if s.shadow {
-                    slider("Shadow opacity", value: s.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
-                    slider("Shadow blur", value: s.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
-                    slider("Shadow distance", value: s.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
-                    slider("Shadow angle", value: s.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
+                    slider("Shadow opacity", value: s.shadowOpacity, def: Self.base.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
+                    slider("Shadow blur", value: s.shadowBlur, def: Self.base.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
+                    slider("Shadow distance", value: s.shadowDistance, def: Self.base.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
+                    slider("Shadow angle", value: s.shadowAngle, def: Self.base.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
                 }
             }
             .padding(.bottom, 30)
@@ -504,7 +504,10 @@ struct CaptionsSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func slider(_ title: String, value: Double, in range: ClosedRange<Double>,
+    /// The style double tap on a slider goes back to (the default template).
+    private static let base = CaptionTemplate.builtIns[0].style
+
+    private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>,
                         _ make: @escaping (Double) -> (inout CaptionStyle) -> Void) -> some View {
         section(title) {
             Slider(value: Binding(get: { value }, set: { v in
@@ -512,6 +515,11 @@ struct CaptionsSheet: View {
             }), in: range, onEditingChanged: { editing in
                 if editing { model.liveEditBegan() } else { model.liveEditEnded() }
             })
+            .doubleTapReset {
+                model.liveEditBegan()
+                model.editCaptions { c in make(def)(&c.style); c.templateID = nil }
+                model.liveEditEnded()
+            }
         }
     }
 

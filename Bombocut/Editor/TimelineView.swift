@@ -11,6 +11,10 @@ struct TimelineView: View {
     @State private var reorder: Reorder?
     @State private var screenW: CGFloat = 390
     @State private var paintingPick = false
+    /// Trimming: where the finger is, how far it moved, and the extra the strip scrolled by itself
+    /// (the finger at a screen edge keeps trimming and the strip follows).
+    @State private var trimFinger: (id: UUID, leading: Bool, delta: Double, x: CGFloat)?
+    @State private var trimAuto: Double = 0
 
     private let stripHeight: CGFloat = 60
     private let gap: CGFloat = 2
@@ -50,8 +54,9 @@ struct TimelineView: View {
         let ov = overlapsPx(clips)
         var x: CGFloat = 0
         for j in 0..<min(k, clips.count) {
-            x += width(clips[j]) + gap
-            if j + 1 < ov.count, ov[j + 1] > 0 { x -= ov[j + 1] + gap }
+            // a clip's slot is exactly its duration (the gap is drawn inside the tile), so x matches time
+            x += width(clips[j])
+            if j + 1 < ov.count, ov[j + 1] > 0 { x -= ov[j + 1] }
         }
         return x
     }
@@ -78,25 +83,26 @@ struct TimelineView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: LaneLayout.gap) {
                     let overlaps = overlapsPx(shown)
-                    HStack(spacing: model.pick == nil ? gap : 8) {
+                    HStack(spacing: gap) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
                             let dragged = reorder?.id == clip.id
                             ClipTile(clip: clip,
                                      pxPerSec: model.pxPerSec,
                                      height: stripHeight,
+                                     inset: gap,
                                      selected: clip.id == model.selectedClipID && reorder == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
                                      onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
-                                     onTrim: { leading, phase, delta in trim(clip.id, leading, phase, delta) },
+                                     onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
                                 .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
                                 // a transition: this clip slides over the end of the one before
-                                .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -(overlaps[k] + gap) : 0)
+                                .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -overlaps[k] : 0)
                         }
                     }
                     .overlay(alignment: .leading) {
@@ -123,12 +129,12 @@ struct TimelineView: View {
                                  selection: Binding(get: { model.pick?.picked ?? [] }, set: { model.setPicked($0) }),
                                  painting: $paintingPick, axis: .horizontal,
                                  canSelect: { id in model.pick.map { !$0.kind.forOverlays && $0.source != id } ?? false }) { pt in
-                        // which clip is under x (clips are 8 pt apart while picking)
+                        // which clip is under x
                         var x: CGFloat = 0
                         for (k, c) in shown.enumerated() {
                             let w = width(c)
-                            if pt.x < x + w + 4 { return k }
-                            x += w + 8
+                            if pt.x < x + w { return k }
+                            x += w
                         }
                         return shown.isEmpty ? nil : shown.count - 1
                     }
@@ -223,6 +229,7 @@ struct TimelineView: View {
         .onChange(of: model.pxPerSec) { if reorder == nil { scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec) } }
         .onChange(of: model.project.clips) { if model.trim == nil { follow() } }
         .task(id: reorder != nil) { await autoScroll() }
+        .task(id: model.trim != nil) { await trimScroll() }
         .task {
             guard Demo.mode == "reorder" else { return }
             try? await Task.sleep(for: .seconds(4))
@@ -256,13 +263,18 @@ struct TimelineView: View {
         scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
     }
 
-    private func trim(_ id: UUID, _ leading: Bool, _ phase: ClipTile.TrimPhase, _ delta: Double) {
+    private func trim(_ id: UUID, _ leading: Bool, _ phase: ClipTile.TrimPhase, _ delta: Double, _ x: CGFloat) {
         switch phase {
         case .began:
+            trimAuto = 0
+            trimFinger = (id, leading, 0, x)
             model.trimBegan(id, leading: leading)
         case .changed:
-            model.trimChanged(id, leading: leading, delta: delta)
+            trimFinger = (id, leading, delta, x)
+            model.trimChanged(id, leading: leading, delta: delta + trimAuto)
         case .ended:
+            trimFinger = nil
+            trimAuto = 0
             model.trimEnded(id, leading: leading)
             withAnimation(.easeOut(duration: 0.25)) { follow() }
         }
@@ -306,7 +318,7 @@ struct TimelineView: View {
             var x: CGFloat = 0
             for c in others {
                 if mid > x + width(c) / 2 { to += 1 }
-                x += width(c) + gap
+                x += width(c)
             }
             if to != r.to { UISelectionFeedbackGenerator().selectionChanged() }
             r.to = to
@@ -322,6 +334,28 @@ struct TimelineView: View {
                 model.selectedClipID = id
             }
             scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
+        }
+    }
+
+    /// Finger near the left or right edge while trimming: keep trimming that way and slide the strip along,
+    /// so the edge stays under the finger.
+    private func trimScroll() async {
+        while !Task.isCancelled, model.trim != nil {
+            if let f = trimFinger, model.trim?.atLimit != true {
+                let zone: CGFloat = 50
+                let push: CGFloat = f.x < zone ? -(zone - f.x) / zone : (f.x > screenW - zone ? (f.x - (screenW - zone)) / zone : 0)
+                if push != 0 {
+                    let step = push * 9
+                    let next = offsetX + step
+                    if next >= 0 {
+                        trimAuto += Double(step / model.pxPerSec)
+                        model.trimChanged(f.id, leading: f.leading, delta: f.delta + trimAuto)
+                        scrollPos.scrollTo(x: next)
+                        offsetX = next
+                    }
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(16))
         }
     }
 
@@ -407,12 +441,14 @@ struct ClipTile: View {
     let clip: Clip
     let pxPerSec: CGFloat
     let height: CGFloat
+    /// Drawn this much narrower than its duration: the gap to the next clip, inside its own slot.
+    var inset: CGFloat = 0
     let selected: Bool
     let trim: TrimState?
     var lifted = false
     let onTap: () -> Void
     let onKeyframe: (Keyframe) -> Void
-    let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double) -> Void
+    let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void
     var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
@@ -422,7 +458,7 @@ struct ClipTile: View {
     private let handleW: CGFloat = 16
 
     var body: some View {
-        let w = max(6, CGFloat(clip.duration) * pxPerSec)
+        let w = max(6, CGFloat(clip.duration) * pxPerSec - inset)
         let slot = max(36, w / 250)          // cap thumbnail count on long clips
         let n = max(1, Int((w / slot).rounded(.up)))
         let rt = clip.retime
@@ -568,15 +604,15 @@ struct ClipTile: View {
                         if dragging == nil {
                             dragging = leading
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            onTrim(leading, .began, 0)
+                            onTrim(leading, .began, 0, v.location.x)
                         }
                         // Head: dragging right shortens. Tail: dragging right lengthens.
                         let d = Double(v.translation.width / pxPerSec)
-                        onTrim(leading, .changed, d)
+                        onTrim(leading, .changed, d, v.location.x)
                     }
-                    .onEnded { _ in
+                    .onEnded { v in
                         dragging = nil
-                        onTrim(leading, .ended, 0)
+                        onTrim(leading, .ended, 0, v.location.x)
                     }
             )
     }

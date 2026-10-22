@@ -65,6 +65,7 @@ struct VolumeSheet: View {
                     }
                     Slider(value: Binding(get: { v }, set: { model.setVolume($0, live: true) }), in: 0...1,
                            onEditingChanged: { editing in model.volumeEditing(editing) })
+                        .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
                 if UIMode.isPro { ApplyRow(model: model, kind: .volume) }
             } else {
@@ -247,6 +248,7 @@ struct ExportSheet: View {
                                     set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false }
                                 ), in: 0...1)
                                 .tint(Theme.accent)
+                                .doubleTapReset { autoBitrate = true }
                                 TextField("Mbps", value: Binding(get: { (mbps * 10).rounded() / 10 },
                                                                  set: { bitrate = min(max($0, 0.1), 200); autoBitrate = false }),
                                           format: .number.precision(.fractionLength(0...1)))
@@ -640,6 +642,7 @@ struct StabilizeSheet: View {
                             if e { model.liveEditBegan() } else { model.liveEditEnded() }
                         })
                         .tint(Theme.accent)
+                        .doubleTapReset { model.liveEditBegan(); model.editClip { $0.stabilization?.strength = 0.6 }; model.liveEditEnded() }
                     } else {
                         Text("Holds the shot still as if on a tripod. Where the camera really moves, it follows as little as the zoom allows.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -656,6 +659,7 @@ struct StabilizeSheet: View {
                         if e { model.liveEditBegan() } else { model.liveEditEnded() }
                     })
                     .tint(Theme.accent)
+                    .doubleTapReset { model.liveEditBegan(); model.editClip { $0.stabilization?.maxZoom = 0.15 }; model.liveEditEnded() }
                     if let curve = st.curve(aspect: c.aspect ?? 16.0 / 9) {
                         Text("Zoomed in \(Int(((curve.crop - 1) * 100).rounded())) % to hide the moving edges. More zoom lets it take out bigger shakes.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -743,6 +747,7 @@ struct TrackSheet: View {
                 }), in: 0...1, onEditingChanged: { e in
                     if e { model.liveEditBegan() } else { model.liveEditEnded() }
                 })
+                .doubleTapReset { model.liveEditBegan(); model.editClip { $0.tracking?.smooth = 0.5 }; model.liveEditEnded() }
                 HStack(spacing: 10) {
                     Button { dismiss(); model.startTrackPick() } label: {
                         Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))

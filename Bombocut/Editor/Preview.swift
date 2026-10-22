@@ -557,20 +557,14 @@ struct LiveFrame: View {
     }
 }
 
-/// Trim viewer: frame before the cut | frame after the cut. The side being trimmed is outlined.
+/// Trim viewer: the frame at the edge being trimmed (the new first or last frame), with how much changed.
 struct TrimTwoUp: View {
     let view: TrimView
 
     var body: some View {
         ZStack(alignment: .top) {
             Color.black
-            if UIMode.isPro {
-                HStack(spacing: 3) {
-                    half(view.left, moving: !view.leading, label: view.leading ? "OUT" : "NEW OUT")
-                    half(view.right, moving: view.leading, label: view.leading ? "NEW IN" : "IN")
-                }
-            } else if let img = view.leading ? view.right : view.left {
-                // Basic: just the frame at the edge being trimmed
+            if let img = view.leading ? view.right : view.left {
                 Image(uiImage: img).resizable().scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -582,24 +576,6 @@ struct TrimTwoUp: View {
                 .padding(.top, 10)
         }
         .allowsHitTesting(false)
-    }
-
-    private func half(_ img: UIImage?, moving: Bool, label: String) -> some View {
-        ZStack(alignment: .bottom) {
-            Color(white: 0.07)
-            if let img {
-                Image(uiImage: img).resizable().scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            Text(loc(label))
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundStyle(moving ? .black : .white)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(moving ? Theme.accent : Color.black.opacity(0.6), in: Capsule())
-                .padding(.bottom, 10)
-        }
-        .overlay(Rectangle().stroke(moving ? Theme.accent : .clear, lineWidth: 2))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

@@ -146,6 +146,7 @@ struct SpeedSheet: View {
             ), in: Self.lo...Self.hi, onEditingChanged: { editing in
                 if !editing { model.setSpeed(speed) }
             })
+            .doubleTapReset { speed = 1; model.setSpeed(1) }
             GeometryReader { g in
                 ForEach([0.1, 0.5, 1, 2, 10, 100], id: \.self) { t in
                     Text(verbatim: Fmt.speed(t))
@@ -295,7 +296,8 @@ struct SpeedSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .contentShape(Rectangle())
-        .gesture(
+        // high priority: the panel scrolls, but a finger on the curve always edits it
+        .highPriorityGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { g in handleDrag(g, w: w, h: h) }
                 .onEnded { g in handleEnd(g, w: w, h: h) }
