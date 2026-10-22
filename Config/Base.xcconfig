@@ -1,3 +1,9 @@
 // Shared build settings. Your personal signing team lives in Local.xcconfig (not committed),
 // so pulling new code and regenerating the project never loses it.
 #include? "Local.xcconfig"
+
+// Build number: update.sh writes a new one (date and time) into BuildNumber.xcconfig on every run,
+// so each upload to TestFlight is newer than the last. The app's files are never edited after
+// Xcode signs them (that broke the signature on upload).
+CURRENT_PROJECT_VERSION = 1
+#include? "BuildNumber.xcconfig"

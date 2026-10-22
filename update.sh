@@ -19,5 +19,7 @@ fi
 # Those edits are not yours, so drop them before pulling; the repo has the real translations.
 git checkout -- Bombocut/Localizable.xcstrings 2>/dev/null || true
 git pull --ff-only
+# a fresh build number for the next archive (TestFlight needs each upload to be newer)
+echo "CURRENT_PROJECT_VERSION = $(date -u +%y%m%d%H%M)" > Config/BuildNumber.xcconfig
 xcodegen generate
 echo "Up to date. Press ▶ in Xcode."

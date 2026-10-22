@@ -7,3 +7,4 @@ Config/Local.xcconfig
 bench/.build/
 bench/models/
 bench/parakeet/.build/
+Config/BuildNumber.xcconfig

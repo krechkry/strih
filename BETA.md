@@ -40,7 +40,7 @@ Then in the app: **App Privacy** → Get Started → "No, we do not collect data
 4. **Distribute App → App Store Connect → Distribute** (automatic signing and defaults are fine).
 5. After 5 to 20 minutes the build shows in App Store Connect → TestFlight. It should not ask about export compliance: the app already declares that it uses no non-exempt encryption.
 
-Every archive gets its own build number (date and time), so you can upload again any time without touching settings.
+Every run of `update.sh` sets a new build number (date and time), so run it before each archive and you can upload again any time without touching settings.
 
 ## 4. TestFlight: test information (once)
 
