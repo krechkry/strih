@@ -306,12 +306,12 @@ private struct CurveGraph: View {
                 var path = Path()
                 for i in 0...64 {
                     let x = Double(i) / 64
-                    let pt = CGPoint(x: size.width * x, y: size.height * (1 - ToneCurve.value(points, x)))
+                    let pt = CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(1 - ToneCurve.value(points, x)))
                     if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
                 }
                 ctx.stroke(path, with: .color(color), lineWidth: 2.5)
                 for (k, y) in points.enumerated() {
-                    let c = CGPoint(x: size.width * CGFloat(k) / 4, y: size.height * (1 - y))
+                    let c = CGPoint(x: size.width * CGFloat(k) / 4, y: size.height * CGFloat(1 - y))
                     let r: CGFloat = dragging == k ? 9 : 7
                     let dot = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2))
                     ctx.fill(dot, with: .color(Theme.panel2))
