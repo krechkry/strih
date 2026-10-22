@@ -24,6 +24,8 @@ final class Exporter: @unchecked Sendable {
     /// Below this much free memory an export stops itself (iOS ends an app that keeps going).
     private static let memoryFloor = 180 * 1024 * 1024
 
+    private var stoppedForMemory: Bool { lock.lock(); defer { lock.unlock() }; return _lowMemory }
+
     private func stopForMemory() {
         lock.lock(); _lowMemory = true; lock.unlock()
         cancel()
@@ -156,8 +158,7 @@ final class Exporter: @unchecked Sendable {
         if cancelled {
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: out)
-            lock.lock(); let low = _lowMemory; lock.unlock()
-            throw low ? LowMemory() as Error : CancellationError()
+            throw stoppedForMemory ? LowMemory() as Error : CancellationError()
         }
         if reader.status == .failed {
             writer.cancelWriting()

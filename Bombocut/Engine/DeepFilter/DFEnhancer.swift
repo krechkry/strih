@@ -87,10 +87,8 @@ final class DeepFilterEnhancer {
     ///   - sampleRate: Sample rate of input audio (resampled to 48kHz if needed)
     /// - Returns: Enhanced audio at 48kHz
     func enhance(audio: [Float], sampleRate: Int) throws -> [Float] {
-        var samples = audio
-        if sampleRate != Self.sampleRate {
-            precondition(false, "DeepFilterEnhancer needs 48 kHz audio")
-        }
+        precondition(sampleRate == Self.sampleRate, "DeepFilterEnhancer needs 48 kHz audio")
+        let samples = audio
         resetState()
         return try enhanceCore(audio48k: samples)
     }
@@ -270,10 +268,8 @@ final class DeepFilterEnhancer {
         precondition(Double(overlapMs) < chunkSeconds * 1000 / 2,
                      "overlapMs must be < chunkSeconds*1000/2")
 
-        var samples = audio
-        if sampleRate != Self.sampleRate {
-            precondition(false, "DeepFilterEnhancer needs 48 kHz audio")
-        }
+        precondition(sampleRate == Self.sampleRate, "DeepFilterEnhancer needs 48 kHz audio")
+        let samples = audio
         if samples.isEmpty { return [] }
 
         let rate = Self.sampleRate
