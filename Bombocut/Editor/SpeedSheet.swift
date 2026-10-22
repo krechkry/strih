@@ -9,6 +9,8 @@ struct SpeedSheet: View {
     @State private var selected: Int?
     @State private var dragIndex: Int?
     @State private var dragMoved = false
+    /// Finger on a point: a little label next to it shows the speed being set.
+    @State private var fingerAt: CGPoint?
     @State private var snapped = false
     @State private var snappedHead = false
     @State private var loaded = false
@@ -218,10 +220,18 @@ struct SpeedSheet: View {
         }
     }
 
-    // Graph mapping: x = position in clip's source (0...1), y = speed on a log scale, 10x at top, 0.1x at bottom.
-    private func y(for v: Double, h: CGFloat) -> CGFloat { CGFloat((1 - log10(v)) / 2) * h }
+    // Graph mapping: x = position in clip's source (0...1), y = speed on a log scale, 15x at top, 0.05x at bottom.
+    private static let logTop = log10(SpeedCurve.maxV), logBottom = log10(SpeedCurve.minV)
+    private func y(for v: Double, h: CGFloat) -> CGFloat {
+        CGFloat((Self.logTop - log10(max(v, 1e-6))) / (Self.logTop - Self.logBottom)) * h
+    }
     private func v(for y: CGFloat, h: CGFloat) -> Double {
-        min(max(pow(10, 1 - 2 * Double(y / max(h, 1))), SpeedCurve.minV), SpeedCurve.maxV)
+        let l = Self.logTop - Double(y / max(h, 1)) * (Self.logTop - Self.logBottom)
+        return min(max(pow(10, l), SpeedCurve.minV), SpeedCurve.maxV)
+    }
+
+    private static func label(_ v: Double) -> String {
+        String(format: v < 1 ? "%.2fx" : "%.1fx", v)
     }
 
     /// Where the playhead is along the selected clip (nil when it is on another clip).
@@ -260,7 +270,7 @@ struct SpeedSheet: View {
         return ZStack {
             RoundedRectangle(cornerRadius: 14).fill(Theme.panel2)
             SwiftUI.Canvas { ctx, _ in
-                for (v, label) in [(10.0, "10x"), (1.0, "1x"), (0.1, "0.1x")] {
+                for (v, label) in [(15.0, "15x"), (4.0, "4x"), (1.0, "1x"), (0.25, "0.25x"), (0.05, "0.05x")] {
                     let yy = min(max(y(for: v, h: h), 1), h - 1)
                     var line = Path()
                     line.move(to: CGPoint(x: 0, y: yy))
@@ -294,6 +304,19 @@ struct SpeedSheet: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            // the speed under your finger, just above it (below it near the top, so it never leaves the screen)
+            if let f = fingerAt, let i = dragIndex, i >= 0, i < points.count {
+                Text(verbatim: Self.label(points[i].v))
+                    .font(.system(size: 15, weight: .heavy).monospacedDigit())
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Theme.accent, in: Capsule())
+                    .shadow(color: .black.opacity(0.5), radius: 6, y: 2)
+                    .fixedSize()
+                    .position(x: min(max(f.x, 34), w - 34), y: f.y > 60 ? f.y - 48 : f.y + 48)
+                    .allowsHitTesting(false)
+            }
         }
         .contentShape(Rectangle())
         // high priority: the panel scrolls, but a finger on the curve always edits it
@@ -348,6 +371,7 @@ struct SpeedSheet: View {
     }
 
     private func move(_ i: Int, _ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
+        fingerAt = g.location
         var p = points[i]
         if i > 0 && i < points.count - 1 {
             let lo = points[i - 1].t + 0.02, hi = points[i + 1].t - 0.02
@@ -372,7 +396,7 @@ struct SpeedSheet: View {
     }
 
     private func handleEnd(_ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
-        defer { dragIndex = nil; dragMoved = false; snappedHead = false }
+        defer { dragIndex = nil; dragMoved = false; snappedHead = false; fingerAt = nil }
         guard let i = dragIndex else { return }
         if i == -2 {
             // tap on the line: add a point there (the curve keeps its shape)

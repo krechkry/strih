@@ -20,8 +20,8 @@ struct SpeedPoint: Codable, Hashable {
 }
 
 enum SpeedCurve {
-    static let minV = 0.1
-    static let maxV = 10.0
+    static let minV = 0.05
+    static let maxV = 15.0
 
     static func flat(_ v: Double = 1) -> [SpeedPoint] {
         let c = min(max(v, minV), maxV)
