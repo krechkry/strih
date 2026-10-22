@@ -1,0 +1,45 @@
+name: Translation model
+
+# Makes the slim translation model (TranslateGemma 4B, 4-bit, without the image part) and publishes it
+# as a GitHub release the app downloads from.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download from Hugging Face
+        run: |
+          mkdir -p in out
+          R=https://huggingface.co/mlx-community/translategemma-4b-it-4bit/resolve/main
+          for f in config.json generation_config.json added_tokens.json special_tokens_map.json tokenizer_config.json \
+                   tokenizer.json tokenizer.model chat_template.jinja model.safetensors.index.json model.safetensors; do
+            curl -sSfL "$R/$f" -o "in/$f"
+          done
+          ls -la in
+      - name: Strip the image part
+        run: |
+          python3 tools/strip_vision.py in out
+          for f in config.json generation_config.json added_tokens.json special_tokens_map.json tokenizer_config.json \
+                   tokenizer.json tokenizer.model chat_template.jinja; do cp "in/$f" "out/$f"; done
+          cat > out/NOTICE.txt <<'TXT'
+          TranslateGemma 4B (google/translategemma-4b-it), 4-bit MLX conversion by mlx-community,
+          with the image encoder removed for text-only translation in BOMBOCUT.
+          Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
+          TXT
+          ls -la out
+          echo "::notice::$(cd out && for f in *; do printf '%s=%s ' "$f" "$(stat -c %s "$f")"; done)"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete translate-model-v1 --yes --cleanup-tag 2>/dev/null || true
+          gh release create translate-model-v1 out/* --title "Translation model v1" \
+            --notes "TranslateGemma 4B, 4-bit, text only. Downloaded by the app on request. Gemma Terms of Use: ai.google.dev/gemma/terms" \
+            --latest=false
