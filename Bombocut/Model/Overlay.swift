@@ -101,6 +101,11 @@ struct Overlay: Codable, Hashable, Identifiable {
         }
     }
 
+    var isText: Bool {
+        if case .text = kind { return true }
+        return false
+    }
+
     var icon: String {
         switch kind {
         case .text: return "textformat"

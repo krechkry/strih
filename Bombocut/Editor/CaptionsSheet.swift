@@ -183,12 +183,7 @@ struct CaptionsSheet: View {
                 HStack {
                     Text("Captions").font(.headline.weight(.heavy))
                     Spacer()
-                    Button { focusedCue = nil } label: {
-                        Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
-                            .padding(.horizontal, 14).frame(height: 30)
-                            .background(Theme.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+                    DoneCheck(size: 32) { focusedCue = nil }
                 }
             } else {
             HStack(spacing: 8) {

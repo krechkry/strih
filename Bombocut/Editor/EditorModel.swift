@@ -49,6 +49,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published var selectedClipID: UUID? {
         didSet {
+            if quickMenuClipID != nil && quickMenuClipID != selectedClipID { quickMenuClipID = nil }
             if selectedClipID != nil {
                 if selectedOverlayID != nil { selectedOverlayID = nil }
                 if captionsSelected { captionsSelected = false }
@@ -189,6 +190,7 @@ final class EditorModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        quickMenuClipID = nil
         loopSelected = false
         if currentTime >= lastFrameTime - 0.001 { scrub(to: 0) }
         player.play()
@@ -540,7 +542,8 @@ final class EditorModel: ObservableObject {
         captionsSelected = false
         selectedAudioID = nil
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
-        if selectedClipID == id { selectedClipID = nil; return }
+        // tapping the selected clip again: its quick tools (tap once more to hide them)
+        if selectedClipID == id { quickMenuClipID = quickMenuClipID == id ? nil : id; return }
         selectedClipID = id
         let start = project.clipStarts[i], end = start + project.clips[i].duration
         guard currentTime < start || currentTime >= end else { return }
@@ -868,6 +871,21 @@ final class EditorModel: ObservableObject {
     @Published var transitionCut: Int?
     @Published var openTransitionPanel = false
     @Published var openAddClips = false
+    @Published var openVolumePanel = false
+    /// The selected clip whose quick tools (transition, volume, duplicate, delete) float above it.
+    @Published var quickMenuClipID: UUID?
+
+    /// Transition tool for the selected clip: the cut after it (or before it, for the last clip);
+    /// the panel switches between its two cuts. One clip: its own in / out animation.
+    func openTransitionForSelection() {
+        pause()
+        if let i = selectedIndex, project.clips.count > 1 {
+            openTransition(cut: i + 1 < project.clips.count ? i : i - 1)
+        } else {
+            transitionCut = nil
+            openTransitionPanel = true
+        }
+    }
 
     func requestAddClips() {
         pause()

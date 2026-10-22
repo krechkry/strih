@@ -35,12 +35,7 @@ struct OverlaySheet: View {
                 HStack(spacing: 6) {
                     if compact {
                         Spacer()
-                        Button { typing = false } label: {
-                            Text("Done").font(.subheadline.weight(.bold)).foregroundStyle(.black)
-                                .padding(.horizontal, 14).frame(height: 30)
-                                .background(Theme.accent, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
+                        DoneCheck(size: 32) { typing = false }
                     } else {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {

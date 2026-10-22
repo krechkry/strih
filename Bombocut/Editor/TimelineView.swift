@@ -65,8 +65,6 @@ struct TimelineView: View {
         return clips.indices.map { CGFloat(model.project.overlap($0)) * model.pxPerSec }
     }
 
-    private let addWidth: CGFloat = 124
-
     var body: some View {
         GeometryReader { geo in
             let half = geo.size.width / 2
@@ -78,7 +76,7 @@ struct TimelineView: View {
                     .allowsHitTesting(false)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: LaneLayout.gap) {
                     let overlaps = overlapsPx(shown)
                     HStack(spacing: model.pick == nil ? gap : 8) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
@@ -99,20 +97,6 @@ struct TimelineView: View {
                                 .opacity(reorder != nil && !dragged ? 0.6 : 1)
                                 // a transition: this clip slides over the end of the one before
                                 .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -(overlaps[k] + gap) : 0)
-                        }
-                        if reorder == nil && model.pick == nil && model.trim == nil {
-                            // add media at the end
-                            Button { model.requestAddClips() } label: {
-                                Label(loc("Add media"), systemImage: "plus")
-                                    .font(.footnote.weight(.bold))
-                                    .foregroundStyle(.white.opacity(0.85))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                                    .frame(width: addWidth - 10, height: 36)
-                                    .background(.white.opacity(0.12), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.leading, 10)
                         }
                     }
                     .overlay(alignment: .leading) {
@@ -148,23 +132,32 @@ struct TimelineView: View {
                         }
                         return shown.isEmpty ? nil : shown.count - 1
                     }
-                    if !model.project.audio.isEmpty, reorder == nil {
-                        AudioLane(model: model)
-                    }
-                    if let caps = model.project.captions, reorder == nil {
-                        CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
-                                    selected: model.captionsSelected,
-                                    onTap: { cue in model.openCaption(cue) })
-                    }
-                    if !model.project.overlays.isEmpty, reorder == nil {
-                        OverlayLane(model: model)
+                    if reorder == nil {
+                        let lanes = LaneLayout(model.project, pro: UIMode.isPro)
+                        lane(lanes.text, empty: !model.project.overlays.contains(where: \.isText)) {
+                            OverlayLane(model: model, texts: true)
+                        }
+                        if lanes.showOverlay {
+                            lane(lanes.overlay, empty: !model.project.overlays.contains(where: { !$0.isText })) {
+                                OverlayLane(model: model, texts: false)
+                            }
+                        }
+                        lane(lanes.music, empty: model.project.audio.isEmpty) {
+                            AudioLane(model: model)
+                        }
+                        if let caps = model.project.captions {
+                            CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
+                                        selected: model.captionsSelected,
+                                        onTap: { cue in model.openCaption(cue) })
+                                .frame(height: lanes.captions, alignment: .top)
+                        }
                     }
                     }
                     .padding(.leading, max(0, half + shift))
                     // the + after the last clip sits inside the trailing room, so the strip stops with the
                     // playhead on the end of the last clip instead of scrolling past it
-                    .padding(.trailing, max(0, half - (reorder == nil && model.pick == nil && model.trim == nil ? addWidth + 10 : 0)))
-                    .padding(.top, 26)
+                    .padding(.trailing, half)
+                    .padding(.top, LaneLayout.top)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
@@ -181,7 +174,25 @@ struct TimelineView: View {
                     phase = new
                     let user = new == .interacting || new == .decelerating
                     if user && !model.isScrubbing && model.isPlaying { model.pause() }
+                    if user && model.quickMenuClipID != nil { model.quickMenuClipID = nil }
                     model.isScrubbing = user && reorder == nil
+                }
+
+                if let qid = model.quickMenuClipID, reorder == nil, model.trim == nil, model.pick == nil,
+                   let k = shown.firstIndex(where: { $0.id == qid }) {
+                    // over the visible part of the clip, kept on screen
+                    let x0 = half + shift + slotX(shown, k) - offsetX
+                    let mid = (max(x0, 0) + min(x0 + width(shown[k]), geo.size.width)) / 2
+                    let w = QuickMenu.width(pro: UIMode.isPro)
+                    let cx = min(max(mid, w / 2 + 8), geo.size.width - w / 2 - 8)
+                    QuickMenu(pro: UIMode.isPro, pointer: mid - cx,
+                              transition: { model.quickMenuClipID = nil; model.openTransitionForSelection() },
+                              volume: { model.quickMenuClipID = nil; model.pause(); model.openVolumePanel = true },
+                              duplicate: { model.quickMenuClipID = nil; model.duplicateSelected() },
+                              delete: { model.quickMenuClipID = nil; model.deleteSelected() })
+                        .position(x: cx, y: LaneLayout.top - 8 - QuickMenu.height / 2)
+                        .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+                        .zIndex(5)
                 }
 
                 // Playhead
@@ -206,6 +217,7 @@ struct TimelineView: View {
             .onAppear { screenW = geo.size.width }
             .onChange(of: geo.size.width) { _, w in screenW = w }
         }
+        .animation(.spring(duration: 0.22, bounce: 0.15), value: model.quickMenuClipID)
         .onAppear { zoomBase = model.pxPerSec; follow() }
         .onChange(of: model.currentTime) { follow() }
         .onChange(of: model.pxPerSec) { if reorder == nil { scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec) } }
@@ -220,6 +232,22 @@ struct TimelineView: View {
             try? await Task.sleep(for: .seconds(0.5))
             reorderEvent(c[0].id, .changed, 70, 220)
         }
+    }
+
+    /// One lane at its fixed height; an empty lane is a faint strip as long as the video.
+    @ViewBuilder
+    private func lane<V: View>(_ height: CGFloat, empty: Bool, @ViewBuilder _ content: () -> V) -> some View {
+        Group {
+            if empty {
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(.white.opacity(0.045))
+                    .frame(width: max(10, CGFloat(model.duration) * model.pxPerSec), height: LaneLayout.empty)
+                    .allowsHitTesting(false)
+            } else {
+                content()
+            }
+        }
+        .frame(height: height, alignment: .top)
     }
 
     /// Keeps the strip under the playhead when time changes from playback, edits or undo.
@@ -624,6 +652,8 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
 /// Overlay blocks under the clips: tap to select (again to edit), hold and slide to move, drag the ends to trim.
 struct OverlayLane: View {
     @ObservedObject var model: EditorModel
+    /// Text lane or the lane for pictures and videos.
+    var texts: Bool
     @State private var dragStart: (start: Double, duration: Double)?
 
     static let rowHeight: CGFloat = 22
@@ -645,14 +675,16 @@ struct OverlayLane: View {
         return rows
     }
 
+    /// Rows times their height, with the 3 pt gaps between them.
     static func height(_ list: [Overlay]) -> CGFloat {
-        list.isEmpty ? 0 : CGFloat(rows(list).count) * (rowHeight + 3) + 3
+        let n = CGFloat(rows(list).count)
+        return list.isEmpty ? 0 : n * rowHeight + (n - 1) * 3
     }
 
     var body: some View {
         let px = model.pxPerSec
         VStack(alignment: .leading, spacing: 3) {
-            ForEach(Array(Self.rows(model.project.overlays).enumerated()), id: \.offset) { _, row in
+            ForEach(Array(Self.rows(model.project.overlays.filter { $0.isText == texts }).enumerated()), id: \.offset) { _, row in
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(width: CGFloat(model.duration) * px, height: Self.rowHeight)
                     ForEach(row) { o in block(o, px: px) }
@@ -776,7 +808,8 @@ struct AudioLane: View {
     }
 
     static func height(_ list: [AudioItem]) -> CGFloat {
-        list.isEmpty ? 0 : CGFloat(rows(list).count) * (rowHeight + 3) + 3
+        let n = CGFloat(rows(list).count)
+        return list.isEmpty ? 0 : n * rowHeight + (n - 1) * 3
     }
 
     var body: some View {
@@ -910,5 +943,99 @@ struct TransitionMark: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+}
+
+/// Heights of the timeline's lanes, top to bottom: clips, text, pictures and videos, sound, captions.
+/// Shared by the timeline and the add island on its left, so each + sits on its own lane.
+struct LaneLayout {
+    static let top: CGFloat = 26       // ruler
+    static let strip: CGFloat = 60     // clips
+    static let gap: CGFloat = 4
+    static let empty: CGFloat = 20     // a lane with nothing in it yet
+    static let bottom: CGFloat = 10
+
+    let text: CGFloat
+    let overlay: CGFloat
+    let music: CGFloat
+    let captions: CGFloat
+    /// Basic mode has no picture / video overlays (unless the project already has some).
+    let showOverlay: Bool
+
+    init(_ p: Project, pro: Bool) {
+        let texts = p.overlays.filter(\.isText)
+        let media = p.overlays.filter { !$0.isText }
+        text = texts.isEmpty ? Self.empty : OverlayLane.height(texts)
+        showOverlay = pro || !media.isEmpty
+        overlay = showOverlay ? (media.isEmpty ? Self.empty : OverlayLane.height(media)) : 0
+        music = p.audio.isEmpty ? Self.empty : AudioLane.height(p.audio)
+        captions = p.captions == nil ? 0 : 18
+    }
+
+    var total: CGFloat {
+        Self.top + Self.strip + Self.gap + text + (showOverlay ? Self.gap + overlay : 0) + Self.gap + music
+            + (captions > 0 ? Self.gap + captions : 0) + Self.bottom
+    }
+}
+
+/// Tap the selected clip again: its most used tools float above it.
+struct QuickMenu: View {
+    let pro: Bool
+    /// Where the clip is, relative to the menu's middle (the little pointer aims there).
+    let pointer: CGFloat
+    let transition: () -> Void
+    let volume: () -> Void
+    let duplicate: () -> Void
+    let delete: () -> Void
+
+    static let height: CGFloat = 54
+    private static let item: CGFloat = 64
+    static func width(pro: Bool) -> CGFloat { CGFloat(pro ? 4 : 3) * item + 12 }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if pro { button("arrow.left.and.right.square", "Transition", action: transition) }
+            button("speaker.wave.2", "Volume", action: volume)
+            button("plus.square.on.square", "Duplicate", action: duplicate)
+            button("trash", "Delete", tint: Color(red: 1, green: 0.38, blue: 0.36), action: delete)
+        }
+        .padding(.horizontal, 6)
+        .frame(width: Self.width(pro: pro), height: Self.height)
+        .background {
+            RoundedRectangle(cornerRadius: 17)
+                .fill(Color(white: 0.17))
+                .overlay(RoundedRectangle(cornerRadius: 17).strokeBorder(.white.opacity(0.12), lineWidth: 1))
+                .shadow(color: .black.opacity(0.55), radius: 12, y: 4)
+        }
+        .overlay(alignment: .bottom) {
+            Pointer()
+                .fill(Color(white: 0.17))
+                .frame(width: 16, height: 8)
+                .offset(x: min(max(pointer, -Self.width(pro: pro) / 2 + 22), Self.width(pro: pro) / 2 - 22), y: 7.5)
+        }
+    }
+
+    private func button(_ icon: String, _ label: String, tint: Color = .white, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 17, weight: .semibold))
+                Text(loc(label)).font(.system(size: 10, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(tint)
+            .frame(width: Self.item, height: Self.height)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private struct Pointer: Shape {
+        func path(in r: CGRect) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: r.minX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.midX, y: r.maxY))
+            p.closeSubpath()
+            return p
+        }
     }
 }

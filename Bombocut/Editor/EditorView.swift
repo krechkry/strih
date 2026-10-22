@@ -71,7 +71,8 @@ struct EditorView: View {
     @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
-            Panel(height: typing ? compactPanel : panelHeight(s), close: { sheet = nil }) {
+            Panel(height: (typing ? compactPanel : panelHeight(s)) + Panel<EmptyView>.extra, check: !typing,
+                  close: { sheet = nil }) {
                 panelContent(s).environment(\.panelCompact, typing)
             }
             .id(s)
@@ -103,8 +104,9 @@ struct EditorView: View {
 
     private var previewLift: CGFloat {
         guard let s = sheet, s != .export else { return 0 }
-        if typing { return max(0, keyboard + compactPanel - 34 - bottomHeight + 6) }
-        return max(0, panelHeight(s) - 34 - bottomHeight + 6)
+        let extra = Panel<EmptyView>.extra
+        if typing { return max(0, keyboard + compactPanel + extra - 34 - bottomHeight + 6) }
+        return max(0, panelHeight(s) + extra - 34 - bottomHeight + 6)
     }
 
     init(project: Project, store: ProjectStore) {
@@ -151,6 +153,9 @@ struct EditorView: View {
         .onChange(of: model.openTransitionPanel) { _, open in
             if open { model.openTransitionPanel = false; sheet = .animation }
         }
+        .onChange(of: model.openVolumePanel) { _, open in
+            if open { model.openVolumePanel = false; sheet = .volume }
+        }
         .onChange(of: model.openAddClips) { _, open in
             if open { model.openAddClips = false; showAddClips = true }
         }
@@ -170,8 +175,10 @@ struct EditorView: View {
                 Color.clear.frame(height: previewLift)
                 VStack(spacing: 0) {
                     transport
+                    let lanes = LaneLayout(model.project, pro: pro)
                     TimelineView(model: model)
-                        .frame(height: (model.project.captions == nil ? 112 : 136) + OverlayLane.height(model.project.overlays) + AudioLane.height(model.project.audio))
+                        .frame(height: lanes.total)
+                        .overlay(alignment: .topLeading) { addIsland(lanes) }
                     toolbar
                 }
                 .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = $0 }
@@ -379,9 +386,16 @@ struct EditorView: View {
     // MARK: Transport
 
     private var transport: some View {
-        // play / pause and the time live on the video itself; here: keyframe on the left, undo / redo
-        // and fullscreen on the right
+        // play and the keyframe on the left, the time in the middle, undo / redo and fullscreen on the right
         HStack(spacing: 0) {
+            Button { model.togglePlay() } label: {
+                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 19, weight: .bold))
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 40, height: 40)
+            }
+            .tint(.white)
+            .disabled(model.project.clips.isEmpty)
             if pro { keyframeButton.frame(width: 40) }
             Spacer(minLength: 0)
             HStack(spacing: 0) {
@@ -437,19 +451,41 @@ struct EditorView: View {
 
     // MARK: Toolbar
 
-    /// Transition tool: the cut into the selected clip (the first clip has its own in / out instead).
-    private func openTransitionTool() {
-        model.pause()
-        // the cut after the clip (or before it, for the last clip); the panel switches between the two
-        if let i = model.selectedIndex, model.project.clips.count > 1 {
-            model.openTransition(cut: i + 1 < model.project.clips.count ? i : i - 1)
-        } else {
-            model.transitionCut = nil
-            sheet = .animation
-        }
+    /// Something on the timeline is selected: the check on the right finishes editing it.
+    private var finishSelection: (() -> Void)? {
+        if model.pick != nil { return nil }
+        if model.selectedAudioIndex != nil { return { model.selectAudio(nil) } }
+        if model.selectedOverlayIndex != nil { return { model.selectOverlay(nil) } }
+        if model.captionsSelected, model.project.captions != nil { return { model.captionsSelected = false } }
+        if model.selectedIndex != nil { return { model.selectedClipID = nil } }
+        return nil
     }
 
     private var toolbar: some View {
+        HStack(spacing: 0) {
+            toolScroller
+            if let finish = finishSelection {
+                DoneCheck(action: finish)
+                    .padding(.leading, 6)
+                    .padding(.trailing, 14)
+                    .background(alignment: .leading) {
+                        // the tools scroll under a soft edge
+                        LinearGradient(colors: [Theme.panel.opacity(0), Theme.panel], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: 18)
+                            .offset(x: -18)
+                            .allowsHitTesting(false)
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .frame(height: 76)
+        .background(Theme.panel)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
+        .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
+        .animation(.easeOut(duration: 0.15), value: finishSelection == nil)
+    }
+
+    private var toolScroller: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
                 if let pk = model.pick {
@@ -458,19 +494,16 @@ struct EditorView: View {
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
-                    ToolButton(icon: "xmark", label: "Done") { model.selectAudio(nil) }
                 } else if model.selectedOverlayIndex != nil {
                     ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
-                    ToolButton(icon: "xmark", label: "Done") { model.selectOverlay(nil) }
                 } else if model.captionsSelected, model.project.captions != nil {
                     ToolButton(icon: "text.cursor", label: "Edit text") { model.pause(); model.captionTab = 0; sheet = .captions }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
-                    ToolButton(icon: "xmark", label: "Done") { model.captionsSelected = false }
                 } else if let i = model.selectedIndex {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
@@ -482,7 +515,7 @@ struct EditorView: View {
                         ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
                         ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
                     }
-                    if pro { ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openTransitionTool() } }
+                    if pro { ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.openTransitionForSelection() } }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }
@@ -528,10 +561,72 @@ struct EditorView: View {
             }
             .padding(.horizontal, 10)
         }
-        .frame(height: 76)
-        .background(Theme.panel)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
-        .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
+    }
+
+    // MARK: Add island
+
+    /// Fixed column left of the timeline: one + per lane, each on the lane it adds to.
+    private func addIsland(_ lanes: LaneLayout) -> some View {
+        VStack(spacing: LaneLayout.gap) {
+            islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
+            islandButton(height: lanes.text, icon: "textformat", label: "Text") { model.pause(); model.addText() }
+            if lanes.showOverlay {
+                PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
+                             preferredItemEncoding: .current) {
+                    islandTile(height: lanes.overlay, icon: "photo")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Overlay"))
+            }
+            Menu {
+                Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
+                Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
+            } label: {
+                islandTile(height: lanes.music, icon: "music.note")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc("Audio"))
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 18)
+        .background {
+            // clips and lanes slide under the island
+            LinearGradient(stops: [.init(color: Theme.bg, location: 0), .init(color: Theme.bg, location: 0.62),
+                                   .init(color: Theme.bg.opacity(0), location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+                .padding(.bottom, -LaneLayout.bottom)
+                .allowsHitTesting(false)
+        }
+        .padding(.top, LaneLayout.top)
+        .opacity(model.pick == nil ? 1 : 0.3)
+        .allowsHitTesting(model.pick == nil && model.trim == nil)
+    }
+
+    private func islandButton(height: CGFloat, icon: String?, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { islandTile(height: height, icon: icon) }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc(label))
+    }
+
+    /// Big + for clips; a small + with the lane's icon for the others.
+    private func islandTile(height: CGFloat, icon: String?) -> some View {
+        let big = icon == nil
+        return RoundedRectangle(cornerRadius: big ? 12 : 7)
+            .fill(Theme.panel2)
+            .overlay(RoundedRectangle(cornerRadius: big ? 12 : 7).strokeBorder(.white.opacity(0.08), lineWidth: 1))
+            .overlay {
+                if let icon {
+                    HStack(spacing: 1) {
+                        Image(systemName: "plus").font(.system(size: 8, weight: .heavy))
+                        Image(systemName: icon).font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(.white.opacity(0.85))
+                } else {
+                    Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                }
+            }
+            .frame(width: 42, height: max(height, 18))
+            .contentShape(Rectangle())
     }
 
     /// Picking clips in the timeline to copy settings to.
@@ -620,6 +715,12 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(2))
                 model.scrub(to: model.project.clipStarts[1] + 0.6)
             }
+        case "quickmenu":
+            guard clips.count > 1 else { break }
+            model.selectedClipID = clips[1].id
+            model.scrub(to: model.project.clipStarts[1] + 1.0)
+            try? await Task.sleep(for: .seconds(0.8))
+            model.quickMenuClipID = clips[1].id
         case "selected":
             guard clips.count > 1 else { break }
             let id = clips[1].id
@@ -790,10 +891,34 @@ struct ToolLabel: View {
     }
 }
 
+/// Lime check: finish editing (closes a panel, or ends the selection on the timeline).
+struct DoneCheck: View {
+    var size: CGFloat = 44
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "checkmark")
+                .font(.system(size: size * 0.42, weight: .heavy))
+                .foregroundStyle(.black)
+                .frame(width: size, height: size)
+                .background(Theme.accent, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Done"))
+    }
+}
+
 /// Editing panel: full width from edge to edge, fixed height, no dimming; the editor above stays usable.
 /// Drag the handle down (or pick another tool) to close.
 private struct Panel<Content: View>: View {
+    /// Handle row with the check on the right (14 pt taller than the old handle row; panels add that).
+    static var header: CGFloat { 44 }
+    static var extra: CGFloat { 14 }
     let height: CGFloat
+    /// Off while typing: the panel's own check (stop typing) takes that spot.
+    var check = true
     let close: () -> Void
     @ViewBuilder let content: () -> Content
     @State private var drag: CGFloat = 0
@@ -802,9 +927,17 @@ private struct Panel<Content: View>: View {
         VStack(spacing: 0) {
             // a generous grab zone: the handle row, plus a strip just above the panel's edge
             Capsule().fill(.white.opacity(0.3)).frame(width: 38, height: 5)
-                .frame(maxWidth: .infinity, minHeight: 30)
+                .frame(maxWidth: .infinity, minHeight: Self.header)
                 .contentShape(Rectangle())
                 .gesture(grab)
+                // finish editing: the check closes the panel (changes are already applied)
+                .overlay(alignment: .topTrailing) {
+                    if check {
+                        DoneCheck(size: 32, action: close)
+                            .padding(.top, 8)
+                            .padding(.trailing, 16)
+                    }
+                }
                 .overlay(alignment: .top) {
                     Color.clear
                         .frame(height: 26)
