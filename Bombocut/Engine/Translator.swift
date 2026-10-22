@@ -34,6 +34,13 @@ enum TranslateLanguage {
 
     static func item(_ code: String) -> Item? { all.first { $0.code == code } }
 
+    /// The language's name in the app's language, capitalized ("Polština", "Polish").
+    static func localName(_ code: String) -> String {
+        let l = Locale(identifier: AppLanguage.current)
+        let n = l.localizedString(forLanguageCode: code) ?? item(code)?.name ?? code
+        return n.prefix(1).uppercased(with: l) + n.dropFirst()
+    }
+
     /// English name, as the model's instructions use it ("Czech").
     static func englishName(_ code: String) -> String {
         Locale(identifier: "en").localizedString(forLanguageCode: code) ?? code

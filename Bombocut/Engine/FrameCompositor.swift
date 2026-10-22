@@ -171,7 +171,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
                                                     video: video)
             }
-            if let caps = CaptionStore.shared.current, let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+            // (captions behind the subject were already drawn under it, when this frame has a subject mask)
+            if let caps = CaptionStore.shared.current, !(masked && caps.style.behindSubject),
+               let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                 image = text.composited(over: image).cropped(to: frame)
             }
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
@@ -293,6 +295,11 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var back = SubjectMasker.background(image, m, frame: frame)
             if hasOverlays {
                 back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: video)
+            }
+            // captions set to go behind the subject: on the background, so the subject covers them
+            if let caps = CaptionStore.shared.current, caps.style.behindSubject,
+               let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+                back = text.composited(over: back).cropped(to: frame)
             }
             image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
                                                                         kCIInputMaskImageKey: mask]).cropped(to: frame)

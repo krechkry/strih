@@ -440,12 +440,32 @@
         }
       }
     },
+    "Apple's built-in translator": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vestavěný překladač od Applu"
+          }
+        }
+      }
+    },
     "Apple's translator can't translate %@.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Překladač od Applu neumí jazyk %@."
+          }
+        }
+      }
+    },
+    "Apple's translator can't translate this. The translation model can: download it above.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladač od Applu tohle přeložit neumí. Překladový model ano: stáhni ho výš."
           }
         }
       }
@@ -686,6 +706,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nejlepší kvalita, v iPhonu, offline."
+          }
+        }
+      }
+    },
+    "Better translations and more languages, Czech and Slovak too. Works offline. One download, %@.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lepší překlady a víc jazyků, i čeština a slovenština. Funguje offline. Stáhne se jednou, %@."
           }
         }
       }
@@ -986,6 +1016,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Změna přidá keyframe v %@"
+          }
+        }
+      }
+    },
+    "Checking…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zjišťuji…"
           }
         }
       }
@@ -1504,12 +1544,32 @@
         }
       }
     },
+    "Doesn't know %@.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jazyk %@ neumí."
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Hotovo"
+          }
+        }
+      }
+    },
+    "Download (%@)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stáhnout (%@)"
           }
         }
       }
@@ -2078,6 +2138,16 @@
         }
       }
     },
+    "From %@ to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z jazyka %@ do"
+          }
+        }
+      }
+    },
     "From Files": {
       "localizations": {
         "cs": {
@@ -2468,6 +2538,16 @@
         }
       }
     },
+    "Knows this language pair. Quick, nothing to download.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuhle dvojici jazyků umí. Rychlý, nic se nestahuje."
+          }
+        }
+      }
+    },
     "Later": {
       "localizations": {
         "cs": {
@@ -2838,12 +2918,32 @@
         }
       }
     },
+    "Needs a subject mask on the clip (Mask tool)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Potřebuje masku postavy na klipu (nástroj Maska)"
+          }
+        }
+      }
+    },
     "Needs a subject mask on the clip below (Mask tool)": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Potřebuje masku objektu na klipu pod ním (nástroj Maska)"
+          }
+        }
+      }
+    },
+    "Needs an iPhone 15 Pro or newer.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Potřebuje iPhone 15 Pro nebo novější."
           }
         }
       }
@@ -3454,6 +3554,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obnovit nákup"
+          }
+        }
+      }
+    },
+    "Ride with us": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jezdi s námi"
           }
         }
       }
@@ -4174,6 +4284,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trvá to nějak dlouho (%@). Klepni pro restart"
+          }
+        }
+      }
+    },
+    "Tap one to see it on your video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na některou a uvidíš ji ve videu."
           }
         }
       }

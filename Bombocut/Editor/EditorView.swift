@@ -822,7 +822,7 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .adjust
             }
-        case "captions", "captionstyle", "captionsframe", "captionsel":
+        case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim", "captiontr":
             let text = "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark v Karlíně a natočíme nový díl. Robin jede první, pak zbytek party. To je ono!"
             var t = 0.3
             let words = text.split(separator: " ").map { w -> CaptionWord in

@@ -90,12 +90,14 @@ struct CaptionStyle: Codable, Hashable {
     var maxChars = 32
     var anim = CaptionAnim.fade
     var punctuation = false      // false = no commas and full stops on screen (? and ! stay)
+    var behindSubject = false    // captions only: drawn behind the masked subject (when the clip has a mask)
 
     init() {}
 
     enum CodingKeys: String, CodingKey {
         case font, size, text, highlight, stroke, strokeWidth, strokeOutside, tracking, lineSpacing, box, boxColor, boxOpacity
         case shadow, shadowOpacity, shadowBlur, shadowAngle, shadowDistance, caps, y, x, rotation, lines, maxChars, anim, punctuation
+        case behindSubject
     }
 
     init(from d: Decoder) throws {
@@ -126,6 +128,7 @@ struct CaptionStyle: Codable, Hashable {
         maxChars = try c.decodeIfPresent(Int.self, forKey: .maxChars) ?? def.maxChars
         anim = try c.decodeIfPresent(CaptionAnim.self, forKey: .anim) ?? def.anim
         punctuation = try c.decodeIfPresent(Bool.self, forKey: .punctuation) ?? def.punctuation
+        behindSubject = try c.decodeIfPresent(Bool.self, forKey: .behindSubject) ?? def.behindSubject
     }
 }
 
