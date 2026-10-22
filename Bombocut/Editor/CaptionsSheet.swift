@@ -17,6 +17,7 @@ struct CaptionsSheet: View {
     @State private var askedCellular = false
     @FocusState private var focusedCue: UUID?
     @Environment(\.panelCompact) private var compact
+    @Environment(\.closePanel) private var close
 
     /// Your languages first (from setup), plus the one in use.
     private var languages: [CaptionLanguage.Item] {
@@ -41,6 +42,11 @@ struct CaptionsSheet: View {
             if let t = model.captionTab { tab = t; model.captionTab = nil }
             if model.captionFocus != nil { tab = 0 }
             model.dismissCaptionJob()
+            // came back from picking clips to regenerate: go
+            if model.captionsAfterPick {
+                model.captionsAfterPick = false
+                if model.captionClipsLive != nil { generate() }
+            }
         }
         .onChange(of: model.captionFocus) { if model.captionFocus != nil { tab = 0 } }
         .onChange(of: model.captionTab) { if let t = model.captionTab { tab = t; model.captionTab = nil } }
@@ -57,7 +63,7 @@ struct CaptionsSheet: View {
         }
         .confirmationDialog("Generate captions again? Your text edits will be replaced.", isPresented: $confirmRegenerate,
                             titleVisibility: .visible) {
-            Button("Regenerate", role: .destructive) { generate() }
+            Button("Regenerate", role: .destructive) { model.captionClips = nil; generate() }
         }
     }
 
@@ -108,6 +114,10 @@ struct CaptionsSheet: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.top, -10)
 
+            if model.project.clips.count > 1 && phase == nil {
+                listenTo
+            }
+
             if let phase {
                 progress(phase)
             } else {
@@ -128,6 +138,35 @@ struct CaptionsSheet: View {
                 Text(error).font(.footnote.weight(.semibold)).foregroundStyle(.red)
             }
         }
+    }
+
+    /// All clips, or only the clips you pick (the others are not listened to).
+    private var listenTo: some View {
+        let some = model.captionClipsLive
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Listen to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+            HStack(spacing: 8) {
+                chip("All clips", "square.stack.3d.up.fill", on: some == nil) { model.captionClips = nil }
+                chip(some.map { String(format: loc("Selected clips (%lld)"), $0.count) } ?? loc("Selected clips"),
+                     "hand.tap.fill", on: some != nil) {
+                    model.startCaptionPick()
+                    close()
+                }
+            }
+        }
+    }
+
+    private func chip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(loc(title), systemImage: icon)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(on ? .black : .white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     /// A language from the full list: use it now and keep it among your languages.
@@ -192,6 +231,13 @@ struct CaptionsSheet: View {
                 Spacer()
                 Menu {
                     Button { confirmRegenerate = true } label: { Label("Regenerate", systemImage: "arrow.clockwise") }
+                    if model.project.clips.count > 1 {
+                        Button {
+                            model.captionsAfterPick = true
+                            model.startCaptionPick()
+                            close()
+                        } label: { Label("Regenerate on selected clips", systemImage: "hand.tap") }
+                    }
                     Button(role: .destructive) { model.setCaptions(nil) } label: { Label("Remove captions", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis")

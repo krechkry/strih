@@ -2368,6 +2368,16 @@
         }
       }
     },
+    "Listen to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslouchat"
+          }
+        }
+      }
+    },
     "Listening %lld %%": {
       "localizations": {
         "cs": {
@@ -3068,6 +3078,16 @@
         }
       }
     },
+    "Regenerate on selected clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znovu jen na vybraných klipech"
+          }
+        }
+      }
+    },
     "Remove": {
       "localizations": {
         "cs": {
@@ -3334,6 +3354,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat objekt"
+          }
+        }
+      }
+    },
+    "Selected clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrané klipy"
+          }
+        }
+      }
+    },
+    "Selected clips (%lld)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrané klipy (%lld)"
           }
         }
       }
@@ -3608,6 +3648,16 @@
         }
       }
     },
+    "Socials overlay": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překryv sítí"
+          }
+        }
+      }
+    },
     "Soft light": {
       "localizations": {
         "cs": {
@@ -3874,6 +3924,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepni na klipy, kterým to chceš dát"
+          }
+        }
+      }
+    },
+    "Tap the clips to listen to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na klipy, které má poslouchat"
           }
         }
       }

@@ -109,7 +109,7 @@ struct EditorMock: View, Animatable {
         ("speedometer", "Speed"), ("arrow.left.and.right.square", "Transition"), ("scope", "Track"),
         ("person.crop.rectangle", "Mask"), ("gyroscope", "Stabilize"), ("wind", "Motion blur"),
         ("waveform.badge.plus", "Sound from video"), ("arrow.up.left.and.arrow.down.right", "Fill"),
-        ("speaker.wave.2", "Volume"), ("plus.square.on.square", "Duplicate"), ("rectangle.dashed", "Layout"),
+        ("speaker.wave.2", "Volume"), ("plus.square.on.square", "Duplicate"), ("rectangle.dashed", "Socials overlay"),
         ("aspectratio", "Aspect"),
     ]
 
@@ -189,7 +189,7 @@ struct EditorMock: View, Animatable {
             Spacer()
             HStack(spacing: 3) {
                 Image(systemName: "rectangle.dashed")
-                Text(loc("Layout"))
+                Text(loc("Socials overlay"))
             }
             .font(.system(size: 7, weight: .bold))
             .padding(.horizontal, 6).frame(height: 15)

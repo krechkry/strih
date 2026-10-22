@@ -286,7 +286,7 @@ struct EditorView: View {
         let on = safeZoneAlways && safeZone != .off
         return HStack(spacing: 5) {
             Image(systemName: "rectangle.dashed")
-            Text(loc(on ? safeZone.short : "Layout"))
+            Text(loc(on ? safeZone.short : "Socials overlay"))
         }
         .font(.footnote.weight(.bold))
         .foregroundStyle(on ? .black : .white.opacity(0.85))
@@ -639,7 +639,8 @@ struct EditorView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(loc(pk.kind.title)).font(.subheadline.weight(.heavy))
-                Text(pk.kind.forOverlays ? "Tap the overlays to apply it to" : "Tap the clips to apply it to")
+                Text(pk.kind == .captions ? "Tap the clips to listen to"
+                     : pk.kind.forOverlays ? "Tap the overlays to apply it to" : "Tap the clips to apply it to")
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             .lineLimit(1)

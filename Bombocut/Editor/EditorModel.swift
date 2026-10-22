@@ -779,29 +779,74 @@ final class EditorModel: ObservableObject {
     @Published var openCaptions = false
     private var captionTask: Task<Void, Never>?
 
+    /// Clips the captions listen to; nil = all clips.
+    @Published var captionClips: Set<UUID>?
+    /// Regenerate right after the clips are picked (captions already exist).
+    var captionsAfterPick = false
+
+    /// The picked clips that still exist (nil when listening to all of them).
+    var captionClipsLive: Set<UUID>? {
+        guard let ids = captionClips else { return nil }
+        let live = ids.intersection(project.clips.map(\.id))
+        return live.isEmpty ? nil : live
+    }
+
+    /// Time ranges of the picked clips on the timeline.
+    private static func ranges(of ids: Set<UUID>, in p: Project) -> [ClosedRange<Double>] {
+        let starts = p.clipStarts
+        return p.clips.indices.compactMap { i in
+            ids.contains(p.clips[i].id) ? starts[i]...(starts[i] + p.clips[i].duration) : nil
+        }
+    }
+
+    /// Pick the clips the captions should listen to (the captions panel comes back afterwards).
+    func startCaptionPick() {
+        pause()
+        let preset = captionClipsLive ?? (selectedClipID.map { [$0] } ?? [])
+        pick = PickSession(kind: .captions, source: UUID(), picked: preset)
+    }
+
     func startCaptions(language: String, names: String, accurate: Bool = false) {
         if let j = captionJob, j.error == nil { return }   // already running
         captionTask?.cancel()
         captionsReady = false
         captionJob = CaptionJob(phase: .preparingAudio)
+        let only = captionClipsLive
+        // listening to some clips only: the others (and the music) are silent for the speech model
+        var heard = project
+        if let only {
+            for i in heard.clips.indices where !only.contains(heard.clips[i].id) { heard.clips[i].volume = 0 }
+            heard.audio = []
+        }
         let snapshot = project
+        let old = project.captions
         let style = project.captions?.style ?? CaptionTemplate.builtIns[0].style
         let tid = project.captions?.templateID ?? CaptionTemplate.builtIns[0].id
         UIApplication.shared.isIdleTimerDisabled = true
         captionTask = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
             do {
-                let words = try await Transcriber.run(project: snapshot, language: language, names: names,
+                var words = try await Transcriber.run(project: heard, language: language, names: names,
                                                      accurate: accurate) { p in
                     self.captionJob?.phase = p
                 }
                 if Task.isCancelled { return }
+                let ranges = only.map { Self.ranges(of: $0, in: snapshot) }
+                if let ranges {
+                    words = words.filter { w in let m = (w.start + w.end) / 2; return ranges.contains { $0.contains(m) } }
+                }
                 guard !words.isEmpty else {
                     captionJob = CaptionJob(phase: .preparingAudio, error: "No speech found.")
                     return
                 }
                 var caps = Captions(language: language, words: words, cues: [], style: style, templateID: tid)
                 caps.recut()
+                // picked clips only: the captions on the other clips stay as they were (with your edits)
+                if let ranges, let old {
+                    let outside: (Double, Double) -> Bool = { a, b in !ranges.contains { $0.overlaps(a...max(a, b)) } }
+                    caps.words = (old.words.filter { outside($0.start, $0.end) } + caps.words).sorted { $0.start < $1.start }
+                    caps.cues = (old.cues.filter { outside($0.start, $0.end) } + caps.cues).sorted { $0.start < $1.start }
+                }
                 // you kept editing meanwhile: move the captions onto the timeline as it is now
                 if snapshot.timingKey != project.timingKey { caps = caps.remapped(from: snapshot, to: project) }
                 setCaptions(caps)
@@ -1509,6 +1554,8 @@ final class EditorModel: ObservableObject {
 
     enum ApplyKind: String {
         case motionBlur, adjust, speed, volume, mask, overlayStyle, animation, speech
+        /// Not a copy: picks the clips the captions listen to.
+        case captions
 
         var title: String {
             switch self {
@@ -1520,6 +1567,7 @@ final class EditorModel: ObservableObject {
             case .overlayStyle: return "Look of the overlay"
             case .animation: return "Transition"
             case .speech: return "Speech"
+            case .captions: return "Captions"
             }
         }
         /// Copies between overlays instead of clips.
@@ -1563,7 +1611,7 @@ final class EditorModel: ObservableObject {
             c.anim = s.anim
         case .speech:
             c.speech = s.speech
-        case .overlayStyle:
+        case .overlayStyle, .captions:
             break
         }
     }
@@ -1656,6 +1704,11 @@ final class EditorModel: ObservableObject {
     func finishPick(apply ok: Bool) {
         guard let p = pick else { return }
         pick = nil
+        if p.kind == .captions {
+            if ok { captionClips = p.picked.isEmpty ? nil : p.picked } else { captionsAfterPick = false }
+            openCaptions = true
+            return
+        }
         guard ok, !p.picked.isEmpty else { return }
         if p.kind.forOverlays {
             applyOverlays(from: p.source, to: p.picked)
