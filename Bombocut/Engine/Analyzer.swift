@@ -301,92 +301,28 @@ struct CameraMotion: Equatable {
     /// Why the last measurement came back empty (for tests and logs).
     nonisolated(unsafe) static var lastIssue = ""
 
+    /// Tracks a few hundred well-textured points from `a` to `b` (pyramidal Lucas-Kanade, on the CPU, the same
+    /// on every device and in the simulator) and fits one camera motion to them.
     static func estimate(from a: CGImage, to b: CGImage) -> CameraMotion? {
-        if let m = fromFlow(a, b) { return m }
-        // no usable flow (some devices, the simulator): Vision's whole-frame registration instead
-        return fromRegistration(a, b)
-    }
-
-    private static func fromFlow(_ a: CGImage, _ b: CGImage) -> CameraMotion? {
-        let req = VNGenerateOpticalFlowRequest(targetedCGImage: b, options: [:])
-        req.computationAccuracy = .medium
-        req.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
-        do {
-            try VNImageRequestHandler(cgImage: a, options: [:]).perform([req])
-        } catch {
-            lastIssue = "flow failed: \(error.localizedDescription)"
+        guard let ga = GrayImage(a), let gb = GrayImage(b), ga.w == gb.w, ga.h == gb.h else {
+            lastIssue = "could not read the frames"
             return nil
         }
-        guard let pb = req.results?.first?.pixelBuffer else { lastIssue = "flow: no result"; return nil }
-        let fw = CVPixelBufferGetWidth(pb), fh = CVPixelBufferGetHeight(pb)
-        guard fw > 8, fh > 8 else { lastIssue = "flow: tiny buffer \(fw)x\(fh)"; return nil }
-        let format = CVPixelBufferGetPixelFormatType(pb)
-        let half = format == kCVPixelFormatType_TwoComponent16Half
-        let W = Double(a.width), H = Double(a.height)
-        let kx = W / Double(fw), ky = H / Double(fh)   // flow grid to image pixels
-
-        CVPixelBufferLockBaseAddress(pb, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        guard let base = CVPixelBufferGetBaseAddress(pb) else { return nil }
-        let row = CVPixelBufferGetBytesPerRow(pb)
-
-        // a grid of points away from the borders: where each one is now (y-up, centered on the frame)
+        let pa = ga.pyramid(levels: 3), pb = gb.pyramid(levels: 3)
+        let W = Double(ga.w), H = Double(ga.h)
         var src: [(Double, Double)] = [], dst: [(Double, Double)] = []
-        let cols = 28, rows = max(8, Int(Double(cols) * H / W))
-        for r in 0..<rows {
-            for c in 0..<cols {
-                let u = (Double(c) + 0.5) / Double(cols), v = (Double(r) + 0.5) / Double(rows)
-                guard u > 0.04, u < 0.96, v > 0.04, v < 0.96 else { continue }
-                let px = min(fw - 1, Int(u * Double(fw))), py = min(fh - 1, Int(v * Double(fh)))
-                let fx: Double, fy: Double
-                if half {
-                    let p = base.advanced(by: py * row + px * 4).assumingMemoryBound(to: Float16.self)
-                    fx = Double(p[0]); fy = Double(p[1])
-                } else {
-                    let p = base.advanced(by: py * row + px * 8).assumingMemoryBound(to: Float.self)
-                    fx = Double(p[0]); fy = Double(p[1])
-                }
-                let vx = fx * kx, vy = fy * ky
-                guard vx.isFinite, vy.isFinite else { continue }
-                let x = u * W - W / 2, y = (1 - v) * H - H / 2
-                src.append((x, y))
-                dst.append((x + vx, y - vy))   // image rows go down, Core Image goes up
-            }
+        for p in ga.corners(cells: 26) {
+            guard let d = LucasKanade.track(p, from: pa, to: pb) else { continue }
+            // y-up, centered on the frame
+            src.append((Double(p.x) - W / 2, H / 2 - Double(p.y)))
+            dst.append((Double(p.x + d.x) - W / 2, H / 2 - Double(p.y + d.y)))
         }
-        guard src.count >= 12 else { lastIssue = "flow: \(src.count) points (format \(format))"; return nil }
+        guard src.count >= 12 else { lastIssue = "only \(src.count) points could be followed"; return nil }
         guard let m = fit(src, dst, tolerance: max(0.8, W / 500)) else {
-            let sample = zip(src, dst).prefix(3).map { String(format: "(%.1f,%.1f)->(%.1f,%.1f)", $0.0.0, $0.0.1, $0.1.0, $0.1.1) }
-            lastIssue = "flow: no consistent motion, \(src.count) points, e.g. \(sample)"
+            lastIssue = "no consistent motion among \(src.count) points"
             return nil
         }
         return m
-    }
-
-    /// Whole-frame registration (homography) turned into point pairs and fitted the same way.
-    private static func fromRegistration(_ a: CGImage, _ b: CGImage) -> CameraMotion? {
-        let req = VNHomographicImageRegistrationRequest(targetedCGImage: b, options: [:])
-        do {
-            try VNImageRequestHandler(cgImage: a, options: [:]).perform([req])
-        } catch {
-            lastIssue += " | registration failed: \(error.localizedDescription)"
-            return nil
-        }
-        guard let obs = req.results?.first else { lastIssue += " | registration: no result"; return nil }
-        let m = obs.warpTransform   // maps the second frame onto the first (pixels, origin bottom-left)
-        let W = Double(a.width), H = Double(a.height)
-        var src: [(Double, Double)] = [], dst: [(Double, Double)] = []
-        for u in stride(from: 0.1, through: 0.9, by: 0.1) {
-            for v in stride(from: 0.1, through: 0.9, by: 0.1) {
-                let q = SIMD3<Float>(Float(u * W), Float(v * H), 1)
-                let r = m * q
-                guard abs(r.z) > 1e-6 else { continue }
-                let px = Double(r.x / r.z), py = Double(r.y / r.z)
-                src.append((px - W / 2, py - H / 2))
-                dst.append((u * W - W / 2, v * H - H / 2))
-            }
-        }
-        guard let fitted = fit(src, dst, tolerance: max(1.5, W / 200)) else { lastIssue += " | registration: no fit"; return nil }
-        return fitted
     }
 
     /// Robust similarity fit (RANSAC on pairs of points, then least squares on the inliers).
@@ -436,5 +372,144 @@ struct CameraMotion: Equatable {
         if again.count >= best.count, let m2 = model(again) { m = m2; best = again }
         return CameraMotion(dx: m.tx, dy: m.ty, angle: atan2(m.b, m.a), logScale: log(hypot(m.a, m.b)),
                             inliers: Double(best.count) / Double(n))
+    }
+}
+
+/// An 8-bit gray copy of a frame as floats (row 0 at the top).
+struct GrayImage {
+    let w: Int
+    let h: Int
+    var px: [Float]
+
+    init(w: Int, h: Int, px: [Float]) { self.w = w; self.h = h; self.px = px }
+
+    init?(_ cg: CGImage) {
+        let w = cg.width, h = cg.height
+        guard w > 16, h > 16 else { return nil }
+        var bytes = [UInt8](repeating: 0, count: w * h)
+        let ok = bytes.withUnsafeMutableBytes { raw -> Bool in
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+            else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard ok else { return nil }
+        self.w = w
+        self.h = h
+        self.px = bytes.map { Float($0) }
+    }
+
+    @inline(__always) func at(_ x: Int, _ y: Int) -> Float {
+        px[min(max(y, 0), h - 1) * w + min(max(x, 0), w - 1)]
+    }
+
+    /// Bilinear sample (edges held).
+    @inline(__always) func sample(_ x: Float, _ y: Float) -> Float {
+        let x0 = Int(x.rounded(.down)), y0 = Int(y.rounded(.down))
+        let fx = x - Float(x0), fy = y - Float(y0)
+        let a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1)
+        return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy
+    }
+
+    func half() -> GrayImage {
+        let nw = max(1, w / 2), nh = max(1, h / 2)
+        var out = [Float](repeating: 0, count: nw * nh)
+        for y in 0..<nh {
+            for x in 0..<nw {
+                out[y * nw + x] = (at(2 * x, 2 * y) + at(2 * x + 1, 2 * y) + at(2 * x, 2 * y + 1) + at(2 * x + 1, 2 * y + 1)) / 4
+            }
+        }
+        return GrayImage(w: nw, h: nh, px: out)
+    }
+
+    func pyramid(levels: Int) -> [GrayImage] {
+        var out = [self]
+        while out.count < levels, out[out.count - 1].w > 40 { out.append(out[out.count - 1].half()) }
+        return out
+    }
+
+    /// The most trackable point (strongest corner) in each cell of a grid, away from the borders.
+    func corners(cells: Int) -> [SIMD2<Float>] {
+        let rows = max(6, cells * h / max(w, 1))
+        let cw = w / cells, ch = h / rows
+        var out: [SIMD2<Float>] = []
+        let margin = 12
+        for gy in 0..<rows {
+            for gx in 0..<cells {
+                var best: Float = 0, bx = 0, by = 0
+                var y = gy * ch + 2
+                while y < (gy + 1) * ch - 2 {
+                    var x = gx * cw + 2
+                    while x < (gx + 1) * cw - 2 {
+                        if x > margin, y > margin, x < w - margin, y < h - margin {
+                            // smaller eigenvalue of the structure tensor over a 5x5 patch
+                            var sxx: Float = 0, syy: Float = 0, sxy: Float = 0
+                            for dy in -2...2 {
+                                for dx in -2...2 {
+                                    let ix = (at(x + dx + 1, y + dy) - at(x + dx - 1, y + dy)) / 2
+                                    let iy = (at(x + dx, y + dy + 1) - at(x + dx, y + dy - 1)) / 2
+                                    sxx += ix * ix; syy += iy * iy; sxy += ix * iy
+                                }
+                            }
+                            let tr = sxx + syy, det = sxx * syy - sxy * sxy
+                            let minEig = tr / 2 - sqrt(max(0, tr * tr / 4 - det))
+                            if minEig > best { best = minEig; bx = x; by = y }
+                        }
+                        x += 2
+                    }
+                    y += 2
+                }
+                if best > 25 { out.append(SIMD2(Float(bx), Float(by))) }
+            }
+        }
+        return out
+    }
+}
+
+/// Pyramidal Lucas-Kanade: where a point of one frame went in the next.
+enum LucasKanade {
+    static let radius = 7
+
+    /// Displacement of `p` (level-0 pixels) from `a` to `b`, or nil if it cannot be followed.
+    static func track(_ p: SIMD2<Float>, from a: [GrayImage], to b: [GrayImage]) -> SIMD2<Float>? {
+        var g = SIMD2<Float>(0, 0)
+        for level in stride(from: a.count - 1, through: 0, by: -1) {
+            let A = a[level], B = b[level]
+            let scale = Float(1 << level)
+            let c = p / scale
+            // gradients of A in the window (fixed for this level)
+            var gxs: [Float] = [], gys: [Float] = [], vals: [Float] = []
+            var sxx: Float = 0, syy: Float = 0, sxy: Float = 0
+            for dy in -radius...radius {
+                for dx in -radius...radius {
+                    let x = c.x + Float(dx), y = c.y + Float(dy)
+                    let ix = (A.sample(x + 1, y) - A.sample(x - 1, y)) / 2
+                    let iy = (A.sample(x, y + 1) - A.sample(x, y - 1)) / 2
+                    gxs.append(ix); gys.append(iy); vals.append(A.sample(x, y))
+                    sxx += ix * ix; syy += iy * iy; sxy += ix * iy
+                }
+            }
+            let det = sxx * syy - sxy * sxy
+            guard det > 1e-3 else { return nil }
+            var d = g
+            for _ in 0..<12 {
+                var bx: Float = 0, by: Float = 0
+                var k = 0
+                for dy in -radius...radius {
+                    for dx in -radius...radius {
+                        let it = vals[k] - B.sample(c.x + Float(dx) + d.x, c.y + Float(dy) + d.y)
+                        bx += it * gxs[k]; by += it * gys[k]
+                        k += 1
+                    }
+                }
+                let ux = (syy * bx - sxy * by) / det, uy = (sxx * by - sxy * bx) / det
+                d += SIMD2(ux, uy)
+                if ux * ux + uy * uy < 0.0009 { break }
+            }
+            g = level > 0 ? d * 2 : d
+        }
+        guard g.x.isFinite, g.y.isFinite, abs(g.x) < Float(a[0].w) / 4, abs(g.y) < Float(a[0].h) / 4 else { return nil }
+        return g
     }
 }

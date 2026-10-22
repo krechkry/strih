@@ -42,6 +42,10 @@ targets:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig
     settings:
+      configs:
+        # runs from Xcode are optimized too: stabilization analysis and speech cleanup do heavy math
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut
         GENERATE_INFOPLIST_FILE: YES
