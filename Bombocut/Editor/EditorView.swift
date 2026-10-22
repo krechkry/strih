@@ -71,7 +71,7 @@ struct EditorView: View {
     @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
-            Panel(height: (typing ? compactPanel : panelHeight(s)) + Panel<EmptyView>.extra, check: !typing,
+            Panel(height: typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra, check: !typing,
                   close: { sheet = nil }) {
                 panelContent(s).environment(\.panelCompact, typing)
             }
@@ -105,7 +105,7 @@ struct EditorView: View {
     private var previewLift: CGFloat {
         guard let s = sheet, s != .export else { return 0 }
         let extra = Panel<EmptyView>.extra
-        if typing { return max(0, keyboard + compactPanel + extra - 34 - bottomHeight + 6) }
+        if typing { return max(0, keyboard + compactPanel - 34 - bottomHeight + 6) }
         return max(0, panelHeight(s) + extra - 34 - bottomHeight + 6)
     }
 
@@ -471,8 +471,8 @@ struct EditorView: View {
                     .background(alignment: .leading) {
                         // the tools scroll under a soft edge
                         LinearGradient(colors: [Theme.panel.opacity(0), Theme.panel], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: 18)
-                            .offset(x: -18)
+                            .frame(width: 30)
+                            .offset(x: -30)
                             .allowsHitTesting(false)
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -927,7 +927,7 @@ private struct Panel<Content: View>: View {
         VStack(spacing: 0) {
             // a generous grab zone: the handle row, plus a strip just above the panel's edge
             Capsule().fill(.white.opacity(0.3)).frame(width: 38, height: 5)
-                .frame(maxWidth: .infinity, minHeight: Self.header)
+                .frame(maxWidth: .infinity, minHeight: check ? Self.header : 30)
                 .contentShape(Rectangle())
                 .gesture(grab)
                 // finish editing: the check closes the panel (changes are already applied)
