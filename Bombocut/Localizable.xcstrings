@@ -12,6 +12,16 @@
         }
       }
     },
+    "%@ translates offline, on your iPhone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ překládá offline, přímo v iPhonu."
+          }
+        }
+      }
+    },
     "%@, downloaded once. Wi-Fi recommended.": {
       "localizations": {
         "cs": {
@@ -456,6 +466,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překladač od Applu neumí jazyk %@."
+          }
+        }
+      }
+    },
+    "Apple's translator can't translate this. Download the language above to translate it offline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překladač od Applu tohle neumí. Stáhni jazyk výš a přelož to offline."
           }
         }
       }
@@ -950,6 +970,16 @@
         }
       }
     },
+    "Can't reach the download server. Check your connection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server pro stahování není dostupný. Zkontroluj připojení."
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "cs": {
@@ -1414,6 +1444,16 @@
         }
       }
     },
+    "Delete downloaded languages (%@)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat stažené jazyky (%@)"
+          }
+        }
+      }
+    },
     "Delete forever": {
       "localizations": {
         "cs": {
@@ -1460,6 +1500,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat hlasový model %@?"
+          }
+        }
+      }
+    },
+    "Delete the downloaded languages?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat stažené jazyky?"
           }
         }
       }
@@ -1564,6 +1614,16 @@
         }
       }
     },
+    "Download %@ once (%@), then it translates without internet.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stáhni %@ jednou (%@) a pak překládá bez internetu."
+          }
+        }
+      }
+    },
     "Download (%@)": {
       "localizations": {
         "cs": {
@@ -1640,6 +1700,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Staženo"
+          }
+        }
+      }
+    },
+    "Downloading %@ %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuji %@ %lld %%"
           }
         }
       }
@@ -3038,6 +3108,16 @@
         }
       }
     },
+    "Not available for %@ yet.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro %@ zatím není k dispozici."
+          }
+        }
+      }
+    },
     "Not downloaded (%@)": {
       "localizations": {
         "cs": {
@@ -3074,6 +3154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vypnuto"
+          }
+        }
+      }
+    },
+    "Offline translation": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překlad offline"
           }
         }
       }
@@ -4424,6 +4514,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klip naběhne z černé nebo do černé odejde. Hodí se na začátek a konec videa."
+          }
+        }
+      }
+    },
+    "The download didn't finish. Try again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahování se nedokončilo. Zkus to znovu."
           }
         }
       }

@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- BOMBOCUT's offline caption translator: Mozilla's bergamot-translator (WASM) with Firefox's translation
+     models, run in a hidden web view. Swift calls bmt.translate(directions, texts). -->
+<script>
+window.Module = {};
+
+const bmt = { service: null, models: new Map() };
+
+// the matrix multiplications the engine expects, from the fallback inside the wasm itself
+const GEMM = {
+  int8_prepare_a: 'int8PrepareAFallback',
+  int8_prepare_b: 'int8PrepareBFallback',
+  int8_prepare_b_from_transposed: 'int8PrepareBFromTransposedFallback',
+  int8_prepare_b_from_quantized_transposed: 'int8PrepareBFromQuantizedTransposedFallback',
+  int8_prepare_bias: 'int8PrepareBiasFallback',
+  int8_multiply_and_add_bias: 'int8MultiplyAndAddBiasFallback',
+  int8_select_columns_of_b: 'int8SelectColumnsOfBFallback',
+};
+
+bmt.ready = new Promise((resolve, reject) => {
+  Module.instantiateWasm = (info, accept) => {
+    fetch('bmt://app/engine/bergamot-translator-worker.wasm')
+      .then(r => r.arrayBuffer())
+      .then(bytes => WebAssembly.instantiate(bytes, {
+        ...info,
+        wasm_gemm: Object.fromEntries(Object.entries(GEMM).map(([k, n]) => [k, (...a) => Module['asm'][n](...a)])),
+      }))
+      .then(({ instance }) => accept(instance))
+      .catch(reject);
+    return {};
+  };
+  Module.onRuntimeInitialized = () => {
+    bmt.service = new Module.BlockingService({ cacheSize: 0 });
+    resolve(true);
+  };
+  const s = document.createElement('script');
+  s.src = 'bmt://app/engine/bergamot-translator-worker.js';
+  s.onerror = () => reject(new Error('engine script'));
+  document.head.appendChild(s);
+});
+
+function aligned(buffer, alignment) {
+  const bytes = new Int8Array(buffer);
+  const m = new Module.AlignedMemory(bytes.byteLength, alignment);
+  m.getByteArrayView().set(bytes);
+  return m;
+}
+
+async function fileOf(dir, name) {
+  const r = await fetch(`bmt://app/packs/${dir}/${name}`);
+  if (!r.ok) throw new Error(`missing ${dir}/${name}`);
+  return r.arrayBuffer();
+}
+
+const CONFIG = [
+  'beam-size: 1', 'normalize: 1.0', 'word-penalty: 0', 'cpu-threads: 0', 'gemm-precision: int8shiftAlphaAll',
+  'skip-cost: true', 'alignment: soft', 'quiet: true', 'quiet-translation: true', 'max-length-break: 128',
+  'mini-batch-words: 1024', 'workspace: 128', 'max-length-factor: 2.0',
+].join('\n') + '\n';
+
+async function model(dir) {
+  if (bmt.models.has(dir)) return bmt.models.get(dir);
+  const meta = JSON.parse(new TextDecoder().decode(await fileOf(dir, 'meta.json')));
+  const vocabs = new Module.AlignedMemoryList();
+  for (const v of meta.vocabs) vocabs.push_back(aligned(await fileOf(dir, v), 64));
+  const m = new Module.TranslationModel(CONFIG, aligned(await fileOf(dir, meta.model), 256),
+                                        aligned(await fileOf(dir, meta.lex), 64), vocabs, null);
+  bmt.models.set(dir, m);
+  return m;
+}
+
+// directions: ["csen"] or ["csen", "ende"] (through English)
+bmt.translate = async (directions, texts) => {
+  await bmt.ready;
+  const models = [];
+  for (const d of directions) models.push(await model(d));
+  const input = new Module.VectorString();
+  const options = new Module.VectorResponseOptions();
+  for (const t of texts) {
+    input.push_back(t);
+    options.push_back({ alignment: false, html: false, qualityScores: false });
+  }
+  const res = models.length > 1
+    ? bmt.service.translateViaPivoting(models[0], models[1], input, options)
+    : bmt.service.translate(models[0], input, options);
+  input.delete();
+  options.delete();
+  const out = texts.map((_, i) => res.get(i).getTranslatedText());
+  res.delete();
+  return out;
+};
+</script>
+</head>
+<body></body>
+</html>

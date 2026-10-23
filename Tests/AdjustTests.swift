@@ -67,10 +67,16 @@ final class CaptionTranslateTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(out[1].start, 3.0 - 1e-6)
     }
 
-    func testModelPromptFollowsItsTemplate() {
-        let p = GemmaTranslator.prompt("Ahoj", from: "cs", to: "en")
-        XCTAssertTrue(p.hasPrefix("<start_of_turn>user\nYou are a professional Czech (cs) to English (en) translator."))
-        XCTAssertTrue(p.hasSuffix("Please translate the following Czech text into English:\n\n\nAhoj<end_of_turn>\n<start_of_turn>model\n"))
-        XCTAssertEqual(GemmaTranslator.clean(" Hello there\n<end_of_turn>"), "Hello there")
+    func testGzipPackFilesUnpack() throws {
+        // "hello" gzipped (python: gzip.compress(b"hello", mtime=0))
+        let gz = Data([0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcb, 0x48, 0xcd, 0xc9, 0xc9, 0x07,
+                       0x00, 0x86, 0xa6, 0x10, 0x36, 0x05, 0x00, 0x00, 0x00])
+        XCTAssertEqual(String(data: try Gzip.inflate(gz), encoding: .utf8), "hello")
+    }
+
+    @MainActor
+    func testPairsGoThroughEnglish() {
+        XCTAssertEqual(TranslationPacks.code("zh"), "zh-Hans")
+        XCTAssertEqual(TranslationPacks.code("cs"), "cs")
     }
 }

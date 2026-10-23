@@ -1,17 +1,17 @@
 import SwiftUI
 import Translation
 
-/// Translate the captions into another language: the downloaded translation model when there is one,
-/// Apple's built-in translator otherwise.
+/// Translate the captions into another language: with the downloaded language (offline, Firefox's models)
+/// when it is there, with Apple's built-in translator otherwise.
 struct TranslateSheet: View {
     @ObservedObject var model: EditorModel
     @AppStorage("translateTarget") private var translateTarget = "en"
-    @ObservedObject private var translationModel = TranslationModel.shared
+    @ObservedObject private var packs = TranslationPacks.shared
     /// Apple's translator: what it can do for the picked pair, and the run it is asked for.
     @State private var appleStatus: LanguageAvailability.Status?
     @State private var appleConfig: TranslationSession.Configuration?
     @State private var appleTarget = ""
-    @State private var confirmModelDelete = false
+    @State private var confirmDelete = false
 
     var body: some View {
         Group {
@@ -28,6 +28,7 @@ struct TranslateSheet: View {
         .padding(.top, 12)
         .frame(maxHeight: .infinity, alignment: .top)
         .onAppear { model.dismissTranslateError() }
+        .task { await packs.loadCatalog() }
         .translationTask(appleConfig) { session in
             let target = appleTarget
             await model.translateCaptions(to: target) { texts, progress in
@@ -41,7 +42,7 @@ struct TranslateSheet: View {
                 } catch {
                     appleStatus = .unsupported
                     throw NSError(domain: "Translate", code: 2, userInfo: [NSLocalizedDescriptionKey:
-                        loc("Apple's translator can't translate this. The translation model can: download it above.")])
+                        loc("Apple's translator can't translate this. Download the language above to translate it offline.")])
                 }
                 var out = texts
                 for r in responses {
@@ -51,8 +52,8 @@ struct TranslateSheet: View {
                 return out
             }
         }
-        .confirmationDialog("Delete the translation model?", isPresented: $confirmModelDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) { translationModel.delete() }
+        .confirmationDialog("Delete the downloaded languages?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { packs.deleteAll() }
         }
     }
 
@@ -68,7 +69,8 @@ struct TranslateSheet: View {
 
     private func translator(_ caps: Captions) -> some View {
         let target = translateTarget == caps.language ? (caps.language == "en" ? "cs" : "en") : translateTarget
-        let useModel = translationModel.isReady
+        let dirs = packs.directions(from: caps.language, to: target)
+        let usePacks = dirs.map { packs.isInstalled($0) } ?? false
         let appleCan = appleStatus == .installed || appleStatus == .supported
         let busy = model.translateJob != nil && model.translateJob?.error == nil
         return ScrollView {
@@ -89,7 +91,7 @@ struct TranslateSheet: View {
                 .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
                 .disabled(busy)
 
-                engineCard(useModel: useModel, appleCan: appleCan, source: caps.language)
+                engineCard(dirs: dirs, usePacks: usePacks, appleCan: appleCan, source: caps.language, target: target)
 
                 if let job = model.translateJob {
                     if let e = job.error {
@@ -101,7 +103,7 @@ struct TranslateSheet: View {
                                 Text(String(format: loc("Translating %lld %%"), Int(job.progress * 100)))
                                     .font(.subheadline.weight(.bold))
                                 Spacer()
-                                if useModel {
+                                if usePacks {
                                     Button(loc("Cancel")) { model.cancelTranslation() }
                                         .font(.subheadline.weight(.bold)).tint(.white)
                                 }
@@ -116,8 +118,8 @@ struct TranslateSheet: View {
                 Button {
                     model.pause()
                     model.dismissTranslateError()
-                    if useModel {
-                        model.translateWithModel(to: target)
+                    if usePacks, let dirs {
+                        model.translateWithPacks(to: target, via: dirs)
                     } else {
                         appleTarget = target
                         let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
@@ -130,10 +132,10 @@ struct TranslateSheet: View {
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity, minHeight: 54)
-                        .background(Theme.accent.opacity(useModel || appleCan ? 1 : 0.35), in: RoundedRectangle(cornerRadius: 16))
+                        .background(Theme.accent.opacity(usePacks || appleCan ? 1 : 0.35), in: RoundedRectangle(cornerRadius: 16))
                 }
                 .buttonStyle(.plain)
-                .disabled(busy || !(useModel || appleCan))
+                .disabled(busy || !(usePacks || appleCan))
 
                 Text("The translation replaces the captions, with the same style and timing. Undo brings the original back.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -148,16 +150,18 @@ struct TranslateSheet: View {
         }
     }
 
-    /// Which translator does the work: the downloaded model, or Apple's built-in one (and whether it knows the language).
+    /// Which translator does the work: the downloaded language (offline), or Apple's built-in one.
     @ViewBuilder
-    private func engineCard(useModel: Bool, appleCan: Bool, source: String) -> some View {
+    private func engineCard(dirs: [String]?, usePacks: Bool, appleCan: Bool, source: String, target: String) -> some View {
+        let pair = "\(TranslateLanguage.localName(source)) → \(TranslateLanguage.localName(target))"
         VStack(alignment: .leading, spacing: 12) {
-            if useModel {
-                engineRow(icon: "checkmark.seal.fill", tint: Theme.accent, title: "Translation model",
-                          detail: loc("Best quality, on your iPhone, offline.")) {
+            if usePacks {
+                engineRow(icon: "checkmark.circle.fill", tint: Theme.accent, title: "Downloaded",
+                          detail: String(format: loc("%@ translates offline, on your iPhone."), pair)) {
                     Menu {
-                        Button(role: .destructive) { confirmModelDelete = true } label: {
-                            Label(String(format: loc("Delete the model (%@)"), translationModel.sizeLabel), systemImage: "trash")
+                        Button(role: .destructive) { confirmDelete = true } label: {
+                            Label(String(format: loc("Delete downloaded languages (%@)"), TranslationPacks.sizeLabel(packs.installedSize)),
+                                  systemImage: "trash")
                         }
                     } label: {
                         Image(systemName: "ellipsis").font(.system(size: 15, weight: .bold))
@@ -166,46 +170,44 @@ struct TranslateSheet: View {
                     .tint(.white)
                 }
             } else {
-                // what translates right now
+                // works right now, without a download?
                 engineRow(icon: appleCan ? "checkmark.circle.fill" : "xmark.circle.fill",
                           tint: appleCan ? Theme.accent : .orange,
                           title: "Apple's built-in translator",
                           detail: appleStatus == nil ? loc("Checking…")
                             : appleCan ? loc("Knows this language pair. Quick, nothing to download.")
-                            : String(format: loc("Doesn't know %@."), TranslateLanguage.localName(source))) { EmptyView() }
+                            : String(format: loc("Doesn't know %@."), TranslateLanguage.localName(appleKnowsEnglishOnly(source) ? target : source))) { EmptyView() }
                 Divider().overlay(Theme.line)
-                // the better option
-                switch translationModel.state {
-                case .downloading(let f):
+                // or download the language
+                if let p = packs.progress {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(String(format: loc("Downloading the translation model %lld %%"), Int(f * 100)))
-                                .font(.subheadline.weight(.bold))
+                            Text(String(format: loc("Downloading %@ %lld %%"), pair, Int(p * 100))).font(.subheadline.weight(.bold))
                             Spacer()
-                            Button(loc("Cancel")) { translationModel.cancel() }.font(.subheadline.weight(.bold)).tint(.white)
+                            Button(loc("Cancel")) { packs.cancel() }.font(.subheadline.weight(.bold)).tint(.white)
                         }
-                        ProgressView(value: max(f, 0.01)).tint(Theme.accent)
-                        Text("Keep the app open. Wi-Fi recommended.").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                        ProgressView(value: max(p, 0.01)).tint(Theme.accent)
                     }
-                default:
-                    if TranslationModel.deviceCanRun {
-                        engineRow(icon: "sparkles", tint: .white, title: "Translation model",
-                                  detail: String(format: loc("Better translations and more languages, Czech and Slovak too. Works offline. One download, %@."),
-                                                 translationModel.sizeLabel)) { EmptyView() }
-                        Button { translationModel.download() } label: {
-                            Label(String(format: loc("Download (%@)"), translationModel.sizeLabel), systemImage: "arrow.down.circle.fill")
-                                .font(.subheadline.weight(.bold)).foregroundStyle(.black)
-                                .padding(.horizontal, 14).frame(height: 38)
-                                .background(Color.white, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        engineRow(icon: "sparkles", tint: Theme.muted, title: "Translation model",
-                                  detail: loc("Needs an iPhone 15 Pro or newer.")) { EmptyView() }
+                } else if let dirs {
+                    let size = TranslationPacks.sizeLabel(packs.downloadSize(dirs))
+                    engineRow(icon: "arrow.down.circle", tint: .white, title: "Offline translation",
+                              detail: String(format: loc("Download %@ once (%@), then it translates without internet."), pair, size)) { EmptyView() }
+                    Button { packs.download(dirs) } label: {
+                        Label(String(format: loc("Download (%@)"), size), systemImage: "arrow.down.circle.fill")
+                            .font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                            .padding(.horizontal, 14).frame(height: 38)
+                            .background(Color.white, in: Capsule())
                     }
-                    if case .failed(let e) = translationModel.state {
-                        Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
-                    }
+                    .buttonStyle(.plain)
+                } else if packs.catalog == nil {
+                    engineRow(icon: "arrow.down.circle", tint: Theme.muted, title: "Offline translation",
+                              detail: packs.catalogError ?? loc("Checking…")) { EmptyView() }
+                } else {
+                    engineRow(icon: "arrow.down.circle", tint: Theme.muted, title: "Offline translation",
+                              detail: String(format: loc("Not available for %@ yet."), pair)) { EmptyView() }
+                }
+                if let e = packs.downloadError {
+                    Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
                 }
             }
         }
@@ -213,6 +215,9 @@ struct TranslateSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
     }
+
+    /// Apple has no Czech or Slovak: name the language it is missing (the source, or else the target).
+    private func appleKnowsEnglishOnly(_ source: String) -> Bool { !["cs", "sk"].contains(source) }
 
     private func engineRow<T: View>(icon: String, tint: Color, title: String, detail: String,
                                     @ViewBuilder trailing: () -> T) -> some View {

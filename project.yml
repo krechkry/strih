@@ -11,13 +11,6 @@ packages:
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
     revision: 61d41b3ca04833d1cb80632c82ba401f117a01ef
-  # on-device translation model runtime (TranslateGemma via MLX)
-  MLXLM:
-    url: https://github.com/ml-explore/mlx-swift-lm
-    exactVersion: 2.31.3
-  MLX:
-    url: https://github.com/ml-explore/mlx-swift
-    minorVersion: 0.31.3
 fileGroups:
   - Bombocut.storekit
 targets:
@@ -36,12 +29,6 @@ targets:
     dependencies:
       - package: FluidAudio
         product: FluidAudio
-      - package: MLXLM
-        product: MLXLLM
-      - package: MLXLM
-        product: MLXLMCommon
-      - package: MLX
-        product: MLX
     configFiles:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig
@@ -52,8 +39,6 @@ targets:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut
-        # the translation model needs more memory than an app gets by default
-        CODE_SIGN_ENTITLEMENTS: Bombocut/Bombocut.entitlements
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "BOMBOCUT"
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO

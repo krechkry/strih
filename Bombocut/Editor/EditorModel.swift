@@ -896,24 +896,20 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    /// With the downloaded model (keeps going when the panel closes).
-    func translateWithModel(to target: String) {
-        guard let src = project.captions?.language, translateJob == nil || translateJob?.error != nil else { return }
+    /// With the downloaded language packs (keeps going when the panel closes).
+    func translateWithPacks(to target: String, via directions: [String]) {
+        guard translateJob == nil || translateJob?.error != nil else { return }
         translateTask = Task {
             await translateCaptions(to: target) { texts, progress in
-                do {
-                    var out: [String] = []
-                    for (i, t) in texts.enumerated() {
-                        try Task.checkCancellation()
-                        out.append(try await GemmaTranslator.shared.translate(t, from: src, to: target))
-                        progress(Double(i + 1) / Double(texts.count))
-                    }
-                    await GemmaTranslator.shared.unload()
-                    return out
-                } catch {
-                    await GemmaTranslator.shared.unload()
-                    throw error
+                defer { BergamotEngine.shared.unload() }
+                var out: [String] = []
+                for start in stride(from: 0, to: texts.count, by: 12) {
+                    try Task.checkCancellation()
+                    let part = Array(texts[start..<min(start + 12, texts.count)])
+                    out += try await BergamotEngine.shared.translate(part, via: directions)
+                    progress(Double(out.count) / Double(texts.count))
                 }
+                return out
             }
         }
     }
