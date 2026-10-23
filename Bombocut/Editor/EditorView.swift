@@ -999,7 +999,8 @@ extension EditorView {
             }
         }
         model.pxPerSec = 30
-        model.scrub(to: 1.4)
+        try? await Task.sleep(for: .seconds(1.5))
+        model.scrub(to: 1.1)
     }
 }
 
