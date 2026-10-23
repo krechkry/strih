@@ -863,10 +863,10 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .stabilize
             } else if mode == "track" {
-                // the store footage walks a figure from left to right across this clip (art/store/footage.py)
+                // the store footage jumps a figure from left to right across this clip (art/store/footage.py)
                 let samples: [TrackSample] = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map { (t: Double) -> TrackSample in
                     let x: Double = 0.22 + 0.112 * (t - c.inPoint)
-                    return TrackSample(t: t, x: x, y: 0.55, w: 0.2, h: 0.78)
+                    return TrackSample(t: t, x: x, y: 0.54, w: 0.3, h: 0.82)
                 }
                 model.mutateLook { p in p.clips[2].tracking = Tracking(samples: samples, mode: .center, smooth: 0.5) }
                 try? await Task.sleep(for: .seconds(0.6))
@@ -885,11 +885,10 @@ struct EditorView: View {
             let start = model.project.clipStarts[1]
             model.selectedClipID = clips[1].id
             model.mutateLook { p in
-                p.clips[1].mask = SubjectMask(kind: .person, blur: 0, dim: 0.15)
+                p.clips[1].mask = SubjectMask(kind: .subject, blur: 0, dim: 0.15)
                 var o = Overlay(kind: .text("Tip #1"), start: start, duration: clips[1].duration)
                 o.style.size = 0.24
-                o.style.text = .lime
-                o.transform.y = -0.2
+                o.transform.y = -0.17
                 o.behindSubject = true
                 p.overlays.append(o)
             }
@@ -977,12 +976,11 @@ extension EditorView {
             list[3].keyframes = [Keyframe(t: list[3].inPoint + 0.2, look: k1), Keyframe(t: list[3].inPoint + 1.4, look: k0)]
             list[5].keyframes = [Keyframe(t: list[5].inPoint + 0.4, look: k0), Keyframe(t: list[5].inPoint + 2.4, look: k1)]
             list[2].speedCurve = [SpeedPoint(t: 0, v: 1), SpeedPoint(t: 0.4, v: 0.3), SpeedPoint(t: 1, v: 2)]
-            list[4].mask = SubjectMask(kind: .person, blur: 0.5, dim: 0.2)
+            list[4].mask = SubjectMask(kind: .subject, blur: 0.5, dim: 0.2)
             list[4].motionBlurOn = true
             p.clips = list
             p.captions = Self.demoCaptions(template: 0)
             var t1 = Overlay(kind: .text("Tip #1"), start: 0.4, duration: 2.6)
-            t1.style.text = .lime
             t1.style.size = 0.11
             t1.transform.y = -0.3
             var t2 = Overlay(kind: .text("BOOM"), start: 6.2, duration: 2.2)
