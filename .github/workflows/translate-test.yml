@@ -23,9 +23,9 @@ jobs:
           npm init -y >/dev/null
           npm install @browsermt/bergamot-translator@0.4.9 >/dev/null
       - name: Models
-        run: python3 tools/bergamot/fetch.py models csen encs sken ensk | tee fetch.txt
+        run: python3 tools/bergamot/fetch.py models csen encs sken ensk 2>&1 | tee fetch.txt
       - name: Translate
-        run: node tools/bergamot/test.js models | tee out.txt
+        run: node tools/bergamot/test.js models 2>&1 | tee out.txt
       - name: Publish results (translate-test branch)
         if: always()
         run: |
