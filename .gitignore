@@ -8,3 +8,4 @@ bench/.build/
 bench/models/
 bench/parakeet/.build/
 Config/BuildNumber.xcconfig
+__pycache__/
