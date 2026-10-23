@@ -46,12 +46,16 @@ jobs:
         run: |
           mkdir -p demo
           if [ "${{ github.event.inputs.store }}" = "yes" ]; then
-            # soft moving color fields, and a voice for the first clip
-            V=$(say -v '?' | grep -i "cs_CZ" | head -1 | awk '{print $1}')
-            say -v "${V:-Samantha}" -r 165 -o voice.aiff "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark a natočíme nový díl."
-            ffmpeg -loglevel error -f lavfi -i "gradients=s=1080x1920:r=30:d=6:c0=0xff5e3a:c1=0xffb23a:c2=0x7a2cff:nb_colors=3:speed=0.02:type=radial:seed=7" -i voice.aiff -c:v libx264 -pix_fmt yuv420p -c:a aac -t 6 demo/demo1.mp4
-            ffmpeg -loglevel error -f lavfi -i "gradients=s=1080x1920:r=30:d=4:c0=0x0f9bd7:c1=0x23d5ab:c2=0x1b1f6b:nb_colors=3:speed=0.03:type=linear:seed=3" -f lavfi -i "anoisesrc=d=4:c=pink:a=0.08" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo2.mp4
-            ffmpeg -loglevel error -f lavfi -i "gradients=s=1920x1080:r=30:d=5:c0=0xff3d8b:c1=0x3a1cff:c2=0xffd23a:nb_colors=3:speed=0.025:type=circular:seed=11" -f lavfi -i "anoisesrc=d=5:c=brown:a=0.1" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo3.mp4
+            # the store footage (a stylized figure, art/store/footage.py), a voice on the first clip,
+            # music and a sticker for the full Pro screen
+            V=$(say -v '?' | grep -i "en_US" | head -1 | awk '{print $1}')
+            say -v "${V:-Samantha}" -r 165 -o voice.aiff "Hi, this is BOMBOCUT. The subtitles write themselves, right on your iPhone."
+            ffmpeg -loglevel error -i art/store/footage/demo1.mp4 -i voice.aiff -map 0:v -map 1:a -c:v copy -c:a aac -af apad -t 6 demo/demo1.mp4
+            for n in 2 3; do
+              ffmpeg -loglevel error -i art/store/footage/demo$n.mp4 -f lavfi -i "anoisesrc=d=6:c=pink:a=0.06" -map 0:v -map 1:a -c:v copy -c:a aac -shortest demo/demo$n.mp4
+            done
+            ffmpeg -loglevel error -f lavfi -i "aevalsrc=0.5*sin(2*PI*55*t)*exp(-7*mod(t\,0.5))+0.25*sin(2*PI*220*t)*exp(-14*mod(t+0.25\,0.5)):s=44100:d=20" -c:a aac demo/music.m4a
+            cp art/store/sticker.png demo/sticker.png
             ls -la demo
             exit 0
           fi
@@ -73,11 +77,13 @@ jobs:
           xcrun simctl install $UDID build/$CONF-iphonesimulator/Bombocut.app
           DATA=$(xcrun simctl get_app_container $UDID cz.krechler.bombocut data)
           mkdir -p "$DATA/Documents/Media"
-          cp demo/*.mp4 "$DATA/Documents/Media/"
+          cp demo/* "$DATA/Documents/Media/"
           mkdir -p shots
           for m in ${{ github.event.inputs.modes }}; do
             LANGARGS=""
             case "$m" in *cs) LANGARGS="-AppleLanguages (cs) -AppleLocale cs_CZ";; esac
+            # every screen starts from the plain demo project (no captions or masks left from the one before)
+            rm -rf "$DATA/Documents/Projects"
             xcrun simctl launch $UDID cz.krechler.bombocut -demo ${m%cs} $LANGARGS
             sleep 10
             xcrun simctl io $UDID screenshot shots/$m.png

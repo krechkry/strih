@@ -103,7 +103,9 @@ struct StorageView: View {
 
     private func modelRow(_ m: SpeechModel) -> some View {
         let bytes = report.models[m] ?? 0
+        let demo = Demo.mode == "storage"
         let detail: String = {
+            if demo { return "Downloaded" }
             switch speech.state(m) {
             case .ready: return "Downloaded"
             case .downloading(let f): return String(format: loc("Downloading %lld %%"), Int(f * 100))
@@ -111,7 +113,7 @@ struct StorageView: View {
             case .missing: return String(format: loc("Not downloaded (%@)"), m.sizeLabel)
             }
         }()
-        let ready: Bool = { if case .ready = speech.state(m) { return true }; return false }()
+        let ready: Bool = { if demo { return true }; if case .ready = speech.state(m) { return true }; return false }()
         let downloading: Bool = { if case .downloading = speech.state(m) { return true }; return false }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
                    action: ready ? { confirm = .model(m) } : nil,
@@ -209,6 +211,7 @@ struct StorageView: View {
     }
 
     private func refresh() async {
+        if Demo.mode == "storage" { report = .demo; return }
         let ready = Dictionary(uniqueKeysWithValues: SpeechModel.allCases.compactMap { m -> (SpeechModel, URL)? in
             if case .ready(let u) = speech.state(m) { return (m, u) }
             return nil
@@ -237,6 +240,21 @@ struct StorageReport: Sendable {
     var unused: Int64 = 0
     var projects: Int64 = 0
     var total: Int64 = 0
+
+    /// What a phone a few weeks into editing looks like (screenshots).
+    static var demo: StorageReport {
+        var r = StorageReport()
+        let mb: Int64 = 1_000_000
+        r.models = [.parakeet: 642 * mb]
+        r.temp = 318 * mb
+        r.unused = 1_240 * mb
+        r.caches = 92 * mb
+        r.optimized = 214 * mb
+        r.usedMedia = 2_870 * mb
+        r.projects = 1 * mb
+        r.total = 642 * mb + r.temp + r.unused + r.caches + r.optimized + r.usedMedia + r.projects
+        return r
+    }
 
     static func children(of dir: URL) -> [URL] {
         (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []

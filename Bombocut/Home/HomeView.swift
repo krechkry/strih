@@ -108,6 +108,7 @@ struct HomeView: View {
             .onAppear {
                 if Demo.mode == "setup" { showSetup = true }
                 if Demo.mode == "settings" { showSettings = true }
+                if Demo.mode == "storage" { showStorage = true }
             }
             .navigationDestination(item: $openProject) { p in
                 EditorView(project: p, store: store)
@@ -254,13 +255,13 @@ struct HomeView: View {
                 .filter { FileManager.default.fileExists(atPath: $0.path) }
             let (clips, size) = await Media.makeClips(from: urls)
             guard !clips.isEmpty else { return }
-            var np = Project(name: "PVP street edit")
+            var np = Project(name: "Parta sklepark edit")
             np.clips = clips
             np.canvas = Media.canvas(for: size)
             store.save(np)
             p = np
         }
-        if mode != "home", mode != "settings", let p { openProject = p }
+        if mode != "home", mode != "settings", mode != "storage", let p { openProject = p }
     }
 
     private func importFromPhotos(_ items: [PhotosPickerItem]) async {
