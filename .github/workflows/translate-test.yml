@@ -5,6 +5,9 @@ name: Translation engine test
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,8 +23,16 @@ jobs:
           npm init -y >/dev/null
           npm install @browsermt/bergamot-translator@0.4.9 >/dev/null
       - name: Models
-        run: python3 tools/bergamot/fetch.py models csen encs sken ensk
+        run: python3 tools/bergamot/fetch.py models csen encs sken ensk | tee fetch.txt
       - name: Translate
         run: node tools/bergamot/test.js models | tee out.txt
-      - name: Report
-        run: echo "::notice title=Translations::$(cat out.txt | awk '{printf "%s%%0A", $0}')"
+      - name: Publish results (translate-test branch)
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/r"; cp fetch.txt out.txt "$RUNNER_TEMP/r/" 2>/dev/null || true
+          git config user.name "bombocut-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan translate-test
+          git rm -rfq . ; git clean -fdxq
+          cp "$RUNNER_TEMP"/r/* . ; git add -A; git commit -qm "Translation test of $GITHUB_SHA"
+          git push -fq origin translate-test
