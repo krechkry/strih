@@ -189,6 +189,14 @@ struct EditorView: View {
         }
         .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
                       matching: .videos, preferredItemEncoding: .current)
+        .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
+            Button("Remove captions", role: .destructive) {
+                model.captionsSelected = false
+                model.setCaptions(nil)
+            }
+        } message: {
+            Text("Undo brings them back.")
+        }
     }
 
     private var editor: some View {
@@ -276,14 +284,6 @@ struct EditorView: View {
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
-        }
-        .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
-            Button("Remove captions", role: .destructive) {
-                model.captionsSelected = false
-                model.setCaptions(nil)
-            }
-        } message: {
-            Text("Undo brings them back.")
         }
         .alert("Rename project", isPresented: $renaming) {
             TextField("Name", text: $renameText)
