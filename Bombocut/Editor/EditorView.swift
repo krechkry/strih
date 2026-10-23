@@ -987,7 +987,7 @@ extension EditorView {
             t1.transform.y = -0.3
             var t2 = Overlay(kind: .text("BOOM"), start: 6.2, duration: 2.2)
             t2.style.size = 0.13
-            t2.transform.y = -0.25
+            t2.transform.y = 0.02
             t2.blend = .add
             p.overlays = [t1, t2]
             if FileManager.default.fileExists(atPath: Paths.mediaURL("sticker.png").path) {
