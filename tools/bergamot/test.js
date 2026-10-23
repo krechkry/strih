@@ -18,7 +18,7 @@ function buf(file) {
 function files(dir) {
   const fs_ = fs.readdirSync(dir);
   const find = re => fs_.find(f => re.test(f));
-  const model = find(/^model\..*\.bin(\.gz)?$/), lex = find(/^lex\..*\.bin(\.gz)?$/);
+  const model = find(/^model\..*\.bin(\.gz)?$/), lex = find(/^lex\..*(\.bin)?(\.gz)?$/);
   const vocab = find(/^vocab\..*\.spm(\.gz)?$/), src = find(/^srcvocab\./), trg = find(/^trgvocab\./);
   const vocabs = vocab ? [buf(path.join(dir, vocab))] : [buf(path.join(dir, src)), buf(path.join(dir, trg))];
   return {model: buf(path.join(dir, model)), shortlist: buf(path.join(dir, lex)), vocabs: vocabs.length === 1 ? [vocabs[0], vocabs[0]] : vocabs};
@@ -37,7 +37,7 @@ const samples = {
   await call('initialize', {cacheSize: 0});
   console.log(`engine ready in ${Date.now() - t0} ms`);
   for (const dir of fs.readdirSync(root).sort()) {
-    const [variant, pair] = dir.split('_');
+    const variant = 'firefox', pair = dir;
     const from = pair.slice(0, 2), to = pair.slice(2);
     try {
       const t1 = Date.now();

@@ -20,18 +20,7 @@ jobs:
           npm init -y >/dev/null
           npm install @browsermt/bergamot-translator@0.4.9 >/dev/null
       - name: Models
-        run: |
-          M=https://media.githubusercontent.com/media/mozilla/firefox-translations-models/main/models
-          get() {  # variant pair
-            d="models/$1_$2"; mkdir -p "$d"
-            for f in $(gh api "repos/mozilla/firefox-translations-models/contents/models/$1/$2" -q '.[].name'); do
-              curl -sSfL "$M/$1/$2/$f" -o "$d/$f"
-            done
-            du -sh "$d"
-          }
-          get base-memory csen; get base-memory encs; get tiny csen; get tiny sken; get base-memory ensk
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/bergamot/fetch.py models csen encs sken ensk
       - name: Translate
         run: node tools/bergamot/test.js models | tee out.txt
       - name: Report
