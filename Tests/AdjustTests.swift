@@ -74,6 +74,30 @@ final class CaptionTranslateTests: XCTestCase {
         XCTAssertEqual(String(data: try Gzip.inflate(gz), encoding: .utf8), "hello")
     }
 
+    /// The real thing in the simulator: download the Czech → English pack, start the engine, translate.
+    @MainActor
+    func testOfflineTranslationEndToEnd() async throws {
+        guard ProcessInfo.processInfo.environment["BOMBOCUT_TEST_MEDIA"] != nil else { throw XCTSkip("needs the network (CI)") }
+        let packs = TranslationPacks.shared
+        await packs.loadCatalog()
+        let dirs = try XCTUnwrap(packs.directions(from: "cs", to: "en"), packs.catalogError ?? "no catalog")
+        XCTAssertEqual(dirs, ["csen"])
+        XCTAssertEqual(packs.directions(from: "cs", to: "de"), ["csen", "ende"])
+        if !packs.isInstalled(dirs) {
+            packs.download(dirs)
+            let deadline = Date().addingTimeInterval(300)
+            while !packs.isInstalled(dirs), packs.downloadError == nil, Date() < deadline {
+                try await Task.sleep(for: .seconds(1))
+            }
+        }
+        XCTAssertTrue(packs.isInstalled(dirs), packs.downloadError ?? "download timed out")
+        let out = try await BergamotEngine.shared.translate(["Ahoj, tohle je Bombocut.", "Dneska jedeme na skatepark."], via: dirs)
+        print("TRANSLATED: \(out)")
+        XCTAssertEqual(out.count, 2)
+        XCTAssertTrue(out[0].lowercased().contains("bombocut"), out[0])
+        XCTAssertTrue(out[1].lowercased().contains("skate"), out[1])
+    }
+
     @MainActor
     func testPairsGoThroughEnglish() {
         XCTAssertEqual(TranslationPacks.code("zh"), "zh-Hans")
