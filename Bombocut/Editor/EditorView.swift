@@ -839,16 +839,7 @@ struct EditorView: View {
                 sheet = .adjust
             }
         case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim":
-            let text = "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark v Karlíně a natočíme nový díl. Robin jede první, pak zbytek party. To je ono!"
-            var t = 0.3
-            let words = text.split(separator: " ").map { w -> CaptionWord in
-                defer { t += 0.36 }
-                return CaptionWord(text: String(w), start: t, end: t + 0.32)
-            }
-            let tpl = CaptionTemplate.builtIns[mode == "captionsframe" ? 1 : 0]
-            var caps = Captions(language: "cs", words: words, cues: [], style: tpl.style, templateID: tpl.id)
-            caps.recut()
-            model.setCaptions(caps)
+            model.setCaptions(Self.demoCaptions(template: mode == "captionsframe" ? 1 : 0))
             model.scrub(to: mode == "captionsframe" ? 2.05 : 1.2)
             if mode == "captionsel", let cue = model.project.captions?.cues.dropFirst(2).first {
                 try? await Task.sleep(for: .seconds(0.6))
@@ -872,9 +863,10 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .stabilize
             } else if mode == "track" {
+                // the store footage jumps a figure from left to right across this clip (art/store/footage.py)
                 let samples: [TrackSample] = stride(from: c.inPoint, to: c.outPoint, by: 1.0 / 30).map { (t: Double) -> TrackSample in
-                    let x: Double = 0.3 + 0.08 * t
-                    return TrackSample(t: t, x: x, y: 0.5, w: 0.22, h: 0.4)
+                    let x: Double = 0.22 + 0.112 * (t - c.inPoint)
+                    return TrackSample(t: t, x: x, y: 0.54, w: 0.3, h: 0.82)
                 }
                 model.mutateLook { p in p.clips[2].tracking = Tracking(samples: samples, mode: .center, smooth: 0.5) }
                 try? await Task.sleep(for: .seconds(0.6))
@@ -888,11 +880,23 @@ struct EditorView: View {
             model.addText()
             model.editOverlay { $0.kind = .text("BIG UP!"); $0.blend = .normal }
         case "mask":
-            guard let first = clips.first else { break }
-            model.selectedClipID = first.id
-            model.mutateLook { $0.clips[0].mask = SubjectMask(kind: .person, blur: 0.6, dim: 0.3) }
+            // the second clip: a figure standing, with big text behind it
+            guard clips.count > 1 else { break }
+            let start = model.project.clipStarts[1]
+            model.selectedClipID = clips[1].id
+            model.mutateLook { p in
+                p.clips[1].mask = SubjectMask(kind: .subject, blur: 0, dim: 0.15)
+                var o = Overlay(kind: .text("Tip #1"), start: start, duration: clips[1].duration)
+                o.style.size = 0.24
+                o.transform.y = -0.17
+                o.behindSubject = true
+                p.overlays.append(o)
+            }
+            model.scrub(to: start + 1.6)
             try? await Task.sleep(for: .seconds(0.6))
             sheet = .mask
+        case "pro":
+            await proDemo()
         case "layout":
             safeZone = .tiktok
             safeZoneAlways = true
@@ -924,6 +928,79 @@ struct EditorView: View {
         default:
             break
         }
+    }
+}
+
+extension EditorView {
+    /// The demo sentence in the app's language, as captions (screenshots).
+    static func demoCaptions(template: Int) -> Captions {
+        let cs = AppLanguage.current == "cs"
+        let text = cs ? "Ahoj, tohle je BOMBOCUT. Titulky se napíšou samy, přímo v iPhonu. Bez internetu. To je ono!"
+                      : "Hi, this is BOMBOCUT. The subtitles write themselves, right on your iPhone. No internet needed. That's it!"
+        var t = 0.3
+        let words = text.split(separator: " ").map { w -> CaptionWord in
+            defer { t += 0.36 }
+            return CaptionWord(text: String(w), start: t, end: t + 0.32)
+        }
+        let tpl = CaptionTemplate.builtIns[template]
+        var caps = Captions(language: cs ? "cs" : "en", words: words, cues: [], style: tpl.style, templateID: tpl.id)
+        caps.recut()
+        return caps
+    }
+
+    /// Everything Pro at once: more cuts, transitions, keyframes, a speed curve, a mask, captions,
+    /// texts, a sticker and music (screenshots).
+    func proDemo() async {
+        let src = model.project.clips
+        guard src.count > 2 else { return }
+        model.mutate { p in
+            func piece(_ c: Clip, _ a: Double, _ b: Double) -> Clip {
+                var n = c
+                n.id = UUID()
+                n.inPoint = c.inPoint + a
+                n.outPoint = min(c.inPoint + b, c.outPoint)
+                return n
+            }
+            let a = src[0], b = src[1], c = src[2]
+            var list = [piece(a, 0, 2.4), piece(b, 0, 1.8), piece(c, 0, 1.8), piece(a, 2.4, 4.2),
+                        piece(b, 1.8, 4), piece(c, 1.8, 5), piece(a, 4.2, 6)]
+            list[1].cut = CutTransition(kind: .fade, duration: 0.5)
+            list[3].cut = CutTransition(kind: .zoomIn, duration: 0.5)
+            list[5].cut = CutTransition(kind: .slideLeft, duration: 0.5)
+            list[6].cut = CutTransition(kind: .smooth, duration: 0.4)
+            var k0 = Look(), k1 = Look()
+            k1.transform.scale = 1.35
+            k1.effects.contrast = 0.2
+            list[0].keyframes = [Keyframe(t: list[0].inPoint + 0.3, look: k0), Keyframe(t: list[0].inPoint + 1.5, look: k1),
+                                 Keyframe(t: list[0].inPoint + 2.2, look: k0)]
+            list[3].keyframes = [Keyframe(t: list[3].inPoint + 0.2, look: k1), Keyframe(t: list[3].inPoint + 1.4, look: k0)]
+            list[5].keyframes = [Keyframe(t: list[5].inPoint + 0.4, look: k0), Keyframe(t: list[5].inPoint + 2.4, look: k1)]
+            list[2].speedCurve = [SpeedPoint(t: 0, v: 1), SpeedPoint(t: 0.4, v: 0.3), SpeedPoint(t: 1, v: 2)]
+            list[4].mask = SubjectMask(kind: .subject, blur: 0.5, dim: 0.2)
+            list[4].motionBlurOn = true
+            p.clips = list
+            p.captions = Self.demoCaptions(template: 0)
+            var t1 = Overlay(kind: .text("Tip #1"), start: 0.4, duration: 2.6)
+            t1.style.size = 0.11
+            t1.transform.y = -0.3
+            var t2 = Overlay(kind: .text("BOOM"), start: 6.2, duration: 2.2)
+            t2.style.size = 0.13
+            t2.transform.y = 0.02
+            t2.blend = .add
+            p.overlays = [t1, t2]
+            if FileManager.default.fileExists(atPath: Paths.mediaURL("sticker.png").path) {
+                var s = Overlay(kind: .image(file: "sticker.png"), start: 3.0, duration: 3.0)
+                s.aspect = 1
+                s.transform = ClipTransform(x: 0.22, y: -0.28, scale: 0.35, rotation: 0.12)
+                p.overlays.append(s)
+            }
+            if FileManager.default.fileExists(atPath: Paths.mediaURL("music.m4a").path) {
+                p.audio = [AudioItem(file: "music.m4a", name: "Music", sourceDuration: 20, start: 0, duration: 12)]
+            }
+        }
+        model.pxPerSec = 30
+        try? await Task.sleep(for: .seconds(1.5))
+        model.scrub(to: 1.1)
     }
 }
 

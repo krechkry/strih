@@ -32,7 +32,7 @@ final class SubjectMasker: @unchecked Sendable {
             guard (try? handler.perform([r])) != nil, let obs = r.results?.first else { return nil }
             out = try? obs.generateScaledMaskForImage(forInstances: obs.allInstances, from: handler)
         }
-        guard let m = out else { return nil }
+        guard let m = out else { return Demo.mode != nil ? demoKey(image, frame: frame) : nil }
         var mask = CIImage(cvPixelBuffer: m)
         let e = mask.extent
         mask = mask.transformed(by: CGAffineTransform(scaleX: frame.width / e.width, y: frame.height / e.height))
@@ -40,6 +40,23 @@ final class SubjectMasker: @unchecked Sendable {
             .applyingGaussianBlur(sigma: 1.5)
             .cropped(to: frame)
         return mask
+    }
+
+    /// Screenshots only: the simulator has no Vision models, and the store footage's figure is the one lime thing
+    /// in the frame, so its green channel is the mask (closed over the figure's black gap lines).
+    private func demoKey(_ image: CIImage, frame: CGRect) -> CIImage {
+        image.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: 0, y: 4, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: 4, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 4, z: 0, w: 0),
+            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+            "inputBiasVector": CIVector(x: -2.4, y: -2.4, z: -2.4, w: 0)])
+            .applyingFilter("CIColorClamp")
+            .clampedToExtent()
+            .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: 12])
+            .applyingFilter("CIMorphologyMinimum", parameters: [kCIInputRadiusKey: 11])
+            .applyingGaussianBlur(sigma: 1.5)
+            .cropped(to: frame)
     }
 
     /// The clip's edge settings: grow / shrink, soften, invert.
