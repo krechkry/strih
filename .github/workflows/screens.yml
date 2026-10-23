@@ -6,6 +6,9 @@ on:
       modes:
         description: "demo modes to shoot (space separated)"
         default: "home setup editor selected zoom reorder trim speed look adjust captions captionstyle captionsframe stabilize track trackpick fullscreen canvas export done overlay mask"
+      store:
+        description: "yes = App Store set: Release build, nicer demo footage, full-size PNGs on the store-shots branch"
+        default: "no"
 
 permissions:
   contents: write
@@ -29,7 +32,10 @@ jobs:
         run: |
           xcodegen generate
           FAILED=0
-          xcodebuild -project Bombocut.xcodeproj -target Bombocut -configuration Debug -sdk iphonesimulator \
+          CONF=Debug
+          [ "${{ github.event.inputs.store }}" = "yes" ] && CONF=Release
+          echo "CONF=$CONF" >> "$GITHUB_ENV"
+          xcodebuild -project Bombocut.xcodeproj -target Bombocut -configuration $CONF -sdk iphonesimulator \
             ARCHS=arm64 SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || FAILED=1
           if [ "$FAILED" = 1 ]; then
             echo "::error title=Simulator build::$(grep -E ': error:' build.log | sed "s#$PWD/##" | sort -u | head -40 | awk '{printf "%s%%0A", $0}')"
@@ -39,6 +45,16 @@ jobs:
       - name: Demo clips
         run: |
           mkdir -p demo
+          if [ "${{ github.event.inputs.store }}" = "yes" ]; then
+            # soft moving color fields, and a voice for the first clip
+            V=$(say -v '?' | grep -i "cs_CZ" | head -1 | awk '{print $1}')
+            say -v "${V:-Samantha}" -r 165 -o voice.aiff "Ahoj, tohle je Bombocut. Dneska jedeme na skatepark a natočíme nový díl."
+            ffmpeg -loglevel error -f lavfi -i "gradients=s=1080x1920:r=30:d=6:c0=0xff5e3a:c1=0xffb23a:c2=0x7a2cff:nb_colors=3:speed=0.02:type=radial:seed=7" -i voice.aiff -c:v libx264 -pix_fmt yuv420p -c:a aac -t 6 demo/demo1.mp4
+            ffmpeg -loglevel error -f lavfi -i "gradients=s=1080x1920:r=30:d=4:c0=0x0f9bd7:c1=0x23d5ab:c2=0x1b1f6b:nb_colors=3:speed=0.03:type=linear:seed=3" -f lavfi -i "anoisesrc=d=4:c=pink:a=0.08" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo2.mp4
+            ffmpeg -loglevel error -f lavfi -i "gradients=s=1920x1080:r=30:d=5:c0=0xff3d8b:c1=0x3a1cff:c2=0xffd23a:nb_colors=3:speed=0.025:type=circular:seed=11" -f lavfi -i "anoisesrc=d=5:c=brown:a=0.1" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo3.mp4
+            ls -la demo
+            exit 0
+          fi
           ffmpeg -loglevel error -f lavfi -i "testsrc2=size=1080x1920:rate=30:duration=6" -f lavfi -i "sine=frequency=330:duration=6" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo1.mp4
           ffmpeg -loglevel error -f lavfi -i "testsrc2=size=1080x1920:rate=30:duration=4,hue=h=120" -f lavfi -i "sine=frequency=440:duration=4" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo2.mp4
           ffmpeg -loglevel error -f lavfi -i "testsrc2=size=1920x1080:rate=30:duration=5,hue=h=240" -f lavfi -i "sine=frequency=550:duration=5" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest demo/demo3.mp4
@@ -54,7 +70,7 @@ jobs:
           xcrun simctl boot $UDID || true
           xcrun simctl bootstatus $UDID -b
           xcrun simctl status_bar $UDID override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
-          xcrun simctl install $UDID build/Debug-iphonesimulator/Bombocut.app
+          xcrun simctl install $UDID build/$CONF-iphonesimulator/Bombocut.app
           DATA=$(xcrun simctl get_app_container $UDID cz.krechler.bombocut data)
           mkdir -p "$DATA/Documents/Media"
           cp demo/*.mp4 "$DATA/Documents/Media/"
@@ -68,7 +84,9 @@ jobs:
             xcrun simctl terminate $UDID cz.krechler.bombocut || true
             sleep 1
           done
-          for f in shots/*.png; do sips -s format jpeg -s formatOptions 78 -Z 1400 "$f" --out "${f%.png}.jpg" >/dev/null; rm "$f"; done
+          if [ "${{ github.event.inputs.store }}" != "yes" ]; then
+            for f in shots/*.png; do sips -s format jpeg -s formatOptions 78 -Z 1400 "$f" --out "${f%.png}.jpg" >/dev/null; rm "$f"; done
+          fi
           ls -la shots
 
       - name: Publish to screens branch
@@ -76,10 +94,12 @@ jobs:
           cp -R shots "$RUNNER_TEMP/shots"
           git config user.name "bombocut-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -q --orphan screens
+          B=screens
+          [ "${{ github.event.inputs.store }}" = "yes" ] && B=store-shots
+          git checkout -q --orphan $B
           git rm -rfq .
           git clean -fdxq
           cp -R "$RUNNER_TEMP/shots" shots
           git add shots
           git commit -qm "Screenshots of $GITHUB_SHA"
-          git push -fq origin screens
+          git push -fq origin $B
