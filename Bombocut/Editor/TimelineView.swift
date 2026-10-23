@@ -333,7 +333,14 @@ struct TimelineView: View {
             } else {
                 model.selectedClipID = id
             }
-            scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
+            // land on the moved clip: the playhead on its start, once the strip has its normal zoom again
+            let land = model.project.clips.firstIndex(where: { $0.id == id }).map { model.project.clipStarts[$0] } ?? model.currentTime
+            model.scrub(to: land)
+            scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(60))
+                scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
+            }
         }
     }
 

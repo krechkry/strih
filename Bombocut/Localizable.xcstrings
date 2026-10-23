@@ -2238,6 +2238,16 @@
         }
       }
     },
+    "Generate again": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit znovu"
+          }
+        }
+      }
+    },
     "Generate captions": {
       "localizations": {
         "cs": {
@@ -3588,6 +3598,16 @@
         }
       }
     },
+    "Remove the captions?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit titulky?"
+          }
+        }
+      }
+    },
     "Rename": {
       "localizations": {
         "cs": {
@@ -3604,6 +3624,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přejmenovat projekt"
+          }
+        }
+      }
+    },
+    "Replaces the captions and your text edits. Undo brings them back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahradí titulky i tvoje úpravy textu. Zpět je vrátí."
+          }
+        }
+      }
+    },
+    "Replaces the captions on the picked clips. Undo brings them back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahradí titulky na vybraných klipech. Zpět je vrátí."
           }
         }
       }
@@ -4874,6 +4914,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vrátit"
+          }
+        }
+      }
+    },
+    "Undo brings them back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zpět je vrátí."
           }
         }
       }

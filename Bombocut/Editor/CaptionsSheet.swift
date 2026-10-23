@@ -8,12 +8,11 @@ struct CaptionsSheet: View {
     @AppStorage("captionNames") private var names = ""
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
-    @State private var tab = 0                 // 0 text, 1 style, 2 animation
+    @State private var tab = 0                 // 0 text, 1 style, 2 animation, 3 translate
     @AppStorage("captionStyleSection") private var styleSection = 0
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
     @State private var savingTemplate = false
     @State private var templateName = ""
-    @State private var confirmRegenerate = false
     @State private var askCellular = false
     @State private var askedCellular = false
     @FocusState private var focusedCue: UUID?
@@ -28,7 +27,8 @@ struct CaptionsSheet: View {
 
     var body: some View {
         Group {
-            if let caps = model.project.captions, phase == nil {
+            // the generate page: no captions yet, while listening, or "Regenerate" (to change language and words first)
+            if let caps = model.project.captions, phase == nil, !model.captionsGenerator {
                 editor(caps)
             } else {
                 generator
@@ -44,11 +44,6 @@ struct CaptionsSheet: View {
             if let t = model.captionTab { tab = t; model.captionTab = nil }
             if model.captionFocus != nil { tab = 0 }
             model.dismissCaptionJob()
-            // came back from picking clips to regenerate: go
-            if model.captionsAfterPick {
-                model.captionsAfterPick = false
-                if model.captionClipsLive != nil { generate() }
-            }
         }
         .onChange(of: model.captionFocus) { if model.captionFocus != nil { tab = 0 } }
         .onChange(of: model.captionTab) { if let t = model.captionTab { tab = t; model.captionTab = nil } }
@@ -63,10 +58,6 @@ struct CaptionsSheet: View {
         } message: {
             Text("The speech model is about 650 MB. Wi-Fi is better.")
         }
-        .confirmationDialog("Generate captions again? Your text edits will be replaced.", isPresented: $confirmRegenerate,
-                            titleVisibility: .visible) {
-            Button("Regenerate", role: .destructive) { model.captionClips = nil; generate() }
-        }
     }
 
     // MARK: Generate
@@ -74,7 +65,19 @@ struct CaptionsSheet: View {
     private var generator: some View {
         VStack(alignment: .leading, spacing: 18) {
             if !compact {
-            Text("Captions").font(.title2.weight(.heavy))
+            HStack {
+                Text(model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Captions")
+                    .font(.title2.weight(.heavy))
+                Spacer()
+                if model.project.captions != nil && model.captionsGenerator && phase == nil {
+                    Button { model.captionsGenerator = false } label: {
+                        Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 14).frame(height: 34)
+                            .background(Theme.panel2, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(languages, id: \.code) { l in
@@ -126,8 +129,15 @@ struct CaptionsSheet: View {
                 Text(loc(modelNote))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
+                if model.project.captions != nil && model.captionsGenerator {
+                    Text(model.captionClipsLive == nil ? "Replaces the captions and your text edits. Undo brings them back."
+                         : "Replaces the captions on the picked clips. Undo brings them back.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button { generate() } label: {
-                    Label("Generate captions", systemImage: "captions.bubble.fill")
+                    Label(model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Generate captions",
+                          systemImage: "captions.bubble.fill")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity, minHeight: 54)
@@ -212,6 +222,7 @@ struct CaptionsSheet: View {
             return
         }
         model.pause()
+        model.captionsGenerator = false
         model.startCaptions(language: language, names: names)
         tab = 0
     }
@@ -233,31 +244,16 @@ struct CaptionsSheet: View {
                         tabButton("Text", 0)
                         tabButton("Style", 1)
                         tabButton("Animation", 2)
+                        tabButton("Translate", 3)
                     }
                 }
-                Menu {
-                    Button { confirmRegenerate = true } label: { Label("Regenerate", systemImage: "arrow.clockwise") }
-                    if model.project.clips.count > 1 {
-                        Button {
-                            model.captionsAfterPick = true
-                            model.startCaptionPick()
-                            close()
-                        } label: { Label("Regenerate on selected clips", systemImage: "hand.tap") }
-                    }
-                    Button(role: .destructive) { model.setCaptions(nil) } label: { Label("Remove captions", systemImage: "trash") }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .bold))
-                        .frame(width: 40, height: 40)
-                        .background(Theme.panel2, in: Circle())
-                }
-                .tint(.white)
             }
             }
             switch tab {
             case 0: textList(caps)
             case 1: styleEditor(caps)
-            default: animationEditor(caps)
+            case 2: animationEditor(caps)
+            default: TranslateSheet(model: model, embedded: true)
             }
         }
     }

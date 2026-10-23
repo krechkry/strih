@@ -5,6 +5,8 @@ import Translation
 /// when it is there, with Apple's built-in translator otherwise.
 struct TranslateSheet: View {
     @ObservedObject var model: EditorModel
+    /// Inside the captions panel (its tab): no title or padding of its own.
+    var embedded = false
     @AppStorage("translateTarget") private var translateTarget = "en"
     @ObservedObject private var packs = TranslationPacks.shared
     /// Apple's translator: what it can do for the picked pair, and the run it is asked for.
@@ -17,15 +19,15 @@ struct TranslateSheet: View {
         Group {
             if let caps = model.project.captions {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Translate captions").font(.title3.weight(.heavy))
+                    if !embedded { Text("Translate captions").font(.title3.weight(.heavy)) }
                     translator(caps)
                 }
             } else {
                 Text("Make captions first.").foregroundStyle(Theme.muted)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.horizontal, embedded ? 0 : 20)
+        .padding(.top, embedded ? 0 : 12)
         .frame(maxHeight: .infinity, alignment: .top)
         .onAppear { model.dismissTranslateError() }
         .task { await packs.loadCatalog() }

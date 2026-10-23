@@ -15,6 +15,7 @@ struct EditorView: View {
     @State private var audioVideoItem: PhotosPickerItem?
     @State private var adding = false
     @State private var renaming = false
+    @State private var confirmRemoveCaptions = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @AppStorage("safeZoneAlways") private var safeZoneAlways = false
     @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
@@ -42,7 +43,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export, .translate: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export: return true
         default: return false
         }
     }
@@ -64,7 +65,6 @@ struct EditorView: View {
         case .layout: return 250
         case .audio: return 220
         case .speech: return 470
-        case .translate: return 560
         }
     }
 
@@ -127,7 +127,6 @@ struct EditorView: View {
         case .layout: LayoutSheet(model: model)
         case .audio: AudioSheet(model: model)
         case .speech: SpeechSheet(model: model)
-        case .translate: TranslateSheet(model: model)
         }
     }
 
@@ -243,6 +242,8 @@ struct EditorView: View {
             if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
+            // closing the captions panel leaves the generate page (unless clips are being picked for it)
+            if s == nil && model.pick == nil { model.captionsGenerator = false }
         }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
@@ -275,6 +276,14 @@ struct EditorView: View {
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
+        }
+        .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
+            Button("Remove captions", role: .destructive) {
+                model.captionsSelected = false
+                model.setCaptions(nil)
+            }
+        } message: {
+            Text("Undo brings them back.")
         }
         .alert("Rename project", isPresented: $renaming) {
             TextField("Name", text: $renameText)
@@ -545,7 +554,11 @@ struct EditorView: View {
                         model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
                     }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
-                    ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); sheet = .translate }
+                    ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); model.captionTab = 3; sheet = .captions }
+                    ToolButton(icon: "arrow.clockwise", label: "Regenerate") {
+                        model.pause(); model.captionsGenerator = true; sheet = .captions
+                    }
+                    ToolButton(icon: "trash", label: "Remove", tint: .red) { confirmRemoveCaptions = true }
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
@@ -916,7 +929,6 @@ struct EditorView: View {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case translate
     var id: String { rawValue }
 }
 

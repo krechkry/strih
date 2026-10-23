@@ -473,11 +473,25 @@ final class EditorModel: ObservableObject {
 
     // MARK: Clip operations
 
+    /// New clips go into the cut nearest the playhead (or the start / end); everything after them moves on,
+    /// with the text, overlays, sound and captions that belong to it.
     func addClips(_ clips: [Clip]) {
         guard !clips.isEmpty else { return }
-        mutate { p in
-            if let i = selectedIndex { p.clips.insert(contentsOf: clips, at: i + 1) } else { p.clips.append(contentsOf: clips) }
+        let k = nearestCut(to: currentTime)
+        mutate { p in p.clips.insert(contentsOf: clips, at: k) }
+        selectedClipID = clips[0].id
+        scrub(to: project.clipStarts[k])
+    }
+
+    /// Index of the cut closest to time t: 0 = before the first clip, clips.count = after the last.
+    func nearestCut(to t: Double) -> Int {
+        let starts = project.clipStarts
+        var best = 0, gap = abs(t)
+        for k in 1...max(project.clips.count, 1) where k <= project.clips.count {
+            let at = k < project.clips.count ? starts[k] : duration
+            if abs(at - t) < gap { gap = abs(at - t); best = k }
         }
+        return best
     }
 
     /// Splits the clip under the playhead at the playhead.
@@ -783,8 +797,8 @@ final class EditorModel: ObservableObject {
 
     /// Clips the captions listen to; nil = all clips.
     @Published var captionClips: Set<UUID>?
-    /// Regenerate right after the clips are picked (captions already exist).
-    var captionsAfterPick = false
+    /// The captions panel shows its generate page even though there are captions ("Regenerate").
+    @Published var captionsGenerator = false
 
     /// The picked clips that still exist (nil when listening to all of them).
     var captionClipsLive: Set<UUID>? {
@@ -1016,7 +1030,6 @@ final class EditorModel: ObservableObject {
 
     func requestAddClips() {
         pause()
-        selectedClipID = nil      // new clips go to the end
         openAddClips = true
     }
 
@@ -1776,7 +1789,7 @@ final class EditorModel: ObservableObject {
         guard let p = pick else { return }
         pick = nil
         if p.kind == .captions {
-            if ok { captionClips = p.picked.isEmpty ? nil : p.picked } else { captionsAfterPick = false }
+            if ok { captionClips = p.picked.isEmpty ? nil : p.picked }
             openCaptions = true
             return
         }

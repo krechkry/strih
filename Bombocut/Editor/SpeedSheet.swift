@@ -226,16 +226,6 @@ struct SpeedSheet: View {
             }
             .frame(height: 190)
             HStack(spacing: 10) {
-                pill("Add at playhead", "plus") { addAtPlayhead() }
-                    .disabled(playheadU == nil)
-                pill("Delete", "trash") {
-                    guard let i = selected, i > 0, i < points.count - 1 else { return }
-                    points.remove(at: i)
-                    selected = nil
-                    commitCurve()
-                }
-                .disabled(selected == nil || selected == 0 || selected == points.count - 1)
-                Spacer(minLength: 0)
                 Button {
                     points = SpeedCurve.flat(1)
                     selected = nil
@@ -247,6 +237,16 @@ struct SpeedSheet: View {
                         .background(Theme.panel2, in: Circle())
                 }
                 .accessibilityLabel("Reset curve")
+                pill("Delete", "trash") {
+                    guard let i = selected, i > 0, i < points.count - 1 else { return }
+                    points.remove(at: i)
+                    selected = nil
+                    commitCurve()
+                }
+                .disabled(selected == nil || selected == 0 || selected == points.count - 1)
+                Spacer(minLength: 0)
+                pill("Add at playhead", "plus") { addAtPlayhead() }
+                    .disabled(playheadU == nil)
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
