@@ -61,7 +61,10 @@ final class Purchases: ObservableObject {
 
     /// Everything works (trial running or bought).
     var unlocked: Bool {
-        if Demo.mode != nil || isBeta { return true }
+        if isBeta { return true }
+        #if DEBUG || STORESHOTS
+        if Demo.mode != nil { return true }
+        #endif
         switch access {
         case .owned, .trial, .checking: return true
         case .new, .expired: return false
@@ -75,14 +78,6 @@ final class Purchases: ObservableObject {
 
     /// 149 Kč (from the App Store, in the buyer's currency).
     var price: String { full?.displayPrice ?? "149 Kč" }
-
-    /// TestFlight installs carry a sandbox receipt (so do App Review's). Known right at launch.
-    /// Only used to show the first-launch screens again after each test build, never to unlock anything.
-    /// (Read by key: the property is deprecated in favor of AppTransaction, which needs a round trip.)
-    nonisolated static var receiptSaysSandbox: Bool {
-        let url = (Bundle.main as AnyObject).value(forKey: "appStoreReceiptURL") as? URL
-        return url?.lastPathComponent == "sandboxReceipt"
-    }
 
     func load() async {
         do {

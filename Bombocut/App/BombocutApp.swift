@@ -43,11 +43,12 @@ enum FirstLaunch {
         return v + "|" + made
     }
 
+    /// Xcode builds show the first-launch screens again after each build. Store and TestFlight builds never do.
     private static var isTestBuild: Bool {
         #if DEBUG
         return true
         #else
-        return Purchases.receiptSaysSandbox
+        return false
         #endif
     }
 
@@ -78,11 +79,17 @@ enum AudioMix {
 }
 
 /// Screenshot robot: `-demo home|editor|selected|export|canvas` opens a demo project in that state.
+/// Compiled only into Xcode (Debug) builds and the simulator screenshot build (STORESHOTS):
+/// builds that go to TestFlight and the App Store have no demo modes at all and always return nil.
 enum Demo {
     static let mode: String? = {
+        #if !(DEBUG || STORESHOTS)
+        return nil
+        #else
         let a = ProcessInfo.processInfo.arguments
         guard let i = a.firstIndex(of: "-demo"), i + 1 < a.count else { return nil }
         return a[i + 1]
+        #endif
     }()
 }
 

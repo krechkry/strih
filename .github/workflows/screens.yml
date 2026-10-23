@@ -33,10 +33,12 @@ jobs:
           xcodegen generate
           FAILED=0
           CONF=Debug
-          [ "${{ github.event.inputs.store }}" = "yes" ] && CONF=Release
+          EXTRA=""
+          # Release optimizations, plus STORESHOTS so the demo modes are compiled in (they never are in shipped builds)
+          [ "${{ github.event.inputs.store }}" = "yes" ] && CONF=Release && EXTRA='SWIFT_ACTIVE_COMPILATION_CONDITIONS=STORESHOTS'
           echo "CONF=$CONF" >> "$GITHUB_ENV"
           xcodebuild -project Bombocut.xcodeproj -target Bombocut -configuration $CONF -sdk iphonesimulator \
-            ARCHS=arm64 SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || FAILED=1
+            ARCHS=arm64 SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO $EXTRA build > build.log 2>&1 || FAILED=1
           if [ "$FAILED" = 1 ]; then
             echo "::error title=Simulator build::$(grep -E ': error:' build.log | sed "s#$PWD/##" | sort -u | head -40 | awk '{printf "%s%%0A", $0}')"
             exit 1
