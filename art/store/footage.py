@@ -1,4 +1,4 @@
-"""Store screenshot footage: Krystof as a lime figure (meme style) on soft color backgrounds.
+"""Store screenshot footage: Krystof as a meme-cast blob (solid lime, thick gaps, dot face) on calm dark backgrounds.
 
     python3 art/store/footage.py talk.jpg stand.jpg jump.jpg      (from the repo root)
 
@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "footage")
 FPS = 30
 LIME = np.array([0xE4, 0xFF, 0x5A], np.float32)
-INK = np.array([0x0D, 0x0E, 0x10], np.float32)
+K = np.array([0x0D, 0x0E, 0x10], np.float32)
 
 
 def cutout(path, model="u2net_human_seg", add=()):
@@ -39,59 +39,107 @@ def cutout(path, model="u2net_human_seg", add=()):
     return rgba[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
 
 
-def xdog(gray, sigma=1.2, k=1.6, p=22, eps=-0.02, phi=12):
-    g = gray.astype(np.float32) / 255
-    a = cv2.GaussianBlur(g, (0, 0), sigma); b = cv2.GaussianBlur(g, (0, 0), sigma * k)
-    d = (1 + p) * a - p * b
-    e = np.where(d >= eps, 1.0, 1 + np.tanh(phi * (d - eps)))
-    return e  # 1 = paper, <1 = ink
+def face_xml():
+    """OpenCV's frontal face detector (to put the dot face where the real one is)."""
+    path = os.path.join(HERE, ".cache", "haarcascade_frontalface_default.xml")
+    if not os.path.exists(path):
+        import urllib.request
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        urllib.request.urlretrieve("https://raw.githubusercontent.com/opencv/opencv/4.x/data/haarcascades/"
+                                   "haarcascade_frontalface_default.xml", path)
+    return path
 
 
-def lime_figure(rgba, close=0.035, smooth=0.012, line=0.0035, ink_w=1.0, cloth_split=True):
-    """Meme style: the figure in lime, its features and the main folds as black lines, a black rim."""
+def smooth_mask(m, s):
+    return cv2.GaussianBlur(m.astype(np.float32), (0, 0), s) > 0.5
+
+def clean_shape(m, win):
+    """Redraw a mask from its outlines, each one smoothed along its length: clean curves, no fuzz."""
+    m8 = m.astype(np.uint8)
+    cs, hier = cv2.findContours(m8, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    out = np.zeros_like(m8)
+    if hier is None:
+        return out > 0
+    win = max(3, int(win)) | 1
+    k = np.ones(win, np.float32) / win
+    for i, c in enumerate(cs):
+        p = c[:, 0, :].astype(np.float32)
+        if len(p) < win * 2 or cv2.contourArea(c) < (win * 2) ** 2:
+            continue
+        pp = np.concatenate([p[-win:], p, p[:win]])
+        sx = np.convolve(pp[:, 0], k, "same")[win:-win]
+        sy = np.convolve(pp[:, 1], k, "same")[win:-win]
+        poly = np.stack([sx, sy], 1).round().astype(np.int32).reshape(-1, 1, 2)
+        hole = hier[0][i][3] >= 0
+        cv2.fillPoly(out, [poly], 0 if hole else 1, cv2.LINE_AA)
+    return out > 0
+
+
+def meme_figure(rgba, face="smile", gap=0.012, soft=0.009):
+    """The meme cast's look: one solid lime shape, thick black gaps where parts meet, a dot face."""
     a = rgba[..., 3]; h, w = a.shape
-    inside = a > 127
-    inside = cv2.erode(inside.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0   # lose the light fringe
+    inside = clean_shape(smooth_mask(a > 127, max(2, h * soft * 0.5)), h * 0.02)
     rgb = np.ascontiguousarray(rgba[..., :3])
     sm = cv2.pyrMeanShiftFiltering(rgb, 14, 36)
     lab = cv2.cvtColor(sm, cv2.COLOR_RGB2LAB).astype(np.float32)
-    Lc, A, B = lab[..., 0], lab[..., 1], lab[..., 2]
+    L, A, B = lab[..., 0], lab[..., 1], lab[..., 2]
     warm = inside & (A > 135) & (B > 137)
-    kc = max(3, int(h * close)) | 1
-    warm_c = cv2.morphologyEx(warm.astype(np.uint8), cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kc, kc))) > 0
-    warm_c &= inside
-    warm_c = cv2.morphologyEx(warm_c.astype(np.uint8), cv2.MORPH_OPEN, np.ones((7, 7), np.uint8)) > 0
-    lw = max(2, int(h * line))
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (lw, lw))
-    lines = cv2.morphologyEx(warm_c.astype(np.uint8), cv2.MORPH_GRADIENT, k) > 0
-    if cloth_split:
-        s = max(2, h * smooth)
-        cloth = inside & ~warm_c
-        Ls = cv2.GaussianBlur(np.where(cloth, Lc, 0), (0, 0), s) / np.maximum(cv2.GaussianBlur(cloth.astype(np.float32), (0, 0), s), 1e-3)
-        thr = np.quantile(Ls[cloth], 0.45) if cloth.any() else 0
-        dark = (cloth & (Ls < thr)).astype(np.uint8)
-        dark = cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kc, kc)))
-        dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kc, kc)))
-        # only the big dark parts (trousers, a sleeve in shadow), not the shirt pattern
-        n, lab_, st, _ = cv2.connectedComponentsWithStats(dark)
-        big = [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] > 0.12 * cloth.sum()]
-        dark = np.isin(lab_, big).astype(np.uint8)
-        holes = dark.copy(); ff = np.zeros((h + 2, w + 2), np.uint8)
-        cv2.floodFill(holes, ff, (0, 0), 1)
-        dark |= (holes == 0).astype(np.uint8)
-        lines |= (cv2.morphologyEx(dark, cv2.MORPH_GRADIENT, k) > 0) & cloth
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-    e = xdog(gray, sigma=max(1.0, h * 0.0012 * ink_w))
-    inkm = warm_c & (e < 0.45)
-    inkm = cv2.morphologyEx(inkm.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)) > 0
-    lines |= inkm
-    lines &= cv2.erode(inside.astype(np.uint8), k) > 0
+    kc = max(3, int(h * 0.04)) | 1
+    skin = cv2.morphologyEx(warm.astype(np.uint8), cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kc, kc)))
+    skin = cv2.morphologyEx(skin, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kc // 2 | 1, kc // 2 | 1)))
+    skin = smooth_mask(skin > 0, h * 0.008) & inside
+    # small bits flip to the other part (hair rims, finger gaps), so only real parts stay
+    total = inside.sum()
+    for _ in range(2):
+        for m_ in (skin, inside & ~skin):
+            n, lab_, st, _ = cv2.connectedComponentsWithStats(m_.astype(np.uint8))
+            for i in range(1, n):
+                if st[i, cv2.CC_STAT_AREA] < 0.03 * total:
+                    skin = skin ^ (lab_ == i)
+        skin &= inside
+    skin = clean_shape(skin, h * 0.025) & inside
+    # thin strips of clothes along the edge of the skin become skin (no stray dashes on the outline)
+    cloth = (inside & ~skin).astype(np.uint8)
+    kk = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(h * 0.03) | 1, int(h * 0.03) | 1))
+    cloth = cv2.morphologyEx(cloth, cv2.MORPH_OPEN, kk) > 0
+    skin = inside & ~cloth
+    parts = np.zeros((h, w), np.int32)
+    parts[inside] = 1; parts[skin] = 2
+    # thick gaps only where two parts meet, never along the outer edge
+    g = max(3, int(h * gap)) | 1
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (g, g))
+    gaps = np.zeros((h, w), bool)
+    for i in (1, 2):
+        m = (parts == i).astype(np.uint8)
+        gaps |= (cv2.dilate(m, ker) > 0) & (parts > 0) & (parts != i)
+    gaps = smooth_mask(gaps, g * 0.25)
+    n, lab_, st, _ = cv2.connectedComponentsWithStats(gaps.astype(np.uint8))
+    gaps = np.isin(lab_, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] > g * g * 8])   # no specks
+    fig = inside & ~gaps
+    # face: a simple meme face on the photo's face position
     out = np.zeros((h, w, 4), np.uint8)
-    fill = np.where(lines[..., None], INK, LIME)
-    rim = max(3, int(max(h, w) * 0.008)) | 1
-    ring = cv2.dilate(inside.astype(np.uint8) * 255, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (rim, rim)))
-    out[..., :3] = INK.astype(np.uint8); out[..., 3] = cv2.GaussianBlur(ring, (0, 0), 1.0)
-    out[inside, :3] = fill[inside].astype(np.uint8)
+    col = np.where(fig[..., None], LIME, K)
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    casc = cv2.CascadeClassifier(face_xml())
+    faces = casc.detectMultiScale(gray, 1.1, 5, minSize=(int(w * 0.06), int(w * 0.06)))
+    if len(faces):
+        fx, fy, fw, fh = min(faces, key=lambda f: f[1] + f[3] / 2)   # the top one is the face
+        # cover the photo's face with plain lime first (the skin part already is), then draw the face
+        r = max(3, int(fw * 0.07))
+        ey = int(fy + fh * 0.42)
+        for ex in (fx + fw * 0.32, fx + fw * 0.68):
+            cv2.circle(col, (int(ex), ey), r, K.tolist(), -1, cv2.LINE_AA)
+        mw = max(3, int(fw * 0.075))
+        cx, my = fx + fw / 2, fy + fh * 0.74
+        if face == "smile":
+            pts = np.array([[cx - fw * 0.17, my - fh * 0.03], [cx, my + fh * 0.06], [cx + fw * 0.17, my - fh * 0.03]], np.int32)
+            cv2.polylines(col, [pts.reshape(-1, 1, 2)], False, K.tolist(), mw, cv2.LINE_AA)
+        elif face == "o":
+            cv2.ellipse(col, (int(cx), int(my)), (int(fw * 0.09), int(fh * 0.12)), 0, 0, 360, K.tolist(), -1, cv2.LINE_AA)
+        else:
+            cv2.line(col, (int(cx - fw * 0.13), int(my)), (int(cx + fw * 0.13), int(my)), K.tolist(), mw, cv2.LINE_AA)
+    out[..., :3] = col.astype(np.uint8)
+    out[..., 3] = (cv2.GaussianBlur(inside.astype(np.float32), (0, 0), 1.0) * 255).astype(np.uint8)
     return out
 
 
@@ -143,9 +191,10 @@ def encode(frame, n, w, h, name):
     print("wrote", path, os.path.getsize(path) // 1024, "KB")
 
 
-VIOLET = ((92, 40, 210), (230, 70, 150), (255, 140, 90))
-OCEAN = ((20, 110, 200), (20, 30, 90), (40, 200, 190))
-SUNSET = ((255, 90, 70), (110, 30, 160), (255, 170, 60))
+# calm dark backgrounds, like the app's own grays, each with a slight tint
+VIOLET = ((46, 44, 60), (20, 20, 26), (70, 66, 92))
+OCEAN = ((38, 50, 58), (17, 21, 26), (58, 76, 86))
+SUNSET = ((58, 48, 44), (22, 20, 20), (88, 72, 62))
 
 
 def talk(fig):
@@ -168,7 +217,7 @@ def jump(fig):
     W, H = 1920, 1080
     def frame(t):
         bg = gradient(W, H, *SUNSET, t=t)
-        bg[int(H * 0.95):] *= 0.7   # floor
+        bg[int(H * 0.95):] *= 0.8   # floor
         h = H * 0.78
         bottom = H * 0.55 + h / 2 - 18 * np.sin(np.pi * t / 5)
         return paste(bg, fig, W * (0.22 + 0.112 * t), bottom, h, angle=-4 * np.sin(t * 1.4))
@@ -182,6 +231,6 @@ JUMP_FOOT = [[(390, 1165), (425, 1162), (480, 1190), (505, 1220), (500, 1260), (
 
 if __name__ == "__main__":
     a, b, c = sys.argv[1:4]
-    talk(lime_figure(cutout(a, "isnet-general-use")))
-    stand(lime_figure(cutout(b)))
-    jump(lime_figure(cutout(c, add=JUMP_FOOT)))
+    talk(meme_figure(cutout(a, "isnet-general-use"), "smile"))
+    stand(meme_figure(cutout(b), "flat"))
+    jump(meme_figure(cutout(c, add=JUMP_FOOT), "o"))
