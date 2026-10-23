@@ -1,0 +1,38 @@
+name: Translation engine test
+
+# Firefox's small translation models (one per language direction, via English) in bergamot-translator's WASM build:
+# does it load them and how well do they translate captions?
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Engine
+        run: |
+          cd tools/bergamot
+          npm init -y >/dev/null
+          npm install @browsermt/bergamot-translator@0.4.9 >/dev/null
+      - name: Models
+        run: |
+          M=https://media.githubusercontent.com/media/mozilla/firefox-translations-models/main/models
+          get() {  # variant pair
+            d="models/$1_$2"; mkdir -p "$d"
+            for f in $(gh api "repos/mozilla/firefox-translations-models/contents/models/$1/$2" -q '.[].name'); do
+              curl -sSfL "$M/$1/$2/$f" -o "$d/$f"
+            done
+            du -sh "$d"
+          }
+          get base-memory csen; get base-memory encs; get tiny csen; get tiny sken; get base-memory ensk
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Translate
+        run: node tools/bergamot/test.js models | tee out.txt
+      - name: Report
+        run: echo "::notice title=Translations::$(cat out.txt | awk '{printf "%s%%0A", $0}')"
