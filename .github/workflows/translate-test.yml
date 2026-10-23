@@ -22,6 +22,9 @@ jobs:
           cd tools/bergamot
           npm init -y >/dev/null
           npm install @browsermt/bergamot-translator@0.4.9 >/dev/null
+          # the package is an ES module; the worker runs as CommonJS under node
+          mkdir -p engine && cp node_modules/@browsermt/bergamot-translator/worker/* engine/
+          mv engine/translator-worker.js engine/translator-worker.cjs
       - name: Models
         run: python3 tools/bergamot/fetch.py models csen encs sken ensk 2>&1 | tee fetch.txt
       - name: Translate

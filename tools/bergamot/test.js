@@ -3,8 +3,9 @@
 const {Worker} = require('node:worker_threads');
 const fs = require('fs'), zlib = require('zlib'), path = require('path');
 
+
 const root = process.argv[2];
-const w = new Worker(require.resolve('@browsermt/bergamot-translator/worker/translator-worker.js'));
+const w = new Worker(path.join(__dirname, 'engine', 'translator-worker.cjs'));
 let next = 0; const pending = new Map();
 w.on('message', ({id, result, error}) => { const p = pending.get(id); pending.delete(id); error ? p.reject(error) : p.resolve(result); });
 const call = (name, ...args) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, {resolve, reject}); w.postMessage({id, name, args}); });
