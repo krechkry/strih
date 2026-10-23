@@ -64,7 +64,5 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut
-        # the translation model needs more memory than an app gets by default
-        CODE_SIGN_ENTITLEMENTS: Bombocut/Bombocut.entitlements.tests
+        PRODUCT_BUNDLE_IDENTIFIER: cz.krechler.bombocut.tests
         CODE_SIGN_STYLE: Automatic
