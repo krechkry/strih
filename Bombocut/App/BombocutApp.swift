@@ -47,7 +47,7 @@ enum FirstLaunch {
         #if DEBUG
         return true
         #else
-        return UserDefaults.standard.bool(forKey: "isBeta") || Purchases.receiptSaysSandbox
+        return Purchases.receiptSaysSandbox
         #endif
     }
 

@@ -1854,12 +1854,12 @@
         }
       }
     },
-    "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.": {
+    "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face) a k ověření nákupu v App Storu."
+            "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
           }
         }
       }
@@ -3434,6 +3434,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Soukromí"
+          }
+        }
+      }
+    },
+    "Privacy policy": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zásady ochrany soukromí"
           }
         }
       }

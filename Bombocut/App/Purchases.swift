@@ -21,13 +21,15 @@ final class Purchases: ObservableObject {
     }
 
     @Published private(set) var access: Access = .checking
-    /// TestFlight build (open beta): everything is free, no trial and no paywall.
-    /// Builds run from Xcode count as beta too, so testing never hits the trial screen.
+    /// Builds run from Xcode only: everything free, no trial screen, no paywall.
+    /// TestFlight and App Store builds always go through the trial and paywall. App Review runs in the
+    /// same sandbox as TestFlight, so a sandbox check would hide the purchases from the reviewer
+    /// (rejection under 2.1 / 2.2). TestFlight purchases cost nothing, so testers just start the trial or buy.
     @Published private(set) var isBeta: Bool = {
         #if DEBUG
         return true
         #else
-        return UserDefaults.standard.bool(forKey: "isBeta") || Purchases.receiptSaysSandbox
+        return false
         #endif
     }()
     @Published private(set) var trial: Product?
@@ -40,6 +42,8 @@ final class Purchases: ObservableObject {
     private let trialKey = "trialStart"
 
     init() {
+        // older TestFlight builds stored a beta flag here; it means nothing any more
+        UserDefaults.standard.removeObject(forKey: "isBeta")
         // offline start: remember what the App Store said last time
         if UserDefaults.standard.bool(forKey: ownedKey) {
             access = .owned
@@ -52,10 +56,7 @@ final class Purchases: ObservableObject {
                 await self?.refresh()
             }
         }
-        Task {
-            await checkBeta()
-            await load()
-        }
+        Task { await load() }
     }
 
     /// Everything works (trial running or bought).
@@ -75,35 +76,8 @@ final class Purchases: ObservableObject {
     /// 149 Kč (from the App Store, in the buyer's currency).
     var price: String { full?.displayPrice ?? "149 Kč" }
 
-    /// TestFlight installs come from the App Store's sandbox.
-    private func checkBeta() async {
-        // Xcode builds are beta anyway; asking for the app transaction there (or in the simulator)
-        // makes iOS show an Apple Account sign-in
-        #if DEBUG
-        return
-        #else
-        guard Demo.mode == nil else { return }
-        if Self.receiptSaysSandbox { setBeta(true) }
-        // The app transaction can take a moment (or fail) on the very first launch, so try a few times.
-        // Its environment is read even when the device can't verify it yet: it only decides whether
-        // TestFlight users skip the trial screen.
-        for _ in 0..<4 {
-            if let result = try? await AppTransaction.shared {
-                let env = result.unsafePayloadValue.environment
-                setBeta(env == .sandbox || env == .xcode)
-                return
-            }
-            try? await Task.sleep(for: .seconds(1.5))
-        }
-        #endif
-    }
-
-    private func setBeta(_ beta: Bool) {
-        isBeta = beta
-        UserDefaults.standard.set(beta, forKey: "isBeta")
-    }
-
-    /// TestFlight installs carry a sandbox receipt. Known right at launch, before the App Store answers.
+    /// TestFlight installs carry a sandbox receipt (so do App Review's). Known right at launch.
+    /// Only used to show the first-launch screens again after each test build, never to unlock anything.
     /// (Read by key: the property is deprecated in favor of AppTransaction, which needs a round trip.)
     nonisolated static var receiptSaysSandbox: Bool {
         let url = (Bundle.main as AnyObject).value(forKey: "appStoreReceiptURL") as? URL
@@ -215,7 +189,10 @@ final class Purchases: ObservableObject {
 /// Where feedback and support mail goes.
 enum Support {
     /// Fill in the address that should receive feedback (empty hides the button).
-    static let email = ""
+    static let email = "bombocut.support@gmail.com"
+
+    /// The privacy policy (GitHub Pages, from docs/privacy.html in the repo). Also goes into App Store Connect.
+    static let privacyURL = URL(string: "https://krechkry.github.io/strih/privacy.html")!
 
     static func mailURL() -> URL? {
         guard !email.isEmpty else { return nil }

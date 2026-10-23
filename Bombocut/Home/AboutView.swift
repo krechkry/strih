@@ -34,7 +34,10 @@ struct AboutView: View {
                         Label("Bought. Thank you!", systemImage: "checkmark.seal.fill")
                             .font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
                     }
-                    block("Privacy", "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face) and to check your purchase with the App Store.")
+                    block("Privacy", "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store.")
+                    // App Review 5.1.1(i): the privacy policy is reachable inside the app too
+                    pill("Privacy policy", "hand.raised.fill") { openURL(Support.privacyURL) }
+                        .padding(.top, -10)
                     block("Credits", nil)
                     credit("Parakeet TDT 0.6B v3", "NVIDIA. Speech recognition model. License: CC BY 4.0.")
                     credit("Parakeet Ultra", "Moondream. Further training of Parakeet TDT v3, converted to Core ML by FluidInference. License: CC BY 4.0.")

@@ -1,6 +1,6 @@
 # Bombocut open beta (TestFlight)
 
-Everything in the app is ready for an open beta: TestFlight builds are free (no trial, no paywall, a BETA card on Home with how to send feedback), the privacy manifest is in, encryption is declared as "none", and every archive gets a new build number automatically.
+Everything in the app is ready for an open beta: TestFlight builds go through the same trial and paywall as the App Store (App Review runs in the same sandbox, so a free beta would hide the purchases from the reviewer); purchases in TestFlight cost nothing, so testers just start the trial or tap Buy, the privacy manifest is in, encryption is declared as "none", and every archive gets a new build number automatically.
 
 What is left needs your Apple account. About 30 minutes, then Apple's beta review (usually under a day).
 
@@ -72,7 +72,7 @@ App Store Connect → TestFlight → **Test Information**. Paste:
 
 **Beta App Review information**: your name, phone, email. Sign-in required: **No**. Notes:
 
-> No account needed. On first launch pick the app language and subtitle languages; the speech model (about 650 MB) downloads from Hugging Face once, then subtitles run offline. To try subtitles, add any video with speech, then tap Captions → Generate captions. TestFlight builds are free: there is no trial or purchase in the beta.
+> No account needed. On first launch pick the app language and subtitle languages; the speech model (about 650 MB) downloads from Hugging Face once, then subtitles run offline. To try subtitles, add any video with speech, then tap Captions → Generate captions. Purchases in TestFlight are free: start the 7-day trial, or tap Buy (you will not be charged).
 
 ## 5. Open beta: public link
 
