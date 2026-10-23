@@ -1,0 +1,18 @@
+directions: afen aren azen been bgen bnen bsen caen csen daen deen elen enaf enar enaz enbe enbg enbn enbs enca encs enda ende enel enes enet eneu enfa enfi enfr engl engu enhe enhi enhr enhu enid enis enit enja enkn enko enlt enlv enml enmr enms ennb ennl enpl enpt enro enru ensk ensl ensq ensr ensv enta ente enth entl entr enug enuk enur envi enzh-Hans enzh-Hant esen eten euen faen fien fren glen guen heen hien hren huen iden isen iten jaen knen koen lten lven mlen mren msen mten nben nlen nnen plen pten roen ruen sken slen sqen sren sven taen teen then tlen tren ugen uken uren vien zh-Hansen zh-Hanten
+record keys: ['attachment', 'fileType', 'filter_expression', 'fromLang', 'hash', 'id', 'last_modified', 'name', 'schema', 'toLang', 'version']
+  csen v2.0 model model.csen.intgemm.alphas.bin 31561787 filter='' arch=None
+  csen v2.0 vocab vocab.csen.spm 815154 filter='' arch=None
+  csen v2.0 lex lex.50.50.csen.s2t.bin 4990588 filter='' arch=None
+csen: 37.4 MB download
+  encs v2.0 lex lex.50.50.encs.s2t.bin 3572436 filter='' arch=None
+  encs v2.0 vocab vocab.encs.spm 815154 filter='' arch=None
+  encs v2.0 model model.encs.intgemm.alphas.bin 31561787 filter='' arch=None
+encs: 35.9 MB download
+  sken v1.0a1 lex lex.50.50.sken.s2t.bin 4913324 filter="env.channel == 'default' || env.channel == 'nightly'" arch=None
+  sken v1.0a1 vocab vocab.sken.spm 808082 filter="env.channel == 'default' || env.channel == 'nightly'" arch=None
+  sken v1.0a1 model model.sken.intgemm.alphas.bin 17141051 filter="env.channel == 'default' || env.channel == 'nightly'" arch=None
+sken: 22.9 MB download
+  ensk v2.1 model model.ensk.intgemm.alphas.bin 31561787 filter='' arch=None
+  ensk v2.1 lex lex.50.50.ensk.s2t.bin 3356348 filter='' arch=None
+  ensk v2.1 vocab vocab.ensk.spm 808888 filter='' arch=None
+ensk: 35.7 MB download

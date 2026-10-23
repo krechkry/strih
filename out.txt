@@ -1,0 +1,41 @@
+engine ready in 54 ms
+
+== firefox cs->en  load 105 ms, translate 315 ms
+  Ahoj, tohle je Bombocut.
+  -> Hey, this is Bombocut.
+  Dneska jedeme na skatepark v Karlíně a natočíme nový díl.
+  -> Today we are going to the skate park in Karlín and we will shoot a new part.
+  Robin jede první, pak zbytek party.
+  -> Robin's going first, then the rest of the party.
+  To je ono, to bylo fakt hustý!
+  -> That's it, that was really cool!
+  Kluci, dejte mi chvilku, musím si nafouknout kolo.
+  -> Guys, give me a minute, I need to inflate my bike.
+
+== firefox en->cs  load 47 ms, translate 154 ms
+  Hey, this is Bombocut.
+  -> Hej, tohle je Bombocut.
+  Today we are going to the skatepark in Karlín to film a new episode.
+  -> Dnes se chystáme na skatepark v Karlínu natočit nový díl.
+  Robin goes first, then the rest of the crew.
+  -> Robin jde první, pak zbytek posádky.
+  That's it, that was really sick!
+  -> To je ono, to bylo opravdu nemocné!
+
+== firefox en->sk  load 49 ms, translate 151 ms
+  Hey, this is Bombocut.
+  -> Hej, toto je Bombocut.
+  Today we are going to the skatepark in Karlín to film a new episode.
+  -> Dnes ideme do skateparku v Karlíne, aby sme natočili novú epizódu.
+  Robin goes first, then the rest of the crew.
+  -> Robin ide prvý, potom zvyšok posádky.
+  That's it, that was really sick!
+  -> To je všetko, to bolo naozaj choré!
+
+== firefox sk->en  load 40 ms, translate 70 ms
+  Ahoj, toto je Bombocut.
+  -> This is Bombocut.
+  Dnes ideme na skatepark a natočíme nový diel.
+  -> Today we are going to the skate park and we are filming a new part.
+  To bolo fakt super!
+  -> That was really cool!
