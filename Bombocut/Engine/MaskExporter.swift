@@ -83,7 +83,7 @@ final class MaskExporter: @unchecked Sendable {
                 img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
                     .transformed(by: CGAffineTransform(scaleX: CGFloat(W) / e.width, y: CGFloat(H) / e.height))
                     .cropped(to: frame)
-                var m = masker.mask(for: img, frame: frame, kind: mask.kind, detail: 1024, accurate: true)
+                var m = masker.mask(for: img, frame: frame, subject: mask, at: clip.inPoint + pts.seconds, detail: 1024, accurate: true)
                     ?? CIImage(color: .black).cropped(to: frame)
                 m = SubjectMasker.refine(m, mask, frame: frame)
                 let result: CIImage

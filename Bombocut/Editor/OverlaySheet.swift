@@ -1,29 +1,39 @@
 import SwiftUI
 
 /// The selected overlay, in tabs: Text (words, font, color, size), Style (outline, box, shadow),
-/// Animation (in / out) and Blend (blend mode, opacity, behind subject, sound).
+/// Animation (in / out), Blend (blend mode, opacity, behind subject, sound) and Speed (videos).
 struct OverlaySheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.closePanel) private var close
     @FocusState private var typing: Bool
     @Environment(\.panelCompact) private var compact
     @State private var tab: Tab = .text
+    @State private var speed: Double?          // while the speed slider moves
+    @State private var snapped = false
 
     enum Tab: String, CaseIterable {
-        case text, style, animation, blend
+        case text, style, animation, blend, speed
         var title: String {
             switch self {
             case .text: return "Text"
             case .style: return "Style"
             case .animation: return "Animation"
             case .blend: return "Blend"
+            case .speed: return "Speed"
             }
         }
     }
 
     private func tabs(_ o: Overlay) -> [Tab] {
-        if case .text = o.kind { return UIMode.isPro ? Tab.allCases : [.text] }
-        return [.animation, .blend]
+        if case .text = o.kind { return UIMode.isPro ? [.text, .style, .animation, .blend] : [.text] }
+        return o.kind.isVideo ? [.animation, .blend, .speed] : [.animation, .blend]
+    }
+
+    /// The overlay toolbar asked for a tab (Speed).
+    private func takeRequestedTab() {
+        guard let raw = model.overlayTab else { return }
+        model.overlayTab = nil
+        if let t = Tab(rawValue: raw) { tab = t }
     }
 
     var body: some View {
@@ -63,6 +73,7 @@ struct OverlaySheet: View {
                             case .style: styleTab(o.style)
                             case .animation: animationTab(o)
                             case .blend: blendTab(o)
+                            case .speed: speedTab(o)
                             }
                         }
                         .padding(.bottom, 30)
@@ -73,7 +84,11 @@ struct OverlaySheet: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .frame(maxHeight: .infinity, alignment: .top)
-            .onAppear { if case .text = o.kind { if model.focusNewText { tab = .text } } else { tab = .animation } }
+            .onAppear {
+                if case .text = o.kind { if model.focusNewText { tab = .text } } else { tab = .animation }
+                takeRequestedTab()
+            }
+            .onChange(of: model.overlayTab) { takeRequestedTab() }
             .onChange(of: model.editTextRequest) { editTapped() }
         }
     }
@@ -208,6 +223,50 @@ struct OverlaySheet: View {
         HStack(spacing: 10) {
             pill("Duplicate", on: false) { model.duplicateOverlay() }
             pill("Delete", on: false) { model.deleteOverlay(); close() }
+        }
+    }
+
+    // MARK: Speed (video overlays)
+
+    private static let ticks: [Double] = [0.25, 0.5, 1, 2, 4]
+
+    @ViewBuilder
+    private func speedTab(_ o: Overlay) -> some View {
+        let v = speed ?? o.speed
+        let full = o.duration * o.speed          // source seconds it plays now
+        HStack(alignment: .firstTextBaseline) {
+            Text(Fmt.speed(v))
+                .font(.system(size: 44, weight: .heavy).monospacedDigit())
+                .doubleTapNumberReset { model.setOverlaySpeed(1) }
+            Spacer()
+            Text(verbatim: "\(Fmt.duration(o.duration)) → \(Fmt.duration(full / max(v, 0.01)))")
+                .font(.subheadline.weight(.bold).monospacedDigit())
+                .foregroundStyle(Theme.muted)
+        }
+        BSlider(value: Binding(
+            get: { log10(max(v, 0.1)) },
+            set: { x in
+                var s = pow(10, x)
+                var hit = false
+                for t in Self.ticks where abs(log10(t) - x) < 0.025 { s = t; hit = true }
+                if hit && !snapped { UISelectionFeedbackGenerator().selectionChanged() }
+                snapped = hit
+                speed = (s * 100).rounded() / 100
+            }
+        ), in: -1...1, onEditingChanged: { editing in
+            if !editing, let s = speed { model.setOverlaySpeed(s); speed = nil }
+        })
+        .doubleTapReset { speed = nil; model.setOverlaySpeed(1) }
+        HStack(spacing: 8) {
+            ForEach(Self.ticks, id: \.self) { t in
+                pill(Fmt.speed(t), on: abs(v - t) < 0.001) { speed = nil; model.setOverlaySpeed(t) }
+            }
+        }
+        Text("The video overlay plays faster or slower; its sound keeps its pitch.")
+            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
+        if UIMode.isPro && model.project.overlays.filter({ $0.kind.isVideo }).count > 1 {
+            ApplyRow(model: model, kind: .overlaySpeed)
         }
     }
 

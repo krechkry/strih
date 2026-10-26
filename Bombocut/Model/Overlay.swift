@@ -80,8 +80,26 @@ struct Overlay: Codable, Hashable, Identifiable {
     /// Row in its lane (texts and pictures / videos each have their own rows), 0 = top row.
     /// The rows stack like they look: a higher row is drawn on top, and texts sit above pictures and videos.
     var track: Int?
+    var effects = Effects()            // Adjust: color and film effects on the layer itself (before it is placed)
+    var speed = 1.0                    // video overlays: playback speed (the timeline length follows)
+    var mask: SubjectMask?             // pictures and videos: cut-out (only the subject stays, see-through around it)
 
     var end: Double { start + duration }
+
+    /// Pictures and videos (texts have no mask or speed).
+    var isMedia: Bool { !isText }
+
+    /// Source seconds of a video overlay at timeline time `now`.
+    func sourceTime(at now: Double) -> Double {
+        guard case .video(_, _, let inPoint) = kind else { return 0 }
+        return inPoint + max(0, now - start) * speed
+    }
+
+    /// Longest a video overlay can run on the timeline from its in point at its speed.
+    var maxDuration: Double? {
+        guard case .video(_, let srcDur, let inPoint) = kind else { return nil }
+        return max(0.2, (srcDur - inPoint) / max(speed, 0.05))
+    }
 
     static var defaultTextStyle: CaptionStyle {
         var s = CaptionStyle()
@@ -119,6 +137,7 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
+        case effects, speed, mask
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -143,6 +162,9 @@ struct Overlay: Codable, Hashable, Identifiable {
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
         track = try c.decodeIfPresent(Int.self, forKey: .track)
         anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
+        effects = (try? c.decodeIfPresent(Effects.self, forKey: .effects)) ?? Effects()
+        speed = try c.decodeIfPresent(Double.self, forKey: .speed) ?? 1
+        mask = try? c.decodeIfPresent(SubjectMask.self, forKey: .mask)
     }
 
     /// Placement and opacity at timeline time `now` (keyframes, or the fixed values without them).

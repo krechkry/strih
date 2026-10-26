@@ -1120,6 +1120,16 @@
         }
       }
     },
+    "Clear": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat"
+          }
+        }
+      }
+    },
     "Clear caches?": {
       "localizations": {
         "cs": {
@@ -1260,6 +1270,16 @@
         }
       }
     },
+    "Could not find objects in this frame.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V tomhle snímku jsem nenašel žádné objekty."
+          }
+        }
+      }
+    },
     "Could not follow the subject.": {
       "localizations": {
         "cs": {
@@ -1386,6 +1406,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stříhání a skládání klipů, text a hudba, automatické titulky, rychlost, hlasitost a formát videa. Nic navíc, co by překáželo."
+          }
+        }
+      }
+    },
+    "Cut-out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výřez"
           }
         }
       }
@@ -1894,6 +1924,16 @@
         }
       }
     },
+    "Effects: whole layer · opacity: keyframes": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efekty: celá vrstva · krytí: keyframy"
+          }
+        }
+      }
+    },
     "End card": {
       "localizations": {
         "cs": {
@@ -2114,12 +2154,12 @@
         }
       }
     },
-    "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
+    "Finds people (fast) or the main subject in every frame, on your iPhone, or the objects you paint over (Custom). Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu, nebo věci, které přetřeš štětcem (Vlastní). Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
           }
         }
       }
@@ -2170,6 +2210,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sledovat"
+          }
+        }
+      }
+    },
+    "Followed through the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledováno celým klipem"
+          }
+        }
+      }
+    },
+    "Following your picks": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduji výběr"
           }
         }
       }
@@ -2588,6 +2648,16 @@
         }
       }
     },
+    "Keep": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechat"
+          }
+        }
+      }
+    },
     "Keep BOMBOCUT": {
       "localizations": {
         "cs": {
@@ -2664,6 +2734,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nech aplikaci otevřenou. Doporučujeme Wi-Fi."
+          }
+        }
+      }
+    },
+    "Keeps only the people, the main subject or the objects you paint over, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechá jen lidi, hlavní objekt nebo to, co přetřeš štětcem, a zbytek překrytí zprůhlední. Nic se nemaže natrvalo, kdykoli to zase vypneš."
           }
         }
       }
@@ -2914,6 +2994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Purpurová"
+          }
+        }
+      }
+    },
+    "Main subject": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlavní objekt"
           }
         }
       }
@@ -3298,12 +3388,32 @@
         }
       }
     },
+    "Only the painted frame so far.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatím jen namalovaný snímek."
+          }
+        }
+      }
+    },
     "Opacity": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Krytí"
+          }
+        }
+      }
+    },
+    "Opacity: keyframe at %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krytí: keyframe v %@"
           }
         }
       }
@@ -3374,6 +3484,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí s volbou „Za objekt“ se vykreslí mezi pozadím a objektem."
+          }
+        }
+      }
+    },
+    "Paint": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Malovat"
+          }
+        }
+      }
+    },
+    "Paint more": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přimalovat"
+          }
+        }
+      }
+    },
+    "Paint over an object to keep it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přetři objekt, který chceš nechat."
+          }
+        }
+      }
+    },
+    "Paint over the objects to keep on the preview. Each object you touch is picked whole.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přetři v náhledu věci, které chceš nechat. Každá věc, které se dotkneš, se vybere celá."
+          }
+        }
+      }
+    },
+    "Paint over what to keep": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přetři, co chceš nechat"
+          }
+        }
+      }
+    },
+    "Paint over what to remove": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přetři, co chceš odebrat"
+          }
+        }
+      }
+    },
+    "Painting on another frame starts over there.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Malování na jiném snímku začne znovu tam."
+          }
+        }
+      }
+    },
+    "Painting…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Malování…"
           }
         }
       }
@@ -4898,6 +5088,16 @@
         }
       }
     },
+    "The video overlay plays faster or slower; its sound keeps its pitch.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video v překrytí hraje rychleji nebo pomaleji, zvuk si drží výšku tónu."
+          }
+        }
+      }
+    },
     "Then buy it once, or don't.": {
       "localizations": {
         "cs": {
@@ -5344,6 +5544,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Celý klip"
+          }
+        }
+      }
+    },
+    "Whole layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Celá vrstva"
           }
         }
       }

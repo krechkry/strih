@@ -272,8 +272,14 @@ struct TrackCurve: Hashable {
 /// Cut the subject out of the frame (Apple Vision, on the phone) to treat the background separately.
 struct SubjectMask: Codable, Hashable {
     enum Kind: String, Codable, CaseIterable {
-        case person, subject
-        var title: String { self == .person ? "People" : "Any subject" }
+        case person, subject, custom
+        var title: String {
+            switch self {
+            case .person: return "People"
+            case .subject: return "Main subject"
+            case .custom: return "Custom"
+            }
+        }
     }
     var kind = Kind.person
     var blur = 0.0          // 0...1 background blur
@@ -282,6 +288,7 @@ struct SubjectMask: Codable, Hashable {
     var feather = 0.0       // 0...1 edge softness (0: the sharp edge Vision finds)
     var grow = 0.0          // -1...1 pull the edge in (−) or push it out (+)
     var invert = false      // treat the background as the subject
+    var picks: MaskPicks?   // custom: the objects painted over (and followed through the clip)
 
     init(kind: Kind = .person, blur: Double = 0, dim: Double = 0, desaturate: Double = 0) {
         self.kind = kind
@@ -290,16 +297,68 @@ struct SubjectMask: Codable, Hashable {
         self.desaturate = desaturate
     }
 
-    enum CodingKeys: String, CodingKey { case kind, blur, dim, desaturate, feather, grow, invert }
+    enum CodingKeys: String, CodingKey { case kind, blur, dim, desaturate, feather, grow, invert, picks }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .person
+        kind = (try? c.decodeIfPresent(Kind.self, forKey: .kind)) ?? .person
         blur = try c.decodeIfPresent(Double.self, forKey: .blur) ?? 0
         dim = try c.decodeIfPresent(Double.self, forKey: .dim) ?? 0
         desaturate = try c.decodeIfPresent(Double.self, forKey: .desaturate) ?? 0
         feather = try c.decodeIfPresent(Double.self, forKey: .feather) ?? 0.15
         grow = try c.decodeIfPresent(Double.self, forKey: .grow) ?? 0
         invert = try c.decodeIfPresent(Bool.self, forKey: .invert) ?? false
+        picks = try? c.decodeIfPresent(MaskPicks.self, forKey: .picks)
+    }
+}
+
+/// One brush stroke of a custom mask: keep (+) or remove (−) what it touches. Points are normalized on
+/// the upright source picture (top-left origin), flat x0, y0, x1, y1, …
+struct MaskStroke: Codable, Hashable {
+    var add: Bool
+    var xy: [Double]
+}
+
+/// Where the picked objects are at one moment: a few points inside each kept (and each removed) object,
+/// flat x, y like a stroke. Made by following the strokes through the clip (`Analyzer.followPicks`).
+struct PickSample: Codable, Hashable {
+    var t: Double           // source seconds
+    var keep: [Double]
+    var drop: [Double]
+}
+
+/// Custom mask: objects picked by painting on one frame. Apple Vision splits every frame into objects
+/// (people, bikes, animals, things in front); the ones the strokes touch are the subject, and they are
+/// followed frame to frame by overlap.
+struct MaskPicks: Codable, Hashable {
+    var anchor: Double                  // source seconds of the frame the strokes were painted on
+    var strokes: [MaskStroke] = []
+    var samples: [PickSample] = []      // empty: only the painted frame is known yet (photos never need more)
+
+    /// Followed through the clip yet (painting again clears it).
+    var followed: Bool { !samples.isEmpty }
+
+    var isEmpty: Bool { strokes.allSatisfy { !$0.add } }
+
+    /// Points that pick the objects at source time s: the strokes on their own frame (or with nothing
+    /// followed yet), otherwise the two samples around s.
+    func points(at s: Double) -> (keep: [CGPoint], drop: [CGPoint]) {
+        func pts(_ f: [Double]) -> [CGPoint] {
+            stride(from: 0, to: f.count - 1, by: 2).map { CGPoint(x: f[$0], y: f[$0 + 1]) }
+        }
+        if samples.isEmpty || abs(s - anchor) < 0.02 {
+            var k: [CGPoint] = [], d: [CGPoint] = []
+            for st in strokes { if st.add { k += pts(st.xy) } else { d += pts(st.xy) } }
+            return (k, d)
+        }
+        var lo = 0, hi = samples.count - 1
+        if s <= samples[lo].t { return (pts(samples[lo].keep), pts(samples[lo].drop)) }
+        if s >= samples[hi].t { return (pts(samples[hi].keep), pts(samples[hi].drop)) }
+        while hi - lo > 1 {
+            let mid = (lo + hi) / 2
+            if samples[mid].t <= s { lo = mid } else { hi = mid }
+        }
+        let a = samples[lo], b = samples[hi]
+        return (pts(a.keep) + pts(b.keep), pts(a.drop) + pts(b.drop))
     }
 }

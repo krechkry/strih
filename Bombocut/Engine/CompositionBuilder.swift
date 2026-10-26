@@ -267,22 +267,31 @@ enum CompositionBuilder {
                   let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
             let (pref, range) = loaded
-            let len = min(o.duration, range.duration.seconds - inPoint, contentEnd.seconds - o.start)
+            // at its speed, the overlay plays `len` timeline seconds of `len × speed` source seconds
+            let speed = min(max(o.speed, 0.05), 100)
+            let len = min(o.duration, (range.duration.seconds - inPoint) / speed, contentEnd.seconds - o.start)
             guard len > 0.04 else { comp.removeTrack(track); continue }
-            let r = CMTimeRange(start: time(inPoint), duration: time(len)).intersection(range)
+            let r = CMTimeRange(start: time(inPoint), duration: time(len * speed)).intersection(range)
+            let outLen = time(r.duration.seconds / speed)
             if (try? track.insertTimeRange(r, of: src, at: time(o.start))) != nil {
+                if abs(speed - 1) > 0.001 { track.scaleTimeRange(CMTimeRange(start: time(o.start), duration: r.duration), toDuration: outLen) }
                 overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
             } else {
                 comp.removeTrack(track)
                 continue
             }
-            // its sound, on its own track so its volume is separate
+            // its sound, on its own track so its volume is separate (pitch kept when sped up or slowed down)
             if o.volume > 0.001, let a = try? await asset.loadTracks(withMediaType: .audio).first,
                let ar = try? await a.load(.timeRange),
                let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                 let rr = r.intersection(ar)
-                if rr.duration.seconds > 0.01, (try? at.insertTimeRange(rr, of: a, at: time(o.start + (rr.start - r.start).seconds))) != nil {
+                let startAt = time(o.start + (rr.start - r.start).seconds / speed)
+                if rr.duration.seconds > 0.01, (try? at.insertTimeRange(rr, of: a, at: startAt)) != nil {
+                    if abs(speed - 1) > 0.001 {
+                        at.scaleTimeRange(CMTimeRange(start: startAt, duration: rr.duration), toDuration: time(rr.duration.seconds / speed))
+                    }
                     let p = AVMutableAudioMixInputParameters(track: at)
+                    p.audioTimePitchAlgorithm = .spectral
                     p.setVolume(Float(o.volume), at: .zero)
                     overlayAudio.append(p)
                 } else {

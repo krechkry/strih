@@ -16,47 +16,10 @@ struct MaskSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Subject mask").font(.title3.weight(.heavy))
-                if let i = model.selectedIndex {
-                    let m = model.project.clips[i].mask
-                    HStack(spacing: 8) {
-                        pill("Off", on: m == nil) { model.mutateLook { $0.clips[i].mask = nil } }
-                        ForEach(SubjectMask.Kind.allCases, id: \.self) { k in
-                            pill(k.title, on: m?.kind == k) {
-                                model.mutateLook { p in
-                                    var n = p.clips[i].mask ?? SubjectMask(blur: 0.5)
-                                    n.kind = k
-                                    p.clips[i].mask = n
-                                }
-                            }
-                        }
-                    }
-                    if let m {
-                        group("Edge") {
-                            slider("Softness", m.feather, def: SubjectMask().feather) { v in model.editClip { $0.mask?.feather = v } }
-                            slider("Shrink / grow", m.grow, range: -1...1, center: true) { v in model.editClip { $0.mask?.grow = v } }
-                            Toggle(isOn: Binding(get: { m.invert }, set: { v in model.mutateLook { $0.clips[i].mask?.invert = v } })) {
-                                Text("Invert (swap subject and background)").font(.subheadline.weight(.bold))
-                            }
-                            .tint(Theme.accent)
-                        }
-                        group("Background") {
-                            slider("Blur", m.blur) { v in model.editClip { $0.mask?.blur = v } }
-                            slider("Darken", m.dim) { v in model.editClip { $0.mask?.dim = v } }
-                            slider("Black & white", m.desaturate) { v in model.editClip { $0.mask?.desaturate = v } }
-                        }
-                        Text("Overlays set to “Behind subject” go between the background and the subject.")
-                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        ApplyRow(model: model, kind: .mask)
-                        group("Use the cut-out elsewhere") {
-                            filesRow(i)
-                        }
-                    } else {
-                        Text("Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                if let oi = model.selectedOverlayIndex {
+                    overlayMask(model.project.overlays[oi])
+                } else if let i = model.selectedIndex {
+                    clipMask(i)
                 }
             }
             .padding(20)
@@ -68,6 +31,116 @@ struct MaskSheet: View {
             Button("Use as overlay") { useAsOverlay() }
             Button("Later", role: .cancel) {}
         }
+    }
+
+    @ViewBuilder
+    private func clipMask(_ i: Int) -> some View {
+        Text("Subject mask").font(.title3.weight(.heavy))
+        let m = model.project.clips[i].mask
+        kindRow(m)
+        if let m {
+            if m.kind == .custom { customRow(m) }
+            group("Edge") { edge(m) }
+            group("Background") {
+                slider("Blur", m.blur) { v in model.editMask { $0.blur = v } }
+                slider("Darken", m.dim) { v in model.editMask { $0.dim = v } }
+                slider("Black & white", m.desaturate) { v in model.editMask { $0.desaturate = v } }
+            }
+            Text("Overlays set to “Behind subject” go between the background and the subject.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            ApplyRow(model: model, kind: .mask)
+            group("Use the cut-out elsewhere") {
+                filesRow(i)
+            }
+        } else {
+            Text("Finds people (fast) or the main subject in every frame, on your iPhone, or the objects you paint over (Custom). Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Pictures and videos above the clips: a cut-out, only the subject stays and the rest is see-through.
+    @ViewBuilder
+    private func overlayMask(_ o: Overlay) -> some View {
+        Text("Cut-out").font(.title3.weight(.heavy))
+        if o.isMedia {
+            let m = o.mask
+            kindRow(m)
+            if let m {
+                if m.kind == .custom { customRow(m) }
+                group("Edge") { edge(m) }
+                if model.project.overlays.filter(\.isMedia).count > 1 { ApplyRow(model: model, kind: .overlayMask) }
+            } else {
+                Text("Keeps only the people, the main subject or the objects you paint over, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func kindRow(_ m: SubjectMask?) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                pill("Off", on: m == nil) { setKind(nil) }
+                ForEach(SubjectMask.Kind.allCases, id: \.self) { k in
+                    pill(k.title, on: m?.kind == k) { setKind(k) }
+                }
+            }
+        }
+    }
+
+    private func setKind(_ k: SubjectMask.Kind?) {
+        if model.selectedOverlayIndex != nil { model.setOverlayMask(k) } else { model.setClipMask(k) }
+    }
+
+    @ViewBuilder
+    private func edge(_ m: SubjectMask) -> some View {
+        slider("Softness", m.feather, def: 0) { v in model.editMask { $0.feather = v } }
+        slider("Shrink / grow", m.grow, range: -1...1, center: true) { v in model.editMask { $0.grow = v } }
+        Toggle(isOn: Binding(get: { m.invert }, set: { v in model.setMask { $0.invert = v } })) {
+            Text("Invert (swap subject and background)").font(.subheadline.weight(.bold))
+        }
+        .tint(Theme.accent)
+    }
+
+    /// Custom: paint over objects on the preview, then they are followed through moving footage.
+    @ViewBuilder
+    private func customRow(_ m: SubjectMask) -> some View {
+        let picks = m.picks
+        let painted = !(picks?.isEmpty ?? true)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                action(model.maskPaint ? "Painting…" : (painted ? "Paint more" : "Paint"), "paintbrush.pointed.fill") {
+                    if model.maskPaint { model.finishPaint() } else { model.startPaint() }
+                }
+                if picks != nil {
+                    action("Clear", "trash") { model.clearStrokes() }
+                }
+            }
+            if !painted {
+                note("Paint over the objects to keep on the preview. Each object you touch is picked whole.")
+            } else if model.maskMoves {
+                if picks?.followed == true {
+                    Label(loc("Followed through the clip"), systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
+                } else if !model.maskPaint {
+                    HStack(spacing: 8) {
+                        note("Only the painted frame so far.")
+                        Spacer(minLength: 4)
+                        action("Follow", "point.topleft.down.to.point.bottomright.curvepath") { model.followPicks() }
+                    }
+                }
+            }
+            if painted && model.maskMoves {
+                note("Painting on another frame starts over there.")
+            }
+        }
+    }
+
+    private func note(_ s: String) -> some View {
+        Text(loc(s)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Files

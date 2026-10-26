@@ -56,6 +56,7 @@ final class EditorModel: ObservableObject {
                 if selectedAudioID != nil { selectedAudioID = nil }
             }
             if maskPanelOpen { updateMaskOutline() }
+            if maskPaint && selectedClipID != oldValue { maskPaint = false }
         }
     }
     /// The captions track is selected: fingers on the preview move the captions.
@@ -808,15 +809,55 @@ final class EditorModel: ObservableObject {
 
     private var lookSnapshot: Project?
 
+    // The Adjust panel works on the selected overlay when one is selected: its effects (for the whole layer)
+    // and its opacity (the fixed value, or the keyframe under the playhead).
+
+    /// Something for the Adjust panel to work on.
+    var hasAdjustTarget: Bool { selectedIndex != nil || selectedOverlayIndex != nil }
+    var adjustsOverlay: Bool { selectedOverlayIndex != nil }
+
+    /// What the Adjust panel shows: the selected overlay's look, or the selected clip's look at the playhead.
+    func adjustLook() -> Look {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            let pose = o.pose(at: currentTime)
+            return Look(transform: pose.transform, opacity: pose.opacity, effects: o.effects)
+        }
+        guard let i = selectedIndex else { return Look() }
+        return lookAtPlayhead(i)
+    }
+
+    /// Changes the selected overlay's effects and opacity as if they were a clip's look.
+    private func applyOverlayLook(_ o: inout Overlay, at now: Double, _ change: (inout Look) -> Void) {
+        let pose = o.pose(at: now)
+        var l = Look(transform: pose.transform, opacity: pose.opacity, effects: o.effects)
+        change(&l)
+        o.effects = l.effects
+        if abs(l.opacity - pose.opacity) > 1e-9 {
+            let v = l.opacity
+            o.changePose(at: now) { _, op in op = v }
+        }
+    }
+
     /// Slider drag started.
     func lookEditBegan() {
         pause()
         lookSnapshot = project
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            if currentTime < o.start || currentTime >= o.end { scrub(to: o.start + min(0.05, o.duration / 2)) }
+            return
+        }
         if let i = selectedIndex, !playheadInSelected { scrub(to: project.clipStarts[i] + 0.01) }
     }
 
     /// Live slider change (no undo step until the drag ends).
     func editLook(_ change: (inout Look) -> Void) {
+        if let oi = selectedOverlayIndex {
+            applyOverlayLook(&project.overlays[oi], at: currentTime, change)
+            publishLook()
+            return
+        }
         guard let i = selectedIndex else { return }
         let s = sourceTime(i)
         Self.applyLook(&project.clips[i], atSource: s, change)
@@ -830,12 +871,21 @@ final class EditorModel: ObservableObject {
     }
 
     func resetParam(_ p: LookParam) {
+        if let oi = selectedOverlayIndex {
+            let now = currentTime
+            mutateLook { pr in self.applyOverlayLook(&pr.overlays[oi], at: now) { p.set(&$0, p.neutral) } }
+            return
+        }
         guard let i = selectedIndex else { return }
         let s = sourceTime(i)
         mutateLook { pr in Self.applyLook(&pr.clips[i], atSource: s) { p.set(&$0, p.neutral) } }
     }
 
     func resetAllLook() {
+        if let oi = selectedOverlayIndex {
+            mutateLook { $0.overlays[oi].effects = Effects() }
+            return
+        }
         guard let i = selectedIndex else { return }
         mutateLook { p in
             p.clips[i].keyframes = []
@@ -1536,11 +1586,19 @@ final class EditorModel: ObservableObject {
     @Published var trackPanelOpen = false
     /// The Mask panel is open: the selected clip's subject gets a lime outline in the preview.
     @Published var maskPanelOpen = false { didSet { if maskPanelOpen != oldValue { updateMaskOutline() } } }
+    /// Painting a custom mask on the preview (fingers paint instead of scrubbing).
+    @Published var maskPaint = false
+    /// The brush keeps (true) or removes what it touches.
+    @Published var paintAdds = true
+    /// Tab the overlay panel should open on (an `OverlaySheet.Tab` raw value), set by the overlay toolbar.
+    @Published var overlayTab: String?
 
     func updateMaskOutline() {
         let id = maskPanelOpen ? selectedClipID : nil
-        guard LookStore.shared.outlineClip != id else { return }
+        let oid = maskPanelOpen ? selectedOverlayID : nil
+        guard LookStore.shared.outlineClip != id || OverlayStore.shared.outlineOverlay != oid else { return }
         LookStore.shared.outlineClip = id
+        OverlayStore.shared.outlineOverlay = oid
         refreshFrame()
     }
     /// Range being scrubbed (shown as a slim bar on the preview), nil when not scrubbing.
@@ -1829,6 +1887,7 @@ final class EditorModel: ObservableObject {
 
     enum ApplyKind: String {
         case motionBlur, adjust, speed, volume, mask, overlayStyle, animation, speech
+        case overlayAdjust, overlayMask, overlaySpeed
         /// Not a copy: picks the clips the captions listen to.
         case captions
 
@@ -1843,10 +1902,13 @@ final class EditorModel: ObservableObject {
             case .animation: return "Transition"
             case .speech: return "Speech"
             case .captions: return "Captions"
+            case .overlayAdjust: return "Adjust"
+            case .overlayMask: return "Mask"
+            case .overlaySpeed: return "Speed"
             }
         }
         /// Copies between overlays instead of clips.
-        var forOverlays: Bool { self == .overlayStyle }
+        var forOverlays: Bool { [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed].contains(self) }
         /// Changes clip lengths (captions and overlays follow, the video rebuilds).
         var retimes: Bool { self == .speed || self == .speech }
     }
@@ -1886,13 +1948,31 @@ final class EditorModel: ObservableObject {
             c.anim = s.anim
         case .speech:
             c.speech = s.speech
-        case .overlayStyle, .captions:
+        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions:
             break
         }
     }
 
-    /// Text look (font, colors, size, box...), blend, opacity and "behind subject" from one overlay to another.
-    private func copyOverlay(from s: Overlay, to o: inout Overlay) {
+    /// One overlay's settings to another: its Adjust effects, its cut-out (pictures and videos), its speed (videos,
+    /// the length follows), or its look: text look (font, colors, size, box...), blend, opacity and "behind subject".
+    private func copyOverlay(_ kind: ApplyKind, from s: Overlay, to o: inout Overlay, timeline: Double) {
+        switch kind {
+        case .overlayAdjust:
+            o.effects = s.effects
+            return
+        case .overlayMask:
+            guard o.isMedia else { return }
+            // custom picks belong to the picture they were painted on
+            if s.mask?.kind == .custom && s.mask?.picks != nil && s.kind.mediaFile != o.kind.mediaFile { return }
+            o.mask = s.mask
+            return
+        case .overlaySpeed:
+            guard o.kind.isVideo else { return }
+            Self.setSpeed(&o, s.speed, timeline: timeline)
+            return
+        default:
+            break
+        }
         if case .text = s.kind, case .text = o.kind {
             var st = s.style
             st.x = o.style.x
@@ -1907,13 +1987,16 @@ final class EditorModel: ObservableObject {
         o.anim = s.anim
     }
 
-    private func applyOverlays(from id: UUID, to ids: Set<UUID>) {
+    private func applyOverlays(_ kind: ApplyKind, from id: UUID, to ids: Set<UUID>) {
         guard let s = project.overlays.first(where: { $0.id == id }) else { return }
-        mutateLook { p in
+        let total = duration
+        let change: (inout Project) -> Void = { p in
             for j in p.overlays.indices where ids.contains(p.overlays[j].id) && p.overlays[j].id != id {
-                self.copyOverlay(from: s, to: &p.overlays[j])
+                self.copyOverlay(kind, from: s, to: &p.overlays[j], timeline: total)
             }
         }
+        // a new speed changes how the video overlays play: rebuild
+        if kind == .overlaySpeed { mutate(change) } else { mutateLook(change) }
     }
 
     /// The source clip's look where the playhead is (keyframed looks copy what you see now).
@@ -1938,7 +2021,7 @@ final class EditorModel: ObservableObject {
     func applyToAll(_ kind: ApplyKind) {
         if kind.forOverlays {
             guard let id = selectedOverlayID else { return }
-            applyOverlays(from: id, to: Set(project.overlays.map(\.id)))
+            applyOverlays(kind, from: id, to: Set(project.overlays.map(\.id)))
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
         }
@@ -1986,7 +2069,7 @@ final class EditorModel: ObservableObject {
         }
         guard ok, !p.picked.isEmpty else { return }
         if p.kind.forOverlays {
-            applyOverlays(from: p.source, to: p.picked)
+            applyOverlays(p.kind, from: p.source, to: p.picked)
         } else {
             guard let i = project.clips.firstIndex(where: { $0.id == p.source }) else { return }
             apply(p.kind, from: i, to: p.picked)
@@ -1996,7 +2079,12 @@ final class EditorModel: ObservableObject {
 
     // MARK: Overlays
 
-    @Published var selectedOverlayID: UUID?
+    @Published var selectedOverlayID: UUID? {
+        didSet {
+            if maskPanelOpen && selectedOverlayID != oldValue { updateMaskOutline() }
+            if maskPaint && selectedOverlayID != oldValue { maskPaint = false }
+        }
+    }
     /// A text was just added: its panel opens with the keyboard up.
     var focusNewText = false
     @Published private(set) var overlayGuides: Set<Guide> = []
@@ -2165,7 +2253,7 @@ final class EditorModel: ObservableObject {
         if overlayTimingSnapshot == nil { overlayTimingSnapshot = project }
         var o = project.overlays[i]
         var d = max(0.2, duration)
-        if case .video(_, let srcDur, let inPoint) = o.kind { d = min(d, srcDur - inPoint) }
+        if let m = o.maxDuration { d = min(d, m) }
         o.duration = min(d, max(0.2, self.duration - start))
         o.start = min(max(0, start), max(0, self.duration - 0.2))
         // trimming the head keeps keyframes on the same moments; moving the whole block takes them along
@@ -2511,4 +2599,244 @@ final class CancelFlag: @unchecked Sendable {
     private var value = false
     var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
     func set() { lock.lock(); value = true; lock.unlock() }
+}
+
+// MARK: Overlays get clip tools: speed (videos) and cut-out (pictures and videos), custom masks painted on the preview
+
+extension EditorModel {
+    /// A video overlay at a new speed: the same footage plays, so its length (and its keyframes) follow.
+    static func setSpeed(_ o: inout Overlay, _ v: Double, timeline: Double) {
+        guard o.kind.isVideo else { return }
+        let v = min(max(v, 0.1), 10)
+        guard abs(o.speed - v) > 1e-6 else { return }
+        let ratio = o.speed / v
+        o.speed = v
+        let len = min(o.duration * ratio, o.maxDuration ?? .infinity, max(0.2, timeline - o.start))
+        o.duration = max(0.2, len)
+        let d = o.duration
+        o.keys = o.keys.map { var k = $0; k.t = min(k.t * ratio, d); return k }
+    }
+
+    func setOverlaySpeed(_ v: Double) {
+        guard let i = selectedOverlayIndex, project.overlays[i].kind.isVideo else { return }
+        var o = project.overlays[i]
+        Self.setSpeed(&o, v, timeline: duration)
+        guard o != project.overlays[i] else { return }
+        mutate { $0.overlays[i] = o }
+    }
+
+    /// Cut-out of the selected picture / video overlay (nil: off). Custom starts painting right away.
+    func setOverlayMask(_ kind: SubjectMask.Kind?) {
+        guard let i = selectedOverlayIndex, project.overlays[i].isMedia else { return }
+        guard let kind else {
+            maskPaint = false
+            mutateLook { $0.overlays[i].mask = nil }
+            return
+        }
+        mutateLook { p in
+            var m = p.overlays[i].mask ?? SubjectMask(kind: kind)
+            m.kind = kind
+            m.feather = p.overlays[i].mask?.feather ?? 0
+            p.overlays[i].mask = m
+        }
+        if kind == .custom { startPaint() }
+    }
+
+    /// Clip mask kind from the Mask panel (custom starts painting right away).
+    func setClipMask(_ kind: SubjectMask.Kind?) {
+        guard let i = selectedIndex else { return }
+        guard let kind else {
+            maskPaint = false
+            mutateLook { $0.clips[i].mask = nil }
+            return
+        }
+        mutateLook { p in
+            var n = p.clips[i].mask ?? SubjectMask(blur: 0.5)
+            n.kind = kind
+            p.clips[i].mask = n
+        }
+        if kind == .custom { startPaint() }
+    }
+
+    /// The mask the Mask panel works on: the selected overlay's, or the selected clip's.
+    var editedMask: SubjectMask? {
+        if let oi = selectedOverlayIndex { return project.overlays[oi].mask }
+        if let i = selectedIndex { return project.clips[i].mask }
+        return nil
+    }
+
+    /// Live change to the edited mask (sliders); pair with liveEditBegan / liveEditEnded.
+    func editMask(_ change: (inout SubjectMask) -> Void) {
+        if let oi = selectedOverlayIndex {
+            guard var m = project.overlays[oi].mask else { return }
+            change(&m)
+            project.overlays[oi].mask = m
+            publishLook()
+            return
+        }
+        guard let i = selectedIndex, var m = project.clips[i].mask else { return }
+        change(&m)
+        project.clips[i].mask = m
+        publishLook()
+    }
+
+    /// One-step change to the edited mask.
+    func setMask(_ change: @escaping (inout SubjectMask) -> Void) {
+        if let oi = selectedOverlayIndex {
+            guard project.overlays[oi].mask != nil else { return }
+            mutateLook { p in if var m = p.overlays[oi].mask { change(&m); p.overlays[oi].mask = m } }
+            return
+        }
+        guard let i = selectedIndex, project.clips[i].mask != nil else { return }
+        mutateLook { p in if var m = p.clips[i].mask { change(&m); p.clips[i].mask = m } }
+    }
+
+    // MARK: Painting a custom mask
+
+    /// Source seconds of the frame being painted on (clip, video overlay; 0 for a picture).
+    var paintSourceTime: Double? {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            return o.kind.isVideo ? o.sourceTime(at: min(max(currentTime, o.start), o.end - 0.001)) : 0
+        }
+        if let i = selectedIndex { return sourceTime(i) }
+        return nil
+    }
+
+    /// Normalized points on the painted picture (upright source, top-left origin) to preview canvas points.
+    func paintTransform(canvas: CGSize) -> CGAffineTransform? {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
+            let t = o.pose(at: currentTime).transform
+            let bw = base.width * t.scale, bh = base.height * t.scale
+            guard bw > 1, bh > 1 else { return nil }
+            return CGAffineTransform(translationX: -0.5, y: -0.5)
+                .concatenating(CGAffineTransform(scaleX: bw, y: bh))
+                .concatenating(CGAffineTransform(rotationAngle: t.rotation))
+                .concatenating(CGAffineTransform(translationX: canvas.width / 2 + t.x * canvas.width,
+                                                 y: canvas.height / 2 + t.y * canvas.height))
+        }
+        guard let i = selectedIndex else { return nil }
+        return sourceToCanvas(i, canvas: canvas)
+    }
+
+    /// Paint on the preview: the playhead goes onto what is being masked, fingers paint instead of scrubbing.
+    func startPaint() {
+        pause()
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            if currentTime < o.start || currentTime >= o.end { scrub(to: o.start + min(0.05, o.duration / 2)) }
+        } else if let i = selectedIndex, !playheadInSelected {
+            scrub(to: project.clipStarts[i] + 0.01)
+        }
+        maskPaint = true
+    }
+
+    /// The strokes to draw on the preview (only on the frame they were painted on).
+    var visibleStrokes: [MaskStroke] {
+        guard let picks = editedMask?.picks, let s = paintSourceTime, abs(picks.anchor - s) < 0.03 else { return [] }
+        return picks.strokes
+    }
+
+    /// A finished stroke, in preview canvas points. Painting on another frame than before starts over there.
+    func addStroke(_ points: [CGPoint], canvas: CGSize) {
+        guard let m = paintTransform(canvas: canvas), let s = paintSourceTime, !points.isEmpty else { return }
+        let inv = m.inverted()
+        var flat: [Double] = []
+        var last: CGPoint?
+        for p in points {
+            let q = p.applying(inv)
+            guard q.x > -0.02, q.x < 1.02, q.y > -0.02, q.y < 1.02 else { continue }
+            let c = CGPoint(x: min(max(q.x, 0), 1), y: min(max(q.y, 0), 1))
+            if let l = last, hypot(c.x - l.x, c.y - l.y) < 0.012 { continue }
+            flat += [(Double(c.x) * 10000).rounded() / 10000, (Double(c.y) * 10000).rounded() / 10000]
+            last = c
+        }
+        guard !flat.isEmpty else { return }
+        if flat.count > 160 {
+            // long scribbles: every other point is plenty
+            flat = stride(from: 0, to: flat.count - 1, by: 4).flatMap { [flat[$0], flat[$0 + 1]] }
+        }
+        let stroke = MaskStroke(add: paintAdds, xy: flat)
+        setMask { mask in
+            var picks = mask.picks ?? MaskPicks(anchor: s)
+            if abs(picks.anchor - s) > 0.02 { picks = MaskPicks(anchor: s) }
+            picks.strokes.append(stroke)
+            picks.samples = []
+            mask.picks = picks
+            mask.kind = .custom
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    func clearStrokes() {
+        setMask { $0.picks = nil }
+    }
+
+    /// The edited mask needs following through moving footage (a clip that isn't a still, or a video overlay).
+    var maskMoves: Bool {
+        if let oi = selectedOverlayIndex { return project.overlays[oi].kind.isVideo }
+        if let i = selectedIndex { return !project.clips[i].still }
+        return false
+    }
+
+    /// Done painting: on moving footage the picks are followed through it.
+    func finishPaint() {
+        maskPaint = false
+        guard maskMoves, let picks = editedMask?.picks, !picks.isEmpty, !picks.followed else { return }
+        followPicks()
+    }
+
+    /// Follows the painted objects through the clip (or the video overlay), like tracking does.
+    func followPicks() {
+        guard analysis == nil, let mask = editedMask, mask.kind == .custom, let picks = mask.picks, !picks.isEmpty else { return }
+        let file: String, t0: Double, t1: Double
+        let overlayID = selectedOverlayID, clipID = selectedClipID
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            guard case .video(let f, let srcDur, let inPoint) = o.kind else { return }
+            file = f
+            t0 = inPoint
+            t1 = min(srcDur, inPoint + o.duration * o.speed)
+        } else if let i = selectedIndex {
+            let c = project.clips[i]
+            guard !c.still else { return }
+            file = c.mediaFile
+            t0 = c.inPoint
+            t1 = c.outPoint
+        } else {
+            return
+        }
+        pause()
+        analysis = AnalysisState(title: "Following your picks", progress: 0)
+        analysisTask = Task {
+            let flag = CancelFlag()
+            await withTaskCancellationHandler {
+                do {
+                    let samples = try await Task.detached(priority: .userInitiated) {
+                        try await Analyzer.followPicks(file: file, from: t0, to: t1, picks: picks, progress: { f in
+                            Task { @MainActor in self.analysis?.progress = f }
+                        }, isCancelled: { flag.isSet })
+                    }.value
+                    // only if the strokes are still the ones that were followed
+                    let apply: (inout SubjectMask?) -> Void = { m in
+                        guard var mm = m, mm.picks?.strokes == picks.strokes, mm.picks?.anchor == picks.anchor else { return }
+                        mm.picks?.samples = samples
+                        m = mm
+                    }
+                    if let oid = overlayID, let j = project.overlays.firstIndex(where: { $0.id == oid }) {
+                        mutateLook { apply(&$0.overlays[j].mask) }
+                    } else if let cid = clipID, let j = project.clips.firstIndex(where: { $0.id == cid }) {
+                        mutateLook { apply(&$0.clips[j].mask) }
+                    }
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } catch {
+                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                }
+            } onCancel: { flag.set() }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
 }

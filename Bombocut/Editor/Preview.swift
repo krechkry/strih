@@ -24,6 +24,7 @@ struct PreviewArea: View {
     @State private var panBase: CGSize = .zero
     @State private var pinching = false
     @State private var dragIsPan: Bool?
+    @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
 
     var body: some View {
         GeometryReader { geo in
@@ -46,7 +47,7 @@ struct PreviewArea: View {
                 .scaleEffect(viewZoom)
                 .offset(viewOffset)
                 .frame(width: w, height: h)
-                if !model.trackPick && model.analysis == nil {
+                if !model.trackPick && model.analysis == nil && !model.maskPaint {
                     if model.previewScrubs {
                         // zoomed in, the picture spills past the canvas: the whole area takes the fingers
                         scrubSurface(canvas, area: geo.size)
@@ -56,6 +57,7 @@ struct PreviewArea: View {
                     }
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
+                if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
                 if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
@@ -436,6 +438,69 @@ struct PreviewArea: View {
                     break
                 }
             }
+    }
+
+    // MARK: Painting a custom mask
+
+    /// Paint over objects to keep (lime) or remove (red); the outline shows what is picked after each stroke.
+    private func paintOverlay(_ canvas: CGSize) -> some View {
+        let m = model.paintTransform(canvas: canvas)
+        let zoom = CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2)
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: canvas.width / 2 + viewOffset.width, y: canvas.height / 2 + viewOffset.height))
+        let brush = max(10, min(canvas.width, canvas.height) * 0.035) * viewZoom
+        return ZStack {
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { v in stroke.append(contentPoint(v.location, canvas)) }
+                        .onEnded { _ in
+                            model.addStroke(stroke, canvas: canvas)
+                            stroke = []
+                        }
+                )
+            // what was painted on this frame, and the stroke under the finger
+            if let m {
+                ForEach(Array(model.visibleStrokes.enumerated()), id: \.offset) { _, st in
+                    let pts = stride(from: 0, to: st.xy.count - 1, by: 2).map {
+                        CGPoint(x: st.xy[$0], y: st.xy[$0 + 1]).applying(m).applying(zoom)
+                    }
+                    strokePath(pts, add: st.add, width: brush)
+                }
+            }
+            strokePath(stroke.map { $0.applying(zoom) }, add: model.paintAdds, width: brush)
+            VStack {
+                Text(loc(model.paintAdds ? "Paint over what to keep" : "Paint over what to remove"))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14).padding(.vertical, 7)
+                    .background(model.paintAdds ? Theme.accent : Color(red: 1, green: 0.42, blue: 0.4), in: Capsule())
+                    .padding(.top, 12)
+                    .allowsHitTesting(false)
+                Spacer()
+                HStack(spacing: 8) {
+                    pill("Keep", lime: model.paintAdds) { model.paintAdds = true }
+                    pill("Remove", lime: !model.paintAdds) { model.paintAdds = false }
+                    pill("Done", lime: true) { model.finishPaint() }
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 14)
+            }
+        }
+        .onDisappear { stroke = [] }
+    }
+
+    private func strokePath(_ pts: [CGPoint], add: Bool, width: CGFloat) -> some View {
+        Path { p in
+            guard let f = pts.first else { return }
+            p.move(to: f)
+            if pts.count == 1 { p.addLine(to: CGPoint(x: f.x + 0.5, y: f.y)) }
+            for q in pts.dropFirst() { p.addLine(to: q) }
+        }
+        .stroke((add ? Theme.accent : Color(red: 1, green: 0.42, blue: 0.4)).opacity(0.55),
+                style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+        .allowsHitTesting(false)
     }
 
     private func analysisOverlay(_ a: AnalysisState) -> some View {

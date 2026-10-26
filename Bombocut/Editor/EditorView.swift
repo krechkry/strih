@@ -257,6 +257,7 @@ struct EditorView: View {
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
             model.maskPanelOpen = s == .mask
+            if s != .mask && model.maskPaint { model.finishPaint() }
             if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
             if s == nil && model.pick == nil { model.captionsGenerator = false }
@@ -276,6 +277,8 @@ struct EditorView: View {
         }
         .onChange(of: model.selectedOverlayID) { _, id in
             if id == nil && sheet == .overlay { sheet = nil }
+            // the overlay's Adjust / Mask panel closes with it (a clip selected instead keeps its own)
+            if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask) { sheet = nil }
         }
         .onChange(of: overlayItems) { _, items in
             guard let item = items.first else { return }
@@ -558,8 +561,20 @@ struct EditorView: View {
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
-                } else if model.selectedOverlayIndex != nil {
+                } else if let oi = model.selectedOverlayIndex {
+                    let o = model.project.overlays[oi]
                     ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
+                    if pro { ToolButton(icon: "camera.filters", label: "Adjust") { model.pause(); sheet = .adjust } }
+                    if o.kind.isVideo {
+                        ToolButton(icon: "speedometer", label: "Speed") {
+                            model.pause()
+                            model.overlayTab = OverlaySheet.Tab.speed.rawValue
+                            sheet = .overlay
+                        }
+                    }
+                    if pro && o.isMedia {
+                        ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
+                    }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
                 } else if model.captionsSelected, model.project.captions != nil {

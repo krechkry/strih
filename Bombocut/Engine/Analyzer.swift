@@ -288,6 +288,170 @@ enum Analyzer {
     }
 }
 
+// MARK: Custom mask: following picked objects
+
+extension Analyzer {
+    /// Vision's objects in an upright frame.
+    static func instances(_ cg: CGImage) -> InstanceMap? {
+        let r = VNGenerateForegroundInstanceMaskRequest()
+        let h = VNImageRequestHandler(cgImage: cg, options: [:])
+        guard (try? h.perform([r])) != nil, let obs = r.results?.first else { return nil }
+        return InstanceMap(obs)
+    }
+
+    /// Follows the objects a custom mask picked on the frame at `picks.anchor` through t0...t1 (source seconds):
+    /// Vision splits each frame into objects, and the ones covering most of what was kept a moment before stay
+    /// kept (what was removed stays removed). Forward to t1, then backward to t0.
+    static func followPicks(file: String, from t0: Double, to t1: Double, picks: MaskPicks,
+                            progress: @escaping @Sendable (Double) -> Void,
+                            isCancelled: @escaping @Sendable () -> Bool) async throws -> [PickSample] {
+        let maxSide: CGFloat = 512, rate = 15.0
+        let anchor = min(max(picks.anchor, t0), t1)
+        let first = try await still(file: file, at: anchor, maxSide: maxSide)
+        guard let map0 = instances(first) else { throw CompositionBuilder.err("Could not find objects in this frame.") }
+        let pts = picks.points(at: picks.anchor)   // the strokes themselves
+        let start = PickFollower(map0, keep: pts.keep, drop: pts.drop)
+        guard !start.keepCells.isEmpty else { throw CompositionBuilder.err("Paint over an object to keep it.") }
+        var samples = [start.sample(anchor)]
+        let total = max(t1 - t0, 0.01)
+
+        // forward
+        if t1 - anchor > 0.03 {
+            let f = start.copy()
+            try await readFrames(file: file, from: anchor, to: t1, maxSide: maxSide, rate: rate, isCancelled: isCancelled) { t, cg in
+                guard t > anchor + 1e-3, let map = instances(cg) else { return }
+                f.step(map)
+                samples.append(f.sample(t))
+                progress(min(1, (t - anchor) / total))
+            }
+        }
+        // backward, one short chunk at a time (frames are read forward, followed in reverse)
+        if anchor - t0 > 0.03 {
+            let b = start.copy()
+            var chunkEnd = anchor
+            while chunkEnd - t0 > 0.01 {
+                let chunkStart = max(t0, chunkEnd - 1.0)
+                var frames: [(Double, CGImage)] = []
+                try await readFrames(file: file, from: chunkStart, to: chunkEnd, maxSide: maxSide, rate: rate,
+                                     isCancelled: isCancelled) { t, cg in
+                    if t < chunkEnd - 1e-3 { frames.append((t, cg)) }
+                }
+                for (t, cg) in frames.reversed() {
+                    if isCancelled() { throw CancellationError() }
+                    guard let map = instances(cg) else { continue }
+                    b.step(map)
+                    samples.append(b.sample(t))
+                }
+                progress(min(1, (t1 - anchor + anchor - chunkStart) / total))
+                chunkEnd = chunkStart
+            }
+        }
+        progress(1)
+        return samples.sorted { $0.t < $1.t }
+    }
+}
+
+/// Keeps track of which objects are picked from one frame to the next, on a coarse grid.
+final class PickFollower {
+    static let g = 64
+    private(set) var keepCells: Set<Int> = []
+    private(set) var dropCells: Set<Int> = []
+    private var labels: [UInt8] = []
+    private var keepLabels = IndexSet()
+    private var dropLabels = IndexSet()
+    private var last: (keep: [Double], drop: [Double]) = ([], [])
+
+    private init() {}
+
+    /// The painted frame: the objects the strokes touch.
+    init(_ map: InstanceMap, keep: [CGPoint], drop: [CGPoint]) {
+        let p = map.pick(keep: keep, drop: drop)
+        take(map.grid(Self.g), keep: p.keep, drop: p.drop)
+    }
+
+    func copy() -> PickFollower {
+        let c = PickFollower()
+        c.keepCells = keepCells
+        c.dropCells = dropCells
+        c.labels = labels
+        c.keepLabels = keepLabels
+        c.dropLabels = dropLabels
+        c.last = last
+        return c
+    }
+
+    /// Next frame: an object stays picked when much of it (or much of what was picked) lies where the
+    /// picked objects were. When nothing matches (the subject left, or Vision missed it), the last places are kept.
+    func step(_ map: InstanceMap) {
+        let grid = map.grid(Self.g)
+        var area: [Int: Int] = [:], k: [Int: Int] = [:], d: [Int: Int] = [:]
+        for (i, v) in grid.enumerated() where v != 0 {
+            let l = Int(v)
+            area[l, default: 0] += 1
+            if keepCells.contains(i) { k[l, default: 0] += 1 }
+            if dropCells.contains(i) { d[l, default: 0] += 1 }
+        }
+        let kept = Double(keepCells.count), dropped = Double(dropCells.count)
+        var keep = IndexSet(), drop = IndexSet()
+        for (l, a) in area {
+            let kk = Double(k[l] ?? 0), dd = Double(d[l] ?? 0), aa = Double(a)
+            if kk > dd, kk >= 0.35 * aa || (kept > 0 && kk >= 0.35 * kept) {
+                keep.insert(l)
+            } else if dd > kk, dd >= 0.35 * aa || (dropped > 0 && dd >= 0.35 * dropped) {
+                drop.insert(l)
+            }
+        }
+        guard !keep.isEmpty else { return }
+        take(grid, keep: keep, drop: drop)
+    }
+
+    private func take(_ grid: [UInt8], keep: IndexSet, drop: IndexSet) {
+        labels = grid
+        keepLabels = keep
+        dropLabels = drop
+        keepCells = Set(grid.indices.filter { grid[$0] != 0 && keep.contains(Int(grid[$0])) })
+        dropCells = Set(grid.indices.filter { grid[$0] != 0 && drop.contains(Int(grid[$0])) })
+        last = (keep.flatMap { points(of: $0) }, drop.flatMap { points(of: $0) })
+    }
+
+    func sample(_ t: Double) -> PickSample {
+        PickSample(t: (t * 1000).rounded() / 1000, keep: last.keep, drop: last.drop)
+    }
+
+    /// A few points well inside one object: the cell nearest its middle, and the same for each quarter around it
+    /// (a rider with a bike is not round, so one middle point could miss it).
+    private func points(of label: Int) -> [Double] {
+        let g = Self.g
+        let cells = labels.indices.filter { Int(labels[$0]) == label }
+        guard !cells.isEmpty else { return [] }
+        func xy(_ i: Int) -> (Double, Double) { (Double(i % g) + 0.5, Double(i / g) + 0.5) }
+        func nearest(_ list: [Int], _ c: (Double, Double)) -> Int? {
+            list.min { a, b in
+                let p = xy(a), q = xy(b)
+                return hypot(p.0 - c.0, p.1 - c.1) < hypot(q.0 - c.0, q.1 - c.1)
+            }
+        }
+        func middle(_ list: [Int]) -> (Double, Double) {
+            let s = list.reduce((0.0, 0.0)) { acc, i in let p = xy(i); return (acc.0 + p.0, acc.1 + p.1) }
+            return (s.0 / Double(list.count), s.1 / Double(list.count))
+        }
+        let c = middle(cells)
+        var picked: [Int] = []
+        if let m = nearest(cells, c) { picked.append(m) }
+        let quarters = [
+            cells.filter { xy($0).0 < c.0 && xy($0).1 < c.1 }, cells.filter { xy($0).0 >= c.0 && xy($0).1 < c.1 },
+            cells.filter { xy($0).0 < c.0 && xy($0).1 >= c.1 }, cells.filter { xy($0).0 >= c.0 && xy($0).1 >= c.1 },
+        ]
+        for q in quarters where q.count >= 3 {
+            if let m = nearest(q, middle(q)), !picked.contains(m) { picked.append(m) }
+        }
+        return picked.flatMap { i -> [Double] in
+            let p = xy(i)
+            return [(p.0 / Double(g) * 10000).rounded() / 10000, (p.1 / Double(g) * 10000).rounded() / 10000]
+        }
+    }
+}
+
 /// How the picture moved from one frame to the next: shift (pixels, Core Image y-up), turn (radians,
 /// counterclockwise) and zoom (log scale), around the frame's center. Measured from dense optical flow
 /// (Vision) with a robust fit, so things moving in the shot (a rider, a car) do not count as camera motion.

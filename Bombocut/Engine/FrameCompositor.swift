@@ -139,7 +139,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     // smooth cut: the frame engine morphs the shot going out into the one coming in
                     smoothCut(request, from: image, to: top, phase: p * p * (3 - 2 * p), t: t,
                               light: clips[0].layer.info.light, preview: clips[0].layer.info.preview) { morphed in
-                        self.complete(request, morphed, t: t, masked: masked, hasOverlays: hasOverlays, video: videoFrame)
+                        self.complete(request, morphed, t: t, masked: masked, hasOverlays: hasOverlays,
+                                      preview: clips[0].layer.info.preview, video: videoFrame)
                     }
                     return
                 }
@@ -152,13 +153,14 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     .cropped(to: frame)
                 image = Self.transitionBlur(image, cut.cut.motion(t - cut.start, length: cut.length), size: size)
             }
-            complete(request, image, t: t, masked: masked, hasOverlays: hasOverlays, video: videoFrame)
+            complete(request, image, t: t, masked: masked, hasOverlays: hasOverlays, preview: clips[0].layer.info.preview,
+                     video: videoFrame)
         }
     }
 
     /// Overlays and captions on top, then the frame goes out.
     private func complete(_ request: AVAsynchronousVideoCompositionRequest, _ base: CIImage, t: Double, masked: Bool,
-                          hasOverlays: Bool, video: @escaping (UUID) -> (CIImage, CGAffineTransform)?) {
+                          hasOverlays: Bool, preview: Bool, video: @escaping (UUID) -> (CIImage, CGAffineTransform)?) {
         autoreleasepool {
             guard let out = request.renderContext.newPixelBuffer() else {
                 request.finish(with: CompositionBuilder.err("Missing frame."))
@@ -169,7 +171,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var image = base
             if hasOverlays {
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
-                                                    video: video)
+                                                    preview: preview, video: video)
             }
             // (captions behind the subject were already drawn under it, when this frame has a subject mask)
             for caps in CaptionStore.shared.all where !(masked && caps.style.behindSubject) {
@@ -267,23 +269,24 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                            video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
         let info = p.layer.info, state = p.state, look = p.look, srcT = p.srcT
-        var image = EffectsRenderer.color(p.source, look.effects)
-        image = Self.place(image, prefTransform: info.transform, fill: state.fill, transform: look.transform,
-                           stab: state.stab.map { $0.pose(at: srcT) },
-                           follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
-                           in: size)
-        // in / out animation of the clip
-        var opacity = look.opacity
-        if !state.anim.isNone {
-            let a = state.anim.pose(local: t - info.start, length: info.duration)
-            if abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
+        // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
+        let anim = state.anim.isNone ? nil : state.anim.pose(local: t - info.start, length: info.duration)
+        func geometry(_ img: CIImage, upright: Bool) -> CIImage {
+            var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill, transform: look.transform,
+                                 stab: state.stab.map { $0.pose(at: srcT) },
+                                 follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
+                                 in: size)
+            if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                 let cx = size.width / 2, cy = size.height / 2
-                image = image.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
                     .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
                     .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
             }
-            opacity *= a.opacity
+            return out
         }
+        var image = geometry(EffectsRenderer.color(p.source, look.effects), upright: false)
+        var opacity = look.opacity
+        if let a = anim { opacity *= a.opacity }
         if opacity < 0.999 {
             image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
         }
@@ -291,11 +294,11 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         image = image.composited(over: bg).cropped(to: frame)
 
         // subject cut-out: background effects and overlays that go behind the subject
-        if let m = state.mask, let raw = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+        if let m = state.mask, let raw = subjectMask(m, p, canvasImage: image, frame: frame, geometry: geometry) {
             let mask = SubjectMasker.refine(raw, m, frame: frame)
             var back = SubjectMasker.background(image, m, frame: frame)
             if hasOverlays {
-                back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: video)
+                back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, preview: info.preview, video: video)
             }
             // captions set to go behind the subject: on the background, so the subject covers them
             for caps in CaptionStore.shared.all where caps.style.behindSubject {
@@ -311,6 +314,20 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
         }
         return EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+    }
+
+    /// The clip's subject mask on the canvas. People and main subject are found on the finished canvas picture;
+    /// custom picks were painted on the upright source, so they are found there and the mask is placed like the picture.
+    private func subjectMask(_ m: SubjectMask, _ p: Prepared, canvasImage: CIImage, frame: CGRect,
+                             geometry: (CIImage, Bool) -> CIImage) -> CIImage? {
+        guard m.kind == .custom else { return SubjectMasker.shared.mask(for: canvasImage, frame: frame, kind: m.kind) }
+        var src = p.source.oriented(Self.orientation(for: p.layer.info.transform))
+        let e = src.extent
+        src = src.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
+        guard let found = SubjectMasker.shared.mask(for: src, frame: CGRect(origin: .zero, size: e.size), subject: m, at: p.srcT)
+        else { return nil }
+        let black = CIImage(color: .black).cropped(to: frame)
+        return geometry(found, true).composited(over: black).cropped(to: frame)
     }
 
     /// Rotates the source upright, removes camera shake, fits or fills it into the frame, applies the clip's

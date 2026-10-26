@@ -3,13 +3,12 @@ import SwiftUI
 /// Color, lens and film effects for the selected clip, in three tabs:
 /// Basic (light and color), Advanced (curves and HSL), Effects (bloom, halation, grain...).
 /// With keyframes on the clip, changes go into the keyframe under the playhead (or create one).
+/// With an overlay selected, the same tools work on the overlay (its effects are for the whole layer).
 struct AdjustSheet: View {
     @ObservedObject var model: EditorModel
     @AppStorage("adjustTab") private var tab = 0
     @State private var param: LookParam = .exposure
     @State private var snapped = false
-
-    private var index: Int? { model.selectedIndex }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -35,12 +34,12 @@ struct AdjustSheet: View {
                 .lineLimit(1)
                 .padding(.top, -6)
 
-            if let i = index {
+            if model.hasAdjustTarget {
                 switch tab {
-                case 1: AdvancedAdjust(model: model, index: i)
-                default: sliders(i, tab == 2 ? LookParam.effects : LookParam.basic)
+                case 1: AdvancedAdjust(model: model)
+                default: sliders(tab == 2 ? LookParam.effects : LookParam.basic)
                 }
-                ApplyRow(model: model, kind: .adjust)
+                ApplyRow(model: model, kind: model.adjustsOverlay ? .overlayAdjust : .adjust)
             }
         }
         .padding(20)
@@ -68,14 +67,14 @@ struct AdjustSheet: View {
     }
 
     @ViewBuilder
-    private func sliders(_ i: Int, _ params: [LookParam]) -> some View {
+    private func sliders(_ params: [LookParam]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(params) { p in chip(p) }
             }
             .padding(.vertical, 2)
         }
-        let value = param.get(model.lookAtPlayhead(i))
+        let value = param.get(model.adjustLook())
         HStack(alignment: .firstTextBaseline) {
             Text(loc(param.title)).font(.title3.weight(.bold))
             Spacer()
@@ -85,7 +84,7 @@ struct AdjustSheet: View {
                 .doubleTapNumberReset { model.resetParam(param) }
         }
         BSlider(value: Binding(
-            get: { param.get(model.lookAtPlayhead(i)) },
+            get: { param.get(model.adjustLook()) },
             set: { v in
                 var v = v
                 let near = abs(v - param.neutral) < 0.03
@@ -101,7 +100,12 @@ struct AdjustSheet: View {
     }
 
     private var hint: String {
-        guard let i = index else { return "" }
+        if let oi = model.selectedOverlayIndex {
+            if model.project.overlays[oi].keys.isEmpty { return "Whole layer" }
+            return model.overlayKeyAtPlayhead != nil ? String(format: loc("Opacity: keyframe at %@"), Fmt.time(model.currentTime))
+                : "Effects: whole layer · opacity: keyframes"
+        }
+        guard let i = model.selectedIndex else { return "" }
         let c = model.project.clips[i]
         if c.keyframes.isEmpty { return "Whole clip" }
         if model.keyframeAtPlayhead(i) != nil { return String(format: loc("Editing keyframe at %@"), Fmt.time(model.currentTime)) }
@@ -110,10 +114,7 @@ struct AdjustSheet: View {
 
     private func chip(_ p: LookParam) -> some View {
         let on = p == param
-        let changed: Bool = {
-            guard let i = index else { return false }
-            return abs(p.get(model.lookAtPlayhead(i)) - p.neutral) > 0.005
-        }()
+        let changed = model.hasAdjustTarget && abs(p.get(model.adjustLook()) - p.neutral) > 0.005
         return Button { param = p } label: {
             VStack(spacing: 6) {
                 ZStack(alignment: .topTrailing) {
@@ -141,12 +142,11 @@ struct AdjustSheet: View {
 /// Curves (all channels or red / green / blue) and HSL per color band.
 private struct AdvancedAdjust: View {
     @ObservedObject var model: EditorModel
-    let index: Int
     @AppStorage("adjustAdvanced") private var mode = 0     // 0 curves, 1 HSL
     @State private var channel = 0                          // 0 all, 1 red, 2 green, 3 blue
     @State private var band = HSLBand.red
 
-    private var effects: Effects { model.lookAtPlayhead(index).effects }
+    private var effects: Effects { model.adjustLook().effects }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
