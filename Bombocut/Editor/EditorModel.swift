@@ -128,6 +128,8 @@ final class EditorModel: ObservableObject {
     var selectedIndex: Int? { project.clips.firstIndex { $0.id == selectedClipID } }
 
     init(project: Project, store: ProjectStore) {
+        var project = project
+        project.normalizeOverlays()   // older projects: every overlay gets its row
         self.project = project
         self.store = store
         player.actionAtItemEnd = .pause
@@ -412,6 +414,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func commit() {
+        project.normalizeOverlays()
         project.modified = Date()
         store.save(project)
         canUndo = !undoStack.isEmpty
@@ -436,6 +439,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func commitLook() {
+        project.normalizeOverlays()
         project.modified = Date()
         store.save(project)
         canUndo = !undoStack.isEmpty
@@ -1882,7 +1886,11 @@ final class EditorModel: ObservableObject {
         var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(3, max(0.5, duration - start)))
         focusNewText = true
         o.transform.y = -0.15
-        mutateLook { $0.overlays.append(o) }
+        mutateLook { p in
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
         selectOverlay(o.id)
         openOverlayPanel = true
     }
@@ -1899,12 +1907,14 @@ final class EditorModel: ObservableObject {
             if info.size.height > 0 { o.aspect = info.size.width / info.size.height }
             if fitCanvas { o.transform.scale = 1 / 0.7 }   // same size as a fitted clip
             o.blend = blend
-            mutate { $0.overlays.append(o) }     // video needs its own track: rebuild
+            let new = o
+            mutate { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }     // video needs its own track: rebuild
         } else {
             guard let img = UIImage(contentsOfFile: url.path) else { return }
             o = Overlay(kind: .image(file: url.lastPathComponent), start: start, duration: min(3, max(0.5, duration - start)))
             if img.size.height > 0 { o.aspect = img.size.width / img.size.height }
-            mutateLook { $0.overlays.append(o) }
+            let new = o
+            mutateLook { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }
         }
         selectOverlay(o.id)
     }
@@ -1985,6 +1995,14 @@ final class EditorModel: ObservableObject {
         let times = o.keys.map { o.start + $0.t }
         let target = dir > 0 ? times.first { $0 > currentTime + 0.03 } : times.last { $0 < currentTime - 0.03 }
         if let target { pause(); scrub(to: target) }
+    }
+
+    /// Held and dragged up or down in its lane: to another row, or a new one (see `Project.moveOverlay`).
+    func moveOverlayRow(_ id: UUID, to row: Int) {
+        guard let o = project.overlays.first(where: { $0.id == id }) else { return }
+        if o.kind.isVideo { mutate { $0.moveOverlay(id, toRow: row) } } else { mutateLook { $0.moveOverlay(id, toRow: row) } }
+        selectedOverlayID = id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     func deleteOverlay() {

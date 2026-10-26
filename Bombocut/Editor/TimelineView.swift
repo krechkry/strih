@@ -677,9 +677,12 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     var onBegan: (CGFloat) -> Void
     var onChanged: (_ dx: CGFloat, _ x: CGFloat) -> Void
     var onEnded: () -> Void
+    /// Vertical movement too (overlay blocks change rows).
+    var onVertical: ((_ dy: CGFloat) -> Void)? = nil
 
     final class Coordinator {
         var startX: CGFloat = 0
+        var startY: CGFloat = 0
     }
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
@@ -693,13 +696,16 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
-        let x = g.location(in: g.view?.window).x
+        let loc = g.location(in: g.view?.window)
+        let x = loc.x
         switch g.state {
         case .began:
             context.coordinator.startX = x
+            context.coordinator.startY = loc.y
             onBegan(x)
         case .changed:
             onChanged(x - context.coordinator.startX, x)
+            onVertical?(loc.y - context.coordinator.startY)
         case .ended, .cancelled, .failed:
             onEnded()
         default:
@@ -714,45 +720,55 @@ struct OverlayLane: View {
     /// Text lane or the lane for pictures and videos.
     var texts: Bool
     @State private var dragStart: (start: Double, duration: Double)?
+    /// Held block moving up / down: how far, and which row it would land in.
+    @State private var lift: (id: UUID, dy: CGFloat)?
 
     static let rowHeight: CGFloat = 22
-    static let maxRows = 3
+    static let rowStep: CGFloat = rowHeight + 3
 
-    /// Overlays packed into rows so blocks never overlap (later ones go lower).
-    static func rows(_ list: [Overlay]) -> [[Overlay]] {
-        var rows: [[Overlay]] = []
-        for o in list {
-            if let i = rows.firstIndex(where: { r in r.allSatisfy { $0.end <= o.start + 0.001 || $0.start >= o.end - 0.001 } }),
-               i < maxRows {
-                rows[i].append(o)
-            } else if rows.count < maxRows {
-                rows.append([o])
-            } else {
-                rows[maxRows - 1].append(o)
-            }
-        }
-        return rows
-    }
-
-    /// Rows times their height, with the 3 pt gaps between them.
+    /// Rows times their height, with the 3 pt gaps between them (one row per track).
     static func height(_ list: [Overlay]) -> CGFloat {
-        let n = CGFloat(rows(list).count)
+        let n = CGFloat(max(1, Set(list.map { $0.track ?? 0 }).count))
         return list.isEmpty ? 0 : n * rowHeight + (n - 1) * 3
     }
 
     var body: some View {
         let px = model.pxPerSec
+        let rows = model.project.overlayRows(texts: texts)
         VStack(alignment: .leading, spacing: 3) {
-            ForEach(Array(Self.rows(model.project.overlays.filter { $0.isText == texts }).enumerated()), id: \.offset) { _, row in
+            ForEach(Array(rows.enumerated()), id: \.offset) { r, row in
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(width: CGFloat(model.duration) * px, height: Self.rowHeight)
-                    ForEach(row) { o in block(o, px: px) }
+                    ForEach(row) { o in block(o, px: px, row: r, rows: rows.count) }
                 }
+                .zIndex(lift.map { l in row.contains { $0.id == l.id } ? 1 : 0 } ?? 0)
+            }
+        }
+        .overlay(alignment: .topLeading) { landingMark(rows.count, px: px) }
+    }
+
+    /// Where a block held and moved up / down lands: a new row between the others, or below / above them all.
+    private func target(_ dy: CGFloat, from row: Int, rows: Int) -> Int {
+        min(max(row + Int((dy / Self.rowStep).rounded()), -1), rows)
+    }
+
+    @ViewBuilder
+    private func landingMark(_ rows: Int, px: CGFloat) -> some View {
+        if let l = lift, let o = model.project.overlays.first(where: { $0.id == l.id }) {
+            let row = model.project.overlayRows(texts: texts).firstIndex { $0.contains { $0.id == l.id } } ?? 0
+            let t = target(l.dy, from: row, rows: rows)
+            if t != row {
+                // a lime line where it will land (a new row when it sits between rows, or past either end)
+                let y = t < 0 ? -2 : t >= rows ? CGFloat(rows) * Self.rowStep - 2 : CGFloat(t) * Self.rowStep + Self.rowHeight / 2
+                Capsule().fill(Theme.accent)
+                    .frame(width: max(10, CGFloat(o.duration) * px), height: 3)
+                    .offset(x: CGFloat(o.start) * px, y: y)
+                    .allowsHitTesting(false)
             }
         }
     }
 
-    private func block(_ o: Overlay, px: CGFloat) -> some View {
+    private func block(_ o: Overlay, px: CGFloat, row: Int, rows: Int) -> some View {
         let selected = o.id == model.selectedOverlayID
         let w = max(10, CGFloat(o.duration) * px)
         return HStack(spacing: 4) {
@@ -802,6 +818,8 @@ struct OverlayLane: View {
             onChanged: { dx, _ in
                 guard let d = dragStart else { return }
                 var s = d.start + Double(dx / px)
+                // moving it between rows: the time stays put unless the finger clearly goes sideways too
+                if let l = lift, l.id == o.id, abs(l.dy) > Self.rowStep * 0.6, abs(dx) < 16 { s = d.start }
                 // snap the start to the playhead
                 if abs((s - model.currentTime) * Double(px)) < 8 { s = model.currentTime }
                 model.overlayTiming(o.id, start: s, duration: d.duration, done: false)
@@ -811,8 +829,19 @@ struct OverlayLane: View {
                     model.overlayTiming(o.id, start: cur.start, duration: cur.duration, done: true)
                 }
                 dragStart = nil
+                if let l = lift, l.id == o.id {
+                    let t = target(l.dy, from: row, rows: rows)
+                    lift = nil
+                    if t != row { model.moveOverlayRow(o.id, to: t) }
+                }
+            },
+            onVertical: { dy in
+                let was = lift.map { target($0.dy, from: row, rows: rows) }
+                lift = (o.id, dy)
+                if was != nil, was != target(dy, from: row, rows: rows) { UISelectionFeedbackGenerator().selectionChanged() }
             }))
-        .offset(x: CGFloat(o.start) * px)
+        .offset(x: CGFloat(o.start) * px, y: lift?.id == o.id ? lift!.dy : 0)
+        .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
     }
 
     private func edge(_ o: Overlay, leading: Bool, px: CGFloat) -> some View {
