@@ -273,9 +273,29 @@ actor SpeechEngine {
         asr = nil
     }
 
+    /// Set while the model loads, cleared when the load ends (well or with an error). Still set at launch means
+    /// the app died while loading it: that launch skips the warm-up, so a broken model can never stop BOMBOCUT
+    /// from opening (it then loads when captions are generated).
+    /// (A file, not a setting: settings reach the disk a little later, and a crash would lose it.)
+    private static let loadingMark = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("voice-model-loading")
+
+    private static func markLoading(_ on: Bool) {
+        if on {
+            try? FileManager.default.createDirectory(at: loadingMark.deletingLastPathComponent(), withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: loadingMark.path, contents: Data())
+        } else {
+            try? FileManager.default.removeItem(at: loadingMark)
+        }
+    }
+
     /// Called at launch: loads the model if it is on the phone.
     @MainActor
     static func warmUp() {
+        if FileManager.default.fileExists(atPath: loadingMark.path) {
+            markLoading(false)
+            return
+        }
         guard let url = preferredFolder else { return }
         warm(url)
     }
@@ -287,6 +307,7 @@ actor SpeechEngine {
         guard !st.warming, SpeechModels.shared.isReady(.parakeet) else { return }
         let key = "warmed.parakeet"
         st.begin(first: !UserDefaults.standard.bool(forKey: key), model: "parakeet")
+        markLoading(true)
         let bg = UIApplication.shared.beginBackgroundTask(withName: "voice-model")
         Task.detached(priority: .userInitiated) {
             var failed: String?
@@ -297,6 +318,7 @@ actor SpeechEngine {
             } catch { failed = error.localizedDescription }
             let result = failed
             await MainActor.run {
+                markLoading(false)
                 if result == nil { UserDefaults.standard.set(true, forKey: key) }
                 st.end(error: result)
                 UIApplication.shared.endBackgroundTask(bg)

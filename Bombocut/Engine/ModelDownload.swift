@@ -61,6 +61,10 @@ final class ModelDownload: NSObject, ObservableObject {
     private var retry: Task<Void, Never>?
     private var pausing = false
     private var assembling: Set<Int> = []
+    /// Where a cut-off piece can pick up again. Kept in memory only, never across launches: resume data points at a
+    /// partial file iOS keeps elsewhere, and if that file is gone (cleared caches, iOS tidying up) handing the data
+    /// back raises an exception that crashed every start. A lost piece costs at most 8 MB.
+    private var resumeData: [String: Data] = [:]
     private var wantedKey = ModelDownload.wantedDefaultsKey
     private var pausedKey = "modelDownloadPaused"
     nonisolated static let wantedDefaultsKey = "modelDownloadWanted"
@@ -84,6 +88,8 @@ final class ModelDownload: NSObject, ObservableObject {
         c.httpMaximumConnectionsPerHost = 4
         c.timeoutIntervalForRequest = 60
         session = URLSession(configuration: c, delegate: self, delegateQueue: .main)
+        // resume data written by older builds: never handed back (see `resumeData`)
+        for u in StorageReport.children(of: Self.staging) where u.pathExtension == "resume" { try? FileManager.default.removeItem(at: u) }
         // the plan from before a restart: pieces iOS finished while the app was closed still find their place
         restoreProgress()
         if UserDefaults.standard.bool(forKey: pausedKey) && !files.isEmpty { phase = .paused }
@@ -131,7 +137,7 @@ final class ModelDownload: NSObject, ObservableObject {
                 guard let d = t as? URLSessionDownloadTask, let key = d.taskDescription else { t.cancel(); continue }
                 d.cancel(byProducingResumeData: { data in
                     guard let data else { return }
-                    try? data.write(to: Self.resumeURL(key), options: .atomic)
+                    Task { @MainActor [weak self] in self?.resumeData[key] = data }
                 })
             }
         }
@@ -152,6 +158,7 @@ final class ModelDownload: NSObject, ObservableObject {
         UserDefaults.standard.set(false, forKey: pausedKey)
         files = []
         pieces = [:]
+        resumeData = [:]
         done = []
         finishedFiles = []
         inFlight = [:]
@@ -285,8 +292,7 @@ final class ModelDownload: NSObject, ObservableObject {
         for p in pieces.values.sorted(by: { ($0.file, $0.index) < ($1.file, $1.index) })
             where !finishedFiles.contains(p.file) && !done.contains(p.key) && !busy.contains(p.key) {
             let task: URLSessionDownloadTask
-            if let data = try? Data(contentsOf: Self.resumeURL(p.key)) {
-                try? FileManager.default.removeItem(at: Self.resumeURL(p.key))
+            if let data = resumeData.removeValue(forKey: p.key) {
                 task = session.downloadTask(withResumeData: data)
             } else {
                 guard let req = request(p) else { continue }
@@ -316,7 +322,7 @@ final class ModelDownload: NSObject, ObservableObject {
         let okStatus = p.range == nil ? (status == 200) : (status == 206 || (status == 200 && p.range?.lowerBound == 0
                                                                              && expectedLength(p) == files[p.file].size))
         guard okStatus, Self.size(of: tmp) == expectedLength(p) else {
-            try? FileManager.default.removeItem(at: Self.resumeURL(key))
+            resumeData[key] = nil
             return   // didCompleteWithError follows with no error: treated as a failed piece there
         }
         let part = Self.partURL(key)
@@ -337,7 +343,7 @@ final class ModelDownload: NSObject, ObservableObject {
         }
         if pausing { return }
         if let e = error as NSError?, let data = e.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
-            try? data.write(to: Self.resumeURL(key), options: .atomic)
+            resumeData[key] = data
         }
         handleTrouble(error ?? DownloadIssue.server)
     }
@@ -498,7 +504,6 @@ final class ModelDownload: NSObject, ObservableObject {
     }
 
     nonisolated static func partURL(_ key: String) -> URL { staging.appendingPathComponent("\(key).part") }
-    nonisolated static func resumeURL(_ key: String) -> URL { staging.appendingPathComponent("\(key).resume") }
 
     nonisolated static func size(of u: URL) -> Int64 {
         ((try? FileManager.default.attributesOfItem(atPath: u.path))?[.size] as? NSNumber)?.int64Value ?? -1
