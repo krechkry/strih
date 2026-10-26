@@ -61,8 +61,17 @@ final class ModelDownload: NSObject, ObservableObject {
     private var retry: Task<Void, Never>?
     private var pausing = false
     private var assembling: Set<Int> = []
-    private var wantedKey = "modelDownloadWanted"
+    private var wantedKey = ModelDownload.wantedDefaultsKey
     private var pausedKey = "modelDownloadPaused"
+    nonisolated static let wantedDefaultsKey = "modelDownloadWanted"
+
+    /// A download was started and hasn't finished (or been deleted). Finished files land in the model folder one
+    /// by one, so until then that folder holds only part of the model and must never be loaded: after the app was
+    /// force-quit mid-download it looked complete, the launch warm-up loaded it, and Core ML crashed on every start.
+    nonisolated static var unfinished: Bool {
+        UserDefaults.standard.bool(forKey: wantedDefaultsKey)
+            || FileManager.default.fileExists(atPath: staging.appendingPathComponent("files.json").path)
+    }
 
     private override init() {
         super.init()

@@ -1644,6 +1644,16 @@
         }
       }
     },
+    "Deleting is off while the voice model downloads.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Během stahování hlasového modelu nejde nic mazat."
+          }
+        }
+      }
+    },
     "Difference": {
       "localizations": {
         "cs": {

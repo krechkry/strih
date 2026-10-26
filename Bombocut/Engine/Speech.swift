@@ -71,7 +71,7 @@ final class SpeechModels: ObservableObject {
         switch phase {
         case .idle:
             if case .ready = state(m) { return }
-            states[m] = AsrModels.modelsExist(at: m.folder, version: SpeechModel.version) ? .ready(m.folder) : .missing
+            states[m] = Self.complete(m) ? .ready(m.folder) : .missing
         case .listing, .running, .waitingForNetwork, .finishing: states[m] = .downloading(f)
         case .paused: states[m] = .paused(f)
         case .done: states[m] = .ready(m.folder)
@@ -81,8 +81,14 @@ final class SpeechModels: ObservableObject {
 
     private func refresh() {
         for m in SpeechModel.allCases {
-            states[m] = AsrModels.modelsExist(at: m.folder, version: SpeechModel.version) ? .ready(m.folder) : .missing
+            states[m] = Self.complete(m) ? .ready(m.folder) : .missing
         }
+    }
+
+    /// The whole model is on the phone: its files are there and no download of it is unfinished.
+    /// (A download the app was closed in the middle of shows as paused or downloading once it picks up.)
+    static func complete(_ m: SpeechModel) -> Bool {
+        !ModelDownload.unfinished && AsrModels.modelsExist(at: m.folder, version: SpeechModel.version)
     }
 
     func state(_ m: SpeechModel) -> State { states[m] ?? .missing }

@@ -46,6 +46,11 @@ struct StorageView: View {
                         row(icon: "cpu", title: "Voice model optimization",
                             detail: "Makes the voice model load fast. Deleting means the next load takes minutes again.",
                             bytes: report.optimized) { confirm = .optimized }
+                        if locked {
+                            Text("Deleting is off while the voice model downloads.")
+                                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                     section("Kept") {
                         info(icon: "film", title: "Videos in your projects", bytes: report.usedMedia)
@@ -65,6 +70,8 @@ struct StorageView: View {
                 }
             }
             .overlay { if busy { ProgressView().tint(Theme.accent).scaleEffect(1.4) } }
+            // a download starting while a delete question is open: the question goes
+            .onChange(of: locked) { _, now in if now { confirm = nil } }
             .alert(item: $confirm) { c in
                 Alert(title: Text(loc(title(c))), message: Text("This can't be undone."),
                       primaryButton: .destructive(Text("Delete")) { run(c) },
@@ -80,6 +87,10 @@ struct StorageView: View {
             .onChange(of: readyModels) { Task { await refresh() } }
         }
     }
+
+    /// While the voice model downloads (or waits paused), nothing here can be deleted: its pieces and resume data
+    /// live in the temporary and cache folders, and pulling them away mid-download left the screen stuck.
+    private var locked: Bool { SpeechModel.allCases.contains { speech.inProgress($0) } }
 
     private var readyModels: [String] {
         SpeechModel.allCases.filter { speech.isReady($0) }.map(\.rawValue)
@@ -183,11 +194,13 @@ struct StorageView: View {
             }
             if let action, (bytes ?? 0) > 0 {
                 Button(action: action) {
-                    Image(systemName: "trash").font(.subheadline.weight(.bold)).foregroundStyle(.red)
+                    Image(systemName: "trash").font(.subheadline.weight(.bold)).foregroundStyle(locked ? Theme.muted : .red)
                         .frame(width: 36, height: 36)
                         .background(Theme.panel2, in: Circle())
                 }
                 .buttonStyle(.plain)
+                .disabled(locked)
+                .opacity(locked ? 0.5 : 1)
             }
         }
         .padding(12)
