@@ -10,7 +10,8 @@ enum UIMode: String, CaseIterable {
     static var current: UIMode { UIMode(rawValue: UserDefaults.standard.string(forKey: key) ?? "pro") ?? .pro }
     static var isPro: Bool { current == .pro }
 
-    var title: String { self == .basic ? "Basic" : "Pro" }
+    /// "Advanced", not "Pro": nothing here is a paid tier, it's only how much of the editor shows.
+    var title: String { self == .basic ? "Basic" : "Advanced" }
 
     var summary: String {
         switch self {
@@ -22,7 +23,7 @@ enum UIMode: String, CaseIterable {
     }
 }
 
-/// Onboarding: pick Basic or Pro while a small editor above shows what you get.
+/// Onboarding: pick Basic or Advanced while a small editor above shows what you get.
 struct ModePickerView: View {
     let done: () -> Void
     @AppStorage(UIMode.key) private var mode = UIMode.basic.rawValue
@@ -51,6 +52,7 @@ struct ModePickerView: View {
                         Button { mode = m.rawValue } label: {
                             VStack(spacing: 4) {
                                 Text(loc(m.title).uppercased()).font(.system(size: 22, weight: .heavy))
+                                    .lineLimit(1).minimumScaleFactor(0.6)
                                 Text(m == .basic ? loc("Simple") : loc("All features"))
                                     .font(.caption.weight(.bold)).opacity(0.7)
                             }
@@ -459,6 +461,7 @@ struct SettingsView: View {
                                 let on = mode == m.rawValue
                                 Button { mode = m.rawValue } label: {
                                     Text(loc(m.title).uppercased()).font(.headline.weight(.heavy))
+                                        .lineLimit(1).minimumScaleFactor(0.7)
                                         .foregroundStyle(on ? .black : .white)
                                         .frame(maxWidth: .infinity, minHeight: 50)
                                         .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 14))

@@ -285,7 +285,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pokročilé"
+            "value": "Pokročilý"
           }
         }
       }
@@ -2808,22 +2808,22 @@
         }
       }
     },
-    "Made by a filmmaker, in Prague.": {
+    "Made by a filmmaker in Czechia.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vytvořil jeden filmař v Praze"
+            "value": "Vytvořil jeden filmař v Česku."
           }
         }
       }
     },
-    "Made in Prague.": {
+    "Made in Czechia.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyrobeno v Praze."
+            "value": "Vyrobeno v Česku."
           }
         }
       }
@@ -3444,16 +3444,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zásady ochrany soukromí"
-          }
-        }
-      }
-    },
-    "Pro": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro"
           }
         }
       }
@@ -4173,7 +4163,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layout sítí"
+            "value": "Sociální sítě"
           }
         }
       }
@@ -4183,7 +4173,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Překryv sítí"
+            "value": "Sociální sítě"
           }
         }
       }
@@ -4678,12 +4668,12 @@
         }
       }
     },
-    "Then buy it once, or don't. Simple as that.": {
+    "Then buy it once, or don't.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pak si ho můžeš jednorázově zakoupit, nebo ne. Vcelku jednoduché."
+            "value": "Pak si ho jednou kup, nebo ne."
           }
         }
       }
@@ -4898,12 +4888,12 @@
         }
       }
     },
-    "Try everything free for 7 days": {
+    "Try everything free for 7 days.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyzkoušej si všechno na 7 dní zdarma"
+            "value": "Vyzkoušej si všechno na 7 dní zdarma."
           }
         }
       }

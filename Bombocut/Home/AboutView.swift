@@ -21,7 +21,7 @@ struct AboutView: View {
                         Text("BOMBOCUT").font(.largeTitle.weight(.heavy))
                         Text(version).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(Theme.muted)
                     }
-                    block("Made by a filmmaker, in Prague.", "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.")
+                    block("Made by a filmmaker in Czechia.", "BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.")
                     HStack(spacing: 10) {
                         if let url = Support.mailURL() {
                             pill("Send feedback", "envelope.fill") { openURL(url) }
@@ -47,7 +47,7 @@ struct AboutView: View {
                     credit("Firefox Translations", "Mozilla. Caption translation models, downloaded per language. License: MPL 2.0.")
                     credit("bergamot-translator", "Mozilla and the Bergamot project. The offline translation engine. License: MPL 2.0.")
                     credit("Apple Vision, Video Toolbox, Core Image", "Subject tracking, masks, motion blur, smooth slow motion, effects.")
-                    Text("Made in Prague.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    Text("Made in Czechia.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     #if DEBUG
                     block("Test (Xcode builds only)", nil)
                     HStack(spacing: 10) {

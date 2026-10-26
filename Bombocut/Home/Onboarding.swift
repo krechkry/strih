@@ -87,7 +87,7 @@ struct OnboardingView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
-                Text("Made by a filmmaker, in Prague.")
+                Text("Made by a filmmaker in Czechia.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                     .padding(.top, 6)
@@ -154,8 +154,15 @@ struct PaywallView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(headline).font(.system(size: 32, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
-                    Text(subline).font(.headline.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if mode == .start {
+                        // the deal in one breath, as big as the offer: nobody reads the small line
+                        Text("Then buy it once, or don't.")
+                            .font(.system(size: 32, weight: .heavy)).foregroundStyle(Theme.accent)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text(subline).font(.headline.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -212,7 +219,7 @@ struct PaywallView: View {
 
     private var headline: String {
         switch mode {
-        case .start: return loc("Try everything free for 7 days")
+        case .start: return loc("Try everything free for 7 days.")
         case .buy: return loc("Keep BOMBOCUT")
         case .expired: return loc("Your 7 free days are over")
         }
@@ -220,7 +227,7 @@ struct PaywallView: View {
 
     private var subline: String {
         switch mode {
-        case .start: return loc("Then buy it once, or don't. Simple as that.")
+        case .start: return ""
         case .buy:
             let d = purchases.daysLeft
             return d == 1 ? loc("1 day of your trial left.") : String.localizedStringWithFormat(loc("%lld days of your trial left."), d)
@@ -234,7 +241,7 @@ struct PaywallView: View {
 
     private var team: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Made by a filmmaker, in Prague.", systemImage: "heart.fill")
+            Label("Made by a filmmaker in Czechia.", systemImage: "heart.fill")
                 .font(.subheadline.weight(.heavy))
                 .foregroundStyle(Theme.accent)
             Text("BOMBOCUT is made by one filmmaker. Buying it keeps the updates coming, and your feedback actually matters.")
