@@ -900,12 +900,12 @@
         }
       }
     },
-    "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone and open right after.": {
+    "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty máš v bezpečí v iPhonu a otevřou se hned po nákupu."
+            "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPhonu a pořád je můžeš exportovat, jak jsou."
           }
         }
       }
@@ -1940,6 +1940,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Export od 144p až po 4K a 120 fps, s bitratem podle tebe"
+          }
+        }
+      }
+    },
+    "Export my projects as they are": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportovat projekty, jak jsou"
           }
         }
       }
@@ -4428,6 +4438,16 @@
         }
       }
     },
+    "Tap a project to export it as it is, with the end card. Buy BOMBOCUT once to keep editing.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na projekt a vyexportuj ho, jak je, s koncovou kartou. Kup si BOMBOCUT jednou a stříhej dál."
+          }
+        }
+      }
+    },
     "Tap one to see it on your video.": {
       "localizations": {
         "cs": {
@@ -4528,12 +4548,12 @@
         }
       }
     },
-    "The 7-day trial is free and has everything unlocked. After 7 days BOMBOCUT stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically.": {
+    "The 7-day trial is free and has every tool. Its exports end with the BOMBOCUT end card. After 7 days you can still export your projects as they are, and editing needs a one-time purchase of %@. Nothing renews and nothing is charged automatically.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zkušební verze na 7 dní je zdarma a má odemčené všechno. Po 7 dnech BOMBOCUT přestane fungovat, pokud si ho jednorázově nekoupíš za %@. Nic se neobnovuje a nic se neplatí automaticky."
+            "value": "7denní zkušební verze je zdarma a má všechny nástroje. Její exporty končí koncovou kartou BOMBOCUT. Po 7 dnech můžeš projekty dál exportovat, jak jsou, a pro další stříhání je potřeba jednorázový nákup za %@. Nic se neobnovuje a nic se automaticky neúčtuje."
           }
         }
       }
@@ -5164,6 +5184,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přepnout můžeš kdykoli v Nastavení."
+          }
+        }
+      }
+    },
+    "You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V plné verzi ho můžeš vypnout. Pomáhá šířit BOMBOCUT. Jestli chceš, po exportu si ho ustřihni. Díky!"
           }
         }
       }

@@ -9,6 +9,8 @@ struct RootView: View {
     /// Once the app is open it stays open: the trial is only checked when the app starts,
     /// never when you come back to it (that used to throw you out of your project).
     @State private var inApp = false
+    /// The trial is over and they chose "Export my projects": home, read-only (open = export as it is).
+    @State private var exportOnly = false
 
     private var gate: Bool { !inApp && Demo.mode == nil && !purchases.isBeta }
 
@@ -31,10 +33,10 @@ struct RootView: View {
                 PaywallView(mode: .expired)
             } else if Demo.mode == nil && !inApp && (!onboarded || (gate && purchases.access == .new)) {
                 OnboardingView(step: onboarded ? 3 : 0)
-            } else if gate && purchases.access == .expired {
-                PaywallView(mode: .expired)
+            } else if gate && purchases.access == .expired && !exportOnly {
+                PaywallView(mode: .expired) { withAnimation(.snappy) { exportOnly = true } }
             } else {
-                HomeView().onAppear(perform: latch)
+                HomeView(exportOnly: gate && purchases.access == .expired).onAppear(perform: latch)
             }
         }
         .environment(\.locale, Locale(identifier: language))
@@ -132,6 +134,8 @@ struct OnboardingView: View {
 struct PaywallView: View {
     enum Mode { case start, buy, expired }
     let mode: Mode
+    /// After the trial: go to the projects anyway, to export them as they are.
+    var exportOnly: (() -> Void)? = nil
     @ObservedObject private var purchases = Purchases.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -185,6 +189,9 @@ struct PaywallView: View {
                         secondary(String(format: loc("Buy now for %@"), purchases.price)) { await purchases.buyFull() }
                     case .buy, .expired:
                         primary(String(format: loc("Buy for %@"), purchases.price)) { await purchases.buyFull() }
+                        if mode == .expired, let exportOnly {
+                            secondary("Export my projects as they are") { exportOnly() }
+                        }
                     }
                 }
                 .disabled(purchases.busy)
@@ -231,12 +238,12 @@ struct PaywallView: View {
         case .buy:
             let d = purchases.daysLeft
             return d == 1 ? loc("1 day of your trial left.") : String.localizedStringWithFormat(loc("%lld days of your trial left."), d)
-        case .expired: return loc("Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone and open right after.")
+        case .expired: return loc("Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are.")
         }
     }
 
     private var disclosure: String {
-        String(format: loc("The 7-day trial is free and has everything unlocked. After 7 days BOMBOCUT stops working unless you buy it once for %@. Nothing renews and nothing is charged automatically."), purchases.price)
+        String(format: loc("The 7-day trial is free and has every tool. Its exports end with the BOMBOCUT end card. After 7 days you can still export your projects as they are, and editing needs a one-time purchase of %@. Nothing renews and nothing is charged automatically."), purchases.price)
     }
 
     private var team: some View {
@@ -320,6 +327,34 @@ struct TrialPill: View {
             }
             .buttonStyle(.plain)
             .sheet(isPresented: $show) { PaywallView(mode: .buy) }
+        } else if purchases.access == .expired, Demo.mode == nil {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "hourglass.bottomhalf.filled").foregroundStyle(Theme.accent)
+                    Text("Your 7 free days are over").font(.subheadline.weight(.heavy))
+                }
+                Text("Tap a project to export it as it is, with the end card. Buy BOMBOCUT once to keep editing.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Button { Task { await purchases.buyFull() } } label: {
+                        Text(String(format: loc("Buy for %@"), purchases.price))
+                            .font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                            .padding(.horizontal, 16).frame(height: 38)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    Button("Restore purchase") { Task { await purchases.restore() } }
+                        .font(.footnote.weight(.bold)).foregroundStyle(.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+                .disabled(purchases.busy)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+            .alert("BOMBOCUT", isPresented: Binding(get: { purchases.error != nil }, set: { if !$0 { purchases.error = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(purchases.error ?? "") }
         }
     }
 }

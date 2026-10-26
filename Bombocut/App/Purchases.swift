@@ -71,6 +71,9 @@ final class Purchases: ObservableObject {
         }
     }
 
+    /// Bought (or an Xcode run). The trial has every tool, but its exports always carry the end card.
+    var fullVersion: Bool { isBeta || access == .owned }
+
     var daysLeft: Int {
         guard case .trial(let ends) = access else { return 0 }
         return max(0, Int(ceil(ends.timeIntervalSinceNow / 86400)))

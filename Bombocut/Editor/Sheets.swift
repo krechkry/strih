@@ -98,6 +98,10 @@ struct ExportSheet: View {
     @AppStorage("export.autoBitrate") private var autoBitrate = true
     @AppStorage("export.bitrate") private var bitrate = 12.0
     @AppStorage("export.endCard") private var endCard = true
+    @ObservedObject private var purchases = Purchases.shared
+    /// Trial and after-trial exports always end with the card; only the full version can switch it off.
+    private var cardLocked: Bool { !purchases.fullVersion }
+    private var withEndCard: Bool { endCard || cardLocked }
 
     @State private var customFPS = ""
     /// What the first clip was, while the settings still match it.
@@ -136,7 +140,7 @@ struct ExportSheet: View {
     }
 
     private var estimatedMB: Double {
-        (mbps * 1_000_000 + 192_000) * (project.duration + (endCard ? EndCard.length : 0)) / 8 / 1_000_000
+        (mbps * 1_000_000 + 192_000) * (project.duration + (withEndCard ? EndCard.length : 0)) / 8 / 1_000_000
     }
 
     private var isMatched: Bool {
@@ -269,11 +273,14 @@ struct ExportSheet: View {
                         .disabled(tooBigForH264)
                 }
 
-                group("End card") {
+                group("End card", footer: cardLocked
+                      ? loc("You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!")
+                      : nil) {
                     card {
                         OnOffRow(title: "BOMBOCUT end card",
                                  subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
-                                 isOn: endCard) { endCard = $0 }
+                                 isOn: withEndCard) { endCard = $0 }
+                            .disabled(cardLocked)
                     }
                 }
             }
@@ -387,7 +394,7 @@ struct ExportSheet: View {
     /// `light`: motion blur and smooth slow motion by simple blending (after an export ran short of memory).
     private func start(light: Bool = false) {
         let settings = ExportSettings(width: outSize.w, height: outSize.h, fps: fps, bitrateMbps: mbps, hevc: effectiveHEVC)
-        let withCard = endCard
+        let withCard = withEndCard
         let exp = Exporter()
         exporter = exp
         phase = .exporting(0)

@@ -3,7 +3,10 @@ import PhotosUI
 import UniformTypeIdentifiers
 
 struct HomeView: View {
+    /// The trial is over: projects only open to be exported as they are, nothing new gets made.
+    var exportOnly = false
     @EnvironmentObject private var store: ProjectStore
+    @State private var exporting: Project?
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var showFiles = false
     @State private var importing = false
@@ -35,8 +38,10 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     TrialPill()
-                    downloadBanner
-                    newProjectCard
+                    if !exportOnly {
+                        downloadBanner
+                        newProjectCard
+                    }
                     if !store.projects.isEmpty {
                         Text("Projects")
                             .font(.footnote.weight(.semibold))
@@ -50,6 +55,8 @@ struct HomeView: View {
                                     .onTapGesture {
                                         if selecting {
                                             if selected.contains(p.id) { selected.remove(p.id) } else { selected.insert(p.id) }
+                                        } else if exportOnly {
+                                            exporting = p
                                         } else {
                                             openProject = p
                                         }
@@ -178,6 +185,9 @@ struct HomeView: View {
             Text("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")
         }
         .sheet(isPresented: $showAbout) { AboutView() }
+        .sheet(item: $exporting) { p in
+            ExportSheet(project: p) { store.rename(p, to: $0) }.presentationDetents([.large])
+        }
         .sheet(isPresented: $showStorage) {
             StorageView().environmentObject(store)
         }
