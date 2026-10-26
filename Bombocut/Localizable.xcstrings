@@ -1484,6 +1484,16 @@
         }
       }
     },
+    "Delete point": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat bod"
+          }
+        }
+      }
+    },
     "Delete template": {
       "localizations": {
         "cs": {
@@ -4554,6 +4564,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepni na klipy, které má poslouchat"
+          }
+        }
+      }
+    },
+    "Tap the line to add a point, drag points anywhere. Double tap the graph to straighten it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepnutím na čáru přidáš bod, body můžeš táhnout kamkoli. Dvojklepnutím křivku narovnáš."
           }
         }
       }

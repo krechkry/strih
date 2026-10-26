@@ -371,8 +371,44 @@ final class EditorModel: ObservableObject {
 
     private func pushUndo(_ p: Project) {
         undoStack.append(p)
-        if undoStack.count > 200 { undoStack.removeFirst() }
+        if undoStack.count > 200 {
+            undoStack.removeFirst()
+            if let b = panelUndoBase { panelUndoBase = max(0, b - 1) }
+        }
         redoStack.removeAll()
+    }
+
+    // MARK: Panel undo: the buttons above an open panel only step through what was done in it
+
+    @Published private(set) var panelCanUndo = false
+    @Published private(set) var panelCanRedo = false
+    private var panelUndoBase: Int?
+    private var panelRedoBase = 0
+
+    func panelOpened() {
+        panelUndoBase = undoStack.count
+        panelRedoBase = redoStack.count
+        updatePanelUndo()
+    }
+
+    func panelClosed() {
+        panelUndoBase = nil
+        updatePanelUndo()
+    }
+
+    func panelUndo() { if panelCanUndo { undo() } }
+    func panelRedo() { if panelCanRedo { redo() } }
+
+    private func updatePanelUndo() {
+        guard let b = panelUndoBase else {
+            if panelCanUndo { panelCanUndo = false }
+            if panelCanRedo { panelCanRedo = false }
+            return
+        }
+        panelRedoBase = min(panelRedoBase, redoStack.count)
+        let u = undoStack.count > b, r = redoStack.count > panelRedoBase
+        if panelCanUndo != u { panelCanUndo = u }
+        if panelCanRedo != r { panelCanRedo = r }
     }
 
     private func commit() {
@@ -380,6 +416,7 @@ final class EditorModel: ObservableObject {
         store.save(project)
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+        updatePanelUndo()
         if let id = selectedClipID, !project.clips.contains(where: { $0.id == id }) { selectedClipID = nil }
         if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
         if let id = selectedAudioID, !project.audio.contains(where: { $0.id == id }) { selectedAudioID = nil }
@@ -403,6 +440,7 @@ final class EditorModel: ObservableObject {
         store.save(project)
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+        updatePanelUndo()
         publishLook()
         // motion blur switched on or off: the video needs (or no longer needs) the neighbouring frames
         if neighbourSet != builtNeighbours { rebuild() }

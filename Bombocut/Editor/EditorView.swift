@@ -103,6 +103,12 @@ struct EditorView: View {
                     .scrollBounceBehavior(.basedOnSize)
                 }
             }
+            .overlay(alignment: .topTrailing) {
+                // undo / redo for what was done in this panel (Speed has its own, for the curve)
+                if s != .speed && !typing {
+                    PanelUndoBar(model: model).offset(y: -52).padding(.trailing, 14)
+                }
+            }
             .id(s)
             // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
             .transition(.move(edge: .bottom))
@@ -251,6 +257,7 @@ struct EditorView: View {
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
             model.maskPanelOpen = s == .mask
+            if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
             if s == nil && model.pick == nil { model.captionsGenerator = false }
         }
@@ -1207,3 +1214,29 @@ private struct KeyframeButton: View {
     }
 }
 
+
+/// Undo / redo floating above an open panel: only the steps made while it is open.
+private struct PanelUndoBar: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            button("arrow.uturn.backward", on: model.panelCanUndo, label: "Undo") { model.panelUndo() }
+            button("arrow.uturn.forward", on: model.panelCanRedo, label: "Redo") { model.panelRedo() }
+        }
+    }
+
+    private func button(_ icon: String, on: Bool, label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white.opacity(on ? 1 : 0.35))
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+                .background(Color.black.opacity(0.35), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!on)
+        .accessibilityLabel(loc(label))
+    }
+}
