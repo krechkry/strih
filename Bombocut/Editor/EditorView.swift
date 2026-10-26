@@ -350,6 +350,10 @@ struct EditorView: View {
 
     /// Top-left status while captions are prepared in the background (you can keep editing).
     private var statusPill: AnyView? {
+        if let f = model.reversing {
+            return AnyView(pillView(icon: "backward.fill", text: String(format: loc("Reversing %lld %% · tap to stop"), Int(f * 100)),
+                                    progress: f, tint: Theme.accent) { model.cancelReverse() })
+        }
         if let job = model.captionJob {
             if job.phase == .loadingModel && job.error == nil && speechStatus.warming {
                 return AnyView(warmPill)
@@ -578,6 +582,9 @@ struct EditorView: View {
                     if !clip.still {
                         ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
                             .opacity(model.freezing ? 0.4 : 1)
+                        ToolButton(icon: clip.reversed == nil ? "backward" : "backward.fill",
+                                   label: clip.reversed == nil ? "Reverse" : "Forward") { model.reverseSelected() }
+                            .opacity(model.reversing != nil ? 0.4 : 1)
                     }
                     if pro {
                         ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }

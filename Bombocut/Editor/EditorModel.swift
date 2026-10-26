@@ -566,6 +566,39 @@ final class EditorModel: ObservableObject {
     }
 
     @Published private(set) var freezing = false
+    /// Making the reversed copy of a clip: how far along.
+    @Published private(set) var reversing: Double?
+    private var reverseTask: Task<Void, Never>?
+
+    /// Reverse: plays the selected clip backwards (its speed curve too), or forwards again.
+    func reverseSelected() {
+        guard let i = selectedIndex, reversing == nil else { return }
+        let c = project.clips[i]
+        if c.reversed != nil {
+            mutate { $0.clips[i] = c.unreversed() }
+            return
+        }
+        pause()
+        reversing = 0
+        let url = Paths.mediaURL(c.mediaFile)
+        reverseTask = Task {
+            defer { reversing = nil; reverseTask = nil }
+            do {
+                let out = try await Reverser.reverse(url, from: c.inPoint, to: c.outPoint) { f in
+                    Task { @MainActor in if self.reversing != nil { self.reversing = f } }
+                }
+                let length = (try? await Media.probe(out).duration) ?? (c.outPoint - c.inPoint)
+                guard let k = project.clips.firstIndex(where: { $0.id == c.id }) else { return }
+                mutate { $0.clips[k] = $0.clips[k].reversing(to: out.lastPathComponent, length: length) }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } catch is CancellationError {
+            } catch {
+                buildError = error.localizedDescription
+            }
+        }
+    }
+
+    func cancelReverse() { reverseTask?.cancel() }
 
     /// Freeze frame: the frame under the playhead held for 2 seconds, put in between the two halves of its clip.
     func freezeFrame() {

@@ -125,3 +125,32 @@ final class CaptionTranslateTests: XCTestCase {
         XCTAssertEqual(TranslationPacks.code("cs"), "cs")
     }
 }
+
+final class ClipReverseTests: XCTestCase {
+    func testReverseAndBackKeepsTrimsCurveAndKeyframes() {
+        var c = Clip(mediaFile: "a.mov", sourceDuration: 20)
+        c.inPoint = 4
+        c.outPoint = 10
+        c.speedCurve = [SpeedPoint(t: 0, v: 1), SpeedPoint(t: 0.25, v: 3), SpeedPoint(t: 1, v: 0.5)]
+        c.keyframes = [Keyframe(t: 5, look: Look()), Keyframe(t: 9, look: Look(), ease: .linear)]
+        let r = c.reversing(to: "r.mov", length: 6)
+        XCTAssertEqual(r.mediaFile, "r.mov")
+        XCTAssertEqual(r.inPoint, 0)
+        XCTAssertEqual(r.outPoint, 6)
+        XCTAssertEqual(r.speedCurve?.first?.v, 0.5)
+        XCTAssertEqual(r.speedCurve?[1].t ?? 0, 0.75, accuracy: 1e-9)
+        // source 9 is 1 s before the end: 1 s into the reversed copy
+        XCTAssertEqual(r.keyframes.map(\.t), [1, 5])
+        XCTAssertEqual(r.duration, c.duration, accuracy: 1e-6)
+
+        // trim the reversed clip, then back: the trim lands on the matching part of the original
+        var t = r
+        t.inPoint = 1
+        let back = t.unreversed()
+        XCTAssertEqual(back.mediaFile, "a.mov")
+        XCTAssertEqual(back.inPoint, 4, accuracy: 1e-9)
+        XCTAssertEqual(back.outPoint, 9, accuracy: 1e-9)
+        XCTAssertEqual(back.keyframes.map(\.t), [5, 9])
+        XCTAssertNil(back.reversed)
+    }
+}

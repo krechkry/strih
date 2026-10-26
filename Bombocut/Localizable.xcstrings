@@ -2169,7 +2169,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dopředu"
+            "value": "Popředu"
           }
         }
       }
@@ -3788,6 +3788,26 @@
         }
       }
     },
+    "Reverse": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozpátku"
+          }
+        }
+      }
+    },
+    "Reversing %lld %% · tap to stop": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otáčím %lld %% · klepni pro zastavení"
+          }
+        }
+      }
+    },
     "Ride with us": {
       "localizations": {
         "cs": {
@@ -4844,6 +4864,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tohle nejde vrátit."
+          }
+        }
+      }
+    },
+    "This clip couldn't be reversed.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle klip nejde otočit pozpátku."
           }
         }
       }

@@ -179,6 +179,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var cut: CutTransition?        // how this clip comes in over the one before it (the two overlap)
     var speech: SpeechFX?          // noise removal, voice enhancer, Apple Audio Mix
     var still = false              // a photo or a freeze frame (a held picture, see StillVideo)
+    var reversed: ReverseOrigin?   // playing backwards: a reversed copy stands in for the original part
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -214,7 +215,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed
     }
 
     init(from d: Decoder) throws {
@@ -245,6 +246,7 @@ struct Clip: Identifiable, Codable, Hashable {
         cut = try? c.decodeIfPresent(CutTransition.self, forKey: .cut)
         speech = try? c.decodeIfPresent(SpeechFX.self, forKey: .speech)
         still = try c.decodeIfPresent(Bool.self, forKey: .still) ?? false
+        reversed = try? c.decodeIfPresent(ReverseOrigin.self, forKey: .reversed)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)
@@ -289,6 +291,62 @@ struct Clip: Identifiable, Codable, Hashable {
         if hasCurve { return "curve" }
         if abs(speed - 1) < 0.001 { return nil }
         return Fmt.speed(speed)
+    }
+}
+
+/// Where a reversed clip came from: the original file and the part of it that was reversed.
+struct ReverseOrigin: Codable, Hashable {
+    var mediaFile: String
+    var sourceDuration: Double
+    var inPoint: Double
+    var outPoint: Double
+}
+
+extension Clip {
+    /// Speed curve played the other way round.
+    static func mirrored(_ pts: [SpeedPoint]?) -> [SpeedPoint]? {
+        pts.map { $0.reversed().map { SpeedPoint(t: 1 - $0.t, v: $0.v) } }
+    }
+
+    /// Keyframes on the other time axis (source time s becomes `pivot - s`); easing stays with its stretch.
+    static func mirrored(_ keys: [Keyframe], pivot: Double) -> [Keyframe] {
+        let flipped = keys.map { k -> Keyframe in var n = k; n.t = pivot - k.t; return n }.sorted { $0.t < $1.t }
+        var out = flipped
+        for i in out.indices {
+            // the stretch after this one (going forward now) used the ease of the keyframe that started it before
+            if let j = keys.firstIndex(where: { $0.id == flipped[i].id }), j > 0 { out[i].ease = keys[j - 1].ease }
+        }
+        return out
+    }
+
+    /// Swap to the reversed copy at `file` (covering inPoint...outPoint of the current file, `length` long).
+    func reversing(to file: String, length: Double) -> Clip {
+        var c = self
+        c.reversed = ReverseOrigin(mediaFile: mediaFile, sourceDuration: sourceDuration, inPoint: inPoint, outPoint: outPoint)
+        c.mediaFile = file
+        c.sourceDuration = length
+        c.inPoint = 0
+        c.outPoint = min(length, outPoint - inPoint)
+        c.speedCurve = Clip.mirrored(speedCurve)
+        c.keyframes = Clip.mirrored(keyframes, pivot: outPoint)
+        // shake and tracking were measured on the forward footage
+        c.stabilization = nil
+        c.tracking = nil
+        return c
+    }
+
+    /// Back to the original file, keeping any trims made while reversed.
+    func unreversed() -> Clip {
+        guard let o = reversed else { return self }
+        var c = self
+        c.mediaFile = o.mediaFile
+        c.sourceDuration = o.sourceDuration
+        c.inPoint = max(0, o.outPoint - outPoint)
+        c.outPoint = min(o.sourceDuration, o.outPoint - inPoint)
+        c.speedCurve = Clip.mirrored(speedCurve)
+        c.keyframes = Clip.mirrored(keyframes, pivot: o.outPoint)
+        c.reversed = nil
+        return c
     }
 }
 
@@ -392,7 +450,8 @@ struct Project: Identifiable, Codable, Hashable {
 
     /// Every imported file the project needs (clips and overlays).
     var mediaFiles: Set<String> {
-        Set(clips.map(\.mediaFile)).union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
+        Set(clips.map(\.mediaFile)).union(clips.compactMap(\.reversed?.mediaFile))
+            .union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
     }
 
     /// Timeline start time of each clip.
