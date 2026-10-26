@@ -215,7 +215,7 @@ private struct AdvancedAdjust: View {
                        changed: { pts in model.editLook { $0.effects[keyPath: curveKey] = pts } },
                        ended: { model.lookEditEnded() })
                 .frame(height: 200)
-            Text("Drag the points up or down. Double tap the graph to straighten it.")
+            Text("Tap the line to add a point, drag points anywhere. Double tap the graph to straighten it.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
         }
@@ -283,76 +283,130 @@ private struct AdvancedAdjust: View {
     }
 }
 
-/// Tone curve editor: five points at fixed inputs (black, ¼, ½, ¾, white), drag them up or down.
+/// Tone curve editor. Starts as two points (black and white corners); tap the line to add a point,
+/// drag points anywhere (they can't pass their neighbours), tap a point and Delete to remove it.
 private struct CurveGraph: View {
-    let points: [Double]
+    let points: [Double]          // flat x0, y0, x1, y1, …
     let color: Color
     let began: () -> Void
     let changed: ([Double]) -> Void
     let ended: () -> Void
     @State private var dragging: Int?
-    @State private var startY = 0.0
+    @State private var selected: Int?
+    @State private var start = CGPoint.zero
+
+    private var pts: [CGPoint] { ToneCurve.points(points).map { CGPoint(x: $0.x, y: $0.y) } }
 
     var body: some View {
         GeometryReader { g in
-            let w = g.size.width, h = g.size.height
+            let w = max(g.size.width, 1), h = max(g.size.height, 1)
+            let p = pts
             SwiftUI.Canvas { ctx, size in
-                // grid
                 for k in 1..<4 {
                     let x = size.width * CGFloat(k) / 4, y = size.height * CGFloat(k) / 4
-                    ctx.stroke(Path { p in p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: size.height)) },
+                    ctx.stroke(Path { q in q.move(to: CGPoint(x: x, y: 0)); q.addLine(to: CGPoint(x: x, y: size.height)) },
                                with: .color(.white.opacity(0.08)), lineWidth: 1)
-                    ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: y)); p.addLine(to: CGPoint(x: size.width, y: y)) },
+                    ctx.stroke(Path { q in q.move(to: CGPoint(x: 0, y: y)); q.addLine(to: CGPoint(x: size.width, y: y)) },
                                with: .color(.white.opacity(0.08)), lineWidth: 1)
                 }
-                // straight reference line
-                ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: size.height)); p.addLine(to: CGPoint(x: size.width, y: 0)) },
+                ctx.stroke(Path { q in q.move(to: CGPoint(x: 0, y: size.height)); q.addLine(to: CGPoint(x: size.width, y: 0)) },
                            with: .color(.white.opacity(0.15)), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                // the curve
                 var path = Path()
-                for i in 0...64 {
-                    let x = Double(i) / 64
+                for i in 0...96 {
+                    let x = Double(i) / 96
                     let pt = CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(1 - ToneCurve.value(points, x)))
                     if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
                 }
                 ctx.stroke(path, with: .color(color), lineWidth: 2.5)
-                for (k, y) in points.enumerated() {
-                    let c = CGPoint(x: size.width * CGFloat(k) / 4, y: size.height * CGFloat(1 - y))
-                    let r: CGFloat = dragging == k ? 9 : 7
+                for (k, q) in p.enumerated() {
+                    let c = CGPoint(x: size.width * q.x, y: size.height * (1 - q.y))
+                    let on = dragging == k || selected == k
+                    let r: CGFloat = on ? 9 : 7
                     let dot = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2))
-                    ctx.fill(dot, with: .color(Theme.panel2))
-                    ctx.stroke(dot, with: .color(dragging == k ? Theme.accent : color), lineWidth: 2.5)
+                    ctx.fill(dot, with: .color(on ? Theme.accent : Theme.panel2))
+                    ctx.stroke(dot, with: .color(on ? Theme.accent : color), lineWidth: 2.5)
                 }
             }
             .background(Theme.panel2.opacity(0.6), in: RoundedRectangle(cornerRadius: 14))
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
+                selected = nil
                 began()
                 changed(Effects.flatCurve)
                 ended()
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+            // one tap: pick a point, or add one where the line is
+            .onTapGesture(count: 1, coordinateSpace: .local) { loc in
+                if let k = nearest(loc, p, w, h) { selected = k; return }
+                let x = Double(loc.x / w)
+                let y = ToneCurve.value(points, x)
+                guard abs(CGFloat(1 - y) * h - loc.y) < 30, x > 0.01, x < 0.99 else { selected = nil; return }
+                var q = p
+                let i = q.firstIndex { Double($0.x) > x } ?? q.count
+                guard i > 0, i < q.count, x - Double(q[i - 1].x) > 0.02, Double(q[i].x) - x > 0.02 else { return }
+                q.insert(CGPoint(x: x, y: y), at: i)
+                began()
+                changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+                ended()
+                selected = i
+                UISelectionFeedbackGenerator().selectionChanged()
             }
             // high priority: the panel can scroll, but a finger on the graph always moves a point
             .highPriorityGesture(
                 DragGesture(minimumDistance: 2)
                     .onChanged { v in
                         if dragging == nil {
-                            let k = min(4, max(0, Int((v.startLocation.x / max(w, 1) * 4).rounded())))
+                            guard let k = nearest(v.startLocation, p, w, h, reach: 34) else { return }
                             dragging = k
-                            startY = points[k]
+                            selected = k
+                            start = p[k]
                             began()
                         }
                         guard let k = dragging else { return }
-                        var pts = points
-                        pts[k] = min(1, max(0, startY - Double(v.translation.height / max(h, 1))))
-                        changed(pts)
+                        var q = p
+                        guard k < q.count else { return }
+                        // keep its place between the neighbours, on both axes' edges
+                        let lo = k > 0 ? q[k - 1].x + 0.01 : 0
+                        let hi = k < q.count - 1 ? q[k + 1].x - 0.01 : 1
+                        q[k].x = min(hi, max(lo, start.x + v.translation.width / w))
+                        q[k].y = min(1, max(0, start.y - v.translation.height / h))
+                        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
                     }
                     .onEnded { _ in
+                        if dragging != nil { ended() }
                         dragging = nil
-                        ended()
                     }
             )
+            .overlay(alignment: .bottomTrailing) {
+                if let k = selected, k > 0, k < p.count - 1 {
+                    Button {
+                        var q = p
+                        q.remove(at: k)
+                        selected = nil
+                        began()
+                        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+                        ended()
+                    } label: {
+                        Label("Delete point", systemImage: "trash")
+                            .font(.caption.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 10).frame(height: 30)
+                            .background(Color.red.opacity(0.85), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                }
+            }
         }
+    }
+
+    private func nearest(_ loc: CGPoint, _ p: [CGPoint], _ w: CGFloat, _ h: CGFloat, reach: CGFloat = 26) -> Int? {
+        var best: (Int, CGFloat)?
+        for (k, q) in p.enumerated() {
+            let d = hypot(q.x * w - loc.x, (1 - q.y) * h - loc.y)
+            if d < reach, d < (best?.1 ?? .infinity) { best = (k, d) }
+        }
+        return best?.0
     }
 }

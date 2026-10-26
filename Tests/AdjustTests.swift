@@ -20,6 +20,27 @@ final class AdjustTests: XCTestCase {
         for (k, y) in ys.enumerated() { XCTAssertEqual(ToneCurve.value(ys, Double(k) / 4), y, accuracy: 1e-9) }
     }
 
+    func testFreePointsStayMonotoneAndFlatOutsideTheEnds() {
+        let c = [0.1, 0.05, 0.3, 0.4, 0.55, 0.5, 0.85, 0.95]
+        var last = -1.0
+        for i in 0...200 {
+            let v = ToneCurve.value(c, Double(i) / 200)
+            XCTAssertGreaterThanOrEqual(v, last - 1e-9)
+            last = v
+        }
+        XCTAssertEqual(ToneCurve.value(c, 0), 0.05, accuracy: 1e-9)
+        XCTAssertEqual(ToneCurve.value(c, 1), 0.95, accuracy: 1e-9)
+        XCTAssertEqual(ToneCurve.value(c, 0.55), 0.5, accuracy: 1e-9)
+    }
+
+    func testOldFiveHeightCurvesBecomePoints() throws {
+        let json = #"{"curve":[0.1,0.3,0.5,0.7,0.9],"curveR":[0,0.25,0.5,0.75,1]}"#.data(using: .utf8)!
+        let e = try JSONDecoder().decode(Effects.self, from: json)
+        XCTAssertEqual(e.curve, [0, 0.1, 0.25, 0.3, 0.5, 0.5, 0.75, 0.7, 1, 0.9])
+        XCTAssertEqual(e.curveR, Effects.flatCurve)
+        XCTAssertEqual(ToneCurve.value(e.curve, 0.25), 0.3, accuracy: 1e-9)
+    }
+
     func testOldProjectsDecodeWithNeutralNewSettings() throws {
         let json = #"{"exposure":0.3,"grain":0.2}"#.data(using: .utf8)!
         let e = try JSONDecoder().decode(Effects.self, from: json)
@@ -33,13 +54,13 @@ final class AdjustTests: XCTestCase {
 
     func testNewSettingsRoundTripAndBlend() throws {
         var a = Effects()
-        a.curve = [0.1, 0.3, 0.5, 0.7, 0.9]
+        a.curve = [0, 0.1, 1, 0.9]
         a.hslSat[HSLBand.blue.rawValue] = 0.8
         a.halation = 0.5
         let back = try JSONDecoder().decode(Effects.self, from: JSONEncoder().encode(a))
         XCTAssertEqual(back, a)
         let mid = Effects.lerp(Effects(), a, 0.5)
-        XCTAssertEqual(mid.curve[0], 0.05, accuracy: 1e-9)
+        XCTAssertEqual(mid.curve[1], 0.05, accuracy: 1e-9)
         XCTAssertEqual(mid.hslSat[HSLBand.blue.rawValue], 0.4, accuracy: 1e-9)
         XCTAssertEqual(mid.halation, 0.25, accuracy: 1e-9)
         XCTAssertTrue(a.hasColor)

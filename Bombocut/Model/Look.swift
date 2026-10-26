@@ -19,8 +19,8 @@ struct Effects: Codable, Hashable {
     var texture = 0.0       // -1...1  fine detail (− = smoother skin and surfaces)
     var motionBlur = 0.0    //  old projects only: motion blur now lives on the clip (Clip.motionBlur)
 
-    /// Tone curves: output levels at input 0, ¼, ½, ¾ and 1. `curve` acts on all channels, then each channel's own.
-    static let flatCurve: [Double] = [0, 0.25, 0.5, 0.75, 1]
+    /// Tone curves as points (see `ToneCurve`): `curve` acts on all channels, then each channel's own.
+    static let flatCurve: [Double] = [0, 0, 1, 1]
     var curve = Effects.flatCurve
     var curveR = Effects.flatCurve
     var curveG = Effects.flatCurve
@@ -105,10 +105,16 @@ struct Effects: Codable, Hashable {
             guard let a = try? c.decodeIfPresent([Double].self, forKey: k), a.count == def.count else { return def }
             return a
         }
-        curve = arr(.curve, Self.flatCurve)
-        curveR = arr(.curveR, Self.flatCurve)
-        curveG = arr(.curveG, Self.flatCurve)
-        curveB = arr(.curveB, Self.flatCurve)
+        func curveArr(_ k: CodingKeys) -> [Double] {
+            guard let a = try? c.decodeIfPresent([Double].self, forKey: k) else { return Self.flatCurve }
+            if a == [0, 0.25, 0.5, 0.75, 1] { return Self.flatCurve }   // the old straight line
+            if a.count == 5 { return ToneCurve.upgraded(a) }
+            return a.count >= 4 && a.count % 2 == 0 ? a : Self.flatCurve
+        }
+        curve = curveArr(.curve)
+        curveR = curveArr(.curveR)
+        curveG = curveArr(.curveG)
+        curveB = curveArr(.curveB)
         hslHue = arr(.hslHue, Self.flatHSL)
         hslSat = arr(.hslSat, Self.flatHSL)
         hslLum = arr(.hslLum, Self.flatHSL)
@@ -325,27 +331,50 @@ enum HSLBand: Int, CaseIterable, Identifiable {
 }
 
 /// Smooth curve through the 5 points of a tone curve (monotone, so it never overshoots).
+/// A tone curve stored flat as x0, y0, x1, y1, … (sorted by x, at least two points). Older projects kept
+/// five heights at fixed inputs (0, ¼, ½, ¾, 1); those still read the same.
 enum ToneCurve {
-    static func value(_ ys: [Double], _ x: Double) -> Double {
-        guard ys.count == 5 else { return x }
-        let xs = [0, 0.25, 0.5, 0.75, 1.0]
+    static func points(_ c: [Double]) -> [(x: Double, y: Double)] {
+        if c.count == 5 { return zip([0, 0.25, 0.5, 0.75, 1.0], c).map { ($0, $1) } }
+        guard c.count >= 4, c.count % 2 == 0 else { return [(0, 0), (1, 1)] }
+        return stride(from: 0, to: c.count, by: 2).map { (c[$0], c[$0 + 1]) }
+    }
+
+    static func flat(_ p: [(Double, Double)]) -> [Double] { p.flatMap { [$0.0, $0.1] } }
+
+    /// Older five-height curves as points.
+    static func upgraded(_ c: [Double]) -> [Double] { c.count == 5 ? flat(points(c).map { ($0.x, $0.y) }) : c }
+
+    /// Smooth curve through the points without overshoot (monotone cubic); flat before the first and after the last.
+    static func value(_ c: [Double], _ x: Double) -> Double {
+        let p = points(c)
+        let n = p.count
         let x = min(max(x, 0), 1)
-        var k = min(Int(x / 0.25), 3)
-        if k < 0 { k = 0 }
-        // tangents (Fritsch-Carlson)
-        let d = (0..<4).map { (ys[$0 + 1] - ys[$0]) / 0.25 }
-        var m = [Double](repeating: 0, count: 5)
-        m[0] = d[0]; m[4] = d[3]
-        for i in 1..<4 { m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2 }
-        for i in 0..<4 where d[i] != 0 {
+        if x <= p[0].x { return min(max(p[0].y, 0), 1) }
+        if x >= p[n - 1].x { return min(max(p[n - 1].y, 0), 1) }
+        var d = [Double](repeating: 0, count: n - 1)
+        for i in 0..<(n - 1) {
+            let h = p[i + 1].x - p[i].x
+            d[i] = h > 1e-9 ? (p[i + 1].y - p[i].y) / h : 0
+        }
+        var m = [Double](repeating: 0, count: n)
+        m[0] = d[0]
+        m[n - 1] = d[n - 2]
+        if n > 2 { for i in 1..<(n - 1) { m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2 } }
+        for i in 0..<(n - 1) {
+            if abs(d[i]) < 1e-12 { m[i] = 0; m[i + 1] = 0; continue }
             let a = m[i] / d[i], b = m[i + 1] / d[i]
             let s = a * a + b * b
             if s > 9 { let t = 3 / s.squareRoot(); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i] }
         }
-        let h = 0.25, t = (x - xs[k]) / h
+        var k = 0
+        while k < n - 2 && x > p[k + 1].x { k += 1 }
+        let h = p[k + 1].x - p[k].x
+        guard h > 1e-9 else { return p[k + 1].y }
+        let t = (x - p[k].x) / h
         let t2 = t * t, t3 = t2 * t
-        let y = (2 * t3 - 3 * t2 + 1) * ys[k] + (t3 - 2 * t2 + t) * h * m[k]
-            + (-2 * t3 + 3 * t2) * ys[k + 1] + (t3 - t2) * h * m[k + 1]
+        let y = (2 * t3 - 3 * t2 + 1) * p[k].y + (t3 - 2 * t2 + t) * h * m[k]
+            + (-2 * t3 + 3 * t2) * p[k + 1].y + (t3 - t2) * h * m[k + 1]
         return min(max(y, 0), 1)
     }
 }
