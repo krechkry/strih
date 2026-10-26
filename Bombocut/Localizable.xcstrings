@@ -1080,6 +1080,16 @@
         }
       }
     },
+    "Clarity": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zřetelnost"
+          }
+        }
+      }
+    },
     "Clean up": {
       "localizations": {
         "cs": {
@@ -4544,6 +4554,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Text "
+          }
+        }
+      }
+    },
+    "Texture": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textura"
           }
         }
       }

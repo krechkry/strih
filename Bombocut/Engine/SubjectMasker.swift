@@ -59,6 +59,22 @@ final class SubjectMasker: @unchecked Sendable {
             .cropped(to: frame)
     }
 
+    /// Editor only: a lime line along the mask's edge (like Photos lifting a subject), so you see what it found.
+    static func outline(_ mask: CIImage, on image: CIImage, frame: CGRect) -> CIImage {
+        let short = Double(min(frame.width, frame.height))
+        let edge = mask.clampedToExtent()
+            .applyingFilter("CIMorphologyGradient", parameters: [kCIInputRadiusKey: max(1.5, short * 0.0035)])
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: 3, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 3, y: 0, z: 0, w: 0),
+                "inputBVector": CIVector(x: 3, y: 0, z: 0, w: 0)])
+            .applyingFilter("CIColorClamp")
+            .cropped(to: frame)
+        let lime = CIImage(color: CIColor(red: 0.894, green: 1.0, blue: 0.353)).cropped(to: frame)
+        return lime.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: image,
+                                                                   kCIInputMaskImageKey: edge]).cropped(to: frame)
+    }
+
     /// The clip's edge settings: grow / shrink, soften, invert.
     static func refine(_ mask: CIImage, _ m: SubjectMask, frame: CGRect) -> CIImage {
         let short = Double(min(frame.width, frame.height))

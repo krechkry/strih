@@ -55,6 +55,7 @@ final class EditorModel: ObservableObject {
                 if captionsSelected { captionsSelected = false }
                 if selectedAudioID != nil { selectedAudioID = nil }
             }
+            if maskPanelOpen { updateMaskOutline() }
         }
     }
     /// The captions track is selected: fingers on the preview move the captions.
@@ -1352,6 +1353,15 @@ final class EditorModel: ObservableObject {
     @Published var previewScrubs = false
     /// The Track panel is open (the tracked box is only drawn then).
     @Published var trackPanelOpen = false
+    /// The Mask panel is open: the selected clip's subject gets a lime outline in the preview.
+    @Published var maskPanelOpen = false { didSet { if maskPanelOpen != oldValue { updateMaskOutline() } } }
+
+    func updateMaskOutline() {
+        let id = maskPanelOpen ? selectedClipID : nil
+        guard LookStore.shared.outlineClip != id else { return }
+        LookStore.shared.outlineClip = id
+        refreshFrame()
+    }
     /// Range being scrubbed (shown as a slim bar on the preview), nil when not scrubbing.
     @Published private(set) var scrubRange: ClosedRange<Double>?
     private var scrubStart: Double?

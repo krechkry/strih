@@ -250,6 +250,7 @@ struct EditorView: View {
             if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
+            model.maskPanelOpen = s == .mask
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
             if s == nil && model.pick == nil { model.captionsGenerator = false }
         }

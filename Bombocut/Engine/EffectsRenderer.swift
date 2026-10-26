@@ -7,6 +7,13 @@ final class LookStore: @unchecked Sendable {
     static let shared = LookStore()
     private let lock = NSLock()
     private var states: [UUID: LookState] = [:]
+    private var outline: UUID?
+
+    /// The clip whose subject mask gets a lime outline in the preview (the Mask panel is open). Never in exports.
+    var outlineClip: UUID? {
+        get { lock.lock(); defer { lock.unlock() }; return outline }
+        set { lock.lock(); outline = newValue; lock.unlock() }
+    }
 
     func update(_ clips: [Clip]) {
         var d: [UUID: LookState] = [:]
@@ -211,6 +218,7 @@ enum EffectsRenderer {
         guard e.hasCanvasFX else { return img }
         let rect = CGRect(origin: .zero, size: size)
         var out = img
+        if e.clarity != 0 || e.texture != 0 { out = detail(out, clarity: e.clarity, texture: e.texture, size: size) }
         if e.aberration > 0 { out = aberration(out, amount: e.aberration, size: size) }
         if e.vignette > 0 {
             let r = hypot(size.width, size.height) / 2
@@ -230,6 +238,28 @@ enum EffectsRenderer {
         }
         if e.grain > 0 { out = grain(out, amount: e.grain, size: e.grainSize, canvas: size, frame: frame) }
         return out.cropped(to: rect)
+    }
+
+    /// Texture (fine detail, small radius) and clarity (midtone punch, large radius): unsharp masking up,
+    /// a blend towards a blurred copy down. Radii follow the canvas, so a preview and a 4K export look alike.
+    static func detail(_ img: CIImage, clarity: Double, texture: Double, size: CGSize) -> CIImage {
+        let rect = CGRect(origin: .zero, size: size)
+        let short = Double(min(size.width, size.height))
+        var out = img
+        func soften(_ i: CIImage, sigma: Double, amount: Double) -> CIImage {
+            let blurred = i.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: rect)
+            return i.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: blurred,
+                                                                        kCIInputTimeKey: min(1, amount)]).cropped(to: rect)
+        }
+        func sharpen(_ i: CIImage, radius: Double, amount: Double) -> CIImage {
+            i.clampedToExtent().applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: radius,
+                                                                            kCIInputIntensityKey: amount]).cropped(to: rect)
+        }
+        if texture > 0 { out = sharpen(out, radius: short * 0.0025, amount: texture * 1.4) }
+        if texture < 0 { out = soften(out, sigma: short * 0.0022, amount: -texture * 0.85) }
+        if clarity > 0 { out = sharpen(out, radius: short * 0.03, amount: clarity * 0.55) }
+        if clarity < 0 { out = soften(out, sigma: short * 0.012, amount: -clarity * 0.5) }
+        return out
     }
 
     /// Film halation: the brightest parts glow red-orange into their surroundings.

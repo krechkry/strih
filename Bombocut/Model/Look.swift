@@ -15,6 +15,8 @@ struct Effects: Codable, Hashable {
     var grainSize = 0.4     //  0...1
     var bloom = 0.0         //  0...1  soft glow around bright parts
     var halation = 0.0      //  0...1  red film glow around highlights
+    var clarity = 0.0       // -1...1  local contrast in the midtones (− = soft, dreamy)
+    var texture = 0.0       // -1...1  fine detail (− = smoother skin and surfaces)
     var motionBlur = 0.0    //  old projects only: motion blur now lives on the clip (Clip.motionBlur)
 
     /// Tone curves: output levels at input 0, ¼, ½, ¾ and 1. `curve` acts on all channels, then each channel's own.
@@ -41,7 +43,7 @@ struct Effects: Codable, Hashable {
         exposure != 0 || contrast != 0 || saturation != 0 || temperature != 0 || tint != 0 || highlights != 0 || shadows != 0
             || hasCurves || hasHSL
     }
-    var hasCanvasFX: Bool { vignette > 0 || aberration > 0 || grain > 0 || bloom > 0 || halation > 0 }
+    var hasCanvasFX: Bool { vignette > 0 || aberration > 0 || grain > 0 || bloom > 0 || halation > 0 || clarity != 0 || texture != 0 }
 
     static func lerp(_ a: Effects, _ b: Effects, _ f: Double) -> Effects {
         func m(_ x: Double, _ y: Double) -> Double { x + (y - x) * f }
@@ -59,6 +61,8 @@ struct Effects: Codable, Hashable {
         e.grainSize = m(a.grainSize, b.grainSize)
         e.bloom = m(a.bloom, b.bloom)
         e.halation = m(a.halation, b.halation)
+        e.clarity = m(a.clarity, b.clarity)
+        e.texture = m(a.texture, b.texture)
         func ms(_ x: [Double], _ y: [Double]) -> [Double] {
             guard x.count == y.count else { return f < 0.5 ? x : y }
             return zip(x, y).map { m($0, $1) }
@@ -75,7 +79,7 @@ struct Effects: Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case exposure, contrast, saturation, temperature, tint, highlights, shadows, vignette, aberration, grain, grainSize
-        case motionBlur, bloom, halation, curve, curveR, curveG, curveB, hslHue, hslSat, hslLum
+        case motionBlur, bloom, halation, clarity, texture, curve, curveR, curveG, curveB, hslHue, hslSat, hslLum
     }
 
     init(from d: Decoder) throws {
@@ -95,6 +99,8 @@ struct Effects: Codable, Hashable {
         motionBlur = try v(.motionBlur)
         bloom = try v(.bloom)
         halation = try v(.halation)
+        clarity = try v(.clarity)
+        texture = try v(.texture)
         func arr(_ k: CodingKeys, _ def: [Double]) -> [Double] {
             guard let a = try? c.decodeIfPresent([Double].self, forKey: k), a.count == def.count else { return def }
             return a
@@ -168,13 +174,13 @@ struct LookState: Hashable {
 /// The sliders in the Adjust sheet.
 enum LookParam: String, CaseIterable, Identifiable {
     case exposure, contrast, saturation, temperature, tint, highlights, shadows
-    case vignette, aberration, grain, grainSize, opacity, bloom, halation
+    case vignette, aberration, grain, grainSize, opacity, bloom, halation, clarity, texture
 
     var id: String { rawValue }
 
     /// Basic tab (light and color) and Effects tab (lens and film).
     static let basic: [LookParam] = [.exposure, .contrast, .saturation, .temperature, .tint, .highlights, .shadows, .opacity]
-    static let effects: [LookParam] = [.bloom, .halation, .vignette, .aberration, .grain, .grainSize]
+    static let effects: [LookParam] = [.clarity, .texture, .bloom, .halation, .vignette, .aberration, .grain, .grainSize]
 
     var title: String {
         switch self {
@@ -192,6 +198,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .opacity: return "Opacity"
         case .bloom: return "Bloom"
         case .halation: return "Halation"
+        case .clarity: return "Clarity"
+        case .texture: return "Texture"
         }
     }
 
@@ -211,6 +219,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .opacity: return "square.on.square"
         case .bloom: return "sparkles"
         case .halation: return "sun.haze.fill"
+        case .clarity: return "diamond.lefthalf.filled"
+        case .texture: return "circle.hexagongrid.fill"
         }
     }
 
@@ -245,6 +255,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .opacity: return l.opacity
         case .bloom: return l.effects.bloom
         case .halation: return l.effects.halation
+        case .clarity: return l.effects.clarity
+        case .texture: return l.effects.texture
         }
     }
 
@@ -265,6 +277,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .opacity: l.opacity = v
         case .bloom: l.effects.bloom = v
         case .halation: l.effects.halation = v
+        case .clarity: l.effects.clarity = v
+        case .texture: l.effects.texture = v
         }
     }
 

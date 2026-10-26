@@ -279,7 +279,7 @@ struct SubjectMask: Codable, Hashable {
     var blur = 0.0          // 0...1 background blur
     var dim = 0.0           // 0...1 background darkening (1 = black)
     var desaturate = 0.0    // 0...1 background to black & white
-    var feather = 0.15      // 0...1 edge softness
+    var feather = 0.0       // 0...1 edge softness (0: the sharp edge Vision finds)
     var grow = 0.0          // -1...1 pull the edge in (−) or push it out (+)
     var invert = false      // treat the background as the subject
 

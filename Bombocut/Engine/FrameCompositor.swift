@@ -304,6 +304,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
                                                                         kCIInputMaskImageKey: mask]).cropped(to: frame)
             masked = true
+            if info.preview, LookStore.shared.outlineClip == info.clipID {
+                image = SubjectMasker.outline(mask, on: image, frame: frame)
+            }
         }
         return EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
     }
