@@ -572,7 +572,7 @@ struct CaptionsSheet: View {
     private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>,
                         _ make: @escaping (Double) -> (inout CaptionStyle) -> Void) -> some View {
         section(title) {
-            Slider(value: Binding(get: { value }, set: { v in
+            BSlider(value: Binding(get: { value }, set: { v in
                 model.editCaptions { c in make(v)(&c.style); c.templateID = nil }
             }), in: range, onEditingChanged: { editing in
                 if editing { model.liveEditBegan() } else { model.liveEditEnded() }

@@ -221,8 +221,9 @@ struct MaskSheet: View {
                 Spacer()
                 Text(center && value > 0.005 ? "+\(Int((value * 100).rounded()))" : "\(Int((value * 100).rounded()))")
                     .font(.subheadline.weight(.bold).monospacedDigit())
+                    .doubleTapNumberReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
             }
-            Slider(value: Binding(get: { value }, set: { v in set(center && abs(v) < 0.04 ? 0 : v) }), in: range,
+            BSlider(value: Binding(get: { value }, set: { v in set(center && abs(v) < 0.04 ? 0 : v) }), in: range,
                    onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })

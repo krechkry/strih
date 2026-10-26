@@ -82,8 +82,9 @@ struct AdjustSheet: View {
             Text(param.display(value))
                 .font(.system(size: 28, weight: .heavy).monospacedDigit())
                 .foregroundStyle(abs(value - param.neutral) < 0.005 ? Theme.muted : Theme.accent)
+                .doubleTapNumberReset { model.resetParam(param) }
         }
-        Slider(value: Binding(
+        BSlider(value: Binding(
             get: { param.get(model.lookAtPlayhead(i)) },
             set: { v in
                 var v = v
@@ -260,8 +261,13 @@ private struct AdvancedAdjust: View {
                 Text(verbatim: v > 0.005 ? "+\(Int((v * 100).rounded()))" : "\(Int((v * 100).rounded()))")
                     .font(.subheadline.weight(.bold).monospacedDigit())
                     .foregroundStyle(abs(v) < 0.005 ? Theme.muted : Theme.accent)
+                    .doubleTapNumberReset {
+                        model.lookEditBegan()
+                        model.editLook { $0.effects[keyPath: key][k] = 0 }
+                        model.lookEditEnded()
+                    }
             }
-            Slider(value: Binding(get: { effects[keyPath: key][k] }, set: { nv in
+            BSlider(value: Binding(get: { effects[keyPath: key][k] }, set: { nv in
                 let nv = abs(nv) < 0.03 ? 0 : nv
                 model.editLook { $0.effects[keyPath: key][k] = nv }
             }), in: -1...1, onEditingChanged: { e in

@@ -63,7 +63,7 @@ struct VolumeSheet: View {
                     Button { model.mutate { $0.clips[i].volume = v < 0.01 ? 1 : 0 } } label: {
                         Image(systemName: v < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
                     }
-                    Slider(value: Binding(get: { v }, set: { model.setVolume($0, live: true) }), in: 0...1,
+                    BSlider(value: Binding(get: { v }, set: { model.setVolume($0, live: true) }), in: 0...1,
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                         .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
@@ -247,7 +247,7 @@ struct ExportSheet: View {
                         VStack(spacing: 12) {
                             OnOffRow(title: "Automatic", isOn: autoBitrate) { autoBitrate = $0 }
                             HStack(spacing: 12) {
-                                Slider(value: Binding(
+                                BSlider(value: Binding(
                                     get: { log(max(mbps, 0.1) / 0.1) / log(2000) },
                                     set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false }
                                 ), in: 0...1)
@@ -643,7 +643,7 @@ struct StabilizeSheet: View {
                             Spacer()
                             Text("\(Int((st.strength * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
                         }
-                        Slider(value: Binding(get: { st.strength }, set: { v in
+                        BSlider(value: Binding(get: { st.strength }, set: { v in
                             model.editClip { $0.stabilization?.strength = v }
                         }), in: 0...1, onEditingChanged: { e in
                             if e { model.liveEditBegan() } else { model.liveEditEnded() }
@@ -660,7 +660,7 @@ struct StabilizeSheet: View {
                         Spacer()
                         Text(verbatim: "\(Int((st.maxZoom * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
                     }
-                    Slider(value: Binding(get: { st.maxZoom }, set: { v in
+                    BSlider(value: Binding(get: { st.maxZoom }, set: { v in
                         model.editClip { $0.stabilization?.maxZoom = v }
                     }), in: 0.03...0.4, onEditingChanged: { e in
                         if e { model.liveEditBegan() } else { model.liveEditEnded() }
@@ -749,7 +749,7 @@ struct TrackSheet: View {
                     }
                 }
                 Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                Slider(value: Binding(get: { tr.smooth }, set: { v in
+                BSlider(value: Binding(get: { tr.smooth }, set: { v in
                     model.editClip { $0.tracking?.smooth = v }
                 }), in: 0...1, onEditingChanged: { e in
                     if e { model.liveEditBegan() } else { model.liveEditEnded() }

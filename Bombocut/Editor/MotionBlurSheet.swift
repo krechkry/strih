@@ -16,9 +16,10 @@ struct MotionBlurSheet: View {
                     Text("Amount").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                     Spacer()
                     Text("\(Int((c.motionBlur * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
+                        .doubleTapNumberReset { model.liveEditBegan(); model.setMotionBlur(0.5); model.liveEditEnded() }
                 }
                 .opacity(c.motionBlurOn ? 1 : 0.4)
-                Slider(value: Binding(get: { c.motionBlur }, set: { model.setMotionBlur($0) }), in: 0.01...1,
+                BSlider(value: Binding(get: { c.motionBlur }, set: { model.setMotionBlur($0) }), in: 0.01...1,
                        onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
                     .tint(Theme.accent)
                     .doubleTapReset { model.liveEditBegan(); model.setMotionBlur(0.5); model.liveEditEnded() }
@@ -185,7 +186,7 @@ struct ClipAnimSheet: View {
                 Spacer()
                 Text(String(format: current == .smooth ? "%.2fs" : "%.1fs", length)).font(.subheadline.weight(.bold).monospacedDigit())
             }
-            Slider(value: Binding(get: { length }, set: { model.cutDurationChanged($0) }),
+            BSlider(value: Binding(get: { length }, set: { model.cutDurationChanged($0) }),
                    in: current == .smooth ? 0.04...max(0.08, min(0.6, maxLen)) : 0.1...max(0.2, min(3, maxLen)),
                    onEditingChanged: { e in
                        if !e {
@@ -235,7 +236,7 @@ struct AudioSheet: View {
                         Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
                     }
                     .tint(.white)
-                    Slider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
+                    BSlider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
                            onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
                         .doubleTapReset { model.setAudioVolume(1, done: true) }
                     Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
@@ -282,7 +283,7 @@ struct SpeechSheet: View {
                                     Text("\(Int(((strength ?? fx.denoise) * 100).rounded())) %")
                                         .font(.subheadline.weight(.bold).monospacedDigit())
                                 }
-                                Slider(value: Binding(get: { strength ?? fx.denoise }, set: { strength = $0 }), in: 0.1...1,
+                                BSlider(value: Binding(get: { strength ?? fx.denoise }, set: { strength = $0 }), in: 0.1...1,
                                        onEditingChanged: { e in
                                     if !e, let v = strength { var f = fx; f.denoise = v; model.setSpeech(f); strength = nil }
                                 })
@@ -305,7 +306,7 @@ struct SpeechSheet: View {
                                 }
                             }
                             if fx.mix != nil {
-                                Slider(value: Binding(get: { intensity ?? fx.mixIntensity }, set: { intensity = $0 }), in: 0...1,
+                                BSlider(value: Binding(get: { intensity ?? fx.mixIntensity }, set: { intensity = $0 }), in: 0...1,
                                        onEditingChanged: { e in
                                     if !e, let v = intensity { var f = fx; f.mixIntensity = v; model.setSpeech(f); intensity = nil }
                                 })

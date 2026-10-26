@@ -194,7 +194,7 @@ struct OverlaySheet: View {
             section("Volume") {
                 HStack(spacing: 12) {
                     Image(systemName: o.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 24)
-                    Slider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
+                    BSlider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
                            onEditingChanged: { e in
                         if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
                     })
@@ -233,7 +233,7 @@ struct OverlaySheet: View {
     private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>,
                         _ set: @escaping (Double) -> Void) -> some View {
         section(title) {
-            Slider(value: Binding(get: { value }, set: set), in: range, onEditingChanged: { e in
+            BSlider(value: Binding(get: { value }, set: set), in: range, onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })
             .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
@@ -302,7 +302,7 @@ struct AnimEditor: View {
                 }
             }
             if current != .none {
-                Slider(value: Binding(get: { duration }, set: dur), in: 0.1...max(0.2, min(2, maxLength / 2)),
+                BSlider(value: Binding(get: { duration }, set: dur), in: 0.1...max(0.2, min(2, maxLength / 2)),
                        onEditingChanged: { e in if e { began() } else { ended(); preview() } })
                     .doubleTapReset { began(); dur(0.4); ended(); preview() }
             }

@@ -175,10 +175,11 @@ struct SpeedSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(Fmt.speed(speed))
                     .font(.system(size: 44, weight: .heavy).monospacedDigit())
+                    .doubleTapNumberReset { speed = 1; commitSpeed(1) }
                 Spacer()
                 durationLine(newDuration: originalDuration / max(speed, 0.01))
             }
-            Slider(value: Binding(
+            BSlider(value: Binding(
                 get: { log10(max(speed, 0.1)) },
                 set: { v in
                     var s = pow(10, v)
