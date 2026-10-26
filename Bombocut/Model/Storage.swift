@@ -1,3 +1,4 @@
+import PhotosUI
 import Foundation
 import AVFoundation
 import SwiftUI
@@ -72,6 +73,19 @@ final class ProjectStore: ObservableObject {
     }
 }
 
+extension Media {
+    /// A video or a photo picked in Photos, copied into the Media folder (photos become clips in makeClips).
+    static func load(_ item: PhotosPickerItem) async -> URL? {
+        let isMovie = item.supportedContentTypes.contains { $0.conforms(to: .movie) }
+        if isMovie { return (try? await item.loadTransferable(type: ImportedMovie.self))?.url }
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+        Paths.ensure()
+        let ext = item.supportedContentTypes.first(where: { $0.conforms(to: .image) })?.preferredFilenameExtension ?? "jpg"
+        let url = Paths.mediaURL(UUID().uuidString + "." + ext)
+        return (try? data.write(to: url)) != nil ? url : nil
+    }
+}
+
 /// A video picked from Photos or Files, copied into the app's Media folder.
 struct ImportedMovie: Transferable {
     let url: URL
@@ -111,6 +125,15 @@ enum Media {
         var clips: [Clip] = []
         var first: CGSize?
         for url in urls {
+            // photos: held for 2 seconds
+            if StillVideo.isImage(url) {
+                defer { try? FileManager.default.removeItem(at: url) }
+                guard let video = try? await StillVideo.make(fromImageAt: url),
+                      let info = try? await probe(video) else { continue }
+                if first == nil { first = info.size }
+                clips.append(StillVideo.clip(video, size: info.size))
+                continue
+            }
             guard let info = try? await probe(url), info.duration > 0.05 else {
                 try? FileManager.default.removeItem(at: url)
                 continue

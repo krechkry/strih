@@ -565,6 +565,64 @@ final class EditorModel: ObservableObject {
         selectedClipID = b.id
     }
 
+    @Published private(set) var freezing = false
+
+    /// Freeze frame: the frame under the playhead held for 2 seconds, put in between the two halves of its clip.
+    func freezeFrame() {
+        let t = currentTime
+        guard !freezing, let hit = project.clipIndex(at: t) else { return }
+        let i = hit.index
+        let c = project.clips[i]
+        let src = min(max(c.retime.source(atLocal: t - hit.start), c.inPoint), c.outPoint - 0.001)
+        pause()
+        freezing = true
+        Task {
+            defer { freezing = false }
+            let gen = AVAssetImageGenerator(asset: AVURLAsset(url: Paths.mediaURL(c.mediaFile)))
+            gen.appliesPreferredTrackTransform = true
+            gen.requestedTimeToleranceBefore = .zero
+            gen.requestedTimeToleranceAfter = .zero
+            guard let frame = try? await gen.image(at: CMTime(seconds: src, preferredTimescale: 600)).image,
+                  let video = try? await StillVideo.make(from: frame) else { return }
+            var still = StillVideo.clip(video, size: CGSize(width: frame.width, height: frame.height))
+            // it looks like the frame it came from
+            still.staticLook = c.look(atSource: src)
+            still.fill = c.fill
+            still.mask = c.mask
+            still.volume = 0
+            guard let k = project.clips.firstIndex(where: { $0.id == c.id }) else { return }
+            let cur = project.clips[k]
+            var a = cur, b = cur
+            let cutHere = src - cur.inPoint > 0.05 && cur.outPoint - src > 0.05
+            if cutHere {
+                a.outPoint = src
+                b.id = UUID()
+                b.inPoint = src
+                b.cut = nil
+                a.anim.outAnim = .none
+                b.anim.inAnim = .none
+                if cur.hasCurve {
+                    let u = (src - cur.inPoint) / (cur.outPoint - cur.inPoint)
+                    a.speedCurve = cur.subCurve(0, u)
+                    b.speedCurve = cur.subCurve(u, 1)
+                }
+            }
+            let atEnd = !cutHere && src - cur.inPoint > 0.05
+            mutate { p in
+                if cutHere {
+                    p.clips[k] = a
+                    p.clips.insert(still, at: k + 1)
+                    p.clips.insert(b, at: k + 2)
+                } else {
+                    p.clips.insert(still, at: atEnd ? k + 1 : k)
+                }
+            }
+            selectedClipID = still.id
+            if let j = project.clips.firstIndex(where: { $0.id == still.id }) { scrub(to: project.clipStarts[j]) }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+
     /// Delete the selected clip; the view stays on the cut it leaves (the clips around it join there),
     /// not on the old time, which now shows some other moment of the video.
     func deleteSelected() {

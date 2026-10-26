@@ -194,7 +194,7 @@ struct EditorView: View {
             if open { model.openAddClips = false; showAddClips = true }
         }
         .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
-                      matching: .videos, preferredItemEncoding: .current)
+                      matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
         .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
             Button("Remove captions", role: .destructive) {
                 model.captionsSelected = false
@@ -575,11 +575,17 @@ struct EditorView: View {
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
+                    if !clip.still {
+                        ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
+                            .opacity(model.freezing ? 0.4 : 1)
+                    }
                     if pro {
                         ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
-                        ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
-                        ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+                        if !clip.still {
+                            ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
+                            ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+                        }
                     }
                     if pro { ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.openTransitionForSelection() } }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
@@ -591,17 +597,19 @@ struct EditorView: View {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
-                    if pro {
+                    if pro && !clip.still {
                         ToolButton(icon: "waveform.badge.plus", label: "Sound from video") {
                             model.pause()
                             Task { await model.extractClipAudio() }
                         }
                     }
-                    ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
-                    ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
+                    if !clip.still {
+                        ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
+                        ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
+                    }
                 } else {
-                    PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .videos,
-                                 preferredItemEncoding: .current) {
+                    PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
+                                 matching: .any(of: [.videos, .images]), preferredItemEncoding: .current) {
                         ToolLabel(icon: "plus", label: "Add")
                     }
                     .tint(Theme.pickerTint)
@@ -747,7 +755,7 @@ struct EditorView: View {
         defer { adding = false }
         var urls: [URL] = []
         for item in items {
-            if let m = try? await item.loadTransferable(type: ImportedMovie.self) { urls.append(m.url) }
+            if let url = await Media.load(item) { urls.append(url) }
         }
         let (clips, _) = await Media.makeClips(from: urls)
         model.addClips(clips)

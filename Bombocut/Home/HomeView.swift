@@ -134,7 +134,7 @@ struct HomeView: View {
                 pickerItems = []
                 Task { await importFromPhotos(items) }
             }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie], allowsMultipleSelection: true) { result in
+            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
             }
@@ -253,7 +253,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New project").font(.title3.weight(.semibold))
             HStack(spacing: 10) {
-                PhotosPicker(selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .videos,
+                PhotosPicker(selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .any(of: [.videos, .images]),
                              preferredItemEncoding: .current) {
                     Label("Photos", systemImage: "photo.on.rectangle")
                         .font(.body.weight(.semibold))
@@ -300,7 +300,7 @@ struct HomeView: View {
         defer { importing = false }
         var urls: [URL] = []
         for item in items {
-            if let movie = try? await item.loadTransferable(type: ImportedMovie.self) { urls.append(movie.url) }
+            if let url = await Media.load(item) { urls.append(url) }
         }
         await create(from: urls)
     }
@@ -320,7 +320,7 @@ struct HomeView: View {
     private func create(from urls: [URL]) async {
         let (clips, firstSize) = await Media.makeClips(from: urls)
         guard !clips.isEmpty else {
-            importError = "None of the picked files could be opened as video."
+            importError = "None of the picked files could be opened as video or picture."
             return
         }
         var p = Project(name: store.nextName())

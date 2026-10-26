@@ -178,6 +178,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var anim = AnimPair()          // in / out animation of the clip
     var cut: CutTransition?        // how this clip comes in over the one before it (the two overlap)
     var speech: SpeechFX?          // noise removal, voice enhancer, Apple Audio Mix
+    var still = false              // a photo or a freeze frame (a held picture, see StillVideo)
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -213,7 +214,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still
     }
 
     init(from d: Decoder) throws {
@@ -243,6 +244,7 @@ struct Clip: Identifiable, Codable, Hashable {
         anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
         cut = try? c.decodeIfPresent(CutTransition.self, forKey: .cut)
         speech = try? c.decodeIfPresent(SpeechFX.self, forKey: .speech)
+        still = try c.decodeIfPresent(Bool.self, forKey: .still) ?? false
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

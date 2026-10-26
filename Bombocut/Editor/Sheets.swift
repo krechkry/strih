@@ -368,7 +368,8 @@ struct ExportSheet: View {
 
     /// Start from the first clip: its size (as the short side of the canvas), frame rate and codec.
     private func matchFirstClip() async {
-        guard let c = project.clips.first else { return }
+        // photos and freeze frames say nothing about frame rate: match the first real video
+        guard let c = project.clips.first(where: { !$0.still }) else { return }
         let asset = AVURLAsset(url: Paths.mediaURL(c.mediaFile))
         guard let track = try? await asset.loadTracks(withMediaType: .video).first,
               let loaded = try? await track.load(.naturalSize, .preferredTransform, .nominalFrameRate, .formatDescriptions)

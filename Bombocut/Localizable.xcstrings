@@ -2248,6 +2248,16 @@
         }
       }
     },
+    "Freeze": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmrazit"
+          }
+        }
+      }
+    },
     "From %@ to": {
       "localizations": {
         "cs": {
@@ -3144,6 +3154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Žádná"
+          }
+        }
+      }
+    },
+    "None of the picked files could be opened as video or picture.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádný z vybraných souborů nejde otevřít jako video nebo obrázek."
           }
         }
       }
@@ -4844,6 +4864,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tento soubor nemá zvuk."
+          }
+        }
+      }
+    },
+    "This picture can't be opened.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle obrázek nejde otevřít."
           }
         }
       }
