@@ -260,6 +260,7 @@ struct EditorView: View {
             if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
             if s == nil && model.pick == nil { model.captionsGenerator = false }
+            if s != .captions { model.closeClipCaptions() }
         }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
@@ -580,6 +581,7 @@ struct EditorView: View {
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
                     if !clip.still {
+                        ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
                         ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
                             .opacity(model.freezing ? 0.4 : 1)
                         ToolButton(icon: clip.reversed == nil ? "backward" : "backward.fill",

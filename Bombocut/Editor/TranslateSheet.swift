@@ -14,6 +14,8 @@ struct TranslateSheet: View {
     @State private var appleConfig: TranslationSession.Configuration?
     @State private var appleTarget = ""
     @State private var confirmDelete = false
+    /// Translate into a new caption track (both languages on screen) instead of replacing these captions.
+    @AppStorage("translateAsNewTrack") private var asNewTrack = true
 
     var body: some View {
         Group {
@@ -33,7 +35,7 @@ struct TranslateSheet: View {
         .task { await packs.loadCatalog() }
         .translationTask(appleConfig) { session in
             let target = appleTarget
-            await model.translateCaptions(to: target) { texts, progress in
+            await model.translateCaptions(to: target, asNewTrack: asNewTrack) { texts, progress in
                 let responses: [TranslationSession.Response]
                 do {
                     try await session.prepareTranslation()
@@ -95,6 +97,12 @@ struct TranslateSheet: View {
 
                 engineCard(dirs: dirs, usePacks: usePacks, appleCan: appleCan, source: caps.language, target: target)
 
+                HStack(spacing: 8) {
+                    modeChip("Add as a new track", "captions.bubble", on: asNewTrack) { asNewTrack = true }
+                    modeChip("Replace", "arrow.triangle.2.circlepath", on: !asNewTrack) { asNewTrack = false }
+                }
+                .disabled(busy)
+
                 if let job = model.translateJob {
                     if let e = job.error {
                         Text(e).font(.footnote.weight(.semibold)).foregroundStyle(.red)
@@ -121,7 +129,7 @@ struct TranslateSheet: View {
                     model.pause()
                     model.dismissTranslateError()
                     if usePacks, let dirs {
-                        model.translateWithPacks(to: target, via: dirs)
+                        model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
                     } else {
                         appleTarget = target
                         let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
@@ -139,7 +147,9 @@ struct TranslateSheet: View {
                 .buttonStyle(.plain)
                 .disabled(busy || !(usePacks || appleCan))
 
-                Text("The translation replaces the captions, with the same style and timing. Undo brings the original back.")
+                Text(asNewTrack
+                     ? "The translation becomes a second captions track, a line above these, with its own style. Both stay editable."
+                     : "The translation replaces the captions, with the same style and timing. Undo brings the original back.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -216,6 +226,18 @@ struct TranslateSheet: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func modeChip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(loc(title), systemImage: icon)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(on ? .black : .white)
+                .lineLimit(1).minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, minHeight: 42)
+                .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 13))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Apple has no Czech or Slovak: name the language it is missing (the source, or else the target).

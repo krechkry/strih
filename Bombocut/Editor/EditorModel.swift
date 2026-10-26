@@ -173,7 +173,7 @@ final class EditorModel: ObservableObject {
             .store(in: &cancellables)
 
         LookStore.shared.update(project.clips)
-        CaptionStore.shared.update(project.captions)
+        CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         rebuild()
         Task { await fillMissingAspects() }
@@ -181,7 +181,7 @@ final class EditorModel: ObservableObject {
 
     func tearDown() {
         LookStore.shared.clear()
-        CaptionStore.shared.update(nil)
+        CaptionStore.shared.update([])
         player.pause()
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         timeObserver = nil
@@ -362,7 +362,7 @@ final class EditorModel: ObservableObject {
     /// Captions and overlays stick to the footage they belong to.
     private func followFootage(from before: Project) {
         guard before.timingKey != project.timingKey else { return }
-        if let caps = project.captions { project.captions = caps.remapped(from: before, to: project) }
+        project.captionTracks = project.captionTracks.map { $0.remapped(from: before, to: project) }
         if !project.overlays.isEmpty {
             project.overlays = Captions.remapOverlays(project.overlays, from: before, to: project)
         }
@@ -425,7 +425,7 @@ final class EditorModel: ObservableObject {
         if let id = selectedAudioID, !project.audio.contains(where: { $0.id == id }) { selectedAudioID = nil }
         currentTime = min(currentTime, duration)
         LookStore.shared.update(project.clips)
-        CaptionStore.shared.update(project.captions)
+        CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         rebuild()
     }
@@ -453,7 +453,7 @@ final class EditorModel: ObservableObject {
     /// Pushes the current looks to the compositor and redraws the paused frame.
     private func publishLook() {
         LookStore.shared.update(project.clips)
-        CaptionStore.shared.update(project.captions)
+        CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
         refreshFrame()
@@ -935,6 +935,33 @@ final class EditorModel: ObservableObject {
 
     /// Clips the captions listen to; nil = all clips.
     @Published var captionClips: Set<UUID>?
+    /// Captions opened from a clip's toolbar: the panel shows, generates and regenerates that clip's lines only
+    /// (the style still belongs to the whole track). Lines belong to the clip they sit on.
+    @Published var captionScope: UUID?
+
+    func openClipCaptions() {
+        guard let id = selectedClipID else { return }
+        pause()
+        captionScope = id
+        captionClips = [id]
+        let has = clipRange(id).map { r in project.captions?.cues.contains { r.contains(($0.start + $0.end) / 2) } ?? false } ?? false
+        captionsGenerator = !has
+        captionTab = 0
+        openCaptions = true
+    }
+
+    /// Where a clip sits on the timeline.
+    func clipRange(_ id: UUID) -> ClosedRange<Double>? {
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return nil }
+        let s = project.clipStarts[i]
+        return s...(s + project.clips[i].duration)
+    }
+
+    func closeClipCaptions() {
+        guard captionScope != nil else { return }
+        captionScope = nil
+        captionClips = nil
+    }
     /// The captions panel shows its generate page even though there are captions ("Regenerate").
     @Published var captionsGenerator = false
 
@@ -1024,7 +1051,7 @@ final class EditorModel: ObservableObject {
 
     /// Translates the captions sentence by sentence and replaces them (one undo step; your edits go with it).
     /// `engine` turns the sentences into translated sentences, reporting progress.
-    func translateCaptions(to target: String,
+    func translateCaptions(to target: String, asNewTrack: Bool = false,
                            engine: @escaping ([String], @escaping @MainActor (Double) -> Void) async throws -> [String]) async {
         guard let caps = project.captions, !caps.words.isEmpty, caps.language != target else { return }
         let snapshot = project
@@ -1038,7 +1065,18 @@ final class EditorModel: ObservableObject {
             var c = CaptionTranslate.captions(caps, sentences: sentences, translated: out, language: target)
             // you kept editing meanwhile: move the captions onto the timeline as it is now
             if snapshot.timingKey != project.timingKey { c = c.remapped(from: snapshot, to: project) }
-            setCaptions(c)
+            if asNewTrack {
+                // bilingual: the translation is its own track, a line above the original, styled on its own
+                c.style.y = max(0.08, caps.style.y - max(0.08, caps.style.size * Double(caps.style.lines) * 1.35))
+                c.templateID = nil
+                let new = c
+                mutateLook { p in
+                    p.captionTracks.append(new)
+                    p.activeCaption = p.captionTracks.count - 1
+                }
+            } else {
+                setCaptions(c)
+            }
             translateJob = nil
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         } catch is CancellationError {
@@ -1049,10 +1087,10 @@ final class EditorModel: ObservableObject {
     }
 
     /// With the downloaded language packs (keeps going when the panel closes).
-    func translateWithPacks(to target: String, via directions: [String]) {
+    func translateWithPacks(to target: String, via directions: [String], asNewTrack: Bool = false) {
         guard translateJob == nil || translateJob?.error != nil else { return }
         translateTask = Task {
-            await translateCaptions(to: target) { texts, progress in
+            await translateCaptions(to: target, asNewTrack: asNewTrack) { texts, progress in
                 defer { BergamotEngine.shared.unload() }
                 var out: [String] = []
                 for start in stride(from: 0, to: texts.count, by: 12) {
@@ -1085,7 +1123,13 @@ final class EditorModel: ObservableObject {
     /// Tap on a caption in the timeline: select the captions and edit that line.
     /// Tap on the captions lane: tap 1 selects the captions (on that line), tapping the same line again deselects.
     /// The line is remembered, so "Edit text" opens right there.
-    func tapCaption(_ cue: CaptionCue) {
+    func tapCaption(_ cue: CaptionCue, track: Int? = nil) {
+        if let track, track != project.activeCaption, project.captionTracks.indices.contains(track) {
+            // another track: it becomes the one the captions tools work on
+            project.activeCaption = track
+            store.save(project)
+            captionsSelected = false
+        }
         if captionsSelected && tappedCue == cue.id {
             captionsSelected = false
             tappedCue = nil
@@ -2318,7 +2362,7 @@ final class EditorModel: ObservableObject {
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
         project.captions?.style = st
-        CaptionStore.shared.update(project.captions)
+        CaptionStore.shared.update(project.captionTracks)
         refreshFrame()
     }
 

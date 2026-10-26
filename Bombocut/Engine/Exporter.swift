@@ -50,6 +50,10 @@ final class Exporter: @unchecked Sendable {
                 progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let w = Canvas.even(Double(settings.width)), h = Canvas.even(Double(settings.height))
         let hevc = settings.hevc || max(w, h) > 4096          // H.264 tops out at 4096 px
+        // what the frames draw, from this project (an export from Home, after the trial, has no editor open)
+        LookStore.shared.update(project.clips)
+        CaptionStore.shared.update(project.captionTracks)
+        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         // cleaned-up speech the editor has not made yet
         await SpeechCleanup.shared.prepare(project)
         let built = try await CompositionBuilder.build(project: project,

@@ -383,9 +383,30 @@ struct Project: Identifiable, Codable, Hashable {
     var modified = Date()
     var canvas = Canvas()
     var clips: [Clip] = []
-    var captions: Captions?
+    /// Caption tracks (a second language, a second style…), drawn first to last. Most edits work on the
+    /// active one through `captions`.
+    var captionTracks: [Captions] = []
+    var activeCaption = 0
     var overlays: [Overlay] = []
     var audio: [AudioItem] = []
+
+    /// The caption track being edited (setting nil removes it).
+    var captions: Captions? {
+        get { captionTracks.indices.contains(activeCaption) ? captionTracks[activeCaption] : captionTracks.first }
+        set {
+            if let v = newValue {
+                if captionTracks.indices.contains(activeCaption) {
+                    captionTracks[activeCaption] = v
+                } else {
+                    captionTracks.append(v)
+                    activeCaption = captionTracks.count - 1
+                }
+            } else if captionTracks.indices.contains(activeCaption) {
+                captionTracks.remove(at: activeCaption)
+                activeCaption = max(0, min(activeCaption, captionTracks.count - 1))
+            }
+        }
+    }
 
     /// Length of the whole video: clips one after another, minus the overlaps of crossfades.
     var duration: Double {
@@ -419,7 +440,23 @@ struct Project: Identifiable, Codable, Hashable {
 
     init(name: String) { self.name = name }
 
-    enum CodingKeys: String, CodingKey { case id, name, created, modified, canvas, clips, captions, overlays, audio }
+    enum CodingKeys: String, CodingKey {
+        case id, name, created, modified, canvas, clips, captions, captionTracks, activeCaption, overlays, audio
+    }
+
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(created, forKey: .created)
+        try c.encode(modified, forKey: .modified)
+        try c.encode(canvas, forKey: .canvas)
+        try c.encode(clips, forKey: .clips)
+        try c.encode(captionTracks, forKey: .captionTracks)
+        try c.encode(activeCaption, forKey: .activeCaption)
+        try c.encode(overlays, forKey: .overlays)
+        try c.encode(audio, forKey: .audio)
+    }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -429,7 +466,12 @@ struct Project: Identifiable, Codable, Hashable {
         modified = try c.decodeIfPresent(Date.self, forKey: .modified) ?? Date()
         canvas = try c.decodeIfPresent(Canvas.self, forKey: .canvas) ?? Canvas()
         clips = try c.decodeIfPresent([Clip].self, forKey: .clips) ?? []
-        captions = try c.decodeIfPresent(Captions.self, forKey: .captions)
+        if let tracks = try c.decodeIfPresent([Captions].self, forKey: .captionTracks) {
+            captionTracks = tracks
+        } else if let one = try c.decodeIfPresent(Captions.self, forKey: .captions) {
+            captionTracks = [one]   // projects from before caption tracks
+        }
+        activeCaption = min(max(0, try c.decodeIfPresent(Int.self, forKey: .activeCaption) ?? 0), max(0, captionTracks.count - 1))
         overlays = try c.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
         audio = (try? c.decodeIfPresent([AudioItem].self, forKey: .audio)) ?? []
         migrateCutTransitions()

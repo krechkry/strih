@@ -66,7 +66,8 @@ struct CaptionsSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             if !compact {
             HStack {
-                Text(model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Captions")
+                Text(model.captionScope != nil ? "Captions for this clip"
+                     : model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Captions")
                     .font(.title2.weight(.heavy))
                 Spacer()
                 if model.project.captions != nil && model.captionsGenerator && phase == nil {
@@ -119,7 +120,11 @@ struct CaptionsSheet: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.top, -10)
 
-            if model.project.clips.count > 1 && phase == nil {
+            if model.captionScope != nil {
+                Text("Listens to this clip only. Captions on the other clips stay as they are.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if model.project.clips.count > 1 && phase == nil {
                 listenTo
             }
 
@@ -244,10 +249,24 @@ struct CaptionsSheet: View {
                         tabButton("Text", 0)
                         tabButton("Style", 1)
                         tabButton("Animation", 2)
-                        tabButton("Translate", 3)
+                        if model.captionScope == nil { tabButton("Translate", 3) }
+                        if model.captionScope != nil {
+                            // this clip only: listen again, keeping everything else
+                            Button { model.captionsGenerator = true } label: {
+                                Label("Regenerate", systemImage: "arrow.clockwise")
+                                    .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 14).frame(height: 36)
+                                    .background(Theme.panel2, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
+            }
+            if model.captionScope != nil && tab != 0 {
+                Text("Style and animation apply to the whole captions track.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             switch tab {
             case 0: textList(caps)
@@ -274,7 +293,7 @@ struct CaptionsSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    ForEach(caps.cues) { cue in
+                    ForEach(scopedCues(caps)) { cue in
                         let on = model.currentTime >= cue.start && model.currentTime < cue.end
                         HStack(alignment: .top, spacing: 10) {
                             Button { model.seekToCue(cue) } label: {
@@ -325,6 +344,12 @@ struct CaptionsSheet: View {
             .onAppear { focusRequested(proxy) }
             .onChange(of: model.captionFocus) { focusRequested(proxy) }
         }
+    }
+
+    /// Opened from a clip: only the lines on that clip.
+    private func scopedCues(_ caps: Captions) -> [CaptionCue] {
+        guard let id = model.captionScope, let r = model.clipRange(id) else { return caps.cues }
+        return caps.cues.filter { r.contains(($0.start + $0.end) / 2) }
     }
 
     /// Tapped a caption in the timeline: scroll to its line and start editing it.

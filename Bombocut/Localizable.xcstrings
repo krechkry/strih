@@ -230,6 +230,16 @@
         }
       }
     },
+    "Add as a new track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat jako novou stopu"
+          }
+        }
+      }
+    },
     "Add at playhead": {
       "localizations": {
         "cs": {
@@ -1026,6 +1036,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky %lld %%"
+          }
+        }
+      }
+    },
+    "Captions for this clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky pro tento klip"
           }
         }
       }
@@ -2798,6 +2818,16 @@
         }
       }
     },
+    "Listens to this clip only. Captions on the other clips stay as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslouchá jen tento klip. Titulky na ostatních klipech zůstanou, jak jsou."
+          }
+        }
+      }
+    },
     "Loading voice model": {
       "localizations": {
         "cs": {
@@ -3708,6 +3738,16 @@
         }
       }
     },
+    "Replace": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahradit"
+          }
+        }
+      }
+    },
     "Replaces the captions and your text edits. Undo brings them back.": {
       "localizations": {
         "cs": {
@@ -4478,6 +4518,16 @@
         }
       }
     },
+    "Style and animation apply to the whole captions track.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Styl a animace platí pro celou stopu titulků."
+          }
+        }
+      }
+    },
     "Subject": {
       "localizations": {
         "cs": {
@@ -4794,6 +4844,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "V aplikaci chybí model pro řeč."
+          }
+        }
+      }
+    },
+    "The translation becomes a second captions track, a line above these, with its own style. Both stay editable.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překlad bude druhá stopa titulků, o řádek výš, s vlastním stylem. Obě půjdou dál upravovat."
           }
         }
       }

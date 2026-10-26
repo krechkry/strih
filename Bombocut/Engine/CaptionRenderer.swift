@@ -6,19 +6,20 @@ import CoreText
 final class CaptionStore: @unchecked Sendable {
     static let shared = CaptionStore()
     private let lock = NSLock()
-    private var captions: Captions?
+    private var tracks: [Captions] = []
 
-    func update(_ c: Captions?) {
+    func update(_ c: [Captions]) {
         lock.lock()
-        captions = c
+        tracks = c
         lock.unlock()
         CaptionRenderer.shared.clearCache()
     }
 
-    var current: Captions? {
+    /// Every caption track, drawn first to last.
+    var all: [Captions] {
         lock.lock()
         defer { lock.unlock() }
-        return captions
+        return tracks
     }
 }
 

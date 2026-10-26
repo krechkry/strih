@@ -172,9 +172,10 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                                     video: video)
             }
             // (captions behind the subject were already drawn under it, when this frame has a subject mask)
-            if let caps = CaptionStore.shared.current, !(masked && caps.style.behindSubject),
-               let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
-                image = text.composited(over: image).cropped(to: frame)
+            for caps in CaptionStore.shared.all where !(masked && caps.style.behindSubject) {
+                if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+                    image = text.composited(over: image).cropped(to: frame)
+                }
             }
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
             request.finish(withComposedVideoFrame: out)
@@ -297,9 +298,10 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, video: video)
             }
             // captions set to go behind the subject: on the background, so the subject covers them
-            if let caps = CaptionStore.shared.current, caps.style.behindSubject,
-               let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
-                back = text.composited(over: back).cropped(to: frame)
+            for caps in CaptionStore.shared.all where caps.style.behindSubject {
+                if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+                    back = text.composited(over: back).cropped(to: frame)
+                }
             }
             image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
                                                                         kCIInputMaskImageKey: mask]).cropped(to: frame)

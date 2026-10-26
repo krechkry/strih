@@ -154,11 +154,17 @@ struct TimelineView: View {
                         lane(lanes.music, empty: model.project.audio.isEmpty) {
                             AudioLane(model: model)
                         }
-                        if let caps = model.project.captions {
-                            CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
-                                        selected: model.captionsSelected,
-                                        onTap: { cue in model.tapCaption(cue) })
-                                .frame(height: lanes.captions, alignment: .top)
+                        if !model.project.captionTracks.isEmpty {
+                            // one lane per caption track (a second language, a second style…)
+                            VStack(alignment: .leading, spacing: 3) {
+                                ForEach(Array(model.project.captionTracks.enumerated()), id: \.offset) { k, caps in
+                                    CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
+                                                selected: model.captionsSelected && model.project.activeCaption == k,
+                                                onTap: { cue in model.tapCaption(cue, track: k) })
+                                        .frame(height: 18, alignment: .top)
+                                }
+                            }
+                            .frame(height: lanes.captions, alignment: .top)
                         }
                     }
                     }
@@ -1059,7 +1065,8 @@ struct LaneLayout {
         showOverlay = pro || !media.isEmpty
         overlay = showOverlay ? (media.isEmpty ? Self.empty : OverlayLane.height(media)) : 0
         music = p.audio.isEmpty ? Self.empty : AudioLane.height(p.audio)
-        captions = p.captions == nil ? 0 : 18
+        let n = CGFloat(p.captionTracks.count)
+        captions = n == 0 ? 0 : n * 18 + (n - 1) * 3
     }
 
     var total: CGFloat {
