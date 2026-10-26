@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Combine
 import SwiftUI
 @preconcurrency import FluidAudio
 
@@ -35,12 +36,15 @@ final class SpeechModels: ObservableObject {
     enum State: Equatable {
         case missing
         case downloading(Double)
+        case paused(Double)
         case ready(URL)
         case failed(String)
     }
 
     @Published private(set) var states: [SpeechModel: State] = [:]
-    private var task: Task<URL, Error>?
+    /// No network right now: the download picks up by itself once it's back.
+    @Published private(set) var waitingForNetwork = false
+    private var watch: AnyCancellable?
 
     /// Where the old Whisper models lived (removed: Parakeet replaced them).
     static let base: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -53,6 +57,25 @@ final class SpeechModels: ObservableObject {
             .appendingPathComponent("SpeechModels", isDirectory: true)
         if FileManager.default.fileExists(atPath: old.path) {
             Task.detached(priority: .background) { try? FileManager.default.removeItem(at: old) }
+        }
+        // the download's progress, pause and trouble show up as this model's state
+        let d = ModelDownload.shared
+        watch = d.$phase.combineLatest(d.$fraction).receive(on: RunLoop.main).sink { [weak self] phase, f in
+            self?.follow(phase, f)
+        }
+    }
+
+    private func follow(_ phase: ModelDownload.Phase, _ f: Double) {
+        let m = SpeechModel.parakeet
+        waitingForNetwork = phase == .waitingForNetwork
+        switch phase {
+        case .idle:
+            if case .ready = state(m) { return }
+            states[m] = AsrModels.modelsExist(at: m.folder, version: SpeechModel.version) ? .ready(m.folder) : .missing
+        case .listing, .running, .waitingForNetwork, .finishing: states[m] = .downloading(f)
+        case .paused: states[m] = .paused(f)
+        case .done: states[m] = .ready(m.folder)
+        case .failed(let e): states[m] = .failed(e)
         }
     }
 
@@ -69,42 +92,37 @@ final class SpeechModels: ObservableObject {
         return false
     }
 
+    /// Downloading or paused part way: the folder is a download in progress, not leftovers.
+    func inProgress(_ m: SpeechModel) -> Bool {
+        switch state(m) {
+        case .downloading, .paused: return true
+        default: return false
+        }
+    }
+
     @discardableResult
     func ensure(_ m: SpeechModel) async throws -> URL {
         if case .ready(let url) = state(m) { return url }
-        if let task { return try await task.value }
-        states[m] = .downloading(0)
-        let t = Task<URL, Error> {
-            try await AsrModels.download(version: SpeechModel.version) { p in
-                let f = p.fractionCompleted
-                Task { @MainActor in
-                    if case .downloading = SpeechModels.shared.state(m) { SpeechModels.shared.states[m] = .downloading(f) }
-                }
-            }
-        }
-        task = t
-        do {
-            let url = try await t.value
-            var base = Self.base
-            var v = URLResourceValues()
-            v.isExcludedFromBackup = true
-            try? base.setResourceValues(v)
-            states[m] = .ready(m.folder)
-            task = nil
-            SpeechEngine.warm(m.folder)
-            return url
-        } catch {
-            states[m] = .failed(error.localizedDescription)
-            task = nil
-            throw error
-        }
+        try await ModelDownload.shared.run()
+        var base = Self.base
+        var v = URLResourceValues()
+        v.isExcludedFromBackup = true
+        try? base.setResourceValues(v)
+        states[m] = .ready(m.folder)
+        SpeechEngine.warm(m.folder)
+        return m.folder
     }
 
     func startDownload(_ m: SpeechModel) {
+        if case .paused = state(m) { ModelDownload.shared.resume(); return }
         Task { try? await ensure(m) }
     }
 
+    func pause(_ m: SpeechModel) { ModelDownload.shared.pause() }
+    func resume(_ m: SpeechModel) { ModelDownload.shared.resume() }
+
     func delete(_ m: SpeechModel) {
+        ModelDownload.shared.discard()
         try? FileManager.default.removeItem(at: m.folder)
         states[m] = .missing
     }
@@ -128,7 +146,10 @@ enum Transcriber {
             phase(.downloading(0))
             let watcher = Task { @MainActor in
                 while !Task.isCancelled {
-                    if case .downloading(let f) = models.state(model) { phase(.downloading(f)) }
+                    switch models.state(model) {
+                    case .downloading(let f), .paused(let f): phase(.downloading(f))
+                    default: break
+                    }
                     try? await Task.sleep(for: .milliseconds(300))
                 }
             }

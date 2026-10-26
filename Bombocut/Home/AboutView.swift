@@ -103,14 +103,22 @@ final class NetworkWatch: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
     private var expensive = false
+    private var satisfied = true
 
     init() {
         monitor.pathUpdateHandler = { [weak self] path in
             self?.lock.lock()
             self?.expensive = path.isExpensive
+            self?.satisfied = path.status == .satisfied
             self?.lock.unlock()
         }
         monitor.start(queue: DispatchQueue(label: "bombocut.network"))
+    }
+
+    var online: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return satisfied
     }
 
     var onMobileData: Bool {

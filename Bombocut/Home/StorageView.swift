@@ -108,22 +108,34 @@ struct StorageView: View {
             if demo { return "Downloaded" }
             switch speech.state(m) {
             case .ready: return "Downloaded"
-            case .downloading(let f): return String(format: loc("Downloading %lld %%"), Int(f * 100))
-            case .failed: return "Download failed"
+            case .downloading(let f):
+                return speech.waitingForNetwork ? String(format: loc("Waiting for the network · %lld %%"), Int(f * 100))
+                    : String(format: loc("Downloading %lld %%"), Int(f * 100))
+            case .paused(let f): return String(format: loc("Paused at %lld %%"), Int(f * 100))
+            case .failed: return "Download failed. Tap to try again, it continues where it stopped."
             case .missing: return String(format: loc("Not downloaded (%@)"), m.sizeLabel)
             }
         }()
         let ready: Bool = { if demo { return true }; if case .ready = speech.state(m) { return true }; return false }()
-        let downloading: Bool = { if case .downloading = speech.state(m) { return true }; return false }()
+        let download: Download? = {
+            if ready { return nil }
+            switch speech.state(m) {
+            case .downloading: return .pause { speech.pause(m) }
+            case .paused: return .resume { speech.resume(m) }
+            default:
+                return .start {
+                    if NetworkWatch.shared.onMobileData { pendingDownload = m } else { speech.startDownload(m) }
+                }
+            }
+        }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
-                   action: ready ? { confirm = .model(m) } : nil,
-                   download: ready ? nil : (downloading ? .busy : .start {
-                       if NetworkWatch.shared.onMobileData { pendingDownload = m } else { speech.startDownload(m) }
-                   }))
+                   action: ready ? { confirm = .model(m) } : nil, download: download)
     }
 
     enum Download {
         case start(() -> Void)
+        case pause(() -> Void)
+        case resume(() -> Void)
         case busy
     }
 
@@ -148,6 +160,22 @@ struct StorageView: View {
                         .background(Theme.accent, in: Circle())
                 }
                 .buttonStyle(.plain)
+            case .pause(let go):
+                Button(action: go) {
+                    Image(systemName: "pause.fill").font(.subheadline.weight(.heavy)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.panel2, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Pause download"))
+            case .resume(let go):
+                Button(action: go) {
+                    Image(systemName: "play.fill").font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Resume download"))
             case .busy:
                 ProgressView().tint(Theme.accent).frame(width: 36, height: 36)
             case nil:
@@ -214,6 +242,8 @@ struct StorageView: View {
         if Demo.mode == "storage" { report = .demo; return }
         let ready = Dictionary(uniqueKeysWithValues: SpeechModel.allCases.compactMap { m -> (SpeechModel, URL)? in
             if case .ready(let u) = speech.state(m) { return (m, u) }
+            // a download in progress (or paused) isn't leftovers
+            if speech.inProgress(m) { return (m, m.folder) }
             return nil
         })
         let used = Set(store.projects.flatMap { $0.mediaFiles })

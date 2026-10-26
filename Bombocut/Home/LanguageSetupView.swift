@@ -126,6 +126,7 @@ struct LanguageSetupView: View {
                     switch speech.state(model) {
                     case .ready: Text("On your iPhone")
                     case .downloading(let f): Text("Downloading \(Int(f * 100)) %")
+                    case .paused(let f): Text(String(format: loc("Paused at %lld %%"), Int(f * 100)))
                     case .failed(let e): Text("Download failed: \(e)")
                     case .missing: Text("\(model.sizeLabel), downloaded once. Wi-Fi recommended.")
                     }

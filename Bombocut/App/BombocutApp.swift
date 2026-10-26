@@ -3,6 +3,7 @@ import AVFoundation
 
 @main
 struct BombocutApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = ProjectStore()
 
     init() {
@@ -24,7 +25,11 @@ struct BombocutApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
                 .fontWeight(.medium)
-                .task { if Demo.mode == nil { SpeechEngine.warmUp() } }
+                .task {
+                    if Demo.mode == nil { SpeechEngine.warmUp() }
+                    // a speech model download that was running (not paused) when the app closed carries on
+                    ModelDownload.shared.resumeIfWanted()
+                }
         }
     }
 }

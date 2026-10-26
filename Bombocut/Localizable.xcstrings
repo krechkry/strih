@@ -1664,6 +1664,16 @@
         }
       }
     },
+    "Download failed. Tap to try again, it continues where it stopped.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahování selhalo. Klepni a pokračuje tam, kde skončilo."
+          }
+        }
+      }
+    },
     "Download failed: %@": {
       "localizations": {
         "cs": {
@@ -3308,6 +3318,26 @@
         }
       }
     },
+    "Pause download": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozastavit stahování"
+          }
+        }
+      }
+    },
+    "Paused at %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozastaveno na %lld %%"
+          }
+        }
+      }
+    },
     "Pay once. No subscription, no ads, nothing locked.": {
       "localizations": {
         "cs": {
@@ -3714,6 +3744,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obnovit nákup"
+          }
+        }
+      }
+    },
+    "Resume download": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokračovat ve stahování"
           }
         }
       }
@@ -4248,6 +4288,26 @@
         }
       }
     },
+    "Speech model paused at %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model pozastaven na %lld %%"
+          }
+        }
+      }
+    },
+    "Speech model stopped at %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model se zastavil na %lld %%"
+          }
+        }
+      }
+    },
     "Speech model: %@": {
       "localizations": {
         "cs": {
@@ -4604,6 +4664,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stahování se nedokončilo. Zkus to znovu."
+          }
+        }
+      }
+    },
+    "The download server didn't answer properly. Try again later.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server pro stahování neodpověděl správně. Zkus to později."
           }
         }
       }
@@ -5094,6 +5164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hlasitost"
+          }
+        }
+      }
+    },
+    "Waiting for the network · %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čekám na internet · %lld %%"
           }
         }
       }

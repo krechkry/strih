@@ -209,19 +209,40 @@ struct HomeView: View {
         }
     }
 
+    /// The speech model download: progress, and Pause / Resume (it keeps going with the phone locked).
     @ViewBuilder
     private var downloadBanner: some View {
-        let downloading = SpeechModel.allCases.compactMap { m -> Double? in
-            if case .downloading(let f) = speech.state(m) { return f }
-            return nil
-        }.first
-        if let f = downloading {
+        let m = SpeechModel.parakeet
+        let (f, paused, failed): (Double?, Bool, Bool) = {
+            switch speech.state(m) {
+            case .downloading(let f): return (f, false, false)
+            case .paused(let f): return (f, true, false)
+            case .failed: return (ModelDownload.shared.fraction, false, true)
+            default: return (nil, false, false)
+            }
+        }()
+        if let f, !(failed && f <= 0) {
             HStack(spacing: 12) {
                 Image(systemName: "waveform.badge.mic").foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Downloading speech model \(Int(f * 100)) %").font(.subheadline.weight(.bold))
-                    ProgressView(value: f).tint(Theme.accent)
+                    Text(paused ? String(format: loc("Speech model paused at %lld %%"), Int(f * 100))
+                         : failed ? String(format: loc("Speech model stopped at %lld %%"), Int(f * 100))
+                         : speech.waitingForNetwork ? String(format: loc("Waiting for the network · %lld %%"), Int(f * 100))
+                         : String(format: loc("Downloading speech model %lld %%"), Int(f * 100)))
+                        .font(.subheadline.weight(.bold))
+                    ProgressView(value: f).tint(paused || failed ? Theme.muted : Theme.accent)
                 }
+                Button {
+                    if paused || failed { speech.resume(m) } else { speech.pause(m) }
+                } label: {
+                    Image(systemName: paused || failed ? "play.fill" : "pause.fill")
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(paused || failed ? .black : .white)
+                        .frame(width: 38, height: 38)
+                        .background(paused || failed ? Theme.accent : Theme.panel2, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc(paused || failed ? "Resume download" : "Pause download"))
             }
             .padding(14)
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
