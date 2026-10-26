@@ -276,7 +276,8 @@ extension Project {
     mutating func placeNewOverlay(_ o: inout Overlay) {
         normalizeOverlays()
         let rows = overlayRows(texts: o.isText)
-        let free: (Int) -> Bool = { r in rows[r].allSatisfy { $0.end <= o.start + 0.001 || $0.start >= o.end - 0.001 } }
+        let (s0, e0) = (o.start, o.end)
+        func free(_ r: Int) -> Bool { rows[r].allSatisfy { $0.end <= s0 + 0.001 || $0.start >= e0 - 0.001 } }
         let covering = rows.indices.filter { !free($0) }
         if let top = covering.min() {
             if let r = (0..<top).reversed().first(where: free) { o.track = r } else { o.track = -1 }
