@@ -8,6 +8,9 @@ struct TimelineView: View {
     @State private var phase: ScrollPhase = .idle
     @State private var offsetX: CGFloat = 0
     @State private var zoomBase: CGFloat = 60
+    /// Pinching: the time that stays under the playhead, taken from where the strip really is when the
+    /// fingers land (mid-swipe or mid-fling the playhead time can still be catching up).
+    @State private var zoomAnchor: Double?
     @State private var reorder: Reorder?
     @State private var screenW: CGFloat = 390
     @State private var paintingPick = false
@@ -169,10 +172,10 @@ struct TimelineView: View {
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick)
+                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
-                    if reorder == nil && (phase == .interacting || phase == .decelerating) {
+                    if reorder == nil && zoomAnchor == nil && (phase == .interacting || phase == .decelerating) {
                         model.scrubFrame(to: Double(max(0, x) / model.pxPerSec))
                     }
                 }
@@ -216,9 +219,20 @@ struct TimelineView: View {
                 MagnifyGesture()
                     .onChanged { v in
                         guard reorder == nil else { return }
+                        if zoomAnchor == nil {
+                            // freeze the strip where it is (stops a fling) and zoom around that spot
+                            let t = min(max(0, Double(offsetX / model.pxPerSec)), model.duration)
+                            zoomAnchor = t
+                            zoomBase = model.pxPerSec
+                            model.scrubFrame(to: t)
+                        }
                         model.pxPerSec = min(max(zoomBase * v.magnification, 6), 800)
                     }
-                    .onEnded { _ in zoomBase = model.pxPerSec }
+                    .onEnded { _ in
+                        zoomBase = model.pxPerSec
+                        if let t = zoomAnchor { model.scrubFrame(to: t) }
+                        zoomAnchor = nil
+                    }
             )
             .onAppear { screenW = geo.size.width }
             .onChange(of: geo.size.width) { _, w in screenW = w }
@@ -226,7 +240,9 @@ struct TimelineView: View {
         .animation(.spring(duration: 0.22, bounce: 0.15), value: model.quickMenuClipID)
         .onAppear { zoomBase = model.pxPerSec; follow() }
         .onChange(of: model.currentTime) { follow() }
-        .onChange(of: model.pxPerSec) { if reorder == nil { scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec) } }
+        .onChange(of: model.pxPerSec) {
+            if reorder == nil { scrollPos.scrollTo(x: CGFloat(zoomAnchor ?? model.currentTime) * model.pxPerSec) }
+        }
         .onChange(of: model.project.clips) { if model.trim == nil { follow() } }
         .task(id: reorder != nil) { await autoScroll() }
         .task(id: model.trim != nil) { await trimScroll() }

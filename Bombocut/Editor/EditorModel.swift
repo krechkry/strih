@@ -561,10 +561,14 @@ final class EditorModel: ObservableObject {
         selectedClipID = b.id
     }
 
+    /// Delete the selected clip; the view stays on the cut it leaves (the clips around it join there),
+    /// not on the old time, which now shows some other moment of the video.
     func deleteSelected() {
         guard let i = selectedIndex else { return }
         mutate { $0.clips.remove(at: i) }
         selectedClipID = nil
+        let cut = i < project.clips.count ? project.clipStarts[i] : duration
+        scrub(to: min(max(0, cut), duration))
     }
 
     func duplicateSelected() {
