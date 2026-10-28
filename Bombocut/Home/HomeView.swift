@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Photos
 import UniformTypeIdentifiers
 
 struct HomeView: View {
@@ -9,6 +10,8 @@ struct HomeView: View {
     @State private var exporting: Project?
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var showFiles = false
+    @State private var showGallery = false
+    @State private var systemPicker = false
     @State private var importing = false
     @State private var importError: String?
     @State private var openProject: Project?
@@ -134,6 +137,13 @@ struct HomeView: View {
                 pickerItems = []
                 Task { await importFromPhotos(items) }
             }
+            .fullScreenCover(isPresented: $showGallery) {
+                MediaPicker(title: "New project") { assets in
+                    Task { await importFromAssets(assets) }
+                } fallback: { systemPicker = true }
+            }
+            .photosPicker(isPresented: $systemPicker, selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered,
+                          matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
             .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
@@ -253,15 +263,14 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New project").font(.title3.weight(.semibold))
             HStack(spacing: 10) {
-                PhotosPicker(selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered, matching: .any(of: [.videos, .images]),
-                             preferredItemEncoding: .current) {
+                Button { showGallery = true } label: {
                     Label("Photos", systemImage: "photo.on.rectangle")
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12))
                         .foregroundStyle(.black)
                 }
-                .tint(Theme.pickerTint)
+                .buttonStyle(.plain)
                 Button { showFiles = true } label: {
                     Label("Files", systemImage: "folder")
                         .font(.body.weight(.semibold))
@@ -305,6 +314,13 @@ struct HomeView: View {
         await create(from: urls)
     }
 
+    private func importFromAssets(_ assets: [PHAsset]) async {
+        importing = true
+        defer { importing = false }
+        let (clips, firstSize) = await Media.makeClips(from: assets)
+        await create(clips: clips, firstSize: firstSize)
+    }
+
     private func importFromFiles(_ picked: [URL]) async {
         importing = true
         defer { importing = false }
@@ -319,6 +335,10 @@ struct HomeView: View {
 
     private func create(from urls: [URL]) async {
         let (clips, firstSize) = await Media.makeClips(from: urls)
+        await create(clips: clips, firstSize: firstSize)
+    }
+
+    private func create(clips: [Clip], firstSize: CGSize?) async {
         guard !clips.isEmpty else {
             importError = "None of the picked files could be opened as video or picture."
             return

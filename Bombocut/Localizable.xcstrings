@@ -220,6 +220,16 @@
         }
       }
     },
+    "Add %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat %lld"
+          }
+        }
+      }
+    },
     "Add a clip to start": {
       "localizations": {
         "cs": {
@@ -246,6 +256,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přidat na playhead"
+          }
+        }
+      }
+    },
+    "Add clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat klipy"
           }
         }
       }
@@ -366,6 +386,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pro ukládání videí povol přístup k Fotkám v Nastavení."
+          }
+        }
+      }
+    },
+    "Allow access in Settings to pick clips here, with slide to select. Or pick them in the system picker.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Povol přístup v Nastavení a vybírej klipy tady, i tahem prstu. Nebo je vyber v systémovém výběru."
           }
         }
       }
@@ -610,6 +640,16 @@
         }
       }
     },
+    "BOMBOCUT can't see your library": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT nevidí tvoje fotky"
+          }
+        }
+      }
+    },
     "BOMBOCUT end card": {
       "localizations": {
         "cs": {
@@ -646,6 +686,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "BOMBOCUT změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
+          }
+        }
+      }
+    },
+    "BOMBOCUT sees only the items you allowed. Change it in Settings.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT vidí jen položky, které jsi povolil. Změníš to v Nastavení."
           }
         }
       }
@@ -1206,6 +1256,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Čárky a tečky"
+          }
+        }
+      }
+    },
+    "Composite": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překrytí"
           }
         }
       }
@@ -2104,6 +2164,16 @@
         }
       }
     },
+    "Favorites": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oblíbené"
+          }
+        }
+      }
+    },
     "Files": {
       "localizations": {
         "cs": {
@@ -2614,6 +2684,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "V záběru"
+          }
+        }
+      }
+    },
+    "In the timeline": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Už v časové ose"
           }
         }
       }
@@ -3424,6 +3504,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Krytí: keyframe v %@"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevřít Nastavení"
           }
         }
       }
@@ -5428,6 +5518,16 @@
         }
       }
     },
+    "Use the system picker": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít systémový výběr"
+          }
+        }
+      }
+    },
     "Video": {
       "localizations": {
         "cs": {
@@ -5444,6 +5544,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zvuk z videa"
+          }
+        }
+      }
+    },
+    "Videos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videa"
           }
         }
       }

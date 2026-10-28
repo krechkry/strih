@@ -24,9 +24,16 @@ struct OverlaySheet: View {
         }
     }
 
+    /// Each part has its own button in the overlay toolbar (Text, Transition, Composite, Speed), so the panel shows
+    /// only that part; a text's words and its style stay together.
     private func tabs(_ o: Overlay) -> [Tab] {
-        if case .text = o.kind { return UIMode.isPro ? [.text, .style, .animation, .blend] : [.text] }
-        return o.kind.isVideo ? [.animation, .blend, .speed] : [.animation, .blend]
+        switch tab {
+        case .text, .style:
+            if case .text = o.kind { return UIMode.isPro ? [.text, .style] : [.text] }
+            return [.animation]
+        case .speed: return o.kind.isVideo ? [.speed] : [.animation]
+        case .animation, .blend: return [tab]
+        }
     }
 
     /// The overlay toolbar asked for a tab (Speed).
@@ -47,6 +54,10 @@ struct OverlaySheet: View {
                         Spacer()
                         DoneCheck(size: 32) { typing = false }
                     } else {
+                        if tabs(o).count == 1 {
+                            Text(loc(shown.title)).font(.title3.weight(.heavy))
+                            Spacer()
+                        } else {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
                                 ForEach(tabs(o), id: \.self) { t in
@@ -59,6 +70,7 @@ struct OverlaySheet: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                        }
                         }
                         Text(Fmt.duration(o.duration)).font(.subheadline.weight(.bold).monospacedDigit())
                             .foregroundStyle(Theme.muted)

@@ -180,6 +180,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var speech: SpeechFX?          // noise removal, voice enhancer, Apple Audio Mix
     var still = false              // a photo or a freeze frame (a held picture, see StillVideo)
     var reversed: ReverseOrigin?   // playing backwards: a reversed copy stands in for the original part
+    var asset: String?             // the Photos item it came from (marks it as used in the gallery)
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -215,7 +216,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset
     }
 
     init(from d: Decoder) throws {
@@ -247,6 +248,7 @@ struct Clip: Identifiable, Codable, Hashable {
         speech = try? c.decodeIfPresent(SpeechFX.self, forKey: .speech)
         still = try c.decodeIfPresent(Bool.self, forKey: .still) ?? false
         reversed = try? c.decodeIfPresent(ReverseOrigin.self, forKey: .reversed)
+        asset = try? c.decodeIfPresent(String.self, forKey: .asset)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

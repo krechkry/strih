@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 import AVFoundation
 import PhotosUI
 import UniformTypeIdentifiers
@@ -10,7 +11,10 @@ struct EditorView: View {
     @State private var addItems: [PhotosPickerItem] = []
     @State private var overlayItems: [PhotosPickerItem] = []
     @State private var showAudioFiles = false
-    @State private var showAddClips = false
+    @State private var showAddClips = false          // our gallery
+    @State private var systemAddClips = false        // the system picker (no library access)
+    @State private var pickOverlay = false
+    @State private var systemOverlay = false
     @State private var showAudioVideo = false
     @State private var audioVideoItem: PhotosPickerItem?
     @State private var adding = false
@@ -193,7 +197,19 @@ struct EditorView: View {
         .onChange(of: model.openAddClips) { _, open in
             if open { model.openAddClips = false; showAddClips = true }
         }
-        .photosPicker(isPresented: $showAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
+        .fullScreenCover(isPresented: $showAddClips) {
+            MediaPicker(used: Set(model.project.clips.compactMap(\.asset))) { assets in
+                Task { await add(assets) }
+            } fallback: { systemAddClips = true }
+        }
+        .fullScreenCover(isPresented: $pickOverlay) {
+            MediaPicker(limit: 1, title: "Overlay") { assets in
+                if let a = assets.first { Task { await addOverlay(a) } }
+            } fallback: { systemOverlay = true }
+        }
+        .photosPicker(isPresented: $systemOverlay, selection: $overlayItems, maxSelectionCount: 1,
+                      matching: .any(of: [.images, .videos]), preferredItemEncoding: .current)
+        .photosPicker(isPresented: $systemAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
                       matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
         .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
             Button("Remove captions", role: .destructive) {
@@ -552,6 +568,13 @@ struct EditorView: View {
         .animation(.easeOut(duration: 0.15), value: finishSelection == nil)
     }
 
+    /// One part of the overlay panel (each has its own toolbar button).
+    private func openOverlay(_ tab: OverlaySheet.Tab) {
+        model.pause()
+        model.overlayTab = tab.rawValue
+        sheet = .overlay
+    }
+
     private var toolScroller: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
@@ -563,15 +586,15 @@ struct EditorView: View {
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
                 } else if let oi = model.selectedOverlayIndex {
                     let o = model.project.overlays[oi]
-                    ToolButton(icon: "slider.horizontal.3", label: "Edit") { model.pause(); sheet = .overlay }
-                    if pro { ToolButton(icon: "camera.filters", label: "Adjust") { model.pause(); sheet = .adjust } }
-                    if o.kind.isVideo {
-                        ToolButton(icon: "speedometer", label: "Speed") {
-                            model.pause()
-                            model.overlayTab = OverlaySheet.Tab.speed.rawValue
-                            sheet = .overlay
-                        }
+                    if o.isText {
+                        ToolButton(icon: "textformat", label: "Text") { openOverlay(.text) }
                     }
+                    ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
+                    ToolButton(icon: "square.on.square.intersection.dashed", label: "Composite") { openOverlay(.blend) }
+                    if o.kind.isVideo {
+                        ToolButton(icon: "speedometer", label: "Speed") { openOverlay(.speed) }
+                    }
+                    if pro { ToolButton(icon: "camera.filters", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if pro && o.isMedia {
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                     }
@@ -632,19 +655,11 @@ struct EditorView: View {
                         ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     }
                 } else {
-                    PhotosPicker(selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
-                                 matching: .any(of: [.videos, .images]), preferredItemEncoding: .current) {
-                        ToolLabel(icon: "plus", label: "Add")
-                    }
-                    .tint(Theme.pickerTint)
+                    ToolButton(icon: "plus", label: "Add") { model.requestAddClips() }
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
                     if pro {
-                        PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
-                                     preferredItemEncoding: .current) {
-                            ToolLabel(icon: "square.on.square", label: "Overlay")
-                        }
-                        .tint(Theme.pickerTint)
+                        ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
                     }
                     Menu {
                         Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
@@ -668,8 +683,7 @@ struct EditorView: View {
             islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
             islandButton(height: lanes.text, icon: "textformat", label: "Text") { model.pause(); model.addText() }
             if lanes.showOverlay {
-                PhotosPicker(selection: $overlayItems, maxSelectionCount: 1, matching: .any(of: [.images, .videos]),
-                             preferredItemEncoding: .current) {
+                Button { model.pause(); pickOverlay = true } label: {
                     islandTile(height: lanes.overlay, icon: "photo")
                 }
                 .buttonStyle(.plain)
@@ -772,6 +786,21 @@ struct EditorView: View {
             guard (try? data.write(to: url)) != nil else { return }
             await model.addMediaOverlay(url: url, isVideo: false)
         }
+    }
+
+    /// Picked in our gallery: original files, each clip remembering its Photos item.
+    private func add(_ assets: [PHAsset]) async {
+        adding = true
+        defer { adding = false }
+        let (clips, _) = await Media.makeClips(from: assets)
+        model.addClips(clips)
+    }
+
+    private func addOverlay(_ a: PHAsset) async {
+        adding = true
+        defer { adding = false }
+        guard let url = await Media.load(a) else { return }
+        await model.addMediaOverlay(url: url, isVideo: a.mediaType == .video)
     }
 
     private func add(_ items: [PhotosPickerItem]) async {
