@@ -1201,9 +1201,9 @@ final class EditorModel: ObservableObject {
             store.save(project)
             captionsSelected = false
         }
+        // tapped again (a double tap does the same): edit that line
         if captionsSelected && tappedCue == cue.id {
-            captionsSelected = false
-            tappedCue = nil
+            openCaption(cue)
             return
         }
         pause()
@@ -2162,9 +2162,13 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    /// The start of the frame on screen at time t: an overlay starting there shows on the paused frame (starting a
+    /// hair later, it only appeared one frame on).
+    static func frameFloor(_ t: Double) -> Double { max(0, (t * fps + 1e-6).rounded(.down) / fps) }
+
     /// Text overlay at the playhead (3 s).
     func addText() {
-        let start = min(currentTime, max(0, duration - 0.5))
+        let start = Self.frameFloor(min(currentTime, max(0, duration - 0.5)))
         var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(3, max(0.5, duration - start)))
         focusNewText = true
         o.transform.y = -0.15
@@ -2180,7 +2184,7 @@ final class EditorModel: ObservableObject {
     /// Picture or video from Photos, placed at the playhead.
     func addMediaOverlay(url: URL, isVideo: Bool, at time: Double? = nil, fitCanvas: Bool = false,
                          blend: BlendMode = .normal) async {
-        let start = min(time ?? currentTime, max(0, duration - 0.5))
+        let start = Self.frameFloor(min(time ?? currentTime, max(0, duration - 0.5)))
         var o: Overlay
         if isVideo {
             guard let info = try? await Media.probe(url), info.duration > 0.05 else { return }
@@ -2313,8 +2317,16 @@ final class EditorModel: ObservableObject {
         var o = project.overlays[i]
         var d = max(0.2, duration)
         if let m = o.maxDuration { d = min(d, m) }
-        o.duration = min(d, max(0.2, self.duration - start))
-        o.start = min(max(0, start), max(0, self.duration - 0.2))
+        // whole frames, so a block starting at the playhead shows on the frame there
+        let s0 = Self.frameFloor(min(max(0, start), max(0, self.duration - 0.2)))
+        // a head trim keeps the end where it was
+        if let snap = overlayTimingSnapshot?.overlays.first(where: { $0.id == id }), abs(start + duration - snap.end) < 0.02,
+           abs(start - snap.start) > 1e-6 {
+            d = max(0.2, snap.end - s0)
+            if let m = o.maxDuration { d = min(d, m) }
+        }
+        o.duration = min(d, max(0.2, self.duration - s0))
+        o.start = s0
         // trimming the head keeps keyframes on the same moments; moving the whole block takes them along
         if let snap = overlayTimingSnapshot?.overlays.first(where: { $0.id == id }), !snap.keys.isEmpty {
             let headTrim = abs(o.start - snap.start) > 1e-6 && abs(o.end - snap.end) < 0.02
@@ -3010,7 +3022,7 @@ extension EditorModel {
               let cue = project.captionTracks[k].cues.first(where: { $0.id == id }) else { return }
         let st = project.captionTracks[k].style
         let len = cue.end - cue.start
-        let s0 = min(max(0, start), max(0, duration - 0.2))
+        let s0 = Self.frameFloor(min(max(0, start), max(0, duration - 0.2)))
         var o = Overlay(kind: .text(cue.text), start: s0, duration: max(0.2, min(len, duration - s0)))
         var style = st
         style.anim = .none
@@ -3257,5 +3269,59 @@ extension EditorModel {
         guard let i = selectedIndex, !playheadInSelected else { return }
         pause()
         scrub(to: project.clipStarts[i] + 0.01)
+    }
+}
+
+// MARK: Deleting one caption line, splitting overlays
+
+extension EditorModel {
+    /// The caption line picked in the timeline, when there is one.
+    var tappedCaption: CaptionCue? {
+        guard captionsSelected, let id = tappedCue else { return nil }
+        return project.captions?.cues.first { $0.id == id }
+    }
+
+    /// Only this line goes (it stays gone when the captions are cut again).
+    func deleteTappedCue() {
+        guard let cue = tappedCaption, var caps = project.captions else { return }
+        caps.cues.removeAll { $0.id == cue.id }
+        tappedCue = nil
+        setCaptions(caps)
+    }
+
+    /// Split the selected text / picture / video at the playhead: two blocks in the same row, the second one
+    /// carrying on where the first stops (a video continues its footage), keyframes shared out, the way in
+    /// on the first and the way out on the second.
+    func splitOverlay() {
+        guard let i = selectedOverlayIndex else { return }
+        let o = project.overlays[i]
+        let cut = Self.frameFloor(currentTime)
+        guard cut > o.start + 0.1, cut < o.end - 0.1 else { return }
+        let local = cut - o.start
+        let pose = o.pose(at: cut)
+        var a = o, b = o
+        b.id = UUID()
+        a.duration = local
+        b.start = cut
+        b.duration = o.duration - local
+        if case .video(let file, let srcDur, let inPoint) = o.kind {
+            b.kind = .video(file: file, sourceDuration: srcDur, inPoint: inPoint + local * o.speed)
+        }
+        if !o.keys.isEmpty {
+            // each half keeps its keyframes, and both get one at the cut so nothing jumps
+            a.keys = o.keys.filter { $0.t < local - 0.001 } + [OverlayKey(t: local, transform: pose.transform, opacity: pose.opacity)]
+            b.keys = [OverlayKey(t: 0, transform: pose.transform, opacity: pose.opacity)]
+                + o.keys.filter { $0.t > local + 0.001 }.map { var k = $0; k.t -= local; return k }
+        }
+        a.anim.outAnim = .none
+        b.anim.inAnim = .none
+        let video = o.kind.isVideo
+        let change: (inout Project) -> Void = { p in
+            p.overlays[i] = a
+            p.overlays.insert(b, at: i + 1)
+        }
+        if video { mutate(change) } else { mutateLook(change) }
+        selectedOverlayID = b.id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 }

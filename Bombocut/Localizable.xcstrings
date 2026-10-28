@@ -1604,6 +1604,16 @@
         }
       }
     },
+    "Delete all captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat všechny titulky"
+          }
+        }
+      }
+    },
     "Delete downloaded languages (%@)": {
       "localizations": {
         "cs": {
@@ -1710,6 +1720,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat optimalizaci hlasového modelu?"
+          }
+        }
+      }
+    },
+    "Delete this line": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat tento řádek"
           }
         }
       }

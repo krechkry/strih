@@ -215,8 +215,12 @@ struct EditorView: View {
                       matching: .any(of: [.images, .videos]), preferredItemEncoding: .current)
         .photosPicker(isPresented: $systemAddClips, selection: $addItems, maxSelectionCount: 50, selectionBehavior: .ordered,
                       matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
-        .confirmationDialog("Remove the captions?", isPresented: $confirmRemoveCaptions, titleVisibility: .visible) {
-            Button("Remove captions", role: .destructive) {
+        .confirmationDialog(model.tappedCaption != nil ? "Delete" : "Remove the captions?", isPresented: $confirmRemoveCaptions,
+                            titleVisibility: .visible) {
+            if model.tappedCaption != nil {
+                Button("Delete this line", role: .destructive) { model.deleteTappedCue() }
+            }
+            Button(model.tappedCaption != nil ? "Delete all captions" : "Remove captions", role: .destructive) {
                 model.captionsSelected = false
                 model.setCaptions(nil)
             }
@@ -598,6 +602,7 @@ struct EditorView: View {
                     ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
                 } else if let oi = model.selectedOverlayIndex {
                     let o = model.project.overlays[oi]
+                    ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
                     if o.isText {
                         ToolButton(icon: "textformat", label: "Text") { openOverlay(.text) }
                     }
@@ -639,11 +644,6 @@ struct EditorView: View {
                     if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
                     if !clip.still {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
-                        ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
-                            .opacity(model.freezing ? 0.4 : 1)
-                        ToolButton(icon: clip.reversed == nil ? "backward" : "backward.fill",
-                                   label: clip.reversed == nil ? "Reverse" : "Forward") { model.reverseSelected() }
-                            .opacity(model.reversing != nil ? 0.4 : 1)
                     }
                     if pro {
                         ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
@@ -654,6 +654,13 @@ struct EditorView: View {
                         }
                     }
                     if pro { ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.openTransitionForSelection() } }
+                    if !clip.still {
+                        ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
+                            .opacity(model.freezing ? 0.4 : 1)
+                        ToolButton(icon: clip.reversed == nil ? "backward" : "backward.fill",
+                                   label: clip.reversed == nil ? "Reverse" : "Forward") { model.reverseSelected() }
+                            .opacity(model.reversing != nil ? 0.4 : 1)
+                    }
                     ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitClip(fill: true) }
                         .contextMenu {
                             Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitAll(fill: true) }

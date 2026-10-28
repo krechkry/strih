@@ -622,7 +622,7 @@ struct ClipTile: View {
                 .font(.system(size: 10, weight: .bold).monospacedDigit())
                 .padding(.horizontal, 4).padding(.vertical, 1)
                 .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
-                .padding(selected ? handleW + 3 : 4)
+                .padding(4)
             }
         }
         .overlay(alignment: .bottomLeading) {
@@ -631,7 +631,7 @@ struct ClipTile: View {
                     .font(.system(size: 9))
                     .padding(4)
                     .background(.black.opacity(0.55), in: Circle())
-                    .padding(selected ? handleW + 3 : 4)
+                    .padding(4)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -650,14 +650,19 @@ struct ClipTile: View {
         .overlay(alignment: .leading) {
             if let tr = trim { trimBand(tr, width: w) }
         }
-        .overlay {
+        .overlay(alignment: .leading) {
+            // the handles sit outside the clip, so its first and last frames (and keyframes there) stay in view
             if selected {
-                RoundedRectangle(cornerRadius: 6).strokeBorder(trim?.atLimit == true ? Color.red : Theme.accent, lineWidth: 2)
+                let color = trim?.atLimit == true ? Color.red : Theme.accent
                 HStack(spacing: 0) {
                     handle(leading: true)
-                    Spacer(minLength: 0)
+                    Rectangle().fill(.clear).frame(width: w, height: height)
+                        .overlay(alignment: .top) { Rectangle().fill(color).frame(height: 2.5) }
+                        .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2.5) }
+                        .allowsHitTesting(false)
                     handle(leading: false)
                 }
+                .offset(x: -handleW)
             }
         }
         .overlay(alignment: trim?.leading == true ? .topLeading : .topTrailing) {
@@ -783,18 +788,19 @@ struct CaptionLane: View {
             .font(.system(size: 9, weight: .bold))
             .foregroundStyle(on || tapped ? .black : .white.opacity(0.85))
             .lineLimit(1)
-            .padding(.horizontal, tapped ? 9 : 4)
+            .padding(.horizontal, 4)
             .frame(width: max(4, CGFloat(cue.end - cue.start) * px - 1), height: Self.height, alignment: .leading)
             .background(on || tapped ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
             .clipped()
-            .overlay {
+            .overlay(alignment: .leading) {
                 if tapped {
                     HStack(spacing: 0) {
                         edge(cue, leading: true, px: px)
-                        Spacer(minLength: 0)
+                        Color.clear.frame(width: max(4, CGFloat(cue.end - cue.start) * px - 1)).allowsHitTesting(false)
                         edge(cue, leading: false, px: px)
                     }
+                    .offset(x: -LaneEdge.width)
                 }
             }
             .overlay(alignment: .topLeading) {
@@ -838,10 +844,7 @@ struct CaptionLane: View {
     }
 
     private func edge(_ cue: CaptionCue, leading: Bool, px: CGFloat) -> some View {
-        Rectangle().fill(.black.opacity(0.35))
-            .frame(width: 8, height: Self.height)
-            .overlay(Capsule().fill(.black).frame(width: 2, height: 8))
-            .contentShape(Rectangle().inset(by: -8))
+        LaneEdge(leading: leading, height: Self.height)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in
@@ -886,6 +889,22 @@ struct CaptionLane: View {
         lift = 0
         model.laneDragEnded()
         if toText { model.cueToText(track: track, d.id, at: textAt) }
+    }
+}
+
+/// A trim handle on the end of a block in a lane: outside the block, lime, rounded on its outer side.
+struct LaneEdge: View {
+    static let width: CGFloat = 11
+    let leading: Bool
+    let height: CGFloat
+
+    var body: some View {
+        UnevenRoundedRectangle(topLeadingRadius: leading ? 5 : 0, bottomLeadingRadius: leading ? 5 : 0,
+                               bottomTrailingRadius: leading ? 0 : 5, topTrailingRadius: leading ? 0 : 5)
+            .fill(Theme.accent)
+            .frame(width: Self.width, height: height)
+            .overlay(Capsule().fill(.black.opacity(0.7)).frame(width: 2, height: max(6, height * 0.42)))
+            .contentShape(Rectangle().inset(by: -8))
     }
 }
 
@@ -1013,7 +1032,7 @@ struct OverlayLane: View {
             Text(o.title.replacingOccurrences(of: "\n", with: " ")).font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
         .foregroundStyle(selected ? .black : .white)
-        .padding(.horizontal, selected ? 12 : 5)
+        .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
         .background(selected ? Theme.accent : (o.isText ? Self.textTint : Self.mediaTint).opacity(0.45),
                     in: RoundedRectangle(cornerRadius: 5))
@@ -1030,13 +1049,14 @@ struct OverlayLane: View {
             }
             .allowsHitTesting(false)
         }
-        .overlay {
+        .overlay(alignment: .leading) {
             if selected {
                 HStack(spacing: 0) {
                     edge(o, leading: true)
-                    Spacer(minLength: 0)
+                    Color.clear.frame(width: w).allowsHitTesting(false)
                     edge(o, leading: false)
                 }
+                .offset(x: -LaneEdge.width)
             }
         }
         .overlay { if let pk = model.pick, pk.kind.forOverlays { PickMark(source: pk.source == o.id, picked: pk.picked.contains(o.id)) } }
@@ -1075,13 +1095,11 @@ struct OverlayLane: View {
             }))
         .offset(x: CGFloat(o.start) * px, y: lift?.id == o.id ? lift!.dy : 0)
         .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
+        .zIndex(selected ? 1 : 0)
     }
 
     private func edge(_ o: Overlay, leading: Bool) -> some View {
-        Rectangle().fill(.black.opacity(0.35))
-            .frame(width: 10, height: Self.rowHeight)
-            .overlay(Capsule().fill(.black).frame(width: 2, height: 10))
-            .contentShape(Rectangle().inset(by: -8))
+        LaneEdge(leading: leading, height: Self.rowHeight)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in
@@ -1183,7 +1201,7 @@ struct AudioLane: View {
             Text(a.name).font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
         .foregroundStyle(selected ? .black : .white)
-        .padding(.horizontal, selected ? 12 : 5)
+        .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
         .background {
             ZStack {
@@ -1198,13 +1216,14 @@ struct AudioLane: View {
             .clipShape(RoundedRectangle(cornerRadius: 5))
         }
         .clipped()
-        .overlay {
+        .overlay(alignment: .leading) {
             if selected {
                 HStack(spacing: 0) {
                     edge(a, leading: true, px: px)
-                    Spacer(minLength: 0)
+                    Color.clear.frame(width: w).allowsHitTesting(false)
                     edge(a, leading: false, px: px)
                 }
+                .offset(x: -LaneEdge.width)
             }
         }
         .contentShape(Rectangle())
@@ -1228,13 +1247,11 @@ struct AudioLane: View {
             },
             onEnded: { finish(a.id) }))
         .offset(x: CGFloat(a.start) * px)
+        .zIndex(selected ? 1 : 0)
     }
 
     private func edge(_ a: AudioItem, leading: Bool, px: CGFloat) -> some View {
-        Rectangle().fill(.black.opacity(0.35))
-            .frame(width: 10, height: Self.rowHeight)
-            .overlay(Capsule().fill(.black).frame(width: 2, height: 10))
-            .contentShape(Rectangle().inset(by: -8))
+        LaneEdge(leading: leading, height: Self.rowHeight)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in

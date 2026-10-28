@@ -62,7 +62,13 @@ struct MediaPicker: View {
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) { if status == .authorized || status == .limited { filters } }
-            .safeAreaInset(edge: .bottom, spacing: 0) { if limit > 1 && !picked.isEmpty { addBar } }
+            // floats over the grid (as a bar it pushed the whole grid up when it appeared)
+            .overlay(alignment: .bottom) {
+                if limit > 1 && !picked.isEmpty {
+                    addBar.transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(duration: 0.28, bounce: 0.15), value: picked.isEmpty)
         }
         .task {
             if status == .notDetermined { status = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
@@ -102,8 +108,8 @@ struct MediaPicker: View {
                 .background(Theme.accent, in: Capsule())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(Theme.bg)
+        .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
+        .padding(.horizontal, 16).padding(.bottom, 10)
     }
 
     private var noAccess: some View {
@@ -145,6 +151,8 @@ struct MediaPicker: View {
                     } ended: {
                         paintEnded()
                     })
+                    // room under the last row for the floating Add button, always there so nothing jumps
+                    Color.clear.frame(height: limit > 1 ? 84 : 0)
                     if status == .limited {
                         Text("BOMBOCUT sees only the items you allowed. Change it in Settings.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
