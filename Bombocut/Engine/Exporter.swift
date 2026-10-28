@@ -52,6 +52,7 @@ final class Exporter: @unchecked Sendable {
         let hevc = settings.hevc || max(w, h) > 4096          // H.264 tops out at 4096 px
         // what the frames draw, from this project (an export from Home, after the trial, has no editor open)
         LookStore.shared.update(project.clips)
+        StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         // cleaned-up speech the editor has not made yet

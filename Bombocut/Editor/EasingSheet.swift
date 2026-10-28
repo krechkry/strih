@@ -110,8 +110,8 @@ struct AutoZoomSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if let i = model.selectedIndex {
-                let z = model.project.clips[i].autoZoom
+            if model.editsStackOrClip {
+                let z = model.editedAutoZoom
                 HStack(spacing: 10) {
                     Text("AutoZoom").font(.title3.weight(.heavy))
                     Spacer()
@@ -155,7 +155,7 @@ struct AutoZoomSheet: View {
                     Text("Runs from the first frame of the clip to the last, and follows when you trim it or change its speed. On the preview, drag the lime frame to choose where it zooms, its corner to choose how close.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    ApplyRow(model: model, kind: .autoZoom)
+                    if model.selectedStackIndex == nil { ApplyRow(model: model, kind: .autoZoom) }
                 } else {
                     Text("A slow push in or pull out over the whole clip, like a camera move. Switch it on to set it up.")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)

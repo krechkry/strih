@@ -39,7 +39,7 @@ struct AdjustSheet: View {
                 case 1: AdvancedAdjust(model: model)
                 default: sliders(tab == 2 ? LookParam.effects : LookParam.basic)
                 }
-                ApplyRow(model: model, kind: model.adjustsOverlay ? .overlayAdjust : .adjust)
+                if model.selectedStackIndex == nil { ApplyRow(model: model, kind: model.adjustsOverlay ? .overlayAdjust : .adjust) }
             }
         }
         .padding(20)
@@ -100,6 +100,7 @@ struct AdjustSheet: View {
     }
 
     private var hint: String {
+        if model.selectedStackIndex != nil { return "Whole stack" }
         if let oi = model.selectedOverlayIndex {
             if model.project.overlays[oi].keys.isEmpty { return "Whole layer" }
             return model.overlayKeyAtPlayhead != nil ? String(format: loc("Opacity: keyframe at %@"), Fmt.time(model.currentTime))

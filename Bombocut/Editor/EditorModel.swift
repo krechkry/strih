@@ -65,6 +65,7 @@ final class EditorModel: ObservableObject {
         didSet {
             if quickMenuClipID != nil && quickMenuClipID != selectedClipID { quickMenuClipID = nil }
             if selectedClipID != nil {
+                if selectedStackID != nil { selectedStackID = nil }
                 if selectedOverlayID != nil { selectedOverlayID = nil }
                 if captionsSelected { captionsSelected = false }
                 if selectedAudioID != nil { selectedAudioID = nil }
@@ -78,6 +79,7 @@ final class EditorModel: ObservableObject {
     @Published var captionsSelected = false {
         didSet {
             if captionsSelected {
+                if selectedStackID != nil { selectedStackID = nil }
                 if selectedClipID != nil { selectedClipID = nil }
                 if selectedOverlayID != nil { selectedOverlayID = nil }
                 if selectedAudioID != nil { selectedAudioID = nil }
@@ -189,8 +191,10 @@ final class EditorModel: ObservableObject {
             .store(in: &cancellables)
 
         LookStore.shared.update(project.clips)
+        StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        if let id = selectedStackID, !project.stacks.contains(where: { $0.id == id }) { selectedStackID = nil }
         rebuild()
         Task { await fillMissingAspects() }
     }
@@ -293,9 +297,8 @@ final class EditorModel: ObservableObject {
     @Published private(set) var loopSelected = false
 
     func previewSelected() {
-        guard let i = selectedIndex else { return }
+        guard let (start, end) = selectedSpan else { return }
         if isPlaying { pause(); return }
-        let start = project.clipStarts[i], end = start + project.clips[i].duration
         if currentTime < start || currentTime >= end - 0.05 { scrub(to: start) }
         loopSelected = true
         player.play()
@@ -303,8 +306,7 @@ final class EditorModel: ObservableObject {
     }
 
     private func loopIfNeeded() {
-        guard loopSelected, let i = selectedIndex else { return }
-        let start = project.clipStarts[i], end = start + project.clips[i].duration
+        guard loopSelected, let (start, end) = selectedSpan else { return }
         if currentTime >= end - 0.04 || currentTime < start - 0.1 {
             scrub(to: start)
             player.play()
@@ -437,6 +439,7 @@ final class EditorModel: ObservableObject {
 
     private func commit() {
         project.normalizeOverlays()
+        project.cleanStacks()
         project.modified = Date()
         store.save(project)
         canUndo = !undoStack.isEmpty
@@ -462,6 +465,7 @@ final class EditorModel: ObservableObject {
 
     private func commitLook() {
         project.normalizeOverlays()
+        project.cleanStacks()
         project.modified = Date()
         store.save(project)
         canUndo = !undoStack.isEmpty
@@ -475,6 +479,7 @@ final class EditorModel: ObservableObject {
     /// Pushes the current looks to the compositor and redraws the paused frame.
     private func publishLook() {
         LookStore.shared.update(project.clips)
+        StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
@@ -583,6 +588,7 @@ final class EditorModel: ObservableObject {
         mutate { p in
             p.clips[i] = a
             p.clips.insert(b, at: i + 1)
+            p.joinStack(b.id, with: c.id)
         }
         selectedClipID = b.id
     }
@@ -668,9 +674,11 @@ final class EditorModel: ObservableObject {
                     p.clips[k] = a
                     p.clips.insert(still, at: k + 1)
                     p.clips.insert(b, at: k + 2)
+                    p.joinStack(b.id, with: cur.id)
                 } else {
                     p.clips.insert(still, at: atEnd ? k + 1 : k)
                 }
+                p.joinStack(still.id, with: cur.id)
             }
             selectedClipID = still.id
             if let j = project.clips.firstIndex(where: { $0.id == still.id }) { scrub(to: project.clipStarts[j]) }
@@ -693,7 +701,8 @@ final class EditorModel: ObservableObject {
         var copy = project.clips[i]
         copy.id = UUID()
         copy.cut = nil
-        mutate { $0.clips.insert(copy, at: i + 1) }
+        let from = project.clips[i].id
+        mutate { $0.clips.insert(copy, at: i + 1); $0.joinStack(copy.id, with: from) }
         selectedClipID = copy.id
     }
 
@@ -704,6 +713,7 @@ final class EditorModel: ObservableObject {
         mutate { p in
             let c = p.clips.remove(at: from)
             p.clips.insert(c, at: to)
+            p.leaveStackIfMovedAway(c.id)
         }
         selectedClipID = id
         if let j = project.clips.firstIndex(where: { $0.id == id }) { scrub(to: project.clipStarts[j]) }
@@ -715,6 +725,10 @@ final class EditorModel: ObservableObject {
         captionsSelected = false
         selectedAudioID = nil
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
+        if let st = project.stack(of: id), !st.open {
+            selectStack(selectedStackID == st.id ? nil : st.id)
+            return
+        }
         // tap 1 selects, tap 2 opens its quick tools, tap 3 deselects
         if selectedClipID == id {
             if quickMenuClipID == id { selectedClipID = nil } else { quickMenuClipID = id }
@@ -834,11 +848,12 @@ final class EditorModel: ObservableObject {
     // and its opacity (the fixed value, or the keyframe under the playhead).
 
     /// Something for the Adjust panel to work on.
-    var hasAdjustTarget: Bool { selectedIndex != nil || selectedOverlayIndex != nil }
+    var hasAdjustTarget: Bool { selectedIndex != nil || selectedOverlayIndex != nil || selectedStackIndex != nil }
     var adjustsOverlay: Bool { selectedOverlayIndex != nil }
 
     /// What the Adjust panel shows: the selected overlay's look, or the selected clip's look at the playhead.
     func adjustLook() -> Look {
+        if let k = selectedStackIndex { return project.stacks[k].look }
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
             let pose = o.pose(at: currentTime)
@@ -864,6 +879,7 @@ final class EditorModel: ObservableObject {
     func lookEditBegan() {
         pause()
         lookSnapshot = project
+        if selectedStackIndex != nil { playheadIntoSelected(); return }
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
             if currentTime < o.start || currentTime >= o.end { scrub(to: o.start + min(0.05, o.duration / 2)) }
@@ -874,6 +890,15 @@ final class EditorModel: ObservableObject {
 
     /// Live slider change (no undo step until the drag ends).
     func editLook(_ change: (inout Look) -> Void) {
+        if let k = selectedStackIndex {
+            var l = project.stacks[k].look
+            change(&l)
+            project.stacks[k].transform = l.transform
+            project.stacks[k].opacity = l.opacity
+            project.stacks[k].effects = l.effects
+            publishLook()
+            return
+        }
         if let oi = selectedOverlayIndex {
             applyOverlayLook(&project.overlays[oi], at: currentTime, change)
             publishLook()
@@ -892,6 +917,15 @@ final class EditorModel: ObservableObject {
     }
 
     func resetParam(_ p: LookParam) {
+        if let k = selectedStackIndex {
+            mutateLook { pr in
+                var l = pr.stacks[k].look
+                p.set(&l, p.neutral)
+                pr.stacks[k].opacity = l.opacity
+                pr.stacks[k].effects = l.effects
+            }
+            return
+        }
         if let oi = selectedOverlayIndex {
             let now = currentTime
             mutateLook { pr in self.applyOverlayLook(&pr.overlays[oi], at: now) { p.set(&$0, p.neutral) } }
@@ -903,6 +937,10 @@ final class EditorModel: ObservableObject {
     }
 
     func resetAllLook() {
+        if let k = selectedStackIndex {
+            mutateLook { $0.stacks[k].effects = Effects(); $0.stacks[k].opacity = 1 }
+            return
+        }
         if let oi = selectedOverlayIndex {
             mutateLook { $0.overlays[oi].effects = Effects() }
             return
@@ -960,6 +998,10 @@ final class EditorModel: ObservableObject {
     }
 
     func setVolume(_ v: Double, live: Bool) {
+        if let k = selectedStackIndex {
+            if live { project.stacks[k].volume = v } else { mutate { $0.stacks[k].volume = v } }
+            return
+        }
         guard let i = selectedIndex else { return }
         if live {
             project.clips[i].volume = v
@@ -1644,6 +1686,20 @@ final class EditorModel: ObservableObject {
     var cueSnapshot: Project?
     /// The AutoZoom panel is open: paused, the clip shows unzoomed with its first and last framing drawn over it.
     @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
+    /// The selected Stack (a closed Stack is selected as one; see ClipStack).
+    @Published var selectedStackID: UUID? {
+        didSet {
+            guard selectedStackID != oldValue else { return }
+            if selectedStackID != nil {
+                if selectedClipID != nil { selectedClipID = nil }
+                if selectedOverlayID != nil { selectedOverlayID = nil }
+                if captionsSelected { captionsSelected = false }
+                if selectedAudioID != nil { selectedAudioID = nil }
+            }
+            if autoZoomPanelOpen || cropPanelOpen { updateFraming() }
+        }
+    }
+    var stackStart: ClipTransform?
     /// The Crop panel is open: the selected clip shows whole in the preview, with its crop frame to drag.
     @Published var cropPanelOpen = false { didSet { if cropPanelOpen != oldValue { updateFraming() } } }
     /// Slip: the selected clip's content slides inside its place on the timeline.
@@ -1747,7 +1803,8 @@ final class EditorModel: ObservableObject {
         let c = project.clips[i]
         trimSnapshot = project
         trimOriginal = c
-        selectedClipID = id
+        // a closed Stack's outer edge: the Stack stays selected
+        if project.stack(of: id)?.open != false { selectedClipID = id }
         trim = TrimState(id: id, leading: leading, startDuration: c.duration)
         trimView = TrimView(leading: leading)
 
@@ -1817,6 +1874,7 @@ final class EditorModel: ObservableObject {
     @Published var selectedAudioID: UUID? {
         didSet {
             if selectedAudioID != nil {
+                if selectedStackID != nil { selectedStackID = nil }
                 if selectedClipID != nil { selectedClipID = nil }
                 if selectedOverlayID != nil { selectedOverlayID = nil }
                 if captionsSelected { captionsSelected = false }
@@ -2183,7 +2241,7 @@ final class EditorModel: ObservableObject {
 
     func selectOverlay(_ id: UUID?) {
         selectedOverlayID = id
-        if id != nil { selectedClipID = nil; captionsSelected = false; selectedAudioID = nil }
+        if id != nil { selectedClipID = nil; selectedStackID = nil; captionsSelected = false; selectedAudioID = nil }
         // put the playhead on it so you see what you edit
         if let i = selectedOverlayIndex {
             let o = project.overlays[i]
@@ -2583,6 +2641,7 @@ final class EditorModel: ObservableObject {
     /// captions, or the selected clip (when the playhead is on it). Nothing selected: the clip at the playhead.
     func transformBegan(at p: CGPoint? = nil, canvas: CGSize = .zero) {
         if selectedOverlayID != nil { _ = overlayTransformBegan(); return }
+        if selectedStackID != nil { stackTransformBegan(); return }
         if captionsSelected { captionTransformBegan(); return }
         if selectedIndex != nil && !playheadInSelected { return }
         guard !fullscreen, trim == nil, let found = project.clipIndex(at: currentTime) else { return }
@@ -2611,6 +2670,7 @@ final class EditorModel: ObservableObject {
     /// around the fingers). The clip center follows g; scale and angle take g's scale and angle.
     func transformChanged(gesture g: CGAffineTransform, canvas: CGSize) {
         if overlayStart != nil { overlayTransformChanged(g, canvas: canvas); return }
+        if stackStart != nil { stackTransformChanged(g, canvas: canvas); return }
         if captionStart != nil { captionTransformChanged(g, canvas: canvas); return }
         guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
         let w = canvas.width, h = canvas.height
@@ -2677,6 +2737,7 @@ final class EditorModel: ObservableObject {
 
     func transformEnded() {
         if overlayStart != nil { overlayTransformEnded(); return }
+        if stackStart != nil { stackTransformEnded(); return }
         if captionStart != nil { captionTransformEnded(); return }
         guard var l = live, l.active else { return }
         liveStart = nil
@@ -3147,12 +3208,23 @@ extension EditorModel {
     // MARK: AutoZoom
 
     func setAutoZoom(_ z: AutoZoom?) {
+        if let k = selectedStackIndex {
+            guard project.stacks[k].autoZoom != z else { return }
+            mutateLook { $0.stacks[k].autoZoom = z }
+            return
+        }
         guard let i = selectedIndex, project.clips[i].autoZoom != z else { return }
         mutateLook { $0.clips[i].autoZoom = z }
     }
 
     /// Live change while a slider moves; pair with liveEditBegan / liveEditEnded.
     func editAutoZoom(_ change: (inout AutoZoom) -> Void) {
+        if let k = selectedStackIndex, var z = project.stacks[k].autoZoom {
+            change(&z)
+            project.stacks[k].autoZoom = z
+            publishLook()
+            return
+        }
         guard let i = selectedIndex, var z = project.clips[i].autoZoom else { return }
         change(&z)
         project.clips[i].autoZoom = z
@@ -3164,8 +3236,9 @@ extension EditorModel {
 
 extension EditorModel {
     func updateFraming() {
-        let id = autoZoomPanelOpen && !isPlaying ? selectedClipID : nil
-        let crop = cropPanelOpen ? selectedClipID : nil
+        let target = selectedStackID ?? selectedClipID
+        let id = autoZoomPanelOpen && !isPlaying ? target : nil
+        let crop = cropPanelOpen ? target : nil
         guard LookStore.shared.framingClip != id || LookStore.shared.cropEditClip != crop else { return }
         LookStore.shared.framingClip = id
         LookStore.shared.cropEditClip = crop
@@ -3175,6 +3248,12 @@ extension EditorModel {
     // MARK: Crop
 
     func setCrop(_ c: CropRect?) {
+        if let k = selectedStackIndex {
+            let v = (c?.isEmpty ?? true) ? nil : c
+            guard project.stacks[k].crop != v else { return }
+            mutateLook { $0.stacks[k].crop = v }
+            return
+        }
         guard let i = selectedIndex else { return }
         let v = (c?.isEmpty ?? true) ? nil : c
         guard project.clips[i].crop != v else { return }
@@ -3183,6 +3262,13 @@ extension EditorModel {
 
     /// Live change (dragging an edge, a slider); pair with liveEditBegan / liveEditEnded.
     func editCrop(_ change: (inout CropRect) -> Void) {
+        if let k = selectedStackIndex {
+            var c = project.stacks[k].crop ?? CropRect()
+            change(&c)
+            project.stacks[k].crop = c
+            publishLook()
+            return
+        }
         guard let i = selectedIndex else { return }
         var c = project.clips[i].crop ?? CropRect()
         change(&c)
@@ -3269,48 +3355,33 @@ extension EditorModel {
 
     var selectedIsStack: Bool { selectedIndex.map { project.clips[$0].stack != nil } ?? false }
 
-    /// The picked clips (and any between them) become one clip: rendered with everything they have (keyframes,
-    /// effects, transforms, transitions between them, sound), the originals kept inside it for Unstack.
+    /// The picked clips (and any between them) become a Stack: nothing is rendered, they are held together and
+    /// act as one clip (a clip already in another Stack moves over to this one).
     func stackClips(_ ids: Set<UUID>) {
         let idx = project.clips.indices.filter { ids.contains(project.clips[$0].id) }
-        guard let a = idx.min(), let b = idx.max(), b > a, analysis == nil else { return }
-        let originals = Array(project.clips[a...b])
-        let canvas = project.canvas
-        analysis = AnalysisState(title: "Stacking", progress: 0)
-        analysisTask = Task {
-            do {
-                let made = try await Stacker.render(originals, canvas: canvas) { f in
-                    Task { @MainActor in self.analysis?.progress = f }
-                }
-                let ids = originals.map(\.id)
-                guard let k = project.clips.firstIndex(where: { $0.id == ids[0] }), k + ids.count <= project.clips.count,
-                      project.clips[k..<(k + ids.count)].map(\.id) == ids else {
-                    try? FileManager.default.removeItem(at: Paths.mediaURL(made.file))
-                    throw CompositionBuilder.err("The clips changed while stacking. Try again.")
-                }
-                var s = Clip(mediaFile: made.file, sourceDuration: made.duration)
-                s.aspect = canvas.aspect
-                s.fill = true
-                s.cut = originals[0].cut
-                s.stack = originals
-                pushUndo(project)
-                project.clips.replaceSubrange(k..<(k + ids.count), with: [s])
-                // the stack plays exactly what the clips played, in the same time: captions and overlays stay put
-                commit()
-                selectedClipID = s.id
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            } catch {
-                if !(error is CancellationError) && !Task.isCancelled { buildError = error.localizedDescription }
-                // the render used the stores for its own frames: back to this project
-                publishLook()
-            }
-            analysis = nil
-            analysisTask = nil
+        guard let a = idx.min(), let b = idx.max(), b > a else { return }
+        let members = project.clips[a...b].map(\.id)
+        let st = ClipStack(clipIDs: members)
+        mutateLook { p in
+            for k in p.stacks.indices { p.stacks[k].clipIDs.removeAll { members.contains($0) } }
+            p.stacks.append(st)
         }
+        selectStack(st.id)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     /// The Stack's clips come back exactly as they were.
     func unstackSelected() {
+        if let k = selectedStackIndex {
+            let st = project.stacks[k]
+            let rebuildSound = abs(st.volume - 1) > 0.001
+            let change: (inout Project) -> Void = { $0.stacks.remove(at: k) }
+            if rebuildSound { mutate(change) } else { mutateLook(change) }
+            selectedStackID = nil
+            if let first = st.clipIDs.first { selectedClipID = first }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            return
+        }
         guard let i = selectedIndex, let inner = project.clips[i].stack, !inner.isEmpty else { return }
         var parts = inner
         parts[0].cut = project.clips[i].cut
@@ -3325,6 +3396,10 @@ extension EditorModel {
 extension EditorModel {
     /// The playhead onto the selected clip (so the preview shows what a panel works on).
     func playheadIntoSelected() {
+        if let (a, b) = selectedSpan, selectedStackIndex != nil {
+            if currentTime < a || currentTime >= b { pause(); scrub(to: a + 0.01) }
+            return
+        }
         guard let i = selectedIndex, !playheadInSelected else { return }
         pause()
         scrub(to: project.clipStarts[i] + 0.01)
@@ -3431,5 +3506,133 @@ extension EditorModel {
         }
         selectOverlay(o.id)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+}
+
+// MARK: Stacks (held together, not rendered)
+
+extension EditorModel {
+    var selectedStackIndex: Int? { selectedStackID.flatMap { id in project.stacks.firstIndex { $0.id == id } } }
+    var selectedStack: ClipStack? { selectedStackIndex.map { project.stacks[$0] } }
+
+    /// Where the selection plays on the timeline: the selected Stack, or the selected clip.
+    var selectedSpan: (Double, Double)? {
+        if let st = selectedStack, let t = project.stackTime(st) { return (t.start, t.end) }
+        guard let i = selectedIndex else { return nil }
+        let start = project.clipStarts[i]
+        return (start, start + project.clips[i].duration)
+    }
+
+    var playheadInSelectedStack: Bool {
+        guard selectedStackIndex != nil, let (a, b) = selectedSpan else { return false }
+        return currentTime >= a - 0.001 && currentTime <= b + 0.001
+    }
+
+    func selectStack(_ id: UUID?) {
+        selectedStackID = id
+        if id != nil { quickMenuClipID = nil }
+        if let (a, b) = selectedSpan, id != nil, currentTime < a || currentTime >= b {
+            pause()
+            scrub(to: a + 0.01)
+        }
+    }
+
+    /// Open: the clips inside can be edited one by one (the Stack still holds them and keeps its layer).
+    /// Closed: it acts as one clip again.
+    func toggleStackOpen(_ id: UUID) {
+        guard let k = project.stacks.firstIndex(where: { $0.id == id }) else { return }
+        let open = !project.stacks[k].open
+        project.stacks[k].open = open
+        store.save(project)
+        if open {
+            selectedStackID = nil
+        } else {
+            if let c = selectedClipID, project.stacks[k].clipIDs.contains(c) { selectedClipID = nil }
+            selectStack(id)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// The Stack and every clip in it go.
+    func deleteSelectedStack() {
+        guard let k = selectedStackIndex else { return }
+        let ids = Set(project.stacks[k].clipIDs)
+        let first = project.clips.firstIndex { ids.contains($0.id) } ?? 0
+        mutate { p in
+            p.clips.removeAll { ids.contains($0.id) }
+            p.stacks.remove(at: k)
+        }
+        selectedStackID = nil
+        let cut = first < project.clips.count ? project.clipStarts[first] : duration
+        scrub(to: min(max(0, cut), duration))
+    }
+
+    func resetStackTransform() {
+        guard let k = selectedStackIndex else { return }
+        mutateLook { $0.stacks[k].transform = ClipTransform() }
+    }
+
+    // MARK: Moving a Stack on the preview
+
+    fileprivate func stackTransformBegan() {
+        guard let k = selectedStackIndex else { return }
+        playheadIntoSelected()
+        guard playheadInSelectedStack else { return }
+        pause()
+        stackStart = project.stacks[k].transform
+        overlaySnapshot = project
+        overlayGuides = []
+    }
+
+    fileprivate func stackTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
+        guard let s0 = stackStart, let k = selectedStackIndex, canvas.width > 0 else { return }
+        let w = canvas.width, h = canvas.height
+        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
+        let c1 = c0.applying(g)
+        var t = s0
+        t.x = (c1.x - w / 2) / w
+        t.y = (c1.y - h / 2) / h
+        t.scale = min(max(s0.scale * Double(hypot(g.a, g.b)), 0.05), 20)
+        t.rotation = s0.rotation + Double(atan2(g.b, g.a))
+        var guides = Set<Guide>()
+        let quarter = Double.pi / 2
+        let turns = (t.rotation / quarter).rounded()
+        if abs(t.rotation - turns * quarter) < 5 * .pi / 180 { t.rotation = turns * quarter; guides.insert(.angle) }
+        if abs(t.x * w) < 7 { t.x = 0; guides.insert(.centerX) }
+        if abs(t.y * h) < 7 { t.y = 0; guides.insert(.centerY) }
+        if abs(t.scale - 1) < 0.035 { t.scale = 1; guides.insert(.scale) }
+        if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
+        overlayGuides = guides
+        project.stacks[k].transform = t
+        StackStore.shared.update(project)
+        refreshFrame()
+    }
+
+    fileprivate func stackTransformEnded() {
+        stackStart = nil
+        overlayGuides = []
+        if let s = overlaySnapshot, s != project { pushUndo(s) }
+        overlaySnapshot = nil
+        commitLook()
+    }
+}
+
+extension EditorModel {
+    /// What the Crop, AutoZoom and Volume panels work on: the selected Stack, or the selected clip.
+    var editsStackOrClip: Bool { selectedStackIndex != nil || selectedIndex != nil }
+
+    var editedCrop: CropRect? {
+        if let st = selectedStack { return st.crop }
+        return selectedIndex.flatMap { project.clips[$0].crop }
+    }
+
+    var editedAutoZoom: AutoZoom? {
+        if let st = selectedStack { return st.autoZoom }
+        return selectedIndex.flatMap { project.clips[$0].autoZoom }
+    }
+
+    var editedVolume: Double? {
+        if let st = selectedStack { return st.volume }
+        return selectedIndex.map { project.clips[$0].volume }
     }
 }

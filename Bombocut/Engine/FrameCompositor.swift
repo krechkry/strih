@@ -322,7 +322,47 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 image = SubjectMasker.outline(mask, on: image, frame: frame)
             }
         }
-        return EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+        image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+        // the clip is in a Stack: the Stack's own layer on top
+        if let st = StackStore.shared.layer(info.clipID) {
+            image = Self.stackLayer(image, st, t: t, size: size, preview: info.preview)
+        }
+        return image
+    }
+
+    /// A Stack's layer on one of its clips' finished pictures (the canvas): its crop, its color, its placement
+    /// (with AutoZoom over the whole Stack), its film effects and opacity, like a clip of its own.
+    static func stackLayer(_ img: CIImage, _ l: StackStore.Layer, t: Double, size: CGSize, preview: Bool) -> CIImage {
+        let frame = CGRect(origin: .zero, size: size)
+        let s = l.stack
+        var out = img
+        let editingCrop = preview && LookStore.shared.cropEditClip == l.id
+        if let c = s.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
+            let kept = cropped(out, c, size)
+            out = editingCrop
+                ? kept.composited(over: out.applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: 0.3, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 0.3, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
+                : kept
+        }
+        out = EffectsRenderer.color(out, s.effects)
+        var tr = s.transform
+        if let z = s.autoZoom, !(preview && LookStore.shared.framingClip == l.id) {
+            tr = z.apply(tr, at: (t - l.start) / l.duration)
+        }
+        if !tr.isIdentity {
+            let cx = size.width / 2, cy = size.height / 2
+            out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
+                .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
+                .concatenating(CGAffineTransform(translationX: cx + tr.x * size.width, y: cy - tr.y * size.height)))
+        }
+        if s.opacity < 0.999 {
+            out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, s.opacity))])
+        }
+        out = out.composited(over: CIImage(color: .black).cropped(to: frame)).cropped(to: frame)
+        return EffectsRenderer.canvas(out, s.effects, size: size, frame: Int((t * 30).rounded()))
     }
 
     /// The clip's subject mask on the canvas. People and main subject are found on the finished canvas picture;

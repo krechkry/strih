@@ -90,17 +90,24 @@ struct TimelineView: View {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
                             let dragged = reorder?.id == clip.id
                             let slipping = model.slip?.id == clip.id
+                            let edges = stackEdges(clip.id)
                             ClipTile(clip: clip,
                                      pxPerSec: model.pxPerSec,
                                      height: stripHeight,
                                      inset: gap,
-                                     selected: clip.id == model.selectedClipID && reorder == nil && model.slip == nil,
+                                     selected: (clip.id == model.selectedClipID || edges != nil) && reorder == nil && model.slip == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
+                                     lead: edges?.lead ?? true,
+                                     trail: edges?.trail ?? true,
                                      onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
-                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
+                                     onReorder: { phase, x, fx in
+                                         // a closed Stack moves as a whole or not at all: its clips stay put
+                                         if model.project.stack(of: clip.id)?.open == false { return }
+                                         reorderEvent(clip.id, phase, x, fx)
+                                     })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
                                     // a Stack: several clips in one
@@ -146,6 +153,9 @@ struct TimelineView: View {
                                 }
                             }
                         }
+                    }
+                    .overlay(alignment: .leading) {
+                        if reorder == nil && model.pick == nil && model.slip == nil { stackFrames(shown) }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
                     .paintSelect(enabled: model.pick != nil && model.pick?.kind.forOverlays == false, ids: shown.map(\.id),
@@ -296,6 +306,55 @@ struct TimelineView: View {
             try? await Task.sleep(for: .seconds(0.5))
             reorderEvent(c[0].id, .changed, 70, 220)
         }
+    }
+
+    /// The selected (closed) Stack's first and last clip: where its outer handles go. Nil for any other clip.
+    private func stackEdges(_ id: UUID) -> (lead: Bool, trail: Bool)? {
+        guard let st = model.selectedStack, !st.open, st.clipIDs.contains(id),
+              let r = model.project.stackRange(st) else { return nil }
+        let clips = model.project.clips
+        return (clips[r.lowerBound].id == id, clips[r.upperBound].id == id)
+    }
+
+    /// Every Stack as a frame around its clips, with a chip that opens it (edit the clips inside) or closes it
+    /// (it acts as one clip). Closed: a solid lime frame. Open: a dashed one.
+    @ViewBuilder
+    private func stackFrames(_ shown: [Clip]) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(model.project.stacks) { st in
+                if let r = model.project.stackRange(st), r.upperBound < shown.count {
+                    let x0 = slotX(shown, r.lowerBound)
+                    let x1 = slotX(shown, r.upperBound) + width(shown[r.upperBound]) - gap
+                    let selected = model.selectedStackID == st.id
+                    RoundedRectangle(cornerRadius: 7)
+                        .strokeBorder(st.open ? Color.white.opacity(0.75) : Theme.accent.opacity(selected ? 0 : 0.85),
+                                      style: StrokeStyle(lineWidth: 2, dash: st.open ? [5, 4] : []))
+                        .frame(width: max(6, x1 - x0), height: stripHeight)
+                        .offset(x: x0)
+                        .allowsHitTesting(false)
+                    if x1 - x0 > 34 {
+                        Button { model.toggleStackOpen(st.id) } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: st.open ? "square.stack.3d.up" : "square.stack.3d.up.fill")
+                                Image(systemName: st.open ? "lock.open.fill" : "lock.fill").font(.system(size: 8, weight: .heavy))
+                            }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(st.open ? .white : .black)
+                            .padding(.horizontal, 5).frame(height: 18)
+                            .background(st.open ? Color.black.opacity(0.65) : Theme.accent, in: RoundedRectangle(cornerRadius: 5))
+                            .overlay { if st.open { RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.75), lineWidth: 1) } }
+                            .padding(8)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc(st.open ? "Close stack" : "Open stack"))
+                        .offset(x: x1 - 50, y: -3)
+                        .frame(width: 50, alignment: .trailing)
+                    }
+                }
+            }
+        }
+        .frame(height: stripHeight, alignment: .topLeading)
     }
 
     /// One lane at its fixed height; an empty lane is a faint strip as long as the video.
@@ -574,6 +633,9 @@ struct ClipTile: View {
     let selected: Bool
     let trim: TrimState?
     var lifted = false
+    /// A selected Stack: only its first clip gets the head handle and its last the tail handle.
+    var lead = true
+    var trail = true
     let onTap: () -> Void
     let onKeyframe: (Keyframe) -> Void
     let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void
@@ -655,12 +717,12 @@ struct ClipTile: View {
             if selected {
                 let color = trim?.atLimit == true ? Color.red : Theme.accent
                 HStack(spacing: 0) {
-                    handle(leading: true)
+                    if lead { handle(leading: true) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
                     Rectangle().fill(.clear).frame(width: w, height: height)
                         .overlay(alignment: .top) { Rectangle().fill(color).frame(height: 2.5) }
                         .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2.5) }
                         .allowsHitTesting(false)
-                    handle(leading: false)
+                    if trail { handle(leading: false) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
                 }
                 .offset(x: -handleW)
             }

@@ -323,6 +323,11 @@ struct EditorView: View {
             // the overlay's Adjust / Mask panel closes with it (a clip selected instead keeps its own)
             if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask) { sheet = nil }
         }
+        .onChange(of: model.selectedStackID) { _, id in
+            // the Stack's panels close with it (a clip selected instead keeps its own)
+            if id == nil && model.selectedIndex == nil && model.selectedOverlayIndex == nil,
+               let s = sheet, [.adjust, .crop, .autoZoom, .volume].contains(s) { sheet = nil }
+        }
         .onChange(of: overlayItems) { _, items in
             guard let item = items.first else { return }
             overlayItems = []
@@ -556,6 +561,7 @@ struct EditorView: View {
     /// Something on the timeline is selected: the check on the right finishes editing it.
     private var finishSelection: (() -> Void)? {
         if model.pick != nil || model.slip != nil { return nil }
+        if model.selectedStackIndex != nil { return { model.selectStack(nil) } }
         if model.selectedAudioIndex != nil { return { model.selectAudio(nil) } }
         if model.selectedOverlayIndex != nil { return { model.selectOverlay(nil) } }
         if model.captionsSelected, model.project.captions != nil { return { model.captionsSelected = false } }
@@ -648,8 +654,14 @@ struct EditorView: View {
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
+                } else if let k = model.selectedStackIndex {
+                    stackTools(model.project.stacks[k])
                 } else if let i = model.selectedIndex {
                     let clip = model.project.clips[i]
+                    if let st = model.project.stack(of: clip.id) {
+                        // a clip inside an open Stack: close it again from here
+                        ToolButton(icon: "square.stack.3d.up.fill", label: "Close stack") { model.toggleStackOpen(st.id) }
+                    }
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if clip.stack != nil {
@@ -724,6 +736,21 @@ struct EditorView: View {
             }
             .padding(.horizontal, 10)
         }
+    }
+
+    /// A selected Stack: what goes on top of all its clips, and the Stack itself.
+    @ViewBuilder
+    private func stackTools(_ st: ClipStack) -> some View {
+        ToolButton(icon: "square.stack.3d.up", label: "Open stack") { model.toggleStackOpen(st.id) }
+        if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
+        ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
+        if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
+        ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
+        if !st.transform.isIdentity {
+            ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetStackTransform() }
+        }
+        ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
+        ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelectedStack() }
     }
 
     // MARK: Add island

@@ -52,22 +52,21 @@ struct VolumeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if let i = model.selectedIndex {
-                let v = model.project.clips[i].volume
+            if let v = model.editedVolume {
                 HStack {
                     Text("Volume").font(.headline)
                     Spacer()
                     Text("\(Int((v * 100).rounded())) %").monospacedDigit().foregroundStyle(Theme.muted)
                 }
                 HStack(spacing: 14) {
-                    Button { model.mutate { $0.clips[i].volume = v < 0.01 ? 1 : 0 } } label: {
+                    Button { model.setVolume(v < 0.01 ? 1 : 0, live: false) } label: {
                         Image(systemName: v < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
                     }
                     BSlider(value: Binding(get: { v }, set: { model.setVolume($0, live: true) }), in: 0...1,
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                         .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
-                if UIMode.isPro { ApplyRow(model: model, kind: .volume) }
+                if UIMode.isPro && model.selectedStackIndex == nil { ApplyRow(model: model, kind: .volume) }
             } else {
                 Text("Select a clip first.").foregroundStyle(Theme.muted)
             }

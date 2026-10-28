@@ -1270,6 +1270,16 @@
         }
       }
     },
+    "Close stack": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zavřít sloučení"
+          }
+        }
+      }
+    },
     "Codec": {
       "localizations": {
         "cs": {
@@ -3678,6 +3688,16 @@
         }
       }
     },
+    "Open stack": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevřít"
+          }
+        }
+      }
+    },
     "Orange": {
       "localizations": {
         "cs": {
@@ -5974,6 +5994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Celá vrstva"
+          }
+        }
+      }
+    },
+    "Whole stack": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Celé sloučení"
           }
         }
       }

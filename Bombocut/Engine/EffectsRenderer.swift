@@ -71,6 +71,38 @@ final class LookStore: @unchecked Sendable {
     }
 }
 
+/// The Stacks of the open project, by clip: the compositor puts a Stack's layer on its clips' pictures.
+final class StackStore: @unchecked Sendable {
+    static let shared = StackStore()
+    private let lock = NSLock()
+    private var byClip: [UUID: Layer] = [:]
+
+    struct Layer {
+        var id: UUID
+        var start: Double
+        var duration: Double
+        var stack: ClipStack
+    }
+
+    func update(_ p: Project) {
+        var d: [UUID: Layer] = [:]
+        for s in p.stacks where s.hasLayer {
+            guard let t = p.stackTime(s) else { continue }
+            let l = Layer(id: s.id, start: t.start, duration: max(t.end - t.start, 0.01), stack: s)
+            for id in s.clipIDs { d[id] = l }
+        }
+        lock.lock()
+        byClip = d
+        lock.unlock()
+    }
+
+    func layer(_ clipID: UUID) -> Layer? {
+        lock.lock()
+        defer { lock.unlock() }
+        return byClip[clipID]
+    }
+}
+
 /// Core Image implementation of the effects (GPU, per frame).
 enum EffectsRenderer {
     /// Color adjustments, applied to the clip before it is placed on the canvas.

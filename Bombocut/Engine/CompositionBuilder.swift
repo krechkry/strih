@@ -139,6 +139,8 @@ enum CompositionBuilder {
                       endCard: Bool = false, light: Bool = false) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
         let lanes = [Lane(comp), Lane(comp)]
+        var stackVolume: [UUID: Double] = [:]
+        for st in project.stacks where abs(st.volume - 1) > 0.001 { for id in st.clipIDs { stackVolume[id] = st.volume } }
         var lane = 0
         var placed: [Placed] = []
 
@@ -209,8 +211,10 @@ enum CompositionBuilder {
             let layer = ClipLayer(trackID: vTrack.trackID, info: info,
                                   prevTrackID: aux ? neighbours.prev?.trackID : nil,
                                   nextTrackID: aux ? neighbours.next?.trackID : nil)
+            // a clip in a Stack: the Stack's volume on top of its own
+            let vol = clip.volume * (stackVolume[clip.id] ?? 1)
             return Placed(start: start, end: cursor, layer: layer, cut: cut,
-                          audio: hadAudio ? audioOut.map { ($0.1, Float(clip.volume)) } : nil)
+                          audio: hadAudio ? audioOut.map { ($0.1, Float(vol)) } : nil)
         }
 
         for (k, clip) in project.clips.enumerated() {

@@ -39,6 +39,7 @@ struct PreviewArea: View {
                 ZStack {
                     layer(canvas) { media(canvas).clipShape(RoundedRectangle(cornerRadius: 6)) }
                     layer(canvas) { selectionBox(canvas) }
+                    layer(canvas) { stackBox(canvas) }
                     layer(canvas) { overlayBox(canvas) }
                     layer(canvas) { trackedBox(canvas) }
                     layer(canvas) { safeZoneLayer(canvas) }
@@ -60,12 +61,20 @@ struct PreviewArea: View {
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
-                if model.cropPanelOpen && !model.isPlaying && model.analysis == nil, let i = model.selectedIndex, model.playheadInSelected {
-                    layer(canvas) { cropFrame(canvas, clip: i) }
+                if model.cropPanelOpen && !model.isPlaying && model.analysis == nil {
+                    if let st = model.selectedStack, model.playheadInSelectedStack {
+                        layer(canvas) { cropFrame(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
+                    } else if let i = model.selectedIndex, model.playheadInSelected {
+                        layer(canvas) { cropFrame(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
+                                                  crop: model.project.clips[i].crop ?? CropRect()) }
+                    }
                 }
-                if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil, let i = model.selectedIndex,
-                   let z = model.project.clips[i].autoZoom, model.playheadInSelected {
-                    layer(canvas) { zoomFrames(canvas, clip: i, zoom: z) }
+                if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil {
+                    if let st = model.selectedStack, let z = st.autoZoom, model.playheadInSelectedStack {
+                        layer(canvas) { zoomFrames(canvas, transform: st.transform, zoom: z) }
+                    } else if let i = model.selectedIndex, let z = model.project.clips[i].autoZoom, model.playheadInSelected {
+                        layer(canvas) { zoomFrames(canvas, transform: model.lookAtPlayhead(i).transform, zoom: z) }
+                    }
                 }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
@@ -420,16 +429,40 @@ struct PreviewArea: View {
             }
     }
 
+    // MARK: Stacks
+
+    /// Normalized canvas points (top-left origin) to preview points through a Stack's placement.
+    static func stackMap(_ t: ClipTransform, _ canvas: CGSize) -> CGAffineTransform {
+        let W = canvas.width, H = canvas.height
+        return CGAffineTransform(scaleX: W, y: H)
+            .concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
+            .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
+            .concatenating(CGAffineTransform(rotationAngle: t.rotation))
+            .concatenating(CGAffineTransform(translationX: W / 2 + t.x * W, y: H / 2 + t.y * H))
+    }
+
+    /// The selected Stack's outline while it is on screen.
+    @ViewBuilder
+    private func stackBox(_ canvas: CGSize) -> some View {
+        if let st = model.selectedStack, !model.isPlaying, model.playheadInSelectedStack, !model.cropPanelOpen {
+            let m = Self.stackMap(st.transform, canvas)
+            Path { p in
+                p.addLines([CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0), CGPoint(x: 1, y: 1), CGPoint(x: 0, y: 1)].map { $0.applying(m) })
+                p.closeSubpath()
+            }
+            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+            .allowsHitTesting(false)
+        }
+    }
+
     // MARK: Crop frame
 
     private enum CropPart { case left, top, right, bottom, topLeft, topRight, bottomLeft, bottomRight, move }
 
     /// The whole picture with the crop drawn over it: outside dimmed, lime edges with handles. Edges and corners drag,
     /// inside moves the frame. Works in the clip's own (upright source) coordinates, so a turned or zoomed clip works too.
-    private func cropFrame(_ canvas: CGSize, clip i: Int) -> some View {
-        let c = model.project.clips[i].crop ?? CropRect()
+    private func cropFrame(_ canvas: CGSize, toCanvas: CGAffineTransform, crop c: CropRect) -> some View {
         let W = canvas.width, H = canvas.height
-        let toCanvas = model.sourceToCanvas(i, canvas: canvas)
         let toScreen = toCanvas.concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
             .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
             .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
@@ -525,9 +558,8 @@ struct PreviewArea: View {
 
     /// The first and the last framing of AutoZoom over the unzoomed clip: the wide one dashed white, the tight one
     /// lime with the rest dimmed. Drag the tight frame to choose where it goes, its corner to choose how close.
-    private func zoomFrames(_ canvas: CGSize, clip i: Int, zoom z: AutoZoom) -> some View {
+    private func zoomFrames(_ canvas: CGSize, transform t: ClipTransform, zoom z: AutoZoom) -> some View {
         let W = canvas.width, H = canvas.height
-        let t = model.lookAtPlayhead(i).transform
         let c = CGPoint(x: W / 2 + CGFloat(t.x) * W, y: H / 2 + CGFloat(t.y) * H)
         let p = CGPoint(x: c.x + CGFloat(z.focusX) * W, y: c.y + CGFloat(z.focusY) * H)
         let k = CGFloat(1 + z.amount)
