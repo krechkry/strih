@@ -241,6 +241,7 @@ struct TimelineView: View {
                               transition: { model.quickMenuClipID = nil; model.openTransitionForSelection() },
                               volume: { model.quickMenuClipID = nil; model.pause(); model.openVolumePanel = true },
                               duplicate: { model.quickMenuClipID = nil; model.duplicateSelected() },
+                              copyAsOverlay: { model.quickMenuClipID = nil; model.copyClipAsOverlay() },
                               delete: { model.quickMenuClipID = nil; model.deleteSelected() })
                         .position(x: cx, y: LaneLayout.top - 8 - QuickMenu.height / 2)
                         .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
@@ -1437,11 +1438,18 @@ struct QuickMenu: View {
     let transition: () -> Void
     let volume: () -> Void
     let duplicate: () -> Void
+    /// Pro: the clip copied as a video overlay.
+    var copyAsOverlay: (() -> Void)? = nil
     let delete: () -> Void
 
     static let height: CGFloat = 54
-    private static let item: CGFloat = 64
-    static func width(pro: Bool, extra: Int = 0) -> CGFloat { CGFloat((pro ? 4 : 3) + extra) * item + 12 }
+    private static func item(_ n: Int) -> CGFloat { n > 5 ? 58 : 64 }
+    private static func count(pro: Bool, extra: Int) -> Int { (pro ? 5 : 3) + extra }
+    static func width(pro: Bool, extra: Int = 0) -> CGFloat {
+        let n = count(pro: pro, extra: extra)
+        return CGFloat(n) * item(n) + 12
+    }
+    private var n: Int { Self.count(pro: pro, extra: unstack == nil ? 0 : 1) }
     private var w: CGFloat { Self.width(pro: pro, extra: unstack == nil ? 0 : 1) }
 
     var body: some View {
@@ -1450,6 +1458,7 @@ struct QuickMenu: View {
             if pro { button("arrow.left.and.right.square", "Transition", action: transition) }
             button("speaker.wave.2", "Volume", action: volume)
             button("plus.square.on.square", "Duplicate", action: duplicate)
+            if pro, let copyAsOverlay { button("square.on.square.dashed", "Copy as overlay", action: copyAsOverlay) }
             button("trash", "Delete", tint: Color(red: 1, green: 0.38, blue: 0.36), action: delete)
         }
         .padding(.horizontal, 6)
@@ -1475,7 +1484,7 @@ struct QuickMenu: View {
                 Text(loc(label)).font(.system(size: 10, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
             }
             .foregroundStyle(tint)
-            .frame(width: Self.item, height: Self.height)
+            .frame(width: Self.item(n), height: Self.height)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
