@@ -246,7 +246,13 @@ struct OverlaySheet: View {
     @ViewBuilder
     private func speedTab(_ o: Overlay) -> some View {
         let v = speed ?? o.speed
-        let full = o.duration * o.speed          // source seconds it plays now
+        // source seconds it plays now
+        let full = o.isCurved ? o.sourceTime(at: o.end) - o.sourceTime(at: o.start) : o.duration * o.speed
+        if o.isCurved {
+            Label(loc("Plays the speed curve of its clip. Pick a speed to replace it."), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                .font(.footnote.weight(.bold)).foregroundStyle(Theme.accent)
+                .fixedSize(horizontal: false, vertical: true)
+        }
         HStack(alignment: .firstTextBaseline) {
             Text(Fmt.speed(v))
                 .font(.system(size: 44, weight: .heavy).monospacedDigit())
@@ -272,7 +278,7 @@ struct OverlaySheet: View {
         .doubleTapReset { speed = nil; model.setOverlaySpeed(1) }
         HStack(spacing: 8) {
             ForEach(Self.ticks, id: \.self) { t in
-                pill(Fmt.speed(t), on: abs(v - t) < 0.001) { speed = nil; model.setOverlaySpeed(t) }
+                pill(Fmt.speed(t), on: !o.isCurved && abs(v - t) < 0.001) { speed = nil; model.setOverlaySpeed(t) }
             }
         }
         Text("The video overlay plays faster or slower; its sound keeps its pitch.")

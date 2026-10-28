@@ -271,6 +271,64 @@ enum CompositionBuilder {
                   let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
             let (pref, range) = loaded
+            if let rt = o.curveRetime {
+                // a speed curve (copied from a clip): the same segments as the clip, from the overlay's in point
+                var audioSrc: AVAssetTrack?
+                var audioRange: CMTimeRange?
+                if o.volume > 0.001, let a = try? await asset.loadTracks(withMediaType: .audio).first {
+                    audioSrc = a
+                    audioRange = try? await a.load(.timeRange)
+                }
+                let aTrack = audioSrc != nil ? comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) : nil
+                let off = rt.local(atSource: inPoint)
+                let len = min(o.duration, rt.outDuration - off, contentEnd.seconds - o.start)
+                var cursor = time(o.start)
+                var any = false, anyAudio = false
+                if len > 0.04 {
+                    for seg in rt.segs {
+                        let a = max(seg.out0, off), b = min(seg.out0 + seg.outLen, off + len)
+                        guard b - a > 1e-5, seg.outLen > 0 else { continue }
+                        let f0 = (a - seg.out0) / seg.outLen, f1 = (b - seg.out0) / seg.outLen
+                        let r = CMTimeRange(start: time(seg.src0 + f0 * seg.srcLen), duration: time((f1 - f0) * seg.srcLen)).intersection(range)
+                        guard r.duration.seconds > 0.0005 else { continue }
+                        let outDur = time(b - a)
+                        pad(track, to: cursor)
+                        guard (try? track.insertTimeRange(r, of: src, at: cursor)) != nil else { continue }
+                        if outDur != r.duration { track.scaleTimeRange(CMTimeRange(start: cursor, duration: r.duration), toDuration: outDur) }
+                        any = true
+                        if let aTrack, let audioSrc, let audioRange {
+                            let ar = r.intersection(audioRange)
+                            if ar.duration.seconds > 0.0005 {
+                                let ratio = (b - a) / max(r.duration.seconds, 1e-9)
+                                let at = cursor + time((ar.start - r.start).seconds * ratio)
+                                pad(aTrack, to: at)
+                                if (try? aTrack.insertTimeRange(ar, of: audioSrc, at: at)) != nil {
+                                    let aOut = time(ar.duration.seconds * ratio)
+                                    if aOut != ar.duration { aTrack.scaleTimeRange(CMTimeRange(start: at, duration: ar.duration), toDuration: aOut) }
+                                    anyAudio = true
+                                }
+                            }
+                        }
+                        cursor = cursor + outDur
+                    }
+                }
+                if any {
+                    overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
+                } else {
+                    comp.removeTrack(track)
+                }
+                if let aTrack {
+                    if any && anyAudio {
+                        let p = AVMutableAudioMixInputParameters(track: aTrack)
+                        p.audioTimePitchAlgorithm = .spectral
+                        p.setVolume(Float(o.volume), at: .zero)
+                        overlayAudio.append(p)
+                    } else {
+                        comp.removeTrack(aTrack)
+                    }
+                }
+                continue
+            }
             // at its speed, the overlay plays `len` timeline seconds of `len × speed` source seconds
             let speed = min(max(o.speed, 0.05), 100)
             let len = min(o.duration, (range.duration.seconds - inPoint) / speed, contentEnd.seconds - o.start)

@@ -88,9 +88,12 @@ struct Retime {
     let segs: [Seg]
     let outDuration: Double
 
-    init(_ c: Clip) {
-        let len = max(0, c.outPoint - c.inPoint)
-        if let pts = c.speedCurve, pts.count >= 2, len > 0 {
+    init(_ c: Clip) { self.init(inPoint: c.inPoint, length: c.outPoint - c.inPoint, curve: c.speedCurve, speed: c.speed) }
+
+    /// `length` source seconds from `inPoint`, at `speed` or along `curve` (0...1 over that source range).
+    init(inPoint: Double, length: Double, curve: [SpeedPoint]?, speed: Double = 1) {
+        let len = max(0, length)
+        if let pts = curve, pts.count >= 2, len > 0 {
             let n = min(240, max(8, Int((len * 12).rounded(.up))))
             let step = len / Double(n)
             var out = 0.0
@@ -99,14 +102,14 @@ struct Retime {
             for i in 0..<n {
                 let v = SpeedCurve.value(pts, at: (Double(i) + 0.5) / Double(n))
                 let ol = step / v
-                arr.append(Seg(src0: c.inPoint + Double(i) * step, srcLen: step, out0: out, outLen: ol))
+                arr.append(Seg(src0: inPoint + Double(i) * step, srcLen: step, out0: out, outLen: ol))
                 out += ol
             }
             segs = arr
             outDuration = out
         } else {
-            let v = max(c.speed, 0.01)
-            segs = [Seg(src0: c.inPoint, srcLen: len, out0: 0, outLen: len / v)]
+            let v = max(speed, 0.01)
+            segs = [Seg(src0: inPoint, srcLen: len, out0: 0, outLen: len / v)]
             outDuration = len / v
         }
     }

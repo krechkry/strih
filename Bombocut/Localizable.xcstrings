@@ -3988,6 +3988,16 @@
         }
       }
     },
+    "Plays the speed curve of its clip. Pick a speed to replace it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hraje křivku rychlosti svého klipu. Zvolená rychlost ji nahradí."
+          }
+        }
+      }
+    },
     "Pop": {
       "localizations": {
         "cs": {

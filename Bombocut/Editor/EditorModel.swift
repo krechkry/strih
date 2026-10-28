@@ -2779,6 +2779,15 @@ extension EditorModel {
     static func setSpeed(_ o: inout Overlay, _ v: Double, timeline: Double) {
         guard o.kind.isVideo else { return }
         let v = min(max(v, 0.1), 10)
+        if o.isCurved {
+            // a constant speed replaces the curve: the footage it plays now stays, at the new speed
+            if case .video(let f, let d, let inPoint) = o.kind {
+                let full = o.sourceTime(at: o.end) - inPoint
+                o.speedCurve = nil; o.curveIn = nil; o.curveSpan = nil
+                o.kind = .video(file: f, sourceDuration: d, inPoint: inPoint)
+                o.speed = max(full / max(o.duration, 0.01), 0.05)
+            }
+        }
         guard abs(o.speed - v) > 1e-6 else { return }
         let ratio = o.speed / v
         o.speed = v
@@ -2972,7 +2981,7 @@ extension EditorModel {
             guard case .video(let f, let srcDur, let inPoint) = o.kind else { return }
             file = f
             t0 = inPoint
-            t1 = min(srcDur, inPoint + o.duration * o.speed)
+            t1 = min(srcDur, o.isCurved ? o.sourceTime(at: o.end) : inPoint + o.duration * o.speed)
         } else if let i = selectedIndex {
             let c = project.clips[i]
             guard !c.still else { return }
@@ -3439,7 +3448,7 @@ extension EditorModel {
         b.start = cut
         b.duration = o.duration - local
         if case .video(let file, let srcDur, let inPoint) = o.kind {
-            b.kind = .video(file: file, sourceDuration: srcDur, inPoint: inPoint + local * o.speed)
+            b.kind = .video(file: file, sourceDuration: srcDur, inPoint: o.isCurved ? o.sourceTime(at: cut) : inPoint + local * o.speed)
         }
         if !o.keys.isEmpty {
             // each half keeps its keyframes, and both get one at the cut so nothing jumps
@@ -3477,6 +3486,12 @@ extension EditorModel {
                         start: start, duration: len)
         o.aspect = c.aspect ?? A
         o.speed = min(max((c.outPoint - c.inPoint) / len, 0.1), 10)
+        if c.hasCurve {
+            // the speed curve comes along (the composition plays it like the clip's)
+            o.speedCurve = c.speedCurve
+            o.curveIn = c.inPoint
+            o.curveSpan = c.outPoint - c.inPoint
+        }
         // the same size on the canvas: a clip fits (or fills) the canvas, an overlay starts at 70 % of it
         let clipW = c.baseFraction(canvasAspect: A).width
         let overW = max(o.baseFraction(canvasAspect: A).width, 1e-6)

@@ -89,6 +89,11 @@ struct Overlay: Codable, Hashable, Identifiable {
     var tracking: Tracking?            // video: follows the subject (keep centered / in place)
     var crop: CropRect?                // its own picture cropped (soft edge, rounded corners)
     var autoZoom: AutoZoom?            // a slow zoom over its whole length
+    /// Video: a speed curve (from a clip) instead of `speed`. It covers `curveSpan` source seconds from `curveIn`;
+    /// the overlay plays it from its own in point on (a split's second half carries on along the same curve).
+    var speedCurve: [SpeedPoint]?
+    var curveIn: Double?
+    var curveSpan: Double?
 
     var end: Double { start + duration }
 
@@ -98,12 +103,14 @@ struct Overlay: Codable, Hashable, Identifiable {
     /// Source seconds of a video overlay at timeline time `now`.
     func sourceTime(at now: Double) -> Double {
         guard case .video(_, _, let inPoint) = kind else { return 0 }
+        if let rt = curveRetime { return rt.source(atLocal: rt.local(atSource: inPoint) + max(0, now - start)) }
         return inPoint + max(0, now - start) * speed
     }
 
     /// Longest a video overlay can run on the timeline from its in point at its speed.
     var maxDuration: Double? {
         guard case .video(_, let srcDur, let inPoint) = kind else { return nil }
+        if let rt = curveRetime { return max(0.2, rt.outDuration - rt.local(atSource: inPoint)) }
         return max(0.2, (srcDur - inPoint) / max(speed, 0.05))
     }
 
@@ -143,7 +150,7 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
-        case effects, speed, mask, stabilization, tracking, crop, autoZoom
+        case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -175,6 +182,20 @@ struct Overlay: Codable, Hashable, Identifiable {
         tracking = try? c.decodeIfPresent(Tracking.self, forKey: .tracking)
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
+        speedCurve = try? c.decodeIfPresent([SpeedPoint].self, forKey: .speedCurve)
+        curveIn = try? c.decodeIfPresent(Double.self, forKey: .curveIn)
+        curveSpan = try? c.decodeIfPresent(Double.self, forKey: .curveSpan)
+    }
+
+    /// The speed curve as timing (nil at a constant speed).
+    var curveRetime: Retime? {
+        guard isCurved, let pts = speedCurve, let a = curveIn, let l = curveSpan else { return nil }
+        return Retime(inPoint: a, length: l, curve: pts)
+    }
+
+    var isCurved: Bool {
+        guard kind.isVideo, let pts = speedCurve, pts.count >= 2, curveIn != nil, (curveSpan ?? 0) > 0 else { return false }
+        return true
     }
 
     /// Placement and opacity at timeline time `now` (keyframes, or the fixed values without them).
