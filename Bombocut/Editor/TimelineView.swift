@@ -25,6 +25,8 @@ struct TimelineView: View {
     /// Hold a clip, then slide it: the strip zooms out so the neighbours are in view.
     struct Reorder {
         var id: UUID
+        /// What moves: the held clip, or every clip of its closed Stack (neighbours, in order).
+        var ids: [UUID]
         var from: Int
         var to: Int
         var savedPx: CGFloat
@@ -44,9 +46,11 @@ struct TimelineView: View {
     /// Clips in the order shown (the dragged one sits at its new slot).
     private var shownClips: [Clip] {
         var cs = model.project.clips
-        guard let r = reorder, let i = cs.firstIndex(where: { $0.id == r.id }) else { return cs }
-        let c = cs.remove(at: i)
-        cs.insert(c, at: min(r.to, cs.count))
+        guard let r = reorder else { return cs }
+        let block = cs.filter { r.ids.contains($0.id) }
+        guard !block.isEmpty else { return cs }
+        cs.removeAll { r.ids.contains($0.id) }
+        cs.insert(contentsOf: block, at: min(r.to, cs.count))
         return cs
     }
 
@@ -88,7 +92,7 @@ struct TimelineView: View {
                     let overlaps = overlapsPx(shown)
                     HStack(spacing: gap) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
-                            let dragged = reorder?.id == clip.id
+                            let dragged = reorder?.ids.contains(clip.id) == true
                             let slipping = model.slip?.id == clip.id
                             let edges = stackEdges(clip.id)
                             ClipTile(clip: clip,
@@ -103,11 +107,7 @@ struct TimelineView: View {
                                      onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
-                                     onReorder: { phase, x, fx in
-                                         // a closed Stack moves as a whole or not at all: its clips stay put
-                                         if model.project.stack(of: clip.id)?.open == false { return }
-                                         reorderEvent(clip.id, phase, x, fx)
-                                     })
+                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
                                     // a Stack: several clips in one
@@ -129,7 +129,7 @@ struct TimelineView: View {
                                 }
                                 .highPriorityGesture(slipGesture, including: slipping ? .all : .subviews)
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
-                                .zIndex(dragged || slipping ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
+                                .zIndex(dragged || slipping ? 3 : (clip.id == model.selectedClipID || edges != nil ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : (model.slip != nil && !slipping ? 0.35 : 1))
                                 // a transition: this clip slides over the end of the one before
                                 .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -overlaps[k] : 0)
@@ -417,27 +417,35 @@ struct TimelineView: View {
         let clips = model.project.clips
         switch phase {
         case .began:
-            guard model.trim == nil, let i = clips.firstIndex(where: { $0.id == id }) else { return }
+            guard model.trim == nil, let k = clips.firstIndex(where: { $0.id == id }) else { return }
+            // a closed Stack moves as one block
+            var ids = [id]
+            if let st = model.project.stack(of: id), !st.open, let r = model.project.stackRange(st) {
+                ids = clips[r].map(\.id)
+            }
+            let i = clips.firstIndex { ids.contains($0.id) } ?? k
+            let blockLen = clips.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.duration }
             model.pause()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             let saved = model.pxPerSec
-            // zoom out until the whole clip and one whole neighbour on each side fit (or the whole timeline)
-            let near = (i > 0 ? clips[i - 1].duration : 0) + clips[i].duration + (i + 1 < clips.count ? clips[i + 1].duration : 0)
+            // zoom out until the whole block and one whole neighbour on each side fit (or the whole timeline)
+            let last = i + ids.count - 1
+            let near = (i > 0 ? clips[i - 1].duration : 0) + blockLen + (last + 1 < clips.count ? clips[last + 1].duration : 0)
             let fitNear = 0.85 * screenW / CGFloat(max(near, 0.1))
             let fitAll = 0.85 * screenW / CGFloat(max(model.duration, 0.1))
             let px = min(saved, max(fitAll, fitNear * 0.4))
-            // bring the dragged clip's middle under the playhead line
+            // bring the dragged block's middle under the playhead line
             model.pxPerSec = max(px, 2)
-            let target = slotX(clips, i) + width(clips[i]) / 2
+            let target = slotX(clips, i) + blockWidth(clips, ids) / 2
             scrollPos.scrollTo(x: target)
-            reorder = Reorder(id: id, from: i, to: i, savedPx: saved, fingerX: fingerX, scrollX: target)
+            reorder = Reorder(id: id, ids: ids, from: i, to: i, savedPx: saved, fingerX: fingerX, scrollX: target)
         case .changed:
             guard var r = reorder, r.id == id else { return }
             r.dragX = dx
             r.fingerX = fingerX
-            // which slot does the tile's middle fall into?
-            let others = clips.filter { $0.id != id }
-            let mid = slotX(clips, r.from) + r.dragX + r.scrolled + width(clips[r.from]) / 2
+            // which slot does the block's middle fall into?
+            let others = clips.filter { !r.ids.contains($0.id) }
+            let mid = slotX(clips, r.from) + r.dragX + r.scrolled + blockWidth(clips, r.ids) / 2
             var to = 0
             var x: CGFloat = 0
             for c in others {
@@ -452,13 +460,15 @@ struct TimelineView: View {
             reorder = nil
             model.pxPerSec = r.savedPx
             zoomBase = r.savedPx
+            let stack = r.ids.count > 1 ? model.project.stack(of: id) : nil
             if r.to != r.from {
-                model.moveClip(from: r.from, to: r.to)
-            } else {
+                model.moveClips(r.ids, to: r.to)
+            } else if stack == nil {
                 model.selectedClipID = id
             }
-            // land on the moved clip: the playhead on its start, once the strip has its normal zoom again
-            let land = model.project.clips.firstIndex(where: { $0.id == id }).map { model.project.clipStarts[$0] } ?? model.currentTime
+            if let stack { model.selectStack(stack.id) }
+            // land on the moved block: the playhead on its start, once the strip has its normal zoom again
+            let land = model.project.clips.firstIndex(where: { r.ids.contains($0.id) }).map { model.project.clipStarts[$0] } ?? model.currentTime
             model.scrub(to: land)
             scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
             Task { @MainActor in
@@ -466,6 +476,10 @@ struct TimelineView: View {
                 scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
             }
         }
+    }
+
+    private func blockWidth(_ clips: [Clip], _ ids: [UUID]) -> CGFloat {
+        clips.filter { ids.contains($0.id) }.reduce(0) { $0 + width($1) }
     }
 
     /// Finger near the left or right edge while trimming: keep trimming that way and slide the strip along,

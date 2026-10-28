@@ -719,6 +719,21 @@ final class EditorModel: ObservableObject {
         if let j = project.clips.firstIndex(where: { $0.id == id }) { scrub(to: project.clipStarts[j]) }
     }
 
+    /// Hold-and-drag of a whole closed Stack (or one clip): the block lands at index `to` among the other clips.
+    func moveClips(_ ids: [UUID], to: Int) {
+        if ids.count == 1, let from = project.clips.firstIndex(where: { $0.id == ids[0] }) {
+            moveClip(from: from, to: to)
+            return
+        }
+        let set = Set(ids)
+        let block = project.clips.filter { set.contains($0.id) }
+        guard !block.isEmpty else { return }
+        mutate { p in
+            p.clips.removeAll { set.contains($0.id) }
+            p.clips.insert(contentsOf: block, at: min(max(0, to), p.clips.count))
+        }
+    }
+
     /// Tapping a clip the playhead isn't on puts the playhead on that clip's nearest edge.
     func tapClip(_ id: UUID) {
         selectedOverlayID = nil
