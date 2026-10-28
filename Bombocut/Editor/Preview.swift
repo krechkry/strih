@@ -8,7 +8,6 @@ import AVFoundation
 /// Every layer has the canvas size fixed, so a clip zoomed far past the canvas can't push the layout around.
 struct PreviewArea: View {
     @ObservedObject var model: EditorModel
-    @State private var pickRect: CGRect?
     @State private var grab: Grab?
     @State private var grabStart: CGRect = .zero
     @State private var pulse: (icon: String, id: Int)?
@@ -292,60 +291,28 @@ struct PreviewArea: View {
 
     // MARK: Picking the subject to track
 
-    private var pickBanner: String {
-        switch model.pickPhase {
-        case .select: return "Tap or roughly box the subject"
-        case .detecting: return "Finding it…"
-        case .adjust: return "Drag the box to fix it, then Track"
-        }
-    }
 
+    /// Picking the subject: the preview takes the box; the hint and the buttons live in the panel below
+    /// (TrackPickPanel), so only the picture and the clip strip stay in view.
     private func pickOverlay(_ canvas: CGSize) -> some View {
         ZStack {
             Color.black.opacity(model.pickPhase == .adjust ? 0.2 : 0.35)
                 .contentShape(Rectangle())
                 .gesture(pickGesture(canvas))
-            if let r = pickRect, r.width > 2 {
+            if let r = model.pickRect, r.width > 2 {
                 pickBox(r)
             }
             if model.pickPhase == .detecting {
                 ProgressView().tint(Theme.accent).scaleEffect(1.3).allowsHitTesting(false)
             }
-            VStack {
-                Text(loc(pickBanner))
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(Theme.accent, in: Capsule())
-                    .padding(.top, 12)
-                    .allowsHitTesting(false)
-                Spacer()
-                HStack(spacing: 8) {
-                    pill("Cancel", lime: false) {
-                        pickRect = nil
-                        model.cancelTrackPick()
-                    }
-                    if model.pickPhase == .adjust {
-                        pill("Again", lime: false) {
-                            pickRect = nil
-                            model.pickPhase = .select
-                        }
-                        pill("Track", lime: true) {
-                            if let r = pickRect { model.runTracking(canvasRect: r, canvas: canvas) }
-                            pickRect = nil
-                        }
-                        .disabled((pickRect?.width ?? 0) < 12 || (pickRect?.height ?? 0) < 12)
-                    }
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 14)
-            }
         }
         .onAppear {
+            model.pickCanvas = canvas
             if Demo.mode == "trackpick" {
-                pickRect = CGRect(x: canvas.width * 0.3, y: canvas.height * 0.33, width: canvas.width * 0.34, height: canvas.height * 0.3)
+                model.pickRect = CGRect(x: canvas.width * 0.3, y: canvas.height * 0.33, width: canvas.width * 0.34, height: canvas.height * 0.3)
             }
         }
+        .onChange(of: canvas) { _, c in model.pickCanvas = c }
     }
 
     private func pill(_ title: String, lime: Bool, _ action: @escaping () -> Void) -> some View {
@@ -397,10 +364,10 @@ struct PreviewArea: View {
                     return
                 case .select:
                     let a = v.startLocation, b = v.location
-                    pickRect = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+                    model.pickRect = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
                     grab = .draw
                 case .adjust:
-                    guard let r = pickRect else { return }
+                    guard let r = model.pickRect else { return }
                     if grab == nil {
                         grabStart = r
                         if let k = (0..<4).first(where: { k in
@@ -429,23 +396,23 @@ struct PreviewArea: View {
                         let a = v.startLocation, b = v.location
                         n = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
                     }
-                    pickRect = n
+                    model.pickRect = n
                 }
             }
             .onEnded { v in
                 defer { grab = nil }
                 switch model.pickPhase {
                 case .select:
-                    var r = pickRect ?? .zero
+                    var r = model.pickRect ?? .zero
                     if r.width < 14 || r.height < 14 {
                         r = CGRect(x: v.location.x - 10, y: v.location.y - 10, width: 20, height: 20)
                     }
-                    pickRect = r
-                    model.detectSubject(rough: r, canvas: canvas) { found in pickRect = found }
+                    model.pickRect = r
+                    model.detectSubject(rough: r, canvas: canvas) { found in model.pickRect = found }
                 case .adjust:
                     // a fresh rough box drawn while adjusting: find the subject again
-                    if case .draw? = grab, let r = pickRect, r.width > 14, r.height > 14 {
-                        model.detectSubject(rough: r, canvas: canvas) { found in pickRect = found }
+                    if case .draw? = grab, let r = model.pickRect, r.width > 14, r.height > 14 {
+                        model.detectSubject(rough: r, canvas: canvas) { found in model.pickRect = found }
                     }
                 case .detecting:
                     break

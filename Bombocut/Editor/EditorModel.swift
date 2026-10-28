@@ -1455,6 +1455,28 @@ final class EditorModel: ObservableObject {
     }
 
     /// Enter "mark the subject" mode on the preview.
+    /// The box drawn while picking a subject (preview canvas points) and the canvas it was drawn on.
+    @Published var pickRect: CGRect?
+    var pickCanvas: CGSize = .zero
+
+    /// What to do now, while picking a subject.
+    var pickHint: String {
+        switch pickPhase {
+        case .select: return "Tap or roughly box the subject"
+        case .detecting: return "Finding it…"
+        case .adjust: return "Drag the box to fix it, then Track"
+        }
+    }
+
+    var pickReady: Bool { pickPhase == .adjust && (pickRect?.width ?? 0) >= 12 && (pickRect?.height ?? 0) >= 12 }
+
+    /// Track with the box as it is now.
+    func trackPicked() {
+        guard pickReady, let r = pickRect else { return }
+        pickRect = nil
+        runTracking(canvasRect: r, canvas: pickCanvas)
+    }
+
     func startTrackPick() {
         guard let hit = project.clipIndex(at: currentTime) else { return }
         pause()
@@ -1464,6 +1486,7 @@ final class EditorModel: ObservableObject {
     }
 
     func cancelTrackPick() {
+        pickRect = nil
         stabilizeOnSubject = false
         detectTask?.cancel()
         trackPick = false

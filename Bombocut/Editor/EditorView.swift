@@ -72,6 +72,8 @@ struct EditorView: View {
         case .easing: return 330
         case .autoZoom: return 470
         case .crop: return 330
+        // picking a subject: everything below the clip strip, so the strip stays to scrub with
+        case .trackPick: return max(140, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
         }
     }
 
@@ -112,7 +114,7 @@ struct EditorView: View {
             }
             .overlay(alignment: .topTrailing) {
                 // undo / redo for what was done in this panel (Speed has its own, for the curve)
-                if s != .speed && !typing {
+                if s != .speed && s != .trackPick && !typing {
                     PanelUndoBar(model: model).offset(y: -52).padding(.trailing, 14)
                 }
             }
@@ -143,6 +145,11 @@ struct EditorView: View {
         case .easing: EasingSheet(model: model)
         case .autoZoom: AutoZoomSheet(model: model)
         case .crop: CropSheet(model: model)
+        case .trackPick: TrackPickPanel(model: model) {
+            let back: EditorSheet = model.stabilizeOnSubject ? .stabilize : .track
+            model.cancelTrackPick()
+            sheet = back
+        }
         }
     }
 
@@ -285,6 +292,8 @@ struct EditorView: View {
             model.maskPanelOpen = s == .mask
             model.autoZoomPanelOpen = s == .autoZoom
             model.cropPanelOpen = s == .crop
+            // the picking panel swiped away: picking ends
+            if s != .trackPick && model.trackPick { model.cancelTrackPick() }
             if s != .mask && model.maskPaint { model.finishPaint() }
             if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
@@ -296,6 +305,9 @@ struct EditorView: View {
         }
         .onChange(of: model.openStabilizeSheet) { _, open in
             if open { model.openStabilizeSheet = false; sheet = .stabilize }
+        }
+        .onChange(of: model.trackPick) { _, on in
+            if on { sheet = .trackPick } else if sheet == .trackPick { sheet = nil }
         }
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
@@ -1139,7 +1151,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case easing, autoZoom, crop
+    case easing, autoZoom, crop, trackPick
     var id: String { rawValue }
 }
 
@@ -1294,6 +1306,52 @@ private struct KeyframeButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(loc(here ? "Delete keyframe" : "Add keyframe"))
+    }
+}
+
+/// Picking the subject to track: the hint, cancel and pick again as icons, and Track. Sits low, so the clip strip
+/// above it stays free to scrub to a better frame.
+private struct TrackPickPanel: View {
+    @ObservedObject var model: EditorModel
+    let cancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(loc(model.pickHint))
+                .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 10) {
+                iconButton("xmark", "Cancel", action: cancel)
+                iconButton("arrow.counterclockwise", "Again") {
+                    model.pickRect = nil
+                    model.pickPhase = .select
+                }
+                .disabled(model.pickPhase != .adjust)
+                .opacity(model.pickPhase == .adjust ? 1 : 0.35)
+                Button { model.trackPicked() } label: {
+                    Label(loc("Start tracking"), systemImage: "scope")
+                        .font(.headline.weight(.bold)).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(Theme.accent.opacity(model.pickReady ? 1 : 0.4), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(!model.pickReady)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 2)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func iconButton(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 17, weight: .heavy)).foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(Theme.panel2, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(label))
     }
 }
 

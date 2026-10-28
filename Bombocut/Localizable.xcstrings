@@ -2074,6 +2074,16 @@
         }
       }
     },
+    "Edges": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Okraje"
+          }
+        }
+      }
+    },
     "Edit": {
       "localizations": {
         "cs": {
@@ -4984,6 +4994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyzkoušet 7 dní zdarma"
+          }
+        }
+      }
+    },
+    "Start tracking": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sledovat"
           }
         }
       }

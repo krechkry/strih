@@ -744,6 +744,8 @@ struct TrackSheet: View {
                     }
                 }
                 if tr.mode != .off {
+                    Divider().overlay(Theme.line)
+                    Text("Edges").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                     HStack(spacing: 8) {
                         edgePill("Keep borders", on: tr.noBorders != true) { model.setNoBorders(false) }
                         edgePill("Fill, no borders", on: tr.noBorders == true) { model.setNoBorders(true) }
@@ -757,7 +759,7 @@ struct TrackSheet: View {
                 })
                 .doubleTapReset { model.liveEditBegan(); model.editClip { $0.tracking?.smooth = 0.5 }; model.liveEditEnded() }
                 HStack(spacing: 10) {
-                    Button { dismiss(); model.startTrackPick() } label: {
+                    Button { model.startTrackPick() } label: {
                         Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
                             .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
                     }
@@ -771,7 +773,7 @@ struct TrackSheet: View {
             } else {
                 Text("Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                Button { dismiss(); model.startTrackPick() } label: {
+                Button { model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")
                         .font(.headline.weight(.bold)).foregroundStyle(.black)
                         .frame(maxWidth: .infinity, minHeight: 52)
