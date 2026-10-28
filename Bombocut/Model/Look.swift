@@ -141,13 +141,77 @@ struct Look: Codable, Hashable {
     }
 }
 
-enum Ease: String, Codable, Hashable { case smooth, linear }
+/// How a change speeds up and slows down between two keyframes. "Ease" (smooth) is the usual one.
+enum Ease: String, Codable, Hashable, CaseIterable {
+    case linear, smooth, quad, bezier
+
+    var title: String {
+        switch self {
+        case .linear: return "Linear"
+        case .smooth: return "Ease"
+        case .quad: return "Quad"
+        case .bezier: return "Bezier"
+        }
+    }
+
+    /// Progress 0...1 shaped by the curve: slow at the start (in), at the end (out) or both.
+    func apply(_ f: Double, _ dir: EaseDir = .both) -> Double {
+        let f = min(max(f, 0), 1)
+        switch self {
+        case .linear:
+            return f
+        case .smooth:
+            switch dir {
+            case .both: return f * f * (3 - 2 * f)
+            case .in: return 1 - cos(f * .pi / 2)
+            case .out: return sin(f * .pi / 2)
+            }
+        case .quad:
+            switch dir {
+            case .both: return f < 0.5 ? 2 * f * f : 1 - pow(-2 * f + 2, 2) / 2
+            case .in: return f * f
+            case .out: return 1 - (1 - f) * (1 - f)
+            }
+        case .bezier:
+            switch dir {
+            case .both: return Self.cubicBezier(f, 0.65, 0, 0.35, 1)
+            case .in: return Self.cubicBezier(f, 0.6, 0, 0.9, 0.45)
+            case .out: return Self.cubicBezier(f, 0.1, 0.55, 0.4, 1)
+            }
+        }
+    }
+
+    /// CSS-style cubic Bézier from (0, 0) to (1, 1) through control points (x1, y1), (x2, y2): y for a given x.
+    static func cubicBezier(_ x: Double, _ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double) -> Double {
+        func bx(_ t: Double) -> Double { 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t }
+        func by(_ t: Double) -> Double { 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t }
+        var lo = 0.0, hi = 1.0, t = x
+        for _ in 0..<24 {
+            t = (lo + hi) / 2
+            if bx(t) < x { lo = t } else { hi = t }
+        }
+        return by(t)
+    }
+}
+
+/// Where the easing slows the change: at the start, at the end, or both.
+enum EaseDir: String, Codable, Hashable, CaseIterable {
+    case `in`, out, both
+    var title: String {
+        switch self {
+        case .in: return "In"
+        case .out: return "Out"
+        case .both: return "Both"
+        }
+    }
+}
 
 struct Keyframe: Codable, Hashable, Identifiable {
     var id = UUID()
     var t: Double           // source time in seconds, so trims and speed changes keep it on the same frame
     var look: Look
     var ease: Ease = .smooth // easing towards the next keyframe
+    var easeDir: EaseDir?    // nil = both
 }
 
 /// What the compositor needs to know about a clip's appearance.
@@ -161,6 +225,7 @@ struct LookState: Hashable {
     var motionBlur = 0.0
     var blurDirection = BlurDirection.both
     var anim = AnimPair()
+    var autoZoom: AutoZoom? = nil
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }
@@ -172,7 +237,7 @@ struct LookState: Hashable {
         let a = keyframes[i], b = keyframes[i + 1]
         var f = (s - a.t) / max(b.t - a.t, 1e-9)
         f = min(max(f, 0), 1)
-        if a.ease == .smooth { f = f * f * (3 - 2 * f) }
+        f = a.ease.apply(f, a.easeDir ?? .both)
         return Look.lerp(a.look, b.look, f)
     }
 }
@@ -376,5 +441,22 @@ enum ToneCurve {
         let y = (2 * t3 - 3 * t2 + 1) * p[k].y + (t3 - 2 * t2 + t) * h * m[k]
             + (-2 * t3 + 3 * t2) * p[k + 1].y + (t3 - t2) * h * m[k + 1]
         return min(max(y, 0), 1)
+    }
+}
+
+/// AutoZoom (like Dynamic Zoom in DaVinci): the clip slowly zooms in or out from its first frame to its last.
+/// It works like two keyframes sitting on the clip's ends, so it follows when the clip is trimmed or sped up.
+struct AutoZoom: Codable, Hashable {
+    var zoomIn = true          // false: starts close, ends wide
+    var amount = 0.2           // how much closer at the tight end (0.2 = 20 %)
+    var ease = Ease.linear
+    var easeDir: EaseDir?      // nil = both
+
+    /// Extra scale at progress p (0 = first frame, 1 = last).
+    func scale(at p: Double) -> Double {
+        var f = ease.apply(min(max(p, 0), 1), easeDir ?? .both)
+        if !zoomIn { f = 1 - f }
+        // even steps in log space feel like a steady push
+        return exp(log(1 + amount) * f)
     }
 }

@@ -268,7 +268,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     private func clipImage(_ p: Prepared, t: Double, size: CGSize, hasOverlays: Bool,
                            video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
-        let info = p.layer.info, state = p.state, look = p.look, srcT = p.srcT
+        let info = p.layer.info, state = p.state, srcT = p.srcT
+        var look = p.look
+        // AutoZoom: from the clip's first frame to its last, on top of its own placement
+        if let z = state.autoZoom, info.duration > 0.01 {
+            look.transform.scale *= z.scale(at: (t - info.start) / info.duration)
+        }
         // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
         let anim = state.anim.isNone ? nil : state.anim.pose(local: t - info.start, length: info.duration)
         func geometry(_ img: CIImage, upright: Bool) -> CIImage {

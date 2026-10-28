@@ -1913,7 +1913,7 @@ final class EditorModel: ObservableObject {
 
     enum ApplyKind: String {
         case motionBlur, adjust, speed, volume, mask, overlayStyle, animation, speech
-        case overlayAdjust, overlayMask, overlaySpeed
+        case overlayAdjust, overlayMask, overlaySpeed, autoZoom
         /// Not a copy: picks the clips the captions listen to.
         case captions
 
@@ -1931,6 +1931,7 @@ final class EditorModel: ObservableObject {
             case .overlayAdjust: return "Adjust"
             case .overlayMask: return "Mask"
             case .overlaySpeed: return "Speed"
+            case .autoZoom: return "AutoZoom"
             }
         }
         /// Copies between overlays instead of clips.
@@ -1974,6 +1975,8 @@ final class EditorModel: ObservableObject {
             c.anim = s.anim
         case .speech:
             c.speech = s.speech
+        case .autoZoom:
+            c.autoZoom = s.autoZoom
         case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions:
             break
         }
@@ -2999,5 +3002,79 @@ extension EditorModel {
         captionsSelected = false
         selectOverlay(o.id)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+}
+
+// MARK: Easing between keyframes, AutoZoom
+
+extension EditorModel {
+    /// The keyframe whose easing the Easing panel edits (the ease runs from it to the next one): the keyframe under
+    /// the playhead, or the one the playhead is moving away from.
+    private var easeKeyIndex: Int? {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            guard o.keys.count >= 2 else { return nil }
+            if let k = o.key(at: currentTime) { return min(k, o.keys.count - 2) }
+            let local = currentTime - o.start
+            return min(max((o.keys.lastIndex { $0.t <= local }) ?? 0, 0), o.keys.count - 2)
+        }
+        guard let i = selectedIndex else { return nil }
+        let c = project.clips[i]
+        guard c.keyframes.count >= 2 else { return nil }
+        if let k = keyframeAtPlayhead(i) { return min(k, c.keyframes.count - 2) }
+        let s = sourceTime(i)
+        return min(max((c.keyframes.lastIndex { $0.t <= s }) ?? 0, 0), c.keyframes.count - 2)
+    }
+
+    /// Two or more keyframes on what is selected: there is something to ease.
+    var canEase: Bool { easeKeyIndex != nil }
+
+    /// The easing the panel shows.
+    var currentEase: (ease: Ease, dir: EaseDir)? {
+        guard let k = easeKeyIndex else { return nil }
+        if let oi = selectedOverlayIndex { let key = project.overlays[oi].keys[k]; return (key.ease, key.easeDir ?? .both) }
+        guard let i = selectedIndex else { return nil }
+        let key = project.clips[i].keyframes[k]
+        return (key.ease, key.easeDir ?? .both)
+    }
+
+    /// The easing from the current keyframe to the next (or between all keyframes of the selection).
+    func setEasing(_ e: Ease, _ dir: EaseDir, all: Bool = false) {
+        guard let k = easeKeyIndex else { return }
+        if let oi = selectedOverlayIndex {
+            mutateLook { p in
+                for j in p.overlays[oi].keys.indices where all || j == k {
+                    p.overlays[oi].keys[j].ease = e
+                    p.overlays[oi].keys[j].easeDir = dir == .both ? nil : dir
+                }
+            }
+        } else if let i = selectedIndex {
+            mutateLook { p in
+                for j in p.clips[i].keyframes.indices where all || j == k {
+                    p.clips[i].keyframes[j].ease = e
+                    p.clips[i].keyframes[j].easeDir = dir == .both ? nil : dir
+                }
+            }
+        }
+    }
+
+    /// Previous / next keyframe of what is selected.
+    func stepAnyKeyframe(_ dir: Int) {
+        if selectedOverlayIndex != nil { stepOverlayKey(dir) } else { stepKeyframe(dir) }
+    }
+
+    // MARK: AutoZoom
+
+    func setAutoZoom(_ z: AutoZoom?) {
+        guard let i = selectedIndex, project.clips[i].autoZoom != z else { return }
+        mutateLook { $0.clips[i].autoZoom = z }
+    }
+
+    /// Live change while a slider moves; pair with liveEditBegan / liveEditEnded.
+    func editAutoZoom(_ change: (inout AutoZoom) -> Void) {
+        guard let i = selectedIndex, var z = project.clips[i].autoZoom else { return }
+        change(&z)
+        project.clips[i].autoZoom = z
+        publishLook()
     }
 }

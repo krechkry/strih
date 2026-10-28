@@ -181,6 +181,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var still = false              // a photo or a freeze frame (a held picture, see StillVideo)
     var reversed: ReverseOrigin?   // playing backwards: a reversed copy stands in for the original part
     var asset: String?             // the Photos item it came from (marks it as used in the gallery)
+    var autoZoom: AutoZoom?        // a slow zoom from the first frame to the last
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -198,7 +199,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
-                  motionBlur: blurAmount, blurDirection: blurDirection, anim: anim)
+                  motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom)
     }
 
     var retime: Retime { Retime(self) }
@@ -216,7 +217,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom
     }
 
     init(from d: Decoder) throws {
@@ -249,6 +250,7 @@ struct Clip: Identifiable, Codable, Hashable {
         still = try c.decodeIfPresent(Bool.self, forKey: .still) ?? false
         reversed = try? c.decodeIfPresent(ReverseOrigin.self, forKey: .reversed)
         asset = try? c.decodeIfPresent(String.self, forKey: .asset)
+        autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

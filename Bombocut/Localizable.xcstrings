@@ -180,6 +180,16 @@
         }
       }
     },
+    "A slow push in or pull out over the whole clip, like a camera move. Switch it on to set it up.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pomalé přiblížení nebo oddálení přes celý klip, jako pohyb kamery. Zapni a nastav."
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "cs": {
@@ -610,6 +620,16 @@
         }
       }
     },
+    "AutoZoom": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AutoZoom"
+          }
+        }
+      }
+    },
     "Automatic": {
       "localizations": {
         "cs": {
@@ -820,6 +840,16 @@
         }
       }
     },
+    "Bezier": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bézier"
+          }
+        }
+      }
+    },
     "Big up!": {
       "localizations": {
         "cs": {
@@ -896,6 +926,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rozmazat pozadí"
+          }
+        }
+      }
+    },
+    "Both": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obojí"
           }
         }
       }
@@ -1944,6 +1984,36 @@
         }
       }
     },
+    "Ease": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynule"
+          }
+        }
+      }
+    },
+    "Easing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulost"
+          }
+        }
+      }
+    },
+    "Easing works between two keyframes. Add at least two with the diamond.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulost funguje mezi dvěma keyframy. Přidej aspoň dva kosočtvercem."
+          }
+        }
+      }
+    },
     "Edge": {
       "localizations": {
         "cs": {
@@ -2444,6 +2514,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Z videa ve Fotkách"
+          }
+        }
+      }
+    },
+    "From this keyframe to the next one.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Od tohoto keyframu k dalšímu."
           }
         }
       }
@@ -3898,6 +3978,16 @@
         }
       }
     },
+    "Quad": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quad"
+          }
+        }
+      }
+    },
     "Reading audio": {
       "localizations": {
         "cs": {
@@ -4144,6 +4234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jezdi s námi"
+          }
+        }
+      }
+    },
+    "Runs from the first frame of the clip to the last, and follows when you trim it or change its speed.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Běží od prvního snímku klipu do posledního a přizpůsobí se, když klip zkrátíš nebo změníš rychlost."
           }
         }
       }
@@ -5504,6 +5604,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Použít jako překrytí"
+          }
+        }
+      }
+    },
+    "Use for all keyframes": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použít na všechny keyframy"
           }
         }
       }

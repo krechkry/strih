@@ -42,6 +42,7 @@ struct OverlayKey: Codable, Hashable, Identifiable {
     var transform: ClipTransform
     var opacity: Double
     var ease: Ease = .smooth
+    var easeDir: EaseDir?      // nil = both
 }
 
 /// What an overlay shows.
@@ -178,7 +179,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         while i < keys.count - 2 && s > keys[i + 1].t { i += 1 }
         let a = keys[i], b = keys[i + 1]
         var f = min(max((s - a.t) / max(b.t - a.t, 1e-9), 0), 1)
-        if a.ease == .smooth { f = f * f * (3 - 2 * f) }
+        f = a.ease.apply(f, a.easeDir ?? .both)
         let l = Look.lerp(Look(transform: a.transform, opacity: a.opacity), Look(transform: b.transform, opacity: b.opacity), f)
         return (l.transform, l.opacity)
     }

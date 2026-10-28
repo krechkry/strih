@@ -69,6 +69,8 @@ struct EditorView: View {
         case .layout: return 250
         case .audio: return 220
         case .speech: return 470
+        case .easing: return 330
+        case .autoZoom: return 470
         }
     }
 
@@ -137,6 +139,8 @@ struct EditorView: View {
         case .layout: LayoutSheet(model: model)
         case .audio: AudioSheet(model: model)
         case .speech: SpeechSheet(model: model)
+        case .easing: EasingSheet(model: model)
+        case .autoZoom: AutoZoomSheet(model: model)
         }
     }
 
@@ -466,7 +470,20 @@ struct EditorView: View {
             }
             .tint(.white)
             .disabled(model.project.clips.isEmpty)
-            if pro { keyframeButton.frame(width: 40) }
+            if pro {
+                keyframeButton.frame(width: 40)
+                // easing between keyframes: a slide-up panel
+                if model.selectedOverlayIndex != nil || model.selectedIndex != nil {
+                    Button { model.pause(); sheet = .easing } label: {
+                        Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(sheet == .easing ? Theme.accent : .white.opacity(model.canEase ? 1 : 0.4))
+                            .frame(width: 38, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(loc("Easing"))
+                }
+            }
             Spacer(minLength: 0)
             HStack(spacing: 0) {
                 Button { model.undo() } label: {
@@ -501,21 +518,13 @@ struct EditorView: View {
         .frame(height: 44)
     }
 
-    /// Tap: add / remove a keyframe at the playhead. Hold (briefly): easing, delete, jump between keyframes.
+    /// Tap: add / remove a keyframe at the playhead (easing has its own button next to it).
     @ViewBuilder
     private var keyframeButton: some View {
-        if let oi = model.selectedOverlayIndex {
-            let o = model.project.overlays[oi]
-            let k = model.overlayKeyAtPlayhead
-            KeyframeButton(here: k != nil, ease: k.map { o.keys[$0].ease }, hasAny: !o.keys.isEmpty,
-                           toggle: { model.toggleOverlayKey() }, setEase: { model.setOverlayEase($0) },
-                           step: { model.stepOverlayKey($0) })
+        if model.selectedOverlayIndex != nil {
+            KeyframeButton(here: model.overlayKeyAtPlayhead != nil) { model.toggleOverlayKey() }
         } else if let i = model.selectedIndex {
-            let k = model.keyframeAtPlayhead(i)
-            let c = model.project.clips[i]
-            KeyframeButton(here: k != nil, ease: k.map { c.keyframes[$0].ease }, hasAny: !c.keyframes.isEmpty,
-                           toggle: { model.toggleKeyframe() }, setEase: { model.setEase($0) },
-                           step: { model.stepKeyframe($0) })
+            KeyframeButton(here: model.keyframeAtPlayhead(i) != nil) { model.toggleKeyframe() }
         }
     }
 
@@ -618,6 +627,7 @@ struct EditorView: View {
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
+                    if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
                     if !clip.still {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
                         ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
@@ -1080,6 +1090,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
+    case easing, autoZoom
     var id: String { rawValue }
 }
 
@@ -1219,67 +1230,23 @@ extension EnvironmentValues {
     }
 }
 
-/// The keyframe diamond: tap adds or removes the keyframe at the playhead; a short hold opens its options.
+/// The keyframe diamond: tap adds or removes the keyframe at the playhead.
 private struct KeyframeButton: View {
     let here: Bool
-    let ease: Ease?
-    let hasAny: Bool
     let toggle: () -> Void
-    let setEase: (Ease) -> Void
-    let step: (Int) -> Void
-    @State private var options = false
 
     var body: some View {
-        Image(systemName: here ? "diamond.fill" : "diamond")
-            .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(here ? Theme.accent : .white)
-            .frame(width: 36, height: 40)
-            .contentShape(Rectangle())
-            .onTapGesture { toggle() }
-            .onLongPressGesture(minimumDuration: 0.22) {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                options = true
-            }
-            .popover(isPresented: $options, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let ease {
-                        row(ease == .smooth ? "checkmark" : "", "Smooth") { setEase(.smooth) }
-                        row(ease == .linear ? "checkmark" : "", "Linear") { setEase(.linear) }
-                        row("trash", "Delete keyframe", tint: .red) { toggle() }
-                    } else {
-                        row("plus", "Add keyframe") { toggle() }
-                    }
-                    if hasAny {
-                        Divider().overlay(Theme.line)
-                        row("chevron.left", "Previous keyframe") { step(-1) }
-                        row("chevron.right", "Next keyframe") { step(1) }
-                    }
-                }
-                .padding(.vertical, 6)
-                .frame(width: 230)
-                .presentationCompactAdaptation(.popover)
-            }
-    }
-
-    private func row(_ icon: String, _ title: String, tint: Color = .white, _ action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            options = false
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon.isEmpty ? "circle" : icon).opacity(icon.isEmpty ? 0 : 1).frame(width: 20)
-                Text(loc(title))
-                Spacer()
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 16).frame(height: 44)
-            .contentShape(Rectangle())
+        Button(action: toggle) {
+            Image(systemName: here ? "diamond.fill" : "diamond")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(here ? Theme.accent : .white)
+                .frame(width: 36, height: 40)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(loc(here ? "Delete keyframe" : "Add keyframe"))
     }
 }
-
 
 /// Undo / redo floating above an open panel: only the steps made while it is open.
 private struct PanelUndoBar: View {

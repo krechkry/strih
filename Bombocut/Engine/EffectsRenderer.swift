@@ -31,6 +31,7 @@ final class LookStore: @unchecked Sendable {
             s.look = c.staticLook
             s.keyframes = c.keyframes
             s.mask = c.mask
+            s.autoZoom = c.autoZoom
             states[c.id] = s
             lock.unlock()
         } else {

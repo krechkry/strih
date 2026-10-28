@@ -1067,6 +1067,7 @@ struct OverlayLane: View {
 /// playhead, the clips and the other sounds; at the screen edge the strip keeps scrolling.
 struct AudioLane: View {
     @ObservedObject var model: EditorModel
+    @ObservedObject private var waves = WaveformCache.shared
     @State private var dragStart: (start: Double, duration: Double, inPoint: Double)?
     @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
 
@@ -1120,7 +1121,12 @@ struct AudioLane: View {
         .background {
             ZStack {
                 (selected ? Theme.accent : Self.tint.opacity(0.45))
-                Wave(seed: a.file.hashValue).fill(.black.opacity(selected ? 0.18 : 0.22))
+                if let peaks = waves.peaks(a.file) {
+                    WaveformShape(peaks: peaks, from: a.inPoint, length: a.duration * a.speed)
+                        .fill(.black.opacity(selected ? 0.3 : 0.35))
+                } else {
+                    Wave(seed: a.file.hashValue).fill(.black.opacity(0.1))
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 5))
         }
