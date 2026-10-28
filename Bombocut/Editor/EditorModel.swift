@@ -274,7 +274,7 @@ final class EditorModel: ObservableObject {
 
     func scrub(to t: Double) {
         scrubCount &+= 1
-        let t = min(max(0, t), duration)
+        let t = onFrame(min(max(0, t), duration), exactOnly: true)
         currentTime = t
         seekTarget = t
         if !seeking { chaseSeek() }
@@ -2166,9 +2166,19 @@ final class EditorModel: ObservableObject {
     /// hair later, it only appeared one frame on).
     static func frameFloor(_ t: Double) -> Double { max(0, (t * fps + 1e-6).rounded(.down) / fps) }
 
+    /// Where t lands on whole frames. A cut rarely falls on a whole frame, and the frame on screen right at the cut
+    /// still belongs to the clip before it: a time on a cut goes to the first whole frame of the clip after it.
+    /// Any other time goes to the frame on screen (`exactOnly`: left as it is).
+    func onFrame(_ t: Double, exactOnly: Bool = false) -> Double {
+        if t > 0, project.clipStarts.contains(where: { abs($0 - t) < 0.002 }) {
+            return min((t * Self.fps - 1e-6).rounded(.up) / Self.fps, duration)
+        }
+        return exactOnly ? t : Self.frameFloor(t)
+    }
+
     /// Text overlay at the playhead (3 s).
     func addText() {
-        let start = Self.frameFloor(min(currentTime, max(0, duration - 0.5)))
+        let start = onFrame(min(currentTime, max(0, duration - 0.5)))
         var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(3, max(0.5, duration - start)))
         focusNewText = true
         o.transform.y = -0.15
@@ -2184,7 +2194,7 @@ final class EditorModel: ObservableObject {
     /// Picture or video from Photos, placed at the playhead.
     func addMediaOverlay(url: URL, isVideo: Bool, at time: Double? = nil, fitCanvas: Bool = false,
                          blend: BlendMode = .normal) async {
-        let start = Self.frameFloor(min(time ?? currentTime, max(0, duration - 0.5)))
+        let start = onFrame(min(time ?? currentTime, max(0, duration - 0.5)))
         var o: Overlay
         if isVideo {
             guard let info = try? await Media.probe(url), info.duration > 0.05 else { return }
@@ -2318,7 +2328,7 @@ final class EditorModel: ObservableObject {
         var d = max(0.2, duration)
         if let m = o.maxDuration { d = min(d, m) }
         // whole frames, so a block starting at the playhead shows on the frame there
-        let s0 = Self.frameFloor(min(max(0, start), max(0, self.duration - 0.2)))
+        let s0 = onFrame(min(max(0, start), max(0, self.duration - 0.2)))
         // a head trim keeps the end where it was
         if let snap = overlayTimingSnapshot?.overlays.first(where: { $0.id == id }), abs(start + duration - snap.end) < 0.02,
            abs(start - snap.start) > 1e-6 {
@@ -3022,7 +3032,7 @@ extension EditorModel {
               let cue = project.captionTracks[k].cues.first(where: { $0.id == id }) else { return }
         let st = project.captionTracks[k].style
         let len = cue.end - cue.start
-        let s0 = Self.frameFloor(min(max(0, start), max(0, duration - 0.2)))
+        let s0 = onFrame(min(max(0, start), max(0, duration - 0.2)))
         var o = Overlay(kind: .text(cue.text), start: s0, duration: max(0.2, min(len, duration - s0)))
         var style = st
         style.anim = .none
@@ -3295,7 +3305,7 @@ extension EditorModel {
     func splitOverlay() {
         guard let i = selectedOverlayIndex else { return }
         let o = project.overlays[i]
-        let cut = Self.frameFloor(currentTime)
+        let cut = onFrame(currentTime)
         guard cut > o.start + 0.1, cut < o.end - 0.1 else { return }
         let local = cut - o.start
         let pose = o.pose(at: cut)
