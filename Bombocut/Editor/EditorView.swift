@@ -204,6 +204,7 @@ struct EditorView: View {
         .onChange(of: model.trackPick) { _, on in
             if on { sheet = .trackPick } else if sheet == .trackPick { sheet = nil }
         }
+        .onChange(of: model.selectedStackID) { _, id in stackDeselected(id) }
         .onChange(of: model.openTransitionPanel) { _, open in
             if open { model.openTransitionPanel = false; sheet = .animation }
         }
@@ -239,6 +240,12 @@ struct EditorView: View {
         } message: {
             Text("Undo brings them back.")
         }
+    }
+
+    /// The Stack's panels close with it (a clip selected instead keeps its own).
+    private func stackDeselected(_ id: UUID?) {
+        guard id == nil, model.selectedIndex == nil, model.selectedOverlayIndex == nil, let s = sheet else { return }
+        if [EditorSheet.adjust, .crop, .autoZoom, .volume].contains(s) { sheet = nil }
     }
 
     /// A panel opened, closed or changed: what the model needs to know about it.
@@ -322,11 +329,6 @@ struct EditorView: View {
             if id == nil && sheet == .overlay { sheet = nil }
             // the overlay's Adjust / Mask panel closes with it (a clip selected instead keeps its own)
             if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask) { sheet = nil }
-        }
-        .onChange(of: model.selectedStackID) { _, id in
-            // the Stack's panels close with it (a clip selected instead keeps its own)
-            if id == nil && model.selectedIndex == nil && model.selectedOverlayIndex == nil,
-               let s = sheet, [.adjust, .crop, .autoZoom, .volume].contains(s) { sheet = nil }
         }
         .onChange(of: overlayItems) { _, items in
             guard let item = items.first else { return }
