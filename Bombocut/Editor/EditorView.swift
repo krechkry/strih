@@ -201,6 +201,9 @@ struct EditorView: View {
 
     private func clipHandlers<V: View>(_ v: V) -> some View {
         v
+        .onChange(of: model.trackPick) { _, on in
+            if on { sheet = .trackPick } else if sheet == .trackPick { sheet = nil }
+        }
         .onChange(of: model.openTransitionPanel) { _, open in
             if open { model.openTransitionPanel = false; sheet = .animation }
         }
@@ -236,6 +239,23 @@ struct EditorView: View {
         } message: {
             Text("Undo brings them back.")
         }
+    }
+
+    /// A panel opened, closed or changed: what the model needs to know about it.
+    private func sheetChanged(_ s: EditorSheet?) {
+        if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
+        model.previewScrubs = s != nil && s != .export
+        model.trackPanelOpen = s == .track
+        model.maskPanelOpen = s == .mask
+        model.autoZoomPanelOpen = s == .autoZoom
+        model.cropPanelOpen = s == .crop
+        // the picking panel swiped away: picking ends
+        if s != .trackPick && model.trackPick { model.cancelTrackPick() }
+        if s != .mask && model.maskPaint { model.finishPaint() }
+        if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
+        // closing the captions panel leaves the generate page (unless clips are being picked for it)
+        if s == nil && model.pick == nil { model.captionsGenerator = false }
+        if s != .captions { model.closeClipCaptions() }
     }
 
     private var editor: some View {
@@ -285,29 +305,12 @@ struct EditorView: View {
         }
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
-        .onChange(of: sheet) { _, s in
-            if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
-            model.previewScrubs = s != nil && s != .export
-            model.trackPanelOpen = s == .track
-            model.maskPanelOpen = s == .mask
-            model.autoZoomPanelOpen = s == .autoZoom
-            model.cropPanelOpen = s == .crop
-            // the picking panel swiped away: picking ends
-            if s != .trackPick && model.trackPick { model.cancelTrackPick() }
-            if s != .mask && model.maskPaint { model.finishPaint() }
-            if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
-            // closing the captions panel leaves the generate page (unless clips are being picked for it)
-            if s == nil && model.pick == nil { model.captionsGenerator = false }
-            if s != .captions { model.closeClipCaptions() }
-        }
+        .onChange(of: sheet) { _, s in sheetChanged(s) }
         .onChange(of: model.openCaptions) { _, open in
             if open { model.openCaptions = false; sheet = .captions }
         }
         .onChange(of: model.openStabilizeSheet) { _, open in
             if open { model.openStabilizeSheet = false; sheet = .stabilize }
-        }
-        .onChange(of: model.trackPick) { _, on in
-            if on { sheet = .trackPick } else if sheet == .trackPick { sheet = nil }
         }
         .onChange(of: model.openTrackSheet) { _, open in
             if open { model.openTrackSheet = false; sheet = .track }
