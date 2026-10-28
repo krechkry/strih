@@ -6,12 +6,12 @@ import SwiftUI
 @MainActor
 final class WaveformCache: ObservableObject {
     static let shared = WaveformCache()
-    static let rate = 100.0
+    nonisolated static let rate = 100.0
 
     @Published private var store: [String: [Float]] = [:]
     private var reading: Set<String> = []
 
-    private static var folder: URL {
+    nonisolated private static var folder: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("Waveforms", isDirectory: true)
     }
 
