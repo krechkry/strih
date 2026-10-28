@@ -89,11 +89,12 @@ struct TimelineView: View {
                     HStack(spacing: gap) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
                             let dragged = reorder?.id == clip.id
+                            let slipping = model.slip?.id == clip.id
                             ClipTile(clip: clip,
                                      pxPerSec: model.pxPerSec,
                                      height: stripHeight,
                                      inset: gap,
-                                     selected: clip.id == model.selectedClipID && reorder == nil,
+                                     selected: clip.id == model.selectedClipID && reorder == nil && model.slip == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
                                      onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
@@ -101,9 +102,28 @@ struct TimelineView: View {
                                      onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
+                                .overlay(alignment: .topTrailing) {
+                                    // a Stack: several clips in one
+                                    if clip.stack != nil && width(clip) > 30 {
+                                        Image(systemName: "square.stack.3d.up.fill").font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.black)
+                                            .padding(4).background(Theme.accent, in: RoundedRectangle(cornerRadius: 4))
+                                            .padding(5)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                .background(alignment: .leading) { if slipping { SlipStrip(clip: clip, pxPerSec: model.pxPerSec, height: stripHeight) } }
+                                .overlay {
+                                    if slipping {
+                                        RoundedRectangle(cornerRadius: 6).strokeBorder(model.slip?.atLimit == true ? Color.red : Theme.accent, lineWidth: 3)
+                                            .padding(.trailing, gap)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                .highPriorityGesture(slipGesture, including: slipping ? .all : .subviews)
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
-                                .zIndex(dragged ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
-                                .opacity(reorder != nil && !dragged ? 0.6 : 1)
+                                .zIndex(dragged || slipping ? 3 : (clip.id == model.selectedClipID ? 1 : 0))
+                                .opacity(reorder != nil && !dragged ? 0.6 : (model.slip != nil && !slipping ? 0.35 : 1))
                                 // a transition: this clip slides over the end of the one before
                                 .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -overlaps[k] : 0)
                         }
@@ -182,7 +202,8 @@ struct TimelineView: View {
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil)
+                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil
+                                || model.slip != nil)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
                     if reorder == nil && zoomAnchor == nil && (phase == .interacting || phase == .decelerating) {
@@ -202,9 +223,11 @@ struct TimelineView: View {
                     // over the visible part of the clip, kept on screen
                     let x0 = half + shift + slotX(shown, k) - offsetX
                     let mid = (max(x0, 0) + min(x0 + width(shown[k]), geo.size.width)) / 2
-                    let w = QuickMenu.width(pro: UIMode.isPro)
+                    let stacked = shown[k].stack != nil
+                    let w = QuickMenu.width(pro: UIMode.isPro, extra: stacked ? 1 : 0)
                     let cx = min(max(mid, w / 2 + 8), geo.size.width - w / 2 - 8)
                     QuickMenu(pro: UIMode.isPro, pointer: mid - cx,
+                              unstack: stacked ? { model.quickMenuClipID = nil; model.unstackSelected() } : nil,
                               transition: { model.quickMenuClipID = nil; model.openTransitionForSelection() },
                               volume: { model.quickMenuClipID = nil; model.pause(); model.openVolumePanel = true },
                               duplicate: { model.quickMenuClipID = nil; model.duplicateSelected() },
@@ -289,6 +312,13 @@ struct TimelineView: View {
             }
         }
         .frame(height: height, alignment: .top)
+    }
+
+    /// Slip: dragging the clip slides its footage through it (the clip stays where it is).
+    private var slipGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in model.slipDrag(v.translation.width, done: false) }
+            .onEnded { v in model.slipDrag(v.translation.width, done: true) }
     }
 
     /// Keeps the strip under the playhead when time changes from playback, edits or undo.
@@ -440,6 +470,43 @@ struct TimelineView: View {
             }
             try? await Task.sleep(for: .milliseconds(16))
         }
+    }
+}
+
+/// Slip: the clip's whole footage, dimmed, behind the clip, lined up so the part that plays sits in the clip.
+private struct SlipStrip: View {
+    let clip: Clip
+    let pxPerSec: CGFloat
+    let height: CGFloat
+    @ObservedObject private var thumbs = ThumbnailCache.shared
+
+    var body: some View {
+        let len = max(clip.outPoint - clip.inPoint, 1e-6)
+        let pxSrc = pxPerSec * CGFloat(clip.duration / len)       // points per second of footage
+        let full = CGFloat(clip.sourceDuration) * pxSrc
+        let slot: CGFloat = 36
+        let n = max(1, min(400, Int((full / slot).rounded(.up))))
+        HStack(spacing: 0) {
+            ForEach(0..<n, id: \.self) { k in
+                let t = (Double(k) + 0.5) * Double(slot / pxSrc)
+                Group {
+                    if let img = thumbs.image(file: clip.mediaFile, at: min(t, clip.sourceDuration)) {
+                        Image(uiImage: img).resizable().scaledToFill()
+                    } else {
+                        Theme.panel2
+                    }
+                }
+                .frame(width: slot, height: height)
+                .clipped()
+            }
+        }
+        .frame(width: full, height: height, alignment: .leading)
+        .clipped()
+        .overlay(Color.black.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.25), lineWidth: 1))
+        .offset(x: -CGFloat(clip.inPoint) * pxSrc)
+        .allowsHitTesting(false)
     }
 }
 
@@ -1286,6 +1353,8 @@ struct QuickMenu: View {
     let pro: Bool
     /// Where the clip is, relative to the menu's middle (the little pointer aims there).
     let pointer: CGFloat
+    /// A Stack: its own Unstack button.
+    var unstack: (() -> Void)? = nil
     let transition: () -> Void
     let volume: () -> Void
     let duplicate: () -> Void
@@ -1293,17 +1362,19 @@ struct QuickMenu: View {
 
     static let height: CGFloat = 54
     private static let item: CGFloat = 64
-    static func width(pro: Bool) -> CGFloat { CGFloat(pro ? 4 : 3) * item + 12 }
+    static func width(pro: Bool, extra: Int = 0) -> CGFloat { CGFloat((pro ? 4 : 3) + extra) * item + 12 }
+    private var w: CGFloat { Self.width(pro: pro, extra: unstack == nil ? 0 : 1) }
 
     var body: some View {
         HStack(spacing: 0) {
+            if let unstack { button("square.stack.3d.up.slash", "Unstack", action: unstack) }
             if pro { button("arrow.left.and.right.square", "Transition", action: transition) }
             button("speaker.wave.2", "Volume", action: volume)
             button("plus.square.on.square", "Duplicate", action: duplicate)
             button("trash", "Delete", tint: Color(red: 1, green: 0.38, blue: 0.36), action: delete)
         }
         .padding(.horizontal, 6)
-        .frame(width: Self.width(pro: pro), height: Self.height)
+        .frame(width: w, height: Self.height)
         .background {
             RoundedRectangle(cornerRadius: 17)
                 .fill(Color(white: 0.17))
@@ -1314,7 +1385,7 @@ struct QuickMenu: View {
             Pointer()
                 .fill(Color(white: 0.17))
                 .frame(width: 16, height: 8)
-                .offset(x: min(max(pointer, -Self.width(pro: pro) / 2 + 22), Self.width(pro: pro) / 2 - 22), y: 7.5)
+                .offset(x: min(max(pointer, -w / 2 + 22), w / 2 - 22), y: 7.5)
         }
     }
 

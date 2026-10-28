@@ -277,6 +277,7 @@ struct EditorView: View {
             model.previewScrubs = s != nil && s != .export
             model.trackPanelOpen = s == .track
             model.maskPanelOpen = s == .mask
+            model.autoZoomPanelOpen = s == .autoZoom
             if s != .mask && model.maskPaint { model.finishPaint() }
             if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
@@ -532,7 +533,7 @@ struct EditorView: View {
 
     /// Something on the timeline is selected: the check on the right finishes editing it.
     private var finishSelection: (() -> Void)? {
-        if model.pick != nil { return nil }
+        if model.pick != nil || model.slip != nil { return nil }
         if model.selectedAudioIndex != nil { return { model.selectAudio(nil) } }
         if model.selectedOverlayIndex != nil { return { model.selectOverlay(nil) } }
         if model.captionsSelected, model.project.captions != nil { return { model.captionsSelected = false } }
@@ -587,7 +588,9 @@ struct EditorView: View {
     private var toolScroller: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                if let pk = model.pick {
+                if model.slip != nil {
+                    slipBar
+                } else if let pk = model.pick {
                     pickBar(pk)
                 } else if model.selectedAudioIndex != nil {
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
@@ -626,7 +629,13 @@ struct EditorView: View {
                     let clip = model.project.clips[i]
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
+                    if clip.stack != nil {
+                        ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
+                    }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
+                    if model.canSlip {
+                        ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
+                    }
                     if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
                     if !clip.still {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
@@ -667,6 +676,9 @@ struct EditorView: View {
                 } else {
                     ToolButton(icon: "plus", label: "Add") { model.requestAddClips() }
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
+                    if pro && model.project.clips.count > 1 {
+                        ToolButton(icon: "square.stack.3d.up", label: "Stack") { sheet = nil; model.startStackPick() }
+                    }
                     ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
                     if pro {
                         ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
@@ -766,6 +778,7 @@ struct EditorView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(loc(pk.kind.title)).font(.subheadline.weight(.heavy))
                 Text(pk.kind == .captions ? "Tap the clips to listen to"
+                     : pk.kind == .stack ? "Tap the clips to put together"
                      : pk.kind.forOverlays ? "Tap the overlays to apply it to" : "Tap the clips to apply it to")
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
             }
@@ -776,12 +789,37 @@ struct EditorView: View {
                     .padding(.horizontal, 12).frame(height: 40)
                     .background(Theme.panel2, in: Capsule())
             }
+            let least = pk.kind == .stack ? 2 : 1
             Button { model.finishPick(apply: true) } label: {
-                Text(String(format: loc("Apply (%lld)"), pk.picked.count)).font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                Text(String(format: loc(pk.kind == .stack ? "Stack (%lld)" : "Apply (%lld)"), pk.picked.count))
+                    .font(.subheadline.weight(.heavy)).foregroundStyle(.black)
                     .padding(.horizontal, 14).frame(height: 40)
-                    .background(Theme.accent.opacity(pk.picked.isEmpty ? 0.4 : 1), in: Capsule())
+                    .background(Theme.accent.opacity(pk.picked.count < least ? 0.4 : 1), in: Capsule())
             }
-            .disabled(pk.picked.isEmpty)
+            .disabled(pk.picked.count < least)
+        }
+        .buttonStyle(.plain)
+        .containerRelativeFrame(.horizontal) { w, _ in w - 20 }
+    }
+
+    /// Slip: ✕ puts the clip back, ✓ keeps the new part.
+    private var slipBar: some View {
+        HStack(spacing: 10) {
+            Button { model.finishSlip(apply: false) } label: {
+                Image(systemName: "xmark").font(.system(size: 18, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 46, height: 46).background(Theme.panel2, in: Circle())
+            }
+            .accessibilityLabel(loc("Cancel"))
+            Text("Drag the clip to pick the part that plays")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity)
+            Button { model.finishSlip(apply: true) } label: {
+                Image(systemName: "checkmark").font(.system(size: 18, weight: .heavy)).foregroundStyle(.black)
+                    .frame(width: 46, height: 46).background(Theme.accent, in: Circle())
+            }
+            .accessibilityLabel(loc("Done"))
         }
         .buttonStyle(.plain)
         .containerRelativeFrame(.horizontal) { w, _ in w - 20 }

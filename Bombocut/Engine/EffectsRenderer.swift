@@ -8,6 +8,13 @@ final class LookStore: @unchecked Sendable {
     private let lock = NSLock()
     private var states: [UUID: LookState] = [:]
     private var outline: UUID?
+    private var framing: UUID?
+
+    /// The clip the AutoZoom panel is showing unzoomed (paused, panel open). Never in exports.
+    var framingClip: UUID? {
+        get { lock.lock(); defer { lock.unlock() }; return framing }
+        set { lock.lock(); framing = newValue; lock.unlock() }
+    }
 
     /// The clip whose subject mask gets a lime outline in the preview (the Mask panel is open). Never in exports.
     var outlineClip: UUID? {

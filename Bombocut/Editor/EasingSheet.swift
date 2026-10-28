@@ -112,9 +112,20 @@ struct AutoZoomSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             if let i = model.selectedIndex {
                 let z = model.project.clips[i].autoZoom
-                HStack {
+                HStack(spacing: 10) {
                     Text("AutoZoom").font(.title3.weight(.heavy))
                     Spacer()
+                    if z != nil {
+                        // plays the clip on a loop with the zoom (paused, the two framings show instead)
+                        Button { model.previewSelected() } label: {
+                            Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 15, weight: .bold)).foregroundStyle(.black)
+                                .frame(width: 38, height: 38)
+                                .background(Theme.accent, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc("Play"))
+                    }
                     Toggle("", isOn: Binding(get: { z != nil }, set: { on in model.setAutoZoom(on ? (z ?? AutoZoom()) : nil) }))
                         .labelsHidden()
                         .tint(Theme.accent)
@@ -141,7 +152,7 @@ struct AutoZoomSheet: View {
                         n.easeDir = d == .both ? nil : d
                         model.setAutoZoom(n)
                     }
-                    Text("Runs from the first frame of the clip to the last, and follows when you trim it or change its speed.")
+                    Text("Runs from the first frame of the clip to the last, and follows when you trim it or change its speed. On the preview, drag the lime frame to choose where it zooms, its corner to choose how close.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     ApplyRow(model: model, kind: .autoZoom)
@@ -154,6 +165,7 @@ struct AutoZoomSheet: View {
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
+        .onAppear { model.playheadIntoSelected() }
     }
 
     private func pill(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {

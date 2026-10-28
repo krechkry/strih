@@ -451,6 +451,32 @@ struct AutoZoom: Codable, Hashable {
     var amount = 0.2           // how much closer at the tight end (0.2 = 20 %)
     var ease = Ease.linear
     var easeDir: EaseDir?      // nil = both
+    var focusX = 0.0           // where it zooms to: canvas fractions from the clip's middle (+ = right / down)
+    var focusY = 0.0
+
+    enum CodingKeys: String, CodingKey { case zoomIn, amount, ease, easeDir, focusX, focusY }
+
+    init() {}
+
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        zoomIn = try c.decodeIfPresent(Bool.self, forKey: .zoomIn) ?? true
+        amount = try c.decodeIfPresent(Double.self, forKey: .amount) ?? 0.2
+        ease = (try? c.decodeIfPresent(Ease.self, forKey: .ease)) ?? .linear
+        easeDir = try? c.decodeIfPresent(EaseDir.self, forKey: .easeDir)
+        focusX = try c.decodeIfPresent(Double.self, forKey: .focusX) ?? 0
+        focusY = try c.decodeIfPresent(Double.self, forKey: .focusY) ?? 0
+    }
+
+    /// The clip's placement at progress p: zoomed by `scale(at:)` around the focus point.
+    func apply(_ t: ClipTransform, at p: Double) -> ClipTransform {
+        let z = scale(at: p)
+        var out = t
+        out.scale *= z
+        out.x += (1 - z) * focusX
+        out.y += (1 - z) * focusY
+        return out
+    }
 
     /// Extra scale at progress p (0 = first frame, 1 = last).
     func scale(at p: Double) -> Double {

@@ -25,6 +25,8 @@ struct PreviewArea: View {
     @State private var pinching = false
     @State private var dragIsPan: Bool?
     @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
+    @State private var zoomGrab: CGPoint?           // AutoZoom: the focus point when the drag began
+    @State private var zoomCorner: CGPoint?         // AutoZoom: the tight frame's corner when the drag began
 
     var body: some View {
         GeometryReader { geo in
@@ -58,6 +60,10 @@ struct PreviewArea: View {
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
+                if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil, let i = model.selectedIndex,
+                   let z = model.project.clips[i].autoZoom, model.playheadInSelected {
+                    layer(canvas) { zoomFrames(canvas, clip: i, zoom: z) }
+                }
                 if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
                 if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
                 if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
@@ -203,6 +209,9 @@ struct PreviewArea: View {
                 }
                 if let tv = model.trimView {
                     TrimTwoUp(view: tv)
+                }
+                if let sv = model.slipView {
+                    SlipTwoUp(view: sv, canvas: canvas)
                 }
             }
             if let e = model.buildError {
@@ -440,6 +449,106 @@ struct PreviewArea: View {
             }
     }
 
+    // MARK: AutoZoom framing
+
+    /// The first and the last framing of AutoZoom over the unzoomed clip: the wide one dashed white, the tight one
+    /// lime with the rest dimmed. Drag the tight frame to choose where it goes, its corner to choose how close.
+    private func zoomFrames(_ canvas: CGSize, clip i: Int, zoom z: AutoZoom) -> some View {
+        let W = canvas.width, H = canvas.height
+        let t = model.lookAtPlayhead(i).transform
+        let c = CGPoint(x: W / 2 + CGFloat(t.x) * W, y: H / 2 + CGFloat(t.y) * H)
+        let p = CGPoint(x: c.x + CGFloat(z.focusX) * W, y: c.y + CGFloat(z.focusY) * H)
+        let k = CGFloat(1 + z.amount)
+        let tight = CGRect(x: p.x - p.x / k, y: p.y - p.y / k, width: W / k, height: H / k)
+        let wide = CGRect(origin: .zero, size: canvas)
+        let toScreen = CGAffineTransform(translationX: -W / 2, y: -H / 2)
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
+        let ts = tight.applying(toScreen), ws = wide.applying(toScreen)
+        let startRect = z.zoomIn ? ws : ts, endRect = z.zoomIn ? ts : ws
+        return ZStack(alignment: .topLeading) {
+            // outside the tight framing: what the zoom leaves out
+            Path { q in
+                q.addRect(ws)
+                q.addRoundedRect(in: ts, cornerSize: CGSize(width: 8, height: 8))
+            }
+            .fill(Color.black.opacity(0.42), style: FillStyle(eoFill: true))
+            .allowsHitTesting(false)
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                .frame(width: ws.width, height: ws.height)
+                .offset(x: ws.minX, y: ws.minY)
+                .allowsHitTesting(false)
+            // which way it goes: from each corner of the first framing to the same corner of the last
+            Path { q in
+                let a = [CGPoint(x: startRect.minX, y: startRect.minY), CGPoint(x: startRect.maxX, y: startRect.minY),
+                         CGPoint(x: startRect.maxX, y: startRect.maxY), CGPoint(x: startRect.minX, y: startRect.maxY)]
+                let b = [CGPoint(x: endRect.minX, y: endRect.minY), CGPoint(x: endRect.maxX, y: endRect.minY),
+                         CGPoint(x: endRect.maxX, y: endRect.maxY), CGPoint(x: endRect.minX, y: endRect.maxY)]
+                for (s0, e0) in zip(a, b) {
+                    let dx = e0.x - s0.x, dy = e0.y - s0.y, len = hypot(dx, dy)
+                    guard len > 18 else { continue }
+                    let ux = dx / len, uy = dy / len
+                    let s1 = CGPoint(x: s0.x + ux * 8, y: s0.y + uy * 8), e1 = CGPoint(x: e0.x - ux * 8, y: e0.y - uy * 8)
+                    q.move(to: s1)
+                    q.addLine(to: e1)
+                    q.move(to: CGPoint(x: e1.x - ux * 7 - uy * 4, y: e1.y - uy * 7 + ux * 4))
+                    q.addLine(to: e1)
+                    q.addLine(to: CGPoint(x: e1.x - ux * 7 + uy * 4, y: e1.y - uy * 7 - ux * 4))
+                }
+            }
+            .stroke(Theme.accent.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .allowsHitTesting(false)
+            // the tight framing: drag it to move where the zoom goes
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Theme.accent, lineWidth: 2.5)
+                .background(Color.white.opacity(0.001))
+                .frame(width: ts.width, height: ts.height)
+                .offset(x: ts.minX, y: ts.minY)
+                .gesture(DragGesture(minimumDistance: 1)
+                    .onChanged { v in
+                        if zoomGrab == nil { zoomGrab = p; model.liveEditBegan() }
+                        guard let p0 = zoomGrab else { return }
+                        let np = CGPoint(x: min(max(p0.x + v.translation.width / viewZoom, 0), W),
+                                         y: min(max(p0.y + v.translation.height / viewZoom, 0), H))
+                        model.editAutoZoom { $0.focusX = Double((np.x - c.x) / W); $0.focusY = Double((np.y - c.y) / H) }
+                    }
+                    .onEnded { _ in zoomGrab = nil; model.liveEditEnded() })
+            // its corner: how close
+            Circle().fill(Theme.accent)
+                .frame(width: 26, height: 26)
+                .overlay(Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 10, weight: .heavy)).foregroundStyle(.black))
+                .shadow(color: .black.opacity(0.4), radius: 3)
+                .contentShape(Circle().inset(by: -10))
+                .offset(x: ts.maxX - 13, y: ts.maxY - 13)
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        if zoomCorner == nil { zoomCorner = CGPoint(x: tight.maxX, y: tight.maxY); model.liveEditBegan() }
+                        guard let q0 = zoomCorner else { return }
+                        let q = CGPoint(x: q0.x + v.translation.width / viewZoom, y: q0.y + v.translation.height / viewZoom)
+                        var zs: [CGFloat] = []
+                        if q.x - p.x > 4 { zs.append((W - p.x) / (q.x - p.x)) }
+                        if q.y - p.y > 4 { zs.append((H - p.y) / (q.y - p.y)) }
+                        guard !zs.isEmpty else { return }
+                        let nz = zs.reduce(0, +) / CGFloat(zs.count)
+                        model.editAutoZoom { $0.amount = min(max(Double(nz) - 1, 0.03), 1) }
+                    }
+                    .onEnded { _ in zoomCorner = nil; model.liveEditEnded() })
+            framePill(z.zoomIn ? "Start" : "End", lime: false).offset(x: ws.minX + 8, y: ws.minY + 8)
+            framePill(z.zoomIn ? "End" : "Start", lime: true).offset(x: ts.minX + 8, y: ts.minY + 8)
+        }
+        .frame(width: W, height: H, alignment: .topLeading)
+    }
+
+    private func framePill(_ title: String, lime: Bool) -> some View {
+        Text(loc(title)).font(.system(size: 11, weight: .heavy)).textCase(.uppercase)
+            .foregroundStyle(.black)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(lime ? Theme.accent : Color.white, in: Capsule())
+            .fixedSize()
+            .allowsHitTesting(false)
+    }
+
     // MARK: Painting a custom mask
 
     /// Paint over objects to keep (lime) or remove (red); the outline shows what is picked after each stroke.
@@ -641,6 +750,44 @@ struct LiveFrame: View {
 }
 
 /// Trim viewer: the frame at the edge being trimmed (the new first or last frame), with how much changed.
+/// Slip: the new first and last frame side by side (or stacked, on a tall canvas), and how far the footage moved.
+struct SlipTwoUp: View {
+    let view: SlipView
+    let canvas: CGSize
+
+    var body: some View {
+        let tall = canvas.height > canvas.width
+        ZStack(alignment: .top) {
+            Color.black
+            let layout = tall ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 4))
+            layout {
+                frame(view.first, "Start")
+                frame(view.last, "End")
+            }
+            .padding(6)
+            Text(verbatim: Fmt.delta(view.delta))
+                .font(.system(size: 15, weight: .bold).monospacedDigit())
+                .foregroundStyle(.black)
+                .padding(.horizontal, 12).padding(.vertical, 5)
+                .background(Theme.accent, in: Capsule())
+                .padding(.top, 10)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func frame(_ img: UIImage?, _ label: String) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            Color(white: 0.08)
+            if let img { Image(uiImage: img).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: .infinity) }
+            Text(loc(label)).font(.system(size: 11, weight: .heavy)).textCase(.uppercase).foregroundStyle(.black)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(.white, in: Capsule())
+                .padding(8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
 struct TrimTwoUp: View {
     let view: TrimView
 

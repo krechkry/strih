@@ -27,6 +27,20 @@ struct AnalysisState {
     var progress: Double
 }
 
+/// Slip in progress: which clip, where its content started, and where the last drag left it.
+struct SlipState: Equatable {
+    var id: UUID
+    var dragFrom: Double          // in point (source seconds) when the current drag began
+    var atLimit = false
+}
+
+/// What the preview shows while slipping: the new first and last frame, and how far the content moved.
+struct SlipView {
+    var first: UIImage?
+    var last: UIImage?
+    var delta: Double = 0         // source seconds, + = later footage
+}
+
 /// Picking a subject to track: mark it roughly, the phone finds it, then the box can be adjusted.
 enum PickPhase { case select, detecting, adjust }
 
@@ -46,7 +60,7 @@ struct LiveTransform {
 final class EditorModel: ObservableObject {
     @Published var project: Project
     @Published var currentTime: Double = 0
-    @Published private(set) var isPlaying = false
+    @Published private(set) var isPlaying = false { didSet { if isPlaying != oldValue { updateFraming() } } }
     @Published var selectedClipID: UUID? {
         didSet {
             if quickMenuClipID != nil && quickMenuClipID != selectedClipID { quickMenuClipID = nil }
@@ -57,6 +71,7 @@ final class EditorModel: ObservableObject {
             }
             if maskPanelOpen { updateMaskOutline() }
             if maskPaint && selectedClipID != oldValue { maskPaint = false }
+            if autoZoomPanelOpen { updateFraming() }
         }
     }
     /// The captions track is selected: fingers on the preview move the captions.
@@ -1604,6 +1619,14 @@ final class EditorModel: ObservableObject {
     @Published private(set) var laneFinger: CGFloat?
     @Published var laneAuto: Double = 0
     var cueSnapshot: Project?
+    /// The AutoZoom panel is open: paused, the clip shows unzoomed with its first and last framing drawn over it.
+    @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
+    /// Slip: the selected clip's content slides inside its place on the timeline.
+    @Published private(set) var slip: SlipState?
+    @Published var slipView: SlipView?
+    var slipSnapshot: Project?
+    let slipFirst = LiveFrameGrabber()
+    let slipLast = LiveFrameGrabber()
     /// Painting a custom mask on the preview (fingers paint instead of scrubbing).
     @Published var maskPaint = false
     /// The brush keeps (true) or removes what it touches.
@@ -1914,6 +1937,8 @@ final class EditorModel: ObservableObject {
     enum ApplyKind: String {
         case motionBlur, adjust, speed, volume, mask, overlayStyle, animation, speech
         case overlayAdjust, overlayMask, overlaySpeed, autoZoom
+        /// Not a copy: picks the clips to put into a Stack.
+        case stack
         /// Not a copy: picks the clips the captions listen to.
         case captions
 
@@ -1932,6 +1957,7 @@ final class EditorModel: ObservableObject {
             case .overlayMask: return "Mask"
             case .overlaySpeed: return "Speed"
             case .autoZoom: return "AutoZoom"
+            case .stack: return "Stack"
             }
         }
         /// Copies between overlays instead of clips.
@@ -1977,7 +2003,7 @@ final class EditorModel: ObservableObject {
             c.speech = s.speech
         case .autoZoom:
             c.autoZoom = s.autoZoom
-        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions:
+        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions, .stack:
             break
         }
     }
@@ -2091,6 +2117,10 @@ final class EditorModel: ObservableObject {
     func finishPick(apply ok: Bool) {
         guard let p = pick else { return }
         pick = nil
+        if p.kind == .stack {
+            if ok { stackClips(p.picked) }
+            return
+        }
         if p.kind == .captions {
             if ok { captionClips = p.picked.isEmpty ? nil : p.picked }
             openCaptions = true
@@ -3076,5 +3106,156 @@ extension EditorModel {
         change(&z)
         project.clips[i].autoZoom = z
         publishLook()
+    }
+}
+
+// MARK: AutoZoom framing, Slip, Stacks
+
+extension EditorModel {
+    func updateFraming() {
+        let id = autoZoomPanelOpen && !isPlaying ? selectedClipID : nil
+        guard LookStore.shared.framingClip != id else { return }
+        LookStore.shared.framingClip = id
+        refreshFrame()
+    }
+
+    // MARK: Slip
+
+    /// Room to slip: footage before or after the part that plays.
+    var canSlip: Bool {
+        guard let i = selectedIndex else { return false }
+        let c = project.clips[i]
+        return !c.still && c.sourceDuration - (c.outPoint - c.inPoint) > 0.05
+    }
+
+    func startSlip() {
+        guard let i = selectedIndex, canSlip else { return }
+        pause()
+        let c = project.clips[i]
+        slipSnapshot = project
+        slip = SlipState(id: c.id, dragFrom: c.inPoint)
+        slipView = SlipView()
+        grabSlip(c)
+    }
+
+    /// The finger moved `dx` points along the timeline since this drag began (dragging left brings later footage
+    /// into the clip, like pulling the film through); `done` = finger lifted.
+    func slipDrag(_ dx: CGFloat, done: Bool) {
+        guard var st = slip, let i = project.clips.firstIndex(where: { $0.id == st.id }),
+              let c0 = slipSnapshot?.clips.first(where: { $0.id == st.id }) else { return }
+        let len = c0.outPoint - c0.inPoint
+        let ratio = len / max(c0.duration, 1e-6)              // source seconds per timeline second
+        let want = st.dragFrom - Double(dx / max(pxPerSec, 1)) * ratio
+        let newIn = min(max(0, want), c0.sourceDuration - len)
+        let limit = want < 0 || want > c0.sourceDuration - len
+        if limit && !st.atLimit { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
+        st.atLimit = limit
+        var c = project.clips[i]
+        let shift = newIn - c0.inPoint
+        c.inPoint = newIn
+        c.outPoint = newIn + len
+        // keyframes stay where they are in the clip (they are kept in source time)
+        c.keyframes = c0.keyframes.map { var k = $0; k.t += shift; return k }
+        project.clips[i] = c
+        publishLook()
+        slipView?.delta = shift
+        grabSlip(c)
+        if done { st.dragFrom = newIn }
+        slip = st
+    }
+
+    private func grabSlip(_ c: Clip) {
+        slipFirst.grab(file: c.mediaFile, at: c.inPoint) { [weak self] img in self?.slipView?.first = img }
+        slipLast.grab(file: c.mediaFile, at: max(c.inPoint, c.outPoint - 0.04)) { [weak self] img in self?.slipView?.last = img }
+    }
+
+    /// ✓ keeps the new part (captions and overlays on it follow the footage), ✕ puts it back.
+    func finishSlip(apply: Bool) {
+        guard let snap = slipSnapshot else { return }
+        slip = nil
+        slipView = nil
+        slipSnapshot = nil
+        slipFirst.reset()
+        slipLast.reset()
+        if apply && snap != project {
+            pushUndo(snap)
+            followFootage(from: snap)
+            commit()
+        } else {
+            project = snap
+            publishLook()
+        }
+    }
+
+    // MARK: Stacks
+
+    /// Clips to stack are picked like clips to copy settings to.
+    func startStackPick() {
+        pause()
+        selectedClipID = nil
+        pick = PickSession(kind: .stack, source: UUID(), picked: [])
+    }
+
+    var selectedIsStack: Bool { selectedIndex.map { project.clips[$0].stack != nil } ?? false }
+
+    /// The picked clips (and any between them) become one clip: rendered with everything they have (keyframes,
+    /// effects, transforms, transitions between them, sound), the originals kept inside it for Unstack.
+    func stackClips(_ ids: Set<UUID>) {
+        let idx = project.clips.indices.filter { ids.contains(project.clips[$0].id) }
+        guard let a = idx.min(), let b = idx.max(), b > a, analysis == nil else { return }
+        let originals = Array(project.clips[a...b])
+        let canvas = project.canvas
+        analysis = AnalysisState(title: "Stacking", progress: 0)
+        analysisTask = Task {
+            do {
+                let made = try await Stacker.render(originals, canvas: canvas) { f in
+                    Task { @MainActor in self.analysis?.progress = f }
+                }
+                let ids = originals.map(\.id)
+                guard let k = project.clips.firstIndex(where: { $0.id == ids[0] }), k + ids.count <= project.clips.count,
+                      project.clips[k..<(k + ids.count)].map(\.id) == ids else {
+                    try? FileManager.default.removeItem(at: Paths.mediaURL(made.file))
+                    throw CompositionBuilder.err("The clips changed while stacking. Try again.")
+                }
+                var s = Clip(mediaFile: made.file, sourceDuration: made.duration)
+                s.aspect = canvas.aspect
+                s.fill = true
+                s.cut = originals[0].cut
+                s.stack = originals
+                pushUndo(project)
+                project.clips.replaceSubrange(k..<(k + ids.count), with: [s])
+                // the stack plays exactly what the clips played, in the same time: captions and overlays stay put
+                commit()
+                selectedClipID = s.id
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                if !(error is CancellationError) && !Task.isCancelled { buildError = error.localizedDescription }
+                // the render used the stores for its own frames: back to this project
+                publishLook()
+            }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
+
+    /// The Stack's clips come back exactly as they were.
+    func unstackSelected() {
+        guard let i = selectedIndex, let inner = project.clips[i].stack, !inner.isEmpty else { return }
+        var parts = inner
+        parts[0].cut = project.clips[i].cut
+        pushUndo(project)
+        project.clips.replaceSubrange(i...i, with: parts)
+        commit()
+        selectedClipID = parts[0].id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+}
+
+extension EditorModel {
+    /// The playhead onto the selected clip (so the preview shows what a panel works on).
+    func playheadIntoSelected() {
+        guard let i = selectedIndex, !playheadInSelected else { return }
+        pause()
+        scrub(to: project.clipStarts[i] + 0.01)
     }
 }

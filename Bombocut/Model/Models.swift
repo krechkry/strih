@@ -182,6 +182,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var reversed: ReverseOrigin?   // playing backwards: a reversed copy stands in for the original part
     var asset: String?             // the Photos item it came from (marks it as used in the gallery)
     var autoZoom: AutoZoom?        // a slow zoom from the first frame to the last
+    var stack: [Clip]?             // a Stack: the clips it was made of (rendered into `mediaFile`), back on Unstack
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -202,6 +203,11 @@ struct Clip: Identifiable, Codable, Hashable {
                   motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom)
     }
 
+    /// Files this clip needs: its own, the original of a reversed clip, and everything inside a Stack.
+    var allMediaFiles: [String] {
+        [mediaFile] + (reversed.map { [$0.mediaFile] } ?? []) + (stack ?? []).flatMap(\.allMediaFiles)
+    }
+
     var retime: Retime { Retime(self) }
     /// Length on the timeline.
     var duration: Double { retime.outDuration }
@@ -217,7 +223,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack
     }
 
     init(from d: Decoder) throws {
@@ -251,6 +257,7 @@ struct Clip: Identifiable, Codable, Hashable {
         reversed = try? c.decodeIfPresent(ReverseOrigin.self, forKey: .reversed)
         asset = try? c.decodeIfPresent(String.self, forKey: .asset)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
+        stack = try? c.decodeIfPresent([Clip].self, forKey: .stack)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)
@@ -500,7 +507,7 @@ struct Project: Identifiable, Codable, Hashable {
 
     /// Every imported file the project needs (clips and overlays).
     var mediaFiles: Set<String> {
-        Set(clips.map(\.mediaFile)).union(clips.compactMap(\.reversed?.mediaFile))
+        Set(clips.flatMap(\.allMediaFiles))
             .union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
     }
 

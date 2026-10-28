@@ -271,8 +271,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let info = p.layer.info, state = p.state, srcT = p.srcT
         var look = p.look
         // AutoZoom: from the clip's first frame to its last, on top of its own placement
-        if let z = state.autoZoom, info.duration > 0.01 {
-            look.transform.scale *= z.scale(at: (t - info.start) / info.duration)
+        // (the AutoZoom panel shows the clip unzoomed while paused, with the two framings drawn over it)
+        if let z = state.autoZoom, info.duration > 0.01, !(info.preview && LookStore.shared.framingClip == info.clipID) {
+            look.transform = z.apply(look.transform, at: (t - info.start) / info.duration)
         }
         // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
         let anim = state.anim.isNone ? nil : state.anim.pose(local: t - info.start, length: info.duration)

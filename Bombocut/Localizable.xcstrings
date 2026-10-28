@@ -1964,6 +1964,16 @@
         }
       }
     },
+    "Drag the clip to pick the part that plays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přetažením klipu vyber část, která se přehraje"
+          }
+        }
+      }
+    },
     "Drag the points up or down. Double tap the graph to straighten it.": {
       "localizations": {
         "cs": {
@@ -2070,6 +2080,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Efekty: celá vrstva · krytí: keyframy"
+          }
+        }
+      }
+    },
+    "End": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konec"
           }
         }
       }
@@ -3858,6 +3878,16 @@
         }
       }
     },
+    "Play": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrát"
+          }
+        }
+      }
+    },
     "Play the first line": {
       "localizations": {
         "cs": {
@@ -4238,12 +4268,12 @@
         }
       }
     },
-    "Runs from the first frame of the clip to the last, and follows when you trim it or change its speed.": {
+    "Runs from the first frame of the clip to the last, and follows when you trim it or change its speed. On the preview, drag the lime frame to choose where it zooms, its corner to choose how close.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Běží od prvního snímku klipu do posledního a přizpůsobí se, když klip zkrátíš nebo změníš rychlost."
+            "value": "Běží od prvního snímku klipu do posledního a přizpůsobí se, když klip zkrátíš nebo změníš rychlost. V náhledu táhni limetkový rámeček, kam se má přiblížit, a jeho roh, jak moc."
           }
         }
       }
@@ -4628,6 +4658,16 @@
         }
       }
     },
+    "Slip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posun"
+          }
+        }
+      }
+    },
     "Smart tools": {
       "localizations": {
         "cs": {
@@ -4848,6 +4888,46 @@
         }
       }
     },
+    "Stack": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sloučit"
+          }
+        }
+      }
+    },
+    "Stack (%lld)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sloučit (%lld)"
+          }
+        }
+      }
+    },
+    "Stacking": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slučuji klipy"
+          }
+        }
+      }
+    },
+    "Start": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Začátek"
+          }
+        }
+      }
+    },
     "Start 7-day free trial": {
       "localizations": {
         "cs": {
@@ -5048,6 +5128,16 @@
         }
       }
     },
+    "Tap the clips to put together": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na klipy, které chceš sloučit"
+          }
+        }
+      }
+    },
     "Tap the line to add a point, drag points anywhere. Double tap the graph to straighten it.": {
       "localizations": {
         "cs": {
@@ -5154,6 +5244,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klip naběhne z černé nebo do černé odejde. Hodí se na začátek a konec videa."
+          }
+        }
+      }
+    },
+    "The clips changed while stacking. Try again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy se během slučování změnily. Zkus to znovu."
           }
         }
       }
@@ -5584,6 +5684,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nedokončená stahování"
+          }
+        }
+      }
+    },
+    "Unstack": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozpojit"
           }
         }
       }
