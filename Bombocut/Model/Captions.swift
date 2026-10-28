@@ -187,8 +187,32 @@ struct Captions: Codable, Hashable {
         return nil
     }
 
+    /// A new cut (other line count or length, punctuation on / off). Edits made to the lines stay: they are written
+    /// back into the words first, so the new cues are cut from what you corrected.
     mutating func recut() {
+        absorbEdits()
         cues = CaptionCutter.cues(from: words, style: style)
+    }
+
+    /// The lines are the truth once you touched them: a line whose words no longer match the words under it (text
+    /// typed, moved, trimmed) replaces them with its own, and words no line covers any more (a deleted line) go.
+    /// Untouched lines keep the full words underneath (with the punctuation a cut may have hidden).
+    mutating func absorbEdits() {
+        guard !cues.isEmpty else { return }
+        func same(_ a: [CaptionWord], _ b: [CaptionWord]) -> Bool {
+            a.count == b.count && zip(a, b).allSatisfy { $0.text == $1.text && abs($0.start - $1.start) < 0.005 && abs($0.end - $1.end) < 0.005 }
+        }
+        var out: [CaptionWord] = []
+        for cue in cues.sorted(by: { $0.start < $1.start }) {
+            let inside = words.filter { let m = ($0.start + $0.end) / 2; return m >= cue.start - 0.001 && m <= cue.end + 0.001 }
+            let shown = style.punctuation ? inside : inside.compactMap { w -> CaptionWord? in
+                var q = w
+                q.text = CaptionCutter.stripPunctuation(w.text)
+                return q.text.isEmpty ? nil : q
+            }
+            out += same(shown, cue.words) ? inside : cue.words
+        }
+        words = out.sorted { $0.start < $1.start }
     }
 }
 

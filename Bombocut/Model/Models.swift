@@ -444,6 +444,7 @@ struct Project: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, created, modified, canvas, clips, captions, captionTracks, activeCaption, overlays, audio
+        case layerRows
     }
 
     func encode(to e: Encoder) throws {
@@ -458,6 +459,7 @@ struct Project: Identifiable, Codable, Hashable {
         try c.encode(activeCaption, forKey: .activeCaption)
         try c.encode(overlays, forKey: .overlays)
         try c.encode(audio, forKey: .audio)
+        try c.encode(true, forKey: .layerRows)
     }
 
     init(from d: Decoder) throws {
@@ -477,6 +479,8 @@ struct Project: Identifiable, Codable, Hashable {
         overlays = try c.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
         audio = (try? c.decodeIfPresent([AudioItem].self, forKey: .audio)) ?? []
         migrateCutTransitions()
+        // texts and pictures share layer rows now
+        if (try? c.decodeIfPresent(Bool.self, forKey: .layerRows)) != true { mergeOverlayLanes() }
     }
 
     /// Earlier versions made a transition by fading the clip before out and the clip after in (through

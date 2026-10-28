@@ -143,13 +143,9 @@ struct TimelineView: View {
                     }
                     if reorder == nil {
                         let lanes = LaneLayout(model.project, pro: UIMode.isPro)
-                        lane(lanes.text, empty: !model.project.overlays.contains(where: \.isText)) {
-                            OverlayLane(model: model, texts: true)
-                        }
-                        if lanes.showOverlay {
-                            lane(lanes.overlay, empty: !model.project.overlays.contains(where: { !$0.isText })) {
-                                OverlayLane(model: model, texts: false)
-                            }
+                        // texts, pictures and videos share one stack of rows: the higher row is drawn on top
+                        lane(lanes.layers, empty: model.project.overlays.isEmpty) {
+                            OverlayLane(model: model)
                         }
                         lane(lanes.music, empty: model.project.audio.isEmpty) {
                             AudioLane(model: model)
@@ -157,16 +153,24 @@ struct TimelineView: View {
                         if !model.project.captionTracks.isEmpty {
                             // one lane per caption track (a second language, a second style…)
                             VStack(alignment: .leading, spacing: 3) {
-                                ForEach(Array(model.project.captionTracks.enumerated()), id: \.offset) { k, caps in
-                                    CaptionLane(captions: caps, pxPerSec: model.pxPerSec, currentTime: model.currentTime,
-                                                selected: model.captionsSelected && model.project.activeCaption == k,
-                                                onTap: { cue in model.tapCaption(cue, track: k) })
-                                        .frame(height: 18, alignment: .top)
+                                ForEach(Array(model.project.captionTracks.indices), id: \.self) { k in
+                                    CaptionLane(model: model, track: k, layersHeight: lanes.layers + lanes.music + 2 * LaneLayout.gap)
+                                        .frame(height: CaptionLane.height, alignment: .top)
+                                        .zIndex(model.captionsSelected && model.project.activeCaption == k ? 1 : 0)
                                 }
                             }
                             .frame(height: lanes.captions, alignment: .top)
                         }
                     }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        // the edge a dragged block snapped to
+                        if let t = model.snapTime {
+                            SnapLine()
+                                .frame(width: 14)
+                                .offset(x: CGFloat(t) * model.pxPerSec - 7)
+                                .allowsHitTesting(false)
+                        }
                     }
                     .padding(.leading, max(0, half + shift))
                     // the + after the last clip sits inside the trailing room, so the strip stops with the
@@ -178,7 +182,7 @@ struct TimelineView: View {
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil)
+                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
                     if reorder == nil && zoomAnchor == nil && (phase == .interacting || phase == .decelerating) {
@@ -252,6 +256,14 @@ struct TimelineView: View {
         .onChange(of: model.project.clips) { if model.trim == nil { follow() } }
         .task(id: reorder != nil) { await autoScroll() }
         .task(id: model.trim != nil) { await trimScroll() }
+        .task(id: model.laneFinger != nil) { await laneScroll() }
+        .onChange(of: model.laneFinger == nil) { _, ended in
+            // the strip scrolled along with a dragged block: the playhead stays where the view is now
+            if ended && abs(model.laneAuto) > 1e-6 {
+                model.laneAuto = 0
+                model.scrub(to: Double(max(0, offsetX) / model.pxPerSec))
+            }
+        }
         .task {
             guard Demo.mode == "reorder" else { return }
             try? await Task.sleep(for: .seconds(4))
@@ -270,7 +282,7 @@ struct TimelineView: View {
             if empty {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(.white.opacity(0.045))
-                    .frame(width: max(10, CGFloat(model.duration) * model.pxPerSec), height: LaneLayout.empty)
+                    .frame(width: max(10, CGFloat(model.duration) * model.pxPerSec), height: max(LaneLayout.empty, height))
                     .allowsHitTesting(false)
             } else {
                 content()
@@ -382,6 +394,26 @@ struct TimelineView: View {
                         scrollPos.scrollTo(x: next)
                         offsetX = next
                     }
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+    }
+
+    /// Finger near the left or right edge while moving or trimming a text, picture, sound or caption: the strip
+    /// slides that way and the block keeps going with it (the lanes add `laneAuto` to the finger's movement).
+    private func laneScroll() async {
+        while !Task.isCancelled, let x = model.laneFinger {
+            let zone: CGFloat = 50
+            let push: CGFloat = x < zone ? -(zone - x) / zone : (x > screenW - zone ? (x - (screenW - zone)) / zone : 0)
+            if push != 0 {
+                let maxX = max(0, CGFloat(model.duration) * model.pxPerSec)
+                let next = min(max(offsetX + push * 9, 0), maxX)
+                let moved = next - offsetX
+                if abs(moved) > 0.01 {
+                    scrollPos.scrollTo(x: next)
+                    offsetX = next
+                    model.laneAuto += Double(moved / model.pxPerSec)
                 }
             }
             try? await Task.sleep(for: .milliseconds(16))
@@ -647,34 +679,161 @@ struct ClipTile: View {
     }
 }
 
-/// Thin row of caption blocks under the clips.
-private struct CaptionLane: View {
-    let captions: Captions
-    let pxPerSec: CGFloat
-    let currentTime: Double
-    var selected = false
-    var onTap: (CaptionCue) -> Void = { _ in }
+/// One caption track under the clips. Once it is selected (tap a line), its lines can be held and moved, the
+/// tapped line's ends dragged, and a line held and pulled up into the layers becomes a text with the captions' look.
+struct CaptionLane: View {
+    @ObservedObject var model: EditorModel
+    let track: Int
+    /// How far up the layer rows are (a line pulled up past this becomes a text).
+    var layersHeight: CGFloat = 60
+    @State private var dragStart: (id: UUID, start: Double, end: Double)?
+    @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
+    @State private var lift: CGFloat = 0
+
+    static let height: CGFloat = 18
+
+    private var captions: Captions? { model.project.captionTracks.indices.contains(track) ? model.project.captionTracks[track] : nil }
+    private var selected: Bool { model.captionsSelected && model.project.activeCaption == track }
+    /// Pulled up far enough to turn into a text.
+    private var lifted: Bool { lift < -max(28, layersHeight * 0.5) }
 
     var body: some View {
-        let total = (captions.cues.last?.end ?? 0)
+        let px = model.pxPerSec
+        let cues = captions?.cues ?? []
+        let total = cues.last?.end ?? 0
         ZStack(alignment: .topLeading) {
-            Color.clear.frame(width: CGFloat(total) * pxPerSec, height: 18)
-            ForEach(captions.cues) { cue in
-                let on = currentTime >= cue.start && currentTime < cue.end
-                Text(cue.text.replacingOccurrences(of: "\n", with: " "))
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(on ? .black : .white.opacity(0.85))
-                    .lineLimit(1)
-                    .padding(.horizontal, 4)
-                    .frame(width: max(4, CGFloat(cue.end - cue.start) * pxPerSec - 1), height: 18, alignment: .leading)
-                    .background(on ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
-                    .clipped()
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap(cue) }
-                    .offset(x: CGFloat(cue.start) * pxPerSec)
-            }
+            Color.clear.frame(width: CGFloat(total) * px, height: Self.height)
+            ForEach(cues) { cue in block(cue, px: px) }
         }
+        .onChange(of: model.laneAuto) { apply() }
+    }
+
+    private func block(_ cue: CaptionCue, px: CGFloat) -> some View {
+        let on = model.currentTime >= cue.start && model.currentTime < cue.end
+        let tapped = selected && model.tappedCue == cue.id
+        let moving = dragStart?.id == cue.id
+        return Text(cue.text.replacingOccurrences(of: "\n", with: " "))
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(on || tapped ? .black : .white.opacity(0.85))
+            .lineLimit(1)
+            .padding(.horizontal, tapped ? 9 : 4)
+            .frame(width: max(4, CGFloat(cue.end - cue.start) * px - 1), height: Self.height, alignment: .leading)
+            .background(on || tapped ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
+            .clipped()
+            .overlay {
+                if tapped {
+                    HStack(spacing: 0) {
+                        edge(cue, leading: true, px: px)
+                        Spacer(minLength: 0)
+                        edge(cue, leading: false, px: px)
+                    }
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if moving && lifted {
+                    Label(loc("Text"), systemImage: "textformat")
+                        .font(.system(size: 10, weight: .heavy)).foregroundStyle(.black)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(.white, in: Capsule())
+                        .fixedSize()
+                        .offset(y: -20)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { model.tapCaption(cue, track: track) }
+            .gesture(HoldToDrag(
+                onBegan: { x in
+                    guard selected else { return }
+                    if model.tappedCue != cue.id { model.tapCaption(cue, track: track) }
+                    dragStart = (cue.id, cue.start, cue.end)
+                    active = (cue.id, .move, 0)
+                    lift = 0
+                    model.laneDragBegan(x)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                },
+                onChanged: { dx, x in
+                    guard active?.id == cue.id else { return }
+                    active?.dx = dx
+                    model.laneDragMoved(x)
+                    apply()
+                },
+                onEnded: { finish() },
+                onVertical: { dy in
+                    guard active?.id == cue.id else { return }
+                    let was = lifted
+                    lift = min(0, dy)
+                    if was != lifted { UISelectionFeedbackGenerator().selectionChanged() }
+                }))
+            .offset(x: CGFloat(cue.start) * px, y: moving ? lift : 0)
+            .shadow(color: .black.opacity(moving ? 0.5 : 0), radius: 6, y: 3)
+            .zIndex(moving ? 2 : (tapped ? 1 : 0))
+    }
+
+    private func edge(_ cue: CaptionCue, leading: Bool, px: CGFloat) -> some View {
+        Rectangle().fill(.black.opacity(0.35))
+            .frame(width: 8, height: Self.height)
+            .overlay(Capsule().fill(.black).frame(width: 2, height: 8))
+            .contentShape(Rectangle().inset(by: -8))
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                    .onChanged { v in
+                        if dragStart == nil {
+                            dragStart = (cue.id, cue.start, cue.end)
+                            model.laneDragBegan(v.location.x)
+                        }
+                        active = (cue.id, leading ? .head : .tail, v.translation.width)
+                        model.laneDragMoved(v.location.x)
+                        apply()
+                    }
+                    .onEnded { _ in finish() }
+            )
+    }
+
+    private func apply() {
+        guard let a = active, let d = dragStart else { return }
+        let dt = Double(a.dx / model.pxPerSec) + model.laneAuto
+        switch a.mode {
+        case .move:
+            let s = lifted ? d.start + dt : model.snapMove(start: d.start + dt, length: d.end - d.start, .caption, id: d.id)
+            // pulled up into the layers: the line itself stays where it was
+            if lifted { model.cueTiming(track: track, d.id, start: d.start, end: d.end, done: false); return }
+            model.cueTiming(track: track, d.id, start: s, end: s + (d.end - d.start), done: false)
+        case .head:
+            model.cueTiming(track: track, d.id, start: model.snapEdge(d.start + dt, .caption, id: d.id), end: d.end, done: false)
+        case .tail:
+            model.cueTiming(track: track, d.id, start: d.start, end: model.snapEdge(d.end + dt, .caption, id: d.id), done: false)
+        }
+    }
+
+    private func finish() {
+        guard let d = dragStart else { return }
+        let toText = active?.mode == .move && lifted
+        let at = d.start + Double((active?.dx ?? 0) / model.pxPerSec) + model.laneAuto
+        if let cur = captions?.cues.first(where: { $0.id == d.id }) {
+            model.cueTiming(track: track, d.id, start: toText ? d.start : cur.start, end: toText ? d.end : cur.end, done: true)
+        }
+        let textAt = toText ? model.snapMove(start: at, length: d.end - d.start, .overlay, id: d.id) : 0
+        dragStart = nil
+        active = nil
+        lift = 0
+        model.laneDragEnded()
+        if toText { model.cueToText(track: track, d.id, at: textAt) }
+    }
+}
+
+/// What a finger does to a block in a lane.
+enum LaneDragMode { case move, head, tail }
+
+/// The edge a dragged block snapped to: a soft lime line down the whole timeline.
+struct SnapLine: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Theme.accent.opacity(0), Theme.accent.opacity(0.28), Theme.accent.opacity(0)],
+                           startPoint: .leading, endPoint: .trailing)
+            Rectangle().fill(Theme.accent.opacity(0.9)).frame(width: 2)
+        }
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -720,12 +879,13 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     }
 }
 
-/// Overlay blocks under the clips: tap to select (again to deselect), hold and slide to move, drag the ends to trim.
+/// Texts, pictures and videos under the clips, in rows (the higher row is drawn on top): tap to select (again to
+/// deselect), hold and slide to move (up / down to another row), drag the ends to trim. Edges snap, and at the
+/// screen edge the strip keeps scrolling.
 struct OverlayLane: View {
     @ObservedObject var model: EditorModel
-    /// Text lane or the lane for pictures and videos.
-    var texts: Bool
     @State private var dragStart: (start: Double, duration: Double)?
+    @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
     /// Held block moving up / down: how far, and which row it would land in.
     @State private var lift: (id: UUID, dy: CGFloat)?
 
@@ -740,7 +900,7 @@ struct OverlayLane: View {
 
     var body: some View {
         let px = model.pxPerSec
-        let rows = model.project.overlayRows(texts: texts)
+        let rows = model.project.overlayRows()
         VStack(alignment: .leading, spacing: 3) {
             ForEach(Array(rows.enumerated()), id: \.offset) { r, row in
                 ZStack(alignment: .topLeading) {
@@ -751,6 +911,7 @@ struct OverlayLane: View {
             }
         }
         .overlay(alignment: .topLeading) { landingMark(rows.count, px: px) }
+        .onChange(of: model.laneAuto) { apply() }
     }
 
     /// Where a block held and moved up / down lands: a new row between the others, or below / above them all.
@@ -761,7 +922,7 @@ struct OverlayLane: View {
     @ViewBuilder
     private func landingMark(_ rows: Int, px: CGFloat) -> some View {
         if let l = lift, let o = model.project.overlays.first(where: { $0.id == l.id }) {
-            let row = model.project.overlayRows(texts: texts).firstIndex { $0.contains { $0.id == l.id } } ?? 0
+            let row = model.project.overlayRows().firstIndex { $0.contains { $0.id == l.id } } ?? 0
             let t = target(l.dy, from: row, rows: rows)
             if t != row {
                 // a lime line where it will land (a new row when it sits between rows, or past either end)
@@ -774,6 +935,9 @@ struct OverlayLane: View {
         }
     }
 
+    private static let textTint = Color(red: 0.55, green: 0.35, blue: 1)
+    private static let mediaTint = Color(red: 0.3, green: 0.52, blue: 1)
+
     private func block(_ o: Overlay, px: CGFloat, row: Int, rows: Int) -> some View {
         let selected = o.id == model.selectedOverlayID
         let w = max(10, CGFloat(o.duration) * px)
@@ -784,7 +948,7 @@ struct OverlayLane: View {
         .foregroundStyle(selected ? .black : .white)
         .padding(.horizontal, selected ? 12 : 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background(selected ? Theme.accent : Color(red: 0.55, green: 0.35, blue: 1).opacity(0.45),
+        .background(selected ? Theme.accent : (o.isText ? Self.textTint : Self.mediaTint).opacity(0.45),
                     in: RoundedRectangle(cornerRadius: 5))
         .clipped()
         .overlay(alignment: .leading) {
@@ -802,9 +966,9 @@ struct OverlayLane: View {
         .overlay {
             if selected {
                 HStack(spacing: 0) {
-                    edge(o, leading: true, px: px)
+                    edge(o, leading: true)
                     Spacer(minLength: 0)
-                    edge(o, leading: false, px: px)
+                    edge(o, leading: false)
                 }
             }
         }
@@ -816,25 +980,21 @@ struct OverlayLane: View {
             if selected { model.selectOverlay(nil) } else { model.selectOverlay(o.id) }
         }
         .gesture(HoldToDrag(
-            onBegan: { _ in
+            onBegan: { x in
                 model.selectOverlay(o.id)
                 dragStart = (o.start, o.duration)
+                active = (o.id, .move, 0)
+                model.laneDragBegan(x)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             },
-            onChanged: { dx, _ in
-                guard let d = dragStart else { return }
-                var s = d.start + Double(dx / px)
-                // moving it between rows: the time stays put unless the finger clearly goes sideways too
-                if let l = lift, l.id == o.id, abs(l.dy) > Self.rowStep * 0.6, abs(dx) < 16 { s = d.start }
-                // snap the start to the playhead
-                if abs((s - model.currentTime) * Double(px)) < 8 { s = model.currentTime }
-                model.overlayTiming(o.id, start: s, duration: d.duration, done: false)
+            onChanged: { dx, x in
+                guard active?.id == o.id else { return }
+                active?.dx = dx
+                model.laneDragMoved(x)
+                apply()
             },
             onEnded: {
-                if let cur = model.project.overlays.first(where: { $0.id == o.id }) {
-                    model.overlayTiming(o.id, start: cur.start, duration: cur.duration, done: true)
-                }
-                dragStart = nil
+                finish(o.id)
                 if let l = lift, l.id == o.id {
                     let t = target(l.dy, from: row, rows: rows)
                     lift = nil
@@ -850,7 +1010,7 @@ struct OverlayLane: View {
         .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
     }
 
-    private func edge(_ o: Overlay, leading: Bool, px: CGFloat) -> some View {
+    private func edge(_ o: Overlay, leading: Bool) -> some View {
         Rectangle().fill(.black.opacity(0.35))
             .frame(width: 10, height: Self.rowHeight)
             .overlay(Capsule().fill(.black).frame(width: 2, height: 10))
@@ -858,30 +1018,57 @@ struct OverlayLane: View {
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in
-                        if dragStart == nil { dragStart = (o.start, o.duration) }
-                        guard let d = dragStart else { return }
-                        let dt = Double(v.translation.width / px)
-                        if leading {
-                            let ns = min(max(0, d.start + dt), d.start + d.duration - 0.2)
-                            model.overlayTiming(o.id, start: ns, duration: d.start + d.duration - ns, done: false)
-                        } else {
-                            model.overlayTiming(o.id, start: d.start, duration: d.duration + dt, done: false)
+                        if dragStart == nil {
+                            dragStart = (o.start, o.duration)
+                            model.laneDragBegan(v.location.x)
                         }
+                        active = (o.id, leading ? .head : .tail, v.translation.width)
+                        model.laneDragMoved(v.location.x)
+                        apply()
                     }
-                    .onEnded { _ in
-                        if let cur = model.project.overlays.first(where: { $0.id == o.id }) {
-                            model.overlayTiming(o.id, start: cur.start, duration: cur.duration, done: true)
-                        }
-                        dragStart = nil
-                    }
+                    .onEnded { _ in finish(o.id) }
             )
+    }
+
+    /// The finger's movement (plus what the strip scrolled by itself) applied to the block, with snapping.
+    private func apply() {
+        guard let a = active, let d = dragStart else { return }
+        let dt = Double(a.dx / model.pxPerSec) + model.laneAuto
+        switch a.mode {
+        case .move:
+            var s = d.start + dt
+            // moving it between rows: the time stays put unless the finger clearly goes sideways too
+            if let l = lift, l.id == a.id, abs(l.dy) > Self.rowStep * 0.6, abs(a.dx) < 16, abs(model.laneAuto) < 1e-6 {
+                s = d.start
+            } else {
+                s = model.snapMove(start: s, length: d.duration, .overlay, id: a.id)
+            }
+            model.overlayTiming(a.id, start: s, duration: d.duration, done: false)
+        case .head:
+            let ns = min(max(0, model.snapEdge(d.start + dt, .overlay, id: a.id)), d.start + d.duration - 0.2)
+            model.overlayTiming(a.id, start: ns, duration: d.start + d.duration - ns, done: false)
+        case .tail:
+            let ne = model.snapEdge(d.start + d.duration + dt, .overlay, id: a.id)
+            model.overlayTiming(a.id, start: d.start, duration: ne - d.start, done: false)
+        }
+    }
+
+    private func finish(_ id: UUID) {
+        if let cur = model.project.overlays.first(where: { $0.id == id }) {
+            model.overlayTiming(id, start: cur.start, duration: cur.duration, done: true)
+        }
+        dragStart = nil
+        active = nil
+        model.laneDragEnded()
     }
 }
 
-/// Sound under the clips: tap to select, hold and slide to move (snaps to the playhead), drag the edges to trim.
+/// Sound under the clips: tap to select, hold and slide to move, drag the edges to trim. Edges snap to the
+/// playhead, the clips and the other sounds; at the screen edge the strip keeps scrolling.
 struct AudioLane: View {
     @ObservedObject var model: EditorModel
     @State private var dragStart: (start: Double, duration: Double, inPoint: Double)?
+    @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
 
     static let rowHeight: CGFloat = 26
     static let maxRows = 3
@@ -917,6 +1104,7 @@ struct AudioLane: View {
                 }
             }
         }
+        .onChange(of: model.laneAuto) { apply() }
     }
 
     private func block(_ a: AudioItem, px: CGFloat) -> some View {
@@ -952,23 +1140,20 @@ struct AudioLane: View {
             if selected { model.selectAudio(nil) } else { model.selectAudio(a.id) }
         }
         .gesture(HoldToDrag(
-            onBegan: { _ in
+            onBegan: { x in
                 model.selectAudio(a.id)
                 dragStart = (a.start, a.duration, a.inPoint)
+                active = (a.id, .move, 0)
+                model.laneDragBegan(x)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             },
-            onChanged: { dx, _ in
-                guard let d = dragStart else { return }
-                var s = d.start + Double(dx / px)
-                if abs((s - model.currentTime) * Double(px)) < 8 { s = model.currentTime }
-                model.audioTiming(a.id, start: s, duration: d.duration, done: false)
+            onChanged: { dx, x in
+                guard active?.id == a.id else { return }
+                active?.dx = dx
+                model.laneDragMoved(x)
+                apply()
             },
-            onEnded: {
-                if let cur = model.project.audio.first(where: { $0.id == a.id }) {
-                    model.audioTiming(a.id, start: cur.start, duration: cur.duration, done: true)
-                }
-                dragStart = nil
-            }))
+            onEnded: { finish(a.id) }))
         .offset(x: CGFloat(a.start) * px)
     }
 
@@ -980,27 +1165,45 @@ struct AudioLane: View {
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in
-                        if dragStart == nil { dragStart = (a.start, a.duration, a.inPoint) }
-                        guard let d = dragStart else { return }
-                        var dt = Double(v.translation.width / px)
-                        let edgeT = leading ? d.start + dt : d.start + d.duration + dt
-                        if abs((edgeT - model.currentTime) * Double(px)) < 8 { dt += model.currentTime - edgeT }
-                        if leading {
-                            // trimming the head moves into the file too, so the sound stays in sync
-                            let shift = max(-d.inPoint / a.speed, min(dt, d.duration - 0.2))
-                            model.audioTiming(a.id, start: d.start + shift, duration: d.duration - shift,
-                                              inPoint: d.inPoint + shift * a.speed, done: false)
-                        } else {
-                            model.audioTiming(a.id, start: d.start, duration: d.duration + dt, done: false)
+                        if dragStart == nil {
+                            dragStart = (a.start, a.duration, a.inPoint)
+                            model.laneDragBegan(v.location.x)
                         }
+                        active = (a.id, leading ? .head : .tail, v.translation.width)
+                        model.laneDragMoved(v.location.x)
+                        apply()
                     }
-                    .onEnded { _ in
-                        if let cur = model.project.audio.first(where: { $0.id == a.id }) {
-                            model.audioTiming(a.id, start: cur.start, duration: cur.duration, done: true)
-                        }
-                        dragStart = nil
-                    }
+                    .onEnded { _ in finish(a.id) }
             )
+    }
+
+    /// The finger's movement (plus what the strip scrolled by itself) applied to the sound, with snapping.
+    private func apply() {
+        guard let act = active, let d = dragStart, let a = model.project.audio.first(where: { $0.id == act.id }) else { return }
+        let dt = Double(act.dx / model.pxPerSec) + model.laneAuto
+        switch act.mode {
+        case .move:
+            let s = model.snapMove(start: d.start + dt, length: d.duration, .audio, id: a.id)
+            model.audioTiming(a.id, start: s, duration: d.duration, done: false)
+        case .head:
+            // trimming the head moves into the file too, so the sound stays in sync
+            let want = model.snapEdge(d.start + dt, .audio, id: a.id) - d.start
+            let shift = max(-d.inPoint / a.speed, min(want, d.duration - 0.2))
+            model.audioTiming(a.id, start: d.start + shift, duration: d.duration - shift,
+                              inPoint: d.inPoint + shift * a.speed, done: false)
+        case .tail:
+            let ne = model.snapEdge(d.start + d.duration + dt, .audio, id: a.id)
+            model.audioTiming(a.id, start: d.start, duration: ne - d.start, done: false)
+        }
+    }
+
+    private func finish(_ id: UUID) {
+        if let cur = model.project.audio.first(where: { $0.id == id }) {
+            model.audioTiming(id, start: cur.start, duration: cur.duration, done: true)
+        }
+        dragStart = nil
+        active = nil
+        model.laneDragEnded()
     }
 }
 
@@ -1042,7 +1245,7 @@ struct TransitionMark: View {
     }
 }
 
-/// Heights of the timeline's lanes, top to bottom: clips, text, pictures and videos, sound, captions.
+/// Heights of the timeline's lanes, top to bottom: clips, layers (texts, pictures, videos), sound, captions.
 /// Shared by the timeline and the add island on its left, so each + sits on its own lane.
 struct LaneLayout {
     static let top: CGFloat = 26       // ruler
@@ -1051,27 +1254,24 @@ struct LaneLayout {
     static let empty: CGFloat = 20     // a lane with nothing in it yet
     static let bottom: CGFloat = 10
 
-    let text: CGFloat
-    let overlay: CGFloat
+    let layers: CGFloat
     let music: CGFloat
     let captions: CGFloat
-    /// Basic mode has no picture / video overlays (unless the project already has some).
+    /// Basic mode has no picture / video overlays (unless the project already has some): no + for them.
     let showOverlay: Bool
 
     init(_ p: Project, pro: Bool) {
-        let texts = p.overlays.filter(\.isText)
-        let media = p.overlays.filter { !$0.isText }
-        text = texts.isEmpty ? Self.empty : OverlayLane.height(texts)
-        showOverlay = pro || !media.isEmpty
-        overlay = showOverlay ? (media.isEmpty ? Self.empty : OverlayLane.height(media)) : 0
+        showOverlay = pro || p.overlays.contains { !$0.isText }
+        // room for the island's two + (text, picture) next to the layers
+        let least = showOverlay ? Self.empty * 2 + Self.gap : Self.empty
+        layers = max(least, OverlayLane.height(p.overlays))
         music = p.audio.isEmpty ? Self.empty : AudioLane.height(p.audio)
         let n = CGFloat(p.captionTracks.count)
-        captions = n == 0 ? 0 : n * 18 + (n - 1) * 3
+        captions = n == 0 ? 0 : n * CaptionLane.height + (n - 1) * 3
     }
 
     var total: CGFloat {
-        Self.top + Self.strip + Self.gap + text + (showOverlay ? Self.gap + overlay : 0) + Self.gap + music
-            + (captions > 0 ? Self.gap + captions : 0) + Self.bottom
+        Self.top + Self.strip + Self.gap + layers + Self.gap + music + (captions > 0 ? Self.gap + captions : 0) + Self.bottom
     }
 }
 

@@ -370,6 +370,17 @@ struct CaptionsSheet: View {
     private func styleEditor(_ caps: Captions) -> some View {
         let s = caps.style
         return VStack(alignment: .leading, spacing: 14) {
+            // lines and length: changed all the time, so always on top (a template remembers them too)
+            HStack(spacing: 8) {
+                pill("1 line", on: s.lines == 1) { setLines(1, min(s.maxChars, 20)) }
+                pill("2 lines", on: s.lines == 2) { setLines(2, max(s.maxChars, 28)) }
+                Spacer()
+                Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
+                        in: 8...48, step: 2) {
+                    Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
+                }
+                .fixedSize()
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(Self.styleSections.indices, id: \.self) { i in
@@ -444,18 +455,6 @@ struct CaptionsSheet: View {
     private func layoutSection(_ s: CaptionStyle) -> some View {
         slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
-        section("Lines") {
-            HStack(spacing: 8) {
-                pill("1 line", on: s.lines == 1) { setStyle(recut: true) { $0.lines = 1; $0.maxChars = min($0.maxChars, 20) } }
-                pill("2 lines", on: s.lines == 2) { setStyle(recut: true) { $0.lines = 2; $0.maxChars = max($0.maxChars, 28) } }
-                Spacer()
-                Stepper(value: Binding(get: { s.maxChars }, set: { v in setStyle(recut: true) { $0.maxChars = v } }),
-                        in: 8...48, step: 2) {
-                    Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
-                }
-                .fixedSize()
-            }
-        }
         slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
         OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
@@ -564,6 +563,20 @@ struct CaptionsSheet: View {
     }
 
     // MARK: Small building blocks
+
+    /// Lines and length don't make it another look: the template stays picked, and your own template remembers them.
+    private func setLines(_ lines: Int, _ chars: Int) {
+        guard var c = model.project.captions else { return }
+        c.style.lines = lines
+        c.style.maxChars = chars
+        c.recut()
+        if let tid = c.templateID, let i = templates.firstIndex(where: { $0.id == tid }) {
+            templates[i].style.lines = lines
+            templates[i].style.maxChars = chars
+            TemplateStore.save(templates)
+        }
+        model.setCaptions(c)
+    }
 
     private func setStyle(recut: Bool = false, _ change: (inout CaptionStyle) -> Void) {
         guard var c = model.project.captions else { return }

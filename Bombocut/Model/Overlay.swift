@@ -239,57 +239,67 @@ extension Captions {
 // MARK: Overlay rows (tracks)
 
 extension Project {
-    /// One lane's rows, top to bottom (the top row is drawn on top).
-    func overlayRows(texts: Bool) -> [[Overlay]] {
-        let lane = overlays.filter { $0.isText == texts }
-        guard !lane.isEmpty else { return [] }
-        let n = (lane.compactMap(\.track).max() ?? 0) + 1
+    /// The layer rows, top to bottom (the top row is drawn on top). Texts, pictures and videos share them, so a
+    /// text can go under a picture and the other way round.
+    func overlayRows() -> [[Overlay]] {
+        guard !overlays.isEmpty else { return [] }
+        let n = (overlays.compactMap(\.track).max() ?? 0) + 1
         var rows = [[Overlay]](repeating: [], count: n)
-        for o in lane { rows[min(max(o.track ?? 0, 0), n - 1)].append(o) }
+        for o in overlays { rows[min(max(o.track ?? 0, 0), n - 1)].append(o) }
         return rows.filter { !$0.isEmpty }.map { $0.sorted { $0.start < $1.start } }
     }
 
-    /// Every overlay gets a row, rows never hold two overlapping blocks, empty rows close up, and the list is
-    /// put in drawing order (bottom row first, pictures and videos before texts) so what renders on top is
-    /// what sits higher in the timeline.
-    mutating func normalizeOverlays() {
+    /// Projects from before texts and pictures shared rows: each kind had its own rows and texts were always on
+    /// top, so the picture rows go below the text rows (nothing changes on screen).
+    mutating func mergeOverlayLanes() {
         func overlaps(_ a: Overlay, _ b: Overlay) -> Bool { a.start < b.end - 0.001 && b.start < a.end - 0.001 }
-        var ranked: [UUID: Double] = [:]
-        for texts in [false, true] {
-            let lane = overlays.filter { $0.isText == texts }
-            guard !lane.isEmpty else { continue }
-            var rank: [UUID: Double] = [:]
-            if lane.allSatisfy({ $0.track == nil }) {
-                // older projects: rows packed by list order, later ones lower and drawn later (on top);
-                // flipped, so the picture stays exactly as it was
-                var rows: [[Overlay]] = []
-                for o in lane {
-                    if let i = rows.firstIndex(where: { r in r.allSatisfy { !overlaps($0, o) } }) { rows[i].append(o) } else { rows.append([o]) }
-                }
-                for (r, row) in rows.enumerated() { for o in row { rank[o.id] = Double(rows.count - 1 - r) } }
-            } else {
-                // a block added without a row goes on top
-                for o in lane { rank[o.id] = o.track.map(Double.init) ?? -0.5 }
-            }
-            // a block that now overlaps another in its row moves to a new row just above (so it stays visible)
-            var bump = 0.0
-            for t in Set(rank.values).sorted() {
-                var kept: [Overlay] = []
-                for o in lane.filter({ rank[$0.id] == t }).sorted(by: { $0.start < $1.start }) {
-                    if kept.contains(where: { overlaps($0, o) }) {
-                        bump += 0.001
-                        rank[o.id] = t - 0.5 + bump
+        var textRows = 0
+        for texts in [true, false] {
+            let idx = overlays.indices.filter { overlays[$0].isText == texts }
+            guard !idx.isEmpty else { continue }
+            if idx.allSatisfy({ overlays[$0].track == nil }) {
+                // the oldest projects: rows packed by list order, later ones lower down and drawn on top
+                var rows: [[Int]] = []
+                for i in idx {
+                    if let r = rows.firstIndex(where: { $0.allSatisfy { !overlaps(overlays[$0], overlays[i]) } }) {
+                        rows[r].append(i)
                     } else {
-                        kept.append(o)
+                        rows.append([i])
                     }
                 }
+                for (r, row) in rows.enumerated() { for i in row { overlays[i].track = rows.count - 1 - r } }
             }
-            let order = Set(rank.values).sorted()
-            for (id, r) in rank { ranked[id] = Double(order.firstIndex(of: r) ?? 0) }
+            let used = Set(idx.compactMap { overlays[$0].track }).sorted()
+            for i in idx { overlays[i].track = (used.firstIndex(of: overlays[i].track ?? 0) ?? 0) + (texts ? 0 : textRows) }
+            if texts { textRows = used.count }
         }
-        for i in overlays.indices { overlays[i].track = Int(ranked[overlays[i].id] ?? 0) }
+    }
+
+    /// Every overlay gets a row, rows never hold two overlapping blocks, empty rows close up, and the list is
+    /// put in drawing order (bottom row first) so what renders on top is what sits higher in the timeline.
+    mutating func normalizeOverlays() {
+        func overlaps(_ a: Overlay, _ b: Overlay) -> Bool { a.start < b.end - 0.001 && b.start < a.end - 0.001 }
+        guard !overlays.isEmpty else { return }
+        // a block added without a row goes on top
+        var rank: [UUID: Double] = [:]
+        for o in overlays { rank[o.id] = o.track.map(Double.init) ?? -0.5 }
+        // a block that now overlaps another in its row moves to a new row just above (so it stays visible)
+        var bump = 0.0
+        for t in Set(rank.values).sorted() {
+            var kept: [Overlay] = []
+            for o in overlays.filter({ rank[$0.id] == t }).sorted(by: { $0.start < $1.start }) {
+                if kept.contains(where: { overlaps($0, o) }) {
+                    bump += 0.001
+                    rank[o.id] = t - 0.5 + bump
+                } else {
+                    kept.append(o)
+                }
+            }
+        }
+        let order = Set(rank.values).sorted()
+        for i in overlays.indices { overlays[i].track = order.firstIndex(of: rank[overlays[i].id] ?? 0) ?? 0 }
         overlays = overlays.enumerated().sorted { a, b in
-            let ka = (a.element.isText ? 1 : 0, -(a.element.track ?? 0)), kb = (b.element.isText ? 1 : 0, -(b.element.track ?? 0))
+            let ka = -(a.element.track ?? 0), kb = -(b.element.track ?? 0)
             return ka != kb ? ka < kb : a.offset < b.offset
         }.map(\.element)
     }
@@ -297,7 +307,7 @@ extension Project {
     /// A new overlay goes on top of whatever it covers: the nearest free row above, or a new top row.
     mutating func placeNewOverlay(_ o: inout Overlay) {
         normalizeOverlays()
-        let rows = overlayRows(texts: o.isText)
+        let rows = overlayRows()
         let (s0, e0) = (o.start, o.end)
         func free(_ r: Int) -> Bool { rows[r].allSatisfy { $0.end <= s0 + 0.001 || $0.start >= e0 - 0.001 } }
         let covering = rows.indices.filter { !free($0) }
@@ -307,7 +317,7 @@ extension Project {
             o.track = 0
         }
         if o.track == -1 {
-            for i in overlays.indices where overlays[i].isText == o.isText { overlays[i].track = (overlays[i].track ?? 0) + 1 }
+            for i in overlays.indices { overlays[i].track = (overlays[i].track ?? 0) + 1 }
             o.track = 0
         }
     }
@@ -319,7 +329,7 @@ extension Project {
         normalizeOverlays()
         guard let i = overlays.firstIndex(where: { $0.id == id }) else { return }
         let o = overlays[i]
-        let rows = overlayRows(texts: o.isText)
+        let rows = overlayRows()
         let from = o.track ?? 0
         guard target != from else { return }
         var rank: Double
@@ -332,14 +342,12 @@ extension Project {
         } else {
             rank = Double(target) + (target > from ? 0.5 : -0.5)
         }
-        // re-rank the lane with the moved block in its new place, then close up
+        // re-rank with the moved block in its new place, then close up
         var ranks: [UUID: Double] = [:]
-        for x in overlays where x.isText == o.isText { ranks[x.id] = Double(x.track ?? 0) }
+        for x in overlays { ranks[x.id] = Double(x.track ?? 0) }
         ranks[id] = rank
         let order = Set(ranks.values).sorted()
-        for k in overlays.indices where overlays[k].isText == o.isText {
-            overlays[k].track = order.firstIndex(of: ranks[overlays[k].id] ?? 0) ?? 0
-        }
+        for k in overlays.indices { overlays[k].track = order.firstIndex(of: ranks[overlays[k].id] ?? 0) ?? 0 }
         normalizeOverlays()
     }
 }

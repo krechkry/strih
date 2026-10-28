@@ -255,7 +255,10 @@ final class EditorModel: ObservableObject {
     }
 
     /// Seeks frame-accurately, dropping intermediate targets while a seek is in flight.
+    private var scrubCount = 0
+
     func scrub(to t: Double) {
+        scrubCount &+= 1
         let t = min(max(0, t), duration)
         currentTime = t
         seekTarget = t
@@ -313,6 +316,7 @@ final class EditorModel: ObservableObject {
         let p = project
         let size = previewSize
         let keep = currentTime
+        let scrubs = scrubCount
         buildTask = Task {
             guard !p.clips.isEmpty else {
                 player.replaceCurrentItem(with: nil)
@@ -333,7 +337,9 @@ final class EditorModel: ObservableObject {
                     try? await Task.sleep(for: .milliseconds(15))
                 }
                 if Task.isCancelled { return }
-                scrub(to: min(keep, max(0, built.duration - 0.001)))
+                // the playhead was put somewhere new while this built (a moved clip lands on its start): stay there
+                let t = scrubCount != scrubs ? currentTime : keep
+                scrub(to: min(t, max(0, built.duration - 0.001)))
                 if wasPlaying { player.play() }
                 // A committed transform keeps its live overlay until the new frame is on screen.
                 if let gen = clearLiveGen {
@@ -1192,7 +1198,7 @@ final class EditorModel: ObservableObject {
     }
 
     /// The caption line tapped last on the timeline ("Edit text" opens it).
-    private(set) var tappedCue: UUID?
+    @Published private(set) var tappedCue: UUID?
 
     func openCaption(_ cue: CaptionCue) {
         pause()
@@ -1591,6 +1597,13 @@ final class EditorModel: ObservableObject {
         }
     }
     private var outlineHidden = false
+    /// Timeline: the edge a dragged block snapped to (a soft lime line marks it), nil when not snapped.
+    @Published private(set) var snapTime: Double?
+    /// Timeline: where the finger is on screen while a block (overlay, sound, caption) is dragged or trimmed,
+    /// and how far the strip scrolled by itself meanwhile (the finger at a screen edge keeps going).
+    @Published private(set) var laneFinger: CGFloat?
+    @Published var laneAuto: Double = 0
+    var cueSnapshot: Project?
     /// Painting a custom mask on the preview (fingers paint instead of scrubbing).
     @Published var maskPaint = false
     /// The brush keeps (true) or removes what it touches.
@@ -2854,5 +2867,137 @@ extension EditorModel {
             analysis = nil
             analysisTask = nil
         }
+    }
+}
+
+// MARK: Timeline lanes: snapping, scrolling at the screen edges, captions moved and trimmed in the timeline
+
+extension EditorModel {
+    enum SnapKind { case overlay, audio, caption }
+
+    /// Edges a block can snap to: the playhead, the start and end, every clip's edges, and the edges of the other
+    /// blocks of its own kind (texts, pictures and videos together; sounds; captions).
+    func snapEdges(_ kind: SnapKind, excluding id: UUID?) -> [Double] {
+        var t: [Double] = [currentTime, 0, duration]
+        let starts = project.clipStarts
+        for (i, c) in project.clips.enumerated() { t.append(starts[i]); t.append(starts[i] + c.duration) }
+        switch kind {
+        case .overlay: for o in project.overlays where o.id != id { t.append(o.start); t.append(o.end) }
+        case .audio: for a in project.audio where a.id != id { t.append(a.start); t.append(a.end) }
+        case .caption:
+            for caps in project.captionTracks { for c in caps.cues where c.id != id { t.append(c.start); t.append(c.end) } }
+        }
+        return t
+    }
+
+    private var snapReach: Double { 10 / Double(max(pxPerSec, 1)) }
+
+    private func setSnap(_ t: Double?) {
+        if let t, snapTime.map({ abs($0 - t) > 1e-6 }) ?? true { UISelectionFeedbackGenerator().selectionChanged() }
+        if snapTime != t { snapTime = t }
+    }
+
+    /// A block being moved to start at `start`: its start or its end lands on the nearest edge within reach.
+    func snapMove(start: Double, length: Double, _ kind: SnapKind, id: UUID) -> Double {
+        var best: (d: Double, shift: Double, at: Double)?
+        for e in snapEdges(kind, excluding: id) {
+            for edge in [start, start + length] {
+                let d = abs(e - edge)
+                if d < snapReach && d < (best?.d ?? .infinity) { best = (d, e - edge, e) }
+            }
+        }
+        setSnap(best?.at)
+        return start + (best?.shift ?? 0)
+    }
+
+    /// One edge being trimmed to `t`: onto the nearest edge within reach.
+    func snapEdge(_ t: Double, _ kind: SnapKind, id: UUID) -> Double {
+        let e = snapEdges(kind, excluding: id).min { abs($0 - t) < abs($1 - t) }
+        if let e, abs(e - t) < snapReach { setSnap(e); return e }
+        setSnap(nil)
+        return t
+    }
+
+    func laneDragBegan(_ x: CGFloat) {
+        pause()
+        laneAuto = 0
+        laneFinger = x
+    }
+
+    func laneDragMoved(_ x: CGFloat) { if laneFinger != nil { laneFinger = x } }
+
+    func laneDragEnded() {
+        laneFinger = nil
+        setSnap(nil)
+    }
+
+    // MARK: Captions in the timeline
+
+    /// A caption line moved (same length) or trimmed (one edge), live until `done`. It stays between its neighbours,
+    /// and its words go along, so the edit holds when the captions are cut again.
+    func cueTiming(track k: Int, _ id: UUID, start: Double, end: Double, done: Bool) {
+        guard project.captionTracks.indices.contains(k),
+              let i = project.captionTracks[k].cues.firstIndex(where: { $0.id == id }) else { return }
+        if cueSnapshot == nil { cueSnapshot = project }
+        var caps = project.captionTracks[k]
+        let old = caps.cues[i]
+        let lo = i > 0 ? caps.cues[i - 1].end + 0.02 : 0
+        let hi = i + 1 < caps.cues.count ? caps.cues[i + 1].start - 0.02 : max(duration, old.end)
+        let len = old.end - old.start
+        var s = start, e = end
+        if abs((end - start) - len) < 1e-6 {
+            s = min(max(lo, s), max(lo, hi - len))
+            e = s + len
+        } else {
+            s = min(max(lo, s), old.end - 0.2)
+            e = max(min(hi, e), s + 0.2)
+        }
+        if abs(s - old.start) > 1e-6 || abs(e - old.end) > 1e-6 {
+            let f = (e - s) / max(len, 1e-6)
+            func map(_ t: Double) -> Double { s + (t - old.start) * f }
+            var n = old
+            n.start = s
+            n.end = e
+            n.words = old.words.map { CaptionWord(text: $0.text, start: map($0.start), end: map($0.end), confidence: $0.confidence) }
+            caps.cues[i] = n
+            project.captionTracks[k] = caps
+            publishLook()
+        }
+        if done {
+            if let snap = cueSnapshot, snap != project { pushUndo(snap) }
+            cueSnapshot = nil
+            commitLook()
+        }
+    }
+
+    /// A caption line dragged up into the layers: a copy of it as a text, with the captions' look, where it was
+    /// dropped (the caption itself stays).
+    func cueToText(track k: Int, _ id: UUID, at start: Double) {
+        guard project.captionTracks.indices.contains(k),
+              let cue = project.captionTracks[k].cues.first(where: { $0.id == id }) else { return }
+        let st = project.captionTracks[k].style
+        let len = cue.end - cue.start
+        let s0 = min(max(0, start), max(0, duration - 0.2))
+        var o = Overlay(kind: .text(cue.text), start: s0, duration: max(0.2, min(len, duration - s0)))
+        var style = st
+        style.anim = .none
+        style.punctuation = true
+        style.lines = max(style.lines, cue.text.split(separator: "\n").count, 3)
+        style.maxChars = max(style.maxChars, 60)
+        style.x = 0
+        style.y = 0.5
+        style.rotation = 0
+        o.style = style
+        o.transform.x = st.x
+        o.transform.y = st.y - 0.5
+        o.transform.rotation = st.rotation
+        mutateLook { p in
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
+        captionsSelected = false
+        selectOverlay(o.id)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }

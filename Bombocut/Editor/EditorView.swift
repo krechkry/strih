@@ -681,14 +681,19 @@ struct EditorView: View {
     private func addIsland(_ lanes: LaneLayout) -> some View {
         VStack(spacing: LaneLayout.gap) {
             islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
-            islandButton(height: lanes.text, icon: "textformat", label: "Text") { model.pause(); model.addText() }
-            if lanes.showOverlay {
-                Button { model.pause(); pickOverlay = true } label: {
-                    islandTile(height: lanes.overlay, icon: "photo")
+            // the layers lane: a text, and (Pro) a picture or video, both land in the same stack of rows
+            VStack(spacing: LaneLayout.gap) {
+                let half = lanes.showOverlay ? (lanes.layers - LaneLayout.gap) / 2 : lanes.layers
+                islandButton(height: half, icon: "textformat", label: "Text") { model.pause(); model.addText() }
+                if lanes.showOverlay {
+                    Button { model.pause(); pickOverlay = true } label: {
+                        islandTile(height: half, icon: "photo")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(loc("Overlay"))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(loc("Overlay"))
             }
+            .frame(height: lanes.layers, alignment: .top)
             Menu {
                 Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
                 Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
