@@ -84,6 +84,11 @@ struct Overlay: Codable, Hashable, Identifiable {
     var effects = Effects()            // Adjust: color and film effects on the layer itself (before it is placed)
     var speed = 1.0                    // video overlays: playback speed (the timeline length follows)
     var mask: SubjectMask?             // pictures and videos: cut-out (only the subject stays, see-through around it)
+    // carried over from a clip copied as an overlay (Copy as overlay); work like on the clip
+    var stabilization: Stabilization? // video: camera shake removed
+    var tracking: Tracking?            // video: follows the subject (keep centered / in place)
+    var crop: CropRect?                // its own picture cropped (soft edge, rounded corners)
+    var autoZoom: AutoZoom?            // a slow zoom over its whole length
 
     var end: Double { start + duration }
 
@@ -138,7 +143,7 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
-        case effects, speed, mask
+        case effects, speed, mask, stabilization, tracking, crop, autoZoom
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -166,6 +171,10 @@ struct Overlay: Codable, Hashable, Identifiable {
         effects = (try? c.decodeIfPresent(Effects.self, forKey: .effects)) ?? Effects()
         speed = try c.decodeIfPresent(Double.self, forKey: .speed) ?? 1
         mask = try? c.decodeIfPresent(SubjectMask.self, forKey: .mask)
+        stabilization = try? c.decodeIfPresent(Stabilization.self, forKey: .stabilization)
+        tracking = try? c.decodeIfPresent(Tracking.self, forKey: .tracking)
+        crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
+        autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
     }
 
     /// Placement and opacity at timeline time `now` (keyframes, or the fixed values without them).

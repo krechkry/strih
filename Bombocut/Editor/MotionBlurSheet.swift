@@ -29,6 +29,7 @@ struct MotionBlurSheet: View {
                     ForEach(BlurDirection.allCases, id: \.self) { d in
                         Button { model.setBlurDirection(d) } label: {
                             Text(loc(d.title)).font(.subheadline.weight(.bold))
+                                .lineLimit(1).minimumScaleFactor(0.7)
                                 .foregroundStyle(c.blurDirection == d ? .black : .white)
                                 .padding(.horizontal, 14).frame(height: 36)
                                 .background(c.blurDirection == d ? Theme.accent : Theme.panel2, in: Capsule())
@@ -123,6 +124,7 @@ struct ClipAnimSheet: View {
     private func tab(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title)).font(.footnote.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 12).frame(height: 30)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())

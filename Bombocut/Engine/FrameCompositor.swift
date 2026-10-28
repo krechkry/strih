@@ -454,13 +454,40 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let sx = size.width / max(w, 1e-6), sy = size.height / max(h, 1e-6)
         let s = fill ? max(sx, sy) : min(sx, sy)
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
-        var m = CGAffineTransform(scaleX: s, y: s)
+        let m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
             .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
             .concatenating(CGAffineTransform(rotationAngle: -t.rotation))
             .concatenating(CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
                                              y: size.height / 2 - t.y * size.height))
+        return (stabT, following(m, stabT: stabT, source: source, follow: follow, in: size))
+    }
 
+    /// Stabilization and tracking on top of a placement `m` (source pixels -> canvas), for a video overlay
+    /// copied from a clip: the same math as for the clip.
+    static func motion(_ m: CGAffineTransform, source: CGSize, stab: StabPose?,
+                       follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
+                       in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
+        let w = source.width, h = source.height
+        var stabT = CGAffineTransform.identity
+        if let st = stab {
+            stabT = CGAffineTransform(translationX: -w / 2, y: -h / 2)
+                .concatenating(CGAffineTransform(scaleX: exp(st.z), y: exp(st.z)))
+                .concatenating(CGAffineTransform(rotationAngle: st.a))
+                .concatenating(CGAffineTransform(translationX: st.x * w, y: st.y * h))
+                .concatenating(CGAffineTransform(scaleX: st.crop, y: st.crop))
+                .concatenating(CGAffineTransform(translationX: w / 2, y: h / 2))
+        }
+        return (stabT, following(m, stabT: stabT, source: source, follow: follow, in: size))
+    }
+
+    /// Tracking: shifts placement `m` so the subject stays centered or where it was picked (and, with no borders,
+    /// zooms so the picture always covers the canvas).
+    private static func following(_ placed: CGAffineTransform, stabT: CGAffineTransform, source: CGSize,
+                                  follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
+                                  in size: CGSize) -> CGAffineTransform {
+        let w = source.width, h = source.height
+        var m = placed
         if let f = follow, f.mode != .off {
             func onCanvas(_ u: Double, _ v: Double) -> CGPoint {
                 CGPoint(x: u * w, y: (1 - v) * h).applying(stabT).applying(m)
@@ -491,7 +518,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 m = m.concatenating(CGAffineTransform(translationX: dx, y: dy))
             }
         }
-        return (stabT, m)
+        return m
     }
 
     static func orientation(for t: CGAffineTransform) -> CGImagePropertyOrientation {

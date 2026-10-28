@@ -163,6 +163,7 @@ private struct AdvancedAdjust: View {
     private func pill(_ title: String, _ on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title)).font(.footnote.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white.opacity(0.85))
                 .padding(.horizontal, 12).frame(height: 30)
                 .background(on ? Color.white : Theme.panel2, in: Capsule())

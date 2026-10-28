@@ -16,6 +16,7 @@ struct EaseGrid: View {
                                 .stroke(ease == e ? Color.black : Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                                 .frame(width: 40, height: 34)
                             Text(loc(e.title)).font(.caption.weight(.bold))
+                                .lineLimit(1).minimumScaleFactor(0.7)
                                 .foregroundStyle(ease == e ? .black : .white)
                         }
                         .frame(maxWidth: .infinity, minHeight: 78)
@@ -29,6 +30,7 @@ struct EaseGrid: View {
                 ForEach([EaseDir.in, .out, .both], id: \.self) { d in
                     Button { set(ease, d) } label: {
                         Text(loc(d.title)).font(.subheadline.weight(.bold))
+                            .lineLimit(1).minimumScaleFactor(0.7)
                             .foregroundStyle(dir == d && ease != .linear ? .black : .white)
                             .frame(maxWidth: .infinity, minHeight: 36)
                             .background(dir == d && ease != .linear ? Color.white : Theme.panel2, in: Capsule())
@@ -171,6 +173,7 @@ struct AutoZoomSheet: View {
     private func pill(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(loc(title), systemImage: icon).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white)
                 .frame(maxWidth: .infinity, minHeight: 38)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())

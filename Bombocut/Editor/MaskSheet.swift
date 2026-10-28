@@ -188,7 +188,7 @@ struct MaskSheet: View {
                     action("Transparent video", "person.crop.square.filled.and.at.rectangle") { start(.cutout, i) }
                     action("Matte", "circle.lefthalf.filled") { start(.matte, i) }
                 }
-                Text("Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.")
+                Text("Exactly as the clip looks here: placement, tracking, crop, effects and speed included. Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere.")
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 if let failure {
@@ -200,6 +200,7 @@ struct MaskSheet: View {
 
     private func start(_ mode: MaskExporter.Mode, _ i: Int) {
         let clip = model.project.clips[i]
+        let aspect = model.project.canvas.aspect
         let ex = MaskExporter()
         exporter = ex
         exporting = mode
@@ -211,7 +212,7 @@ struct MaskSheet: View {
             do {
                 // the heavy work runs off the main thread so the editor stays smooth
                 let url = try await Task.detached(priority: .userInitiated) {
-                    try await ex.run(clip: clip, mode: mode) { p in
+                    try await ex.run(clip: clip, canvasAspect: aspect, mode: mode) { p in
                         Task { @MainActor in progress = p }
                     }
                 }.value
@@ -269,6 +270,7 @@ struct MaskSheet: View {
     private func action(_ title: String, _ icon: String, _ run: @escaping () -> Void) -> some View {
         Button(action: run) {
             Label(loc(title), systemImage: icon)
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .font(.subheadline.weight(.bold)).foregroundStyle(.white)
                 .padding(.horizontal, 12).frame(height: 38)
                 .background(Theme.panel2, in: Capsule())
@@ -279,6 +281,7 @@ struct MaskSheet: View {
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title)).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())

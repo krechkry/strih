@@ -145,6 +145,7 @@ struct SpeedSheet: View {
             }
         } label: {
             Text(loc(title))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(tab == i ? .black : .white)
                 .padding(.horizontal, 16).frame(height: 36)

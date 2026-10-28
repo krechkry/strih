@@ -2214,6 +2214,16 @@
         }
       }
     },
+    "Exactly as the clip looks here: placement, tracking, crop, effects and speed included. Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesně jak klip vypadá tady: umístění, sledování, ořez, efekty i rychlost. Průhledné video: jen objekt, HEVC s alfa kanálem (.mov) pro Final Cut, DaVinci Resolve, Keynote a další editory. Alfa maska: bílý objekt na černé, použiješ ji jako masku kdekoli."
+          }
+        }
+      }
+    },
     "Exit fullscreen": {
       "localizations": {
         "cs": {
@@ -5724,16 +5734,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Průhledné video"
-          }
-        }
-      }
-    },
-    "Transparent video: the subject only, HEVC with alpha (.mov), for Final Cut, DaVinci Resolve, Keynote and other editors. Matte: white subject on black, to use as a mask anywhere. Speed changes are not included.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Průhledné video: jen objekt, HEVC s alfa kanálem (.mov) pro Final Cut, DaVinci Resolve, Keynote a další editory. Alfa maska: bílý objekt na černé, použiješ ji jako masku kdekoli. Změny rychlosti se do souborů nepromítnou."
           }
         }
       }

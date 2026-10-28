@@ -471,10 +471,32 @@ struct PreviewArea: View {
         func pt(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x, y: y).applying(toScreen) }
         let pic = [pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1)]
         let box = [pt(r.minX, r.minY), pt(r.maxX, r.minY), pt(r.maxX, r.maxY), pt(r.minX, r.maxY)]
-        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+        // lines stay on the picture area (a zoomed or turned clip reaches far past it)
+        let area = CGRect(origin: .zero, size: canvas).applying(CGAffineTransform(translationX: -W / 2, y: -H / 2)
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height)))
+        // every handle stays where a finger can reach it: an edge past the picture area keeps its handle on the
+        // area's border (a drag moves the edge by as much as the finger moves, so it never jumps)
+        let reach = area.insetBy(dx: 12, dy: 12)
+        func inside(_ p: CGPoint) -> CGPoint {
+            CGPoint(x: min(max(p.x, reach.minX), reach.maxX), y: min(max(p.y, reach.minY), reach.maxY))
+        }
+        /// The middle of the part of edge a–b that is on the picture area (or the nearest spot to it).
+        func edgeHandle(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
+            var t0: CGFloat = 0, t1: CGFloat = 1
+            let d = CGPoint(x: b.x - a.x, y: b.y - a.y)
+            for (pv, qv) in [(-d.x, a.x - reach.minX), (d.x, reach.maxX - a.x), (-d.y, a.y - reach.minY), (d.y, reach.maxY - a.y)] {
+                if abs(pv) < 1e-6 { if qv < 0 { t0 = 1; t1 = 0 }; continue }
+                let r = qv / pv
+                if pv < 0 { t0 = max(t0, r) } else { t1 = min(t1, r) }
+            }
+            let t = t0 <= t1 ? (t0 + t1) / 2 : 0.5
+            return inside(CGPoint(x: a.x + d.x * t, y: a.y + d.y * t))
+        }
         let handles: [(CropPart, CGPoint)] = [
-            (.topLeft, box[0]), (.topRight, box[1]), (.bottomRight, box[2]), (.bottomLeft, box[3]),
-            (.top, mid(box[0], box[1])), (.right, mid(box[1], box[2])), (.bottom, mid(box[2], box[3])), (.left, mid(box[3], box[0])),
+            (.topLeft, inside(box[0])), (.topRight, inside(box[1])), (.bottomRight, inside(box[2])), (.bottomLeft, inside(box[3])),
+            (.top, edgeHandle(box[0], box[1])), (.right, edgeHandle(box[1], box[2])),
+            (.bottom, edgeHandle(box[2], box[3])), (.left, edgeHandle(box[3], box[0])),
         ]
         /// A finger at screen point p, in normalized source coordinates.
         func source(_ p: CGPoint) -> CGPoint { contentPoint(p, canvas).applying(toSource) }
@@ -484,31 +506,27 @@ struct PreviewArea: View {
                 .onChanged { v in
                     if cropGrab == nil { cropGrab = c; model.liveEditBegan() }
                     guard let g = cropGrab else { return }
-                    let q = source(v.location)
+                    let q = source(v.location), a = source(v.startLocation)
+                    // by how much the finger moved (the handle may sit away from its edge, see `inside`)
+                    let dx = Double(q.x - a.x), dy = Double(q.y - a.y)
                     let gap = 0.05
                     model.editCrop { n in
                         switch part {
                         case .move:
-                            let a = source(v.startLocation)
-                            let dx = Double(q.x - a.x), dy = Double(q.y - a.y)
                             let mx = min(max(dx, -g.left), g.right), my = min(max(dy, -g.top), g.bottom)
                             n.left = g.left + mx; n.right = g.right - mx
                             n.top = g.top + my; n.bottom = g.bottom - my
                         default:
-                            if [.left, .topLeft, .bottomLeft].contains(part) { n.left = min(max(Double(q.x), 0), 1 - n.right - gap) }
-                            if [.right, .topRight, .bottomRight].contains(part) { n.right = min(max(1 - Double(q.x), 0), 1 - n.left - gap) }
-                            if [.top, .topLeft, .topRight].contains(part) { n.top = min(max(Double(q.y), 0), 1 - n.bottom - gap) }
-                            if [.bottom, .bottomLeft, .bottomRight].contains(part) { n.bottom = min(max(1 - Double(q.y), 0), 1 - n.top - gap) }
+                            if [.left, .topLeft, .bottomLeft].contains(part) { n.left = min(max(g.left + dx, 0), 1 - n.right - gap) }
+                            if [.right, .topRight, .bottomRight].contains(part) { n.right = min(max(g.right - dx, 0), 1 - n.left - gap) }
+                            if [.top, .topLeft, .topRight].contains(part) { n.top = min(max(g.top + dy, 0), 1 - n.bottom - gap) }
+                            if [.bottom, .bottomLeft, .bottomRight].contains(part) { n.bottom = min(max(g.bottom - dy, 0), 1 - n.top - gap) }
                         }
                     }
                 }
                 .onEnded { _ in cropGrab = nil; model.liveEditEnded() }
         }
 
-        // lines stay on the picture area (a zoomed or turned clip reaches far past it)
-        let area = CGRect(origin: .zero, size: canvas).applying(CGAffineTransform(translationX: -W / 2, y: -H / 2)
-            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
-            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height)))
         return ZStack(alignment: .topLeading) {
             // (outside the crop the picture itself is dimmed by the renderer, so softness and corners show as they are)
             Path { q in q.addLines(pic); q.closeSubpath() }

@@ -63,6 +63,7 @@ struct OverlaySheet: View {
                                 ForEach(tabs(o), id: \.self) { t in
                                     Button { tab = t } label: {
                                         Text(loc(t.title)).font(.subheadline.weight(.bold))
+                                            .lineLimit(1).minimumScaleFactor(0.7)
                                             .foregroundStyle(shown == t ? .black : .white)
                                             .padding(.horizontal, 14).frame(height: 34)
                                             .background(shown == t ? Theme.accent : Theme.panel2, in: Capsule())
@@ -294,6 +295,7 @@ struct OverlaySheet: View {
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title)).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())

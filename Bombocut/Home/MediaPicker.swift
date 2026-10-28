@@ -84,6 +84,7 @@ struct MediaPicker: View {
             ForEach(Filter.allCases, id: \.self) { f in
                 Button { filter = f } label: {
                     Text(loc(f.title)).font(.subheadline.weight(.bold))
+                        .lineLimit(1).minimumScaleFactor(0.7)
                         .foregroundStyle(filter == f ? .black : .white)
                         .padding(.horizontal, 14).frame(height: 34)
                         .background(filter == f ? Theme.accent : Theme.panel2, in: Capsule())

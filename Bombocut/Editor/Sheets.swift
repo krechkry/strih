@@ -630,6 +630,7 @@ struct StabilizeSheet: View {
                         ForEach(StabMode.allCases, id: \.self) { m in
                             Button { model.liveEditBegan(); model.editClip { $0.stabilization?.mode = m }; model.liveEditEnded() } label: {
                                 Text(loc(m.title)).font(.subheadline.weight(.bold))
+                                    .lineLimit(1).minimumScaleFactor(0.7)
                                     .foregroundStyle(st.mode == m ? .black : .white)
                                     .frame(maxWidth: .infinity, minHeight: 38)
                                     .background(st.mode == m ? Theme.accent : Theme.panel2, in: Capsule())
@@ -719,8 +720,9 @@ struct TrackSheet: View {
     private func edgePill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title)).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(on ? .black : .white)
-                .padding(.horizontal, 14).frame(height: 36)
+                .padding(.horizontal, 12).frame(height: 36)
                 .background(on ? Theme.accent : Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)
@@ -735,15 +737,15 @@ struct TrackSheet: View {
                     ForEach(FollowMode.allCases, id: \.self) { m in
                         Button { model.setFollow(m) } label: {
                             Text(loc(m.title)).font(.subheadline.weight(.bold))
+                                .lineLimit(1).minimumScaleFactor(0.7)
                                 .foregroundStyle(tr.mode == m ? .black : .white)
-                                .padding(.horizontal, 14).frame(height: 38)
+                                .padding(.horizontal, 12).frame(height: 38)
                                 .background(tr.mode == m ? Theme.accent : Theme.panel2, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 if tr.mode != .off {
-                    Divider().overlay(Theme.line)
                     Text("Edges").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                     HStack(spacing: 8) {
                         edgePill("Keep borders", on: tr.noBorders != true) { model.setNoBorders(false) }

@@ -3499,6 +3499,11 @@ extension EditorModel {
             m.blur = 0; m.dim = 0; m.desaturate = 0     // an overlay's mask is a cut-out: no background to treat
             o.mask = m
         }
+        // the clip's motion work and framing come along, not rendered: they work on the overlay like on the clip
+        o.stabilization = c.stabilization
+        o.tracking = c.tracking
+        o.crop = c.crop
+        o.autoZoom = c.autoZoom
         mutate { p in
             var n = o
             p.placeNewOverlay(&n)

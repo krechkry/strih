@@ -386,6 +386,7 @@ struct CaptionsSheet: View {
                     ForEach(Self.styleSections.indices, id: \.self) { i in
                         Button { styleSection = i } label: {
                             Text(loc(Self.styleSections[i])).font(.footnote.weight(.bold))
+                                .lineLimit(1).minimumScaleFactor(0.7)
                                 .foregroundStyle(styleSection == i ? .black : .white.opacity(0.85))
                                 .padding(.horizontal, 12).frame(height: 30)
                                 .background(styleSection == i ? Color.white : Theme.panel2, in: Capsule())
@@ -596,6 +597,7 @@ struct CaptionsSheet: View {
     private func pill(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(loc(title))
+                .lineLimit(1).minimumScaleFactor(0.7)
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(on ? .black : .white)
                 .padding(.horizontal, 14).frame(height: 36)

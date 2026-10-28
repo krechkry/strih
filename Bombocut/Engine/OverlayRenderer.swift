@@ -10,6 +10,8 @@ final class OverlayStore: @unchecked Sendable {
     private var list: [Overlay] = []
     private var canvasAspect = 9.0 / 16
     private var outline: UUID?
+    /// Stabilization and tracking curves of video overlays copied from clips (worked out once per change).
+    private var motion: [UUID: (stab: StabCurve?, track: TrackCurve?)] = [:]
 
     /// The overlay whose cut-out gets a lime outline in the preview (its Mask panel is open). Never in exports.
     var outlineOverlay: UUID? {
@@ -19,9 +21,27 @@ final class OverlayStore: @unchecked Sendable {
 
     func update(_ overlays: [Overlay], canvasAspect: Double) {
         lock.lock()
+        let old = list, oldMotion = motion
+        lock.unlock()
+        var m: [UUID: (stab: StabCurve?, track: TrackCurve?)] = [:]
+        for o in overlays where o.stabilization != nil || o.tracking != nil {
+            if let prev = old.first(where: { $0.id == o.id }), prev.stabilization == o.stabilization, prev.tracking == o.tracking,
+               let kept = oldMotion[o.id] {
+                m[o.id] = kept
+            } else {
+                m[o.id] = (o.stabilization?.curve(aspect: o.aspect ?? 16.0 / 9), o.tracking?.curve())
+            }
+        }
+        lock.lock()
         list = overlays
+        motion = m
         self.canvasAspect = canvasAspect
         lock.unlock()
+    }
+
+    func motion(_ id: UUID) -> (stab: StabCurve?, track: TrackCurve?)? {
+        lock.lock(); defer { lock.unlock() }
+        return motion[id]
     }
 
     var current: (overlays: [Overlay], canvasAspect: Double) {
@@ -92,7 +112,14 @@ final class OverlayRenderer: @unchecked Sendable {
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let w = e.width, h = e.height
         guard w > 0, h > 0 else { return nil }
+        let src = CGSize(width: w, height: h)
+        if let c = o.crop, !c.isEmpty, o.isMedia { img = FrameCompositor.cropped(img, c, src) }
         img = finished(o, img, at: t, outline: preview && OverlayStore.shared.outlineOverlay == o.id)
+        // a video copied from a clip: its stabilization and tracking, as on the clip
+        let srcT = o.sourceTime(at: t)
+        let mo = o.kind.isVideo ? OverlayStore.shared.motion(o.id) : nil
+        let stab = mo?.stab?.pose(at: srcT)
+        let follow = mo?.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) }
         let s: CGFloat
         if natural {
             s = 1
@@ -101,16 +128,25 @@ final class OverlayRenderer: @unchecked Sendable {
             s = min(base.width * size.width / w, base.height * size.height / h)
         }
         var tr = o.pose(at: t).transform
+        if let z = o.autoZoom, o.duration > 0.01 { tr = z.apply(tr, at: (t - o.start) / o.duration) }
         let a = o.anim.pose(local: t - o.start, length: o.duration)
         tr.x += a.dx
         tr.y += a.dy
         tr.scale *= a.scale
-        let m = CGAffineTransform(scaleX: s, y: s)
+        var m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
             .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
             .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
             .concatenating(CGAffineTransform(translationX: size.width / 2 + tr.x * size.width,
                                              y: size.height / 2 - tr.y * size.height))
+        if stab != nil || follow != nil {
+            let p = FrameCompositor.motion(m, source: src, stab: stab, follow: follow, in: size)
+            if stab != nil {
+                // like the clip: the zoom hides the moving edges
+                img = img.transformed(by: p.stab).cropped(to: CGRect(origin: .zero, size: src))
+            }
+            m = p.place
+        }
         return img.transformed(by: m)
     }
 
