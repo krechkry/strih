@@ -479,16 +479,34 @@ struct PreviewArea: View {
                     .padding(.top, 12)
                     .allowsHitTesting(false)
                 Spacer()
+                // brush: keep (+) or remove (−), then done; bottom left, clear of the undo buttons on the right
                 HStack(spacing: 8) {
-                    pill("Keep", lime: model.paintAdds) { model.paintAdds = true }
-                    pill("Remove", lime: !model.paintAdds) { model.paintAdds = false }
-                    pill("Done", lime: true) { model.finishPaint() }
+                    brushButton("plus", on: model.paintAdds, tint: Theme.accent, label: "Keep") { model.paintAdds = true }
+                    brushButton("minus", on: !model.paintAdds, tint: Color(red: 1, green: 0.42, blue: 0.4), label: "Remove") {
+                        model.paintAdds = false
+                    }
+                    brushButton("checkmark", on: true, tint: .white, label: "Done") { model.finishPaint() }
+                        .padding(.leading, 6)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .padding(.bottom, 14)
+                .padding(.leading, 12)
+                .padding(.bottom, 12)
             }
         }
         .onDisappear { stroke = [] }
+    }
+
+    private func brushButton(_ icon: String, on: Bool, tint: Color, label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(on ? .black : .white)
+                .frame(width: 44, height: 44)
+                .background(on ? tint : Color.black.opacity(0.55), in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(on ? 0 : 0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(label))
     }
 
     private func strokePath(_ pts: [CGPoint], add: Bool, width: CGFloat) -> some View {

@@ -1585,7 +1585,12 @@ final class EditorModel: ObservableObject {
     /// The Track panel is open (the tracked box is only drawn then).
     @Published var trackPanelOpen = false
     /// The Mask panel is open: the selected clip's subject gets a lime outline in the preview.
-    @Published var maskPanelOpen = false { didSet { if maskPanelOpen != oldValue { updateMaskOutline() } } }
+    @Published var maskPanelOpen = false {
+        didSet {
+            if maskPanelOpen != oldValue { outlineHidden = false; updateMaskOutline() }
+        }
+    }
+    private var outlineHidden = false
     /// Painting a custom mask on the preview (fingers paint instead of scrubbing).
     @Published var maskPaint = false
     /// The brush keeps (true) or removes what it touches.
@@ -1593,9 +1598,17 @@ final class EditorModel: ObservableObject {
     /// Tab the overlay panel should open on (an `OverlaySheet.Tab` raw value), set by the overlay toolbar.
     @Published var overlayTab: String?
 
+    /// The outline goes away once the mask's settings are being tuned, so their effect shows; picking a kind or
+    /// painting brings it back.
+    var maskOutlineHidden: Bool {
+        get { outlineHidden }
+        set { guard outlineHidden != newValue else { return }; outlineHidden = newValue; updateMaskOutline() }
+    }
+
     func updateMaskOutline() {
-        let id = maskPanelOpen ? selectedClipID : nil
-        let oid = maskPanelOpen ? selectedOverlayID : nil
+        let show = maskPanelOpen && !outlineHidden
+        let id = show ? selectedClipID : nil
+        let oid = show ? selectedOverlayID : nil
         guard LookStore.shared.outlineClip != id || OverlayStore.shared.outlineOverlay != oid else { return }
         LookStore.shared.outlineClip = id
         OverlayStore.shared.outlineOverlay = oid
@@ -2639,6 +2652,7 @@ extension EditorModel {
             m.feather = p.overlays[i].mask?.feather ?? 0
             p.overlays[i].mask = m
         }
+        maskOutlineHidden = false
         if kind == .custom { startPaint() }
     }
 
@@ -2651,10 +2665,11 @@ extension EditorModel {
             return
         }
         mutateLook { p in
-            var n = p.clips[i].mask ?? SubjectMask(blur: 0.5)
+            var n = p.clips[i].mask ?? SubjectMask()
             n.kind = kind
             p.clips[i].mask = n
         }
+        maskOutlineHidden = false
         if kind == .custom { startPaint() }
     }
 
@@ -2730,6 +2745,7 @@ extension EditorModel {
         } else if let i = selectedIndex, !playheadInSelected {
             scrub(to: project.clipStarts[i] + 0.01)
         }
+        maskOutlineHidden = false
         maskPaint = true
     }
 

@@ -98,7 +98,7 @@ struct MaskSheet: View {
     private func edge(_ m: SubjectMask) -> some View {
         slider("Softness", m.feather, def: 0) { v in model.editMask { $0.feather = v } }
         slider("Shrink / grow", m.grow, range: -1...1, center: true) { v in model.editMask { $0.grow = v } }
-        Toggle(isOn: Binding(get: { m.invert }, set: { v in model.setMask { $0.invert = v } })) {
+        Toggle(isOn: Binding(get: { m.invert }, set: { v in model.maskOutlineHidden = true; model.setMask { $0.invert = v } })) {
             Text("Invert (swap subject and background)").font(.subheadline.weight(.bold))
         }
         .tint(Theme.accent)
@@ -294,13 +294,14 @@ struct MaskSheet: View {
                 Spacer()
                 Text(center && value > 0.005 ? "+\(Int((value * 100).rounded()))" : "\(Int((value * 100).rounded()))")
                     .font(.subheadline.weight(.bold).monospacedDigit())
-                    .doubleTapNumberReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
+                    .doubleTapNumberReset { model.maskOutlineHidden = true; model.liveEditBegan(); set(def); model.liveEditEnded() }
             }
             BSlider(value: Binding(get: { value }, set: { v in set(center && abs(v) < 0.04 ? 0 : v) }), in: range,
                    onEditingChanged: { e in
-                if e { model.liveEditBegan() } else { model.liveEditEnded() }
+                // tuning the mask: the outline steps aside so the result shows
+                if e { model.maskOutlineHidden = true; model.liveEditBegan() } else { model.liveEditEnded() }
             })
-            .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
+            .doubleTapReset { model.maskOutlineHidden = true; model.liveEditBegan(); set(def); model.liveEditEnded() }
         }
     }
 }

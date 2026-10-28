@@ -115,7 +115,8 @@ final class OverlayRenderer: @unchecked Sendable {
     }
 
     /// The layer's own look, before it is placed: its cut-out (pictures and videos) and its Adjust effects.
-    /// A picture's result doesn't change from frame to frame, so it is rendered once and kept.
+    /// Glow, halation and the lens effects may spill past the layer's edges (the result can be bigger than `img`,
+    /// with the picture still at 0, 0). A picture's result doesn't change from frame to frame, so it is rendered once and kept.
     private func finished(_ o: Overlay, _ img: CIImage, at t: Double, outline: Bool) -> CIImage {
         let fx = o.effects
         let mask = o.isMedia ? o.mask : nil
@@ -125,10 +126,11 @@ final class OverlayRenderer: @unchecked Sendable {
         lock.lock()
         if let c = looks[key] { lock.unlock(); return c }
         lock.unlock()
-        let r = img.extent
         let out = look(o, img, at: t, outline: outline)
-        guard let cg = ctx.createCGImage(out, from: r, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)) else { return out }
-        let done = CIImage(cgImage: cg)
+        let r = out.extent
+        guard r.width.isFinite, r.height.isFinite,
+              let cg = ctx.createCGImage(out, from: r, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)) else { return out }
+        let done = CIImage(cgImage: cg).transformed(by: CGAffineTransform(translationX: r.minX, y: r.minY))
         lock.lock()
         if looks.count > 16 { looks.removeAll() }
         looks[key] = done
@@ -139,32 +141,47 @@ final class OverlayRenderer: @unchecked Sendable {
     private func look(_ o: Overlay, _ img: CIImage, at t: Double, outline: Bool) -> CIImage {
         let r = img.extent
         let frameNo = Int((t * 30).rounded())
-        var out = EffectsRenderer.color(img, o.effects)
-        // grain on its own and kept inside the layer's shape, so a see-through picture or a text doesn't turn grainy around it
+        let clear = CIImage(color: .clear)
+        var out = img
+        // cut-out first (found on the untouched picture): only the subject stays, the effects then work on it,
+        // so its glow spills around the subject
+        var matte: CIImage?
+        if o.isMedia, let m = o.mask {
+            let s = o.kind.isVideo ? o.sourceTime(at: t) : 0
+            if let raw = SubjectMasker.shared.mask(for: img, frame: r, subject: m, at: s, detail: o.kind.isVideo ? 512 : 1024,
+                                                   accurate: !o.kind.isVideo) {
+                let mt = SubjectMasker.refine(raw, m, frame: r)
+                matte = mt
+                out = out.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: clear.cropped(to: r),
+                                                                       kCIInputMaskImageKey: mt]).cropped(to: r)
+            }
+        }
+        out = EffectsRenderer.color(out, o.effects)
         var fx = o.effects
         let grain = fx.grain
         fx.grain = 0
-        out = EffectsRenderer.canvas(out, fx, size: r.size, frame: frameNo)
-        if grain > 0 {
-            var g = Effects()
-            g.grain = grain
-            g.grainSize = o.effects.grainSize
-            out = EffectsRenderer.canvas(out, g, size: r.size, frame: frameNo)
-                .applyingFilter("CIBlendWithAlphaMask", parameters: [kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: r),
-                                                                    kCIInputMaskImageKey: out])
-                .cropped(to: r)
-        }
-        // cut-out: only the subject stays, around it the layer is see-through (found on the untouched picture)
-        if o.isMedia, let m = o.mask {
-            let s = o.kind.isVideo ? o.sourceTime(at: t) : 0
-            let raw = SubjectMasker.shared.mask(for: img, frame: r, subject: m, at: s, detail: o.kind.isVideo ? 512 : 1024,
-                                                accurate: !o.kind.isVideo)
-            if let raw {
-                let matte = SubjectMasker.refine(raw, m, frame: r)
-                out = out.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: r),
-                                                                       kCIInputMaskImageKey: matte]).cropped(to: r)
-                if outline { out = SubjectMasker.outline(matte, on: out, frame: r) }
+        if fx.hasCanvasFX || grain > 0 {
+            // room around the layer for what spills out (glow, halation, chroma), see-through until something lands there
+            let spill = fx.bloom > 0 || fx.halation > 0 || fx.aberration > 0
+            let pad = spill ? (min(r.width, r.height) * 0.15).rounded() : 0
+            let room = CGRect(x: 0, y: 0, width: r.width + 2 * pad, height: r.height + 2 * pad)
+            var work = out.transformed(by: CGAffineTransform(translationX: pad, y: pad))
+                .composited(over: clear.cropped(to: room))
+            if fx.hasCanvasFX { work = EffectsRenderer.canvas(work, fx, size: room.size, frame: frameNo) }
+            if grain > 0 {
+                // grain only where the layer is, so the see-through parts don't turn grainy
+                var g = Effects()
+                g.grain = grain
+                g.grainSize = o.effects.grainSize
+                work = EffectsRenderer.canvas(work, g, size: room.size, frame: frameNo)
+                    .applyingFilter("CIBlendWithAlphaMask", parameters: [kCIInputBackgroundImageKey: clear.cropped(to: room),
+                                                                        kCIInputMaskImageKey: work])
+                    .cropped(to: room)
             }
+            out = work.transformed(by: CGAffineTransform(translationX: -pad, y: -pad))
+        }
+        if outline, let matte {
+            out = SubjectMasker.outline(matte, on: clear.cropped(to: r), frame: r).composited(over: out)
         }
         return out
     }
