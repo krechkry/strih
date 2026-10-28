@@ -686,6 +686,9 @@ struct EditorView: View {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
+                    if pro {
+                        ToolButton(icon: "square.on.square.dashed", label: "Copy as overlay") { model.copyClipAsOverlay() }
+                    }
                     if pro && !clip.still {
                         ToolButton(icon: "waveform.badge.plus", label: "Sound from video") {
                             model.pause()

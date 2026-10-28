@@ -3384,3 +3384,52 @@ extension EditorModel {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 }
+
+// MARK: Copy a clip as an overlay
+
+extension EditorModel {
+    /// The selected clip as a video overlay right above it: the same file and the same part of it (not a render),
+    /// where it sits, with what an overlay can carry: placement and opacity (with their keyframes), the Adjust
+    /// effects, speed (a curve becomes its average), volume, in / out animation and the subject mask (as a cut-out).
+    func copyClipAsOverlay() {
+        guard let i = selectedIndex else { return }
+        let c = project.clips[i]
+        let A = project.canvas.aspect
+        let start = onFrame(project.clipStarts[i])
+        let len = c.duration
+        guard len > 0.05 else { return }
+        var o = Overlay(kind: .video(file: c.mediaFile, sourceDuration: c.sourceDuration, inPoint: c.inPoint),
+                        start: start, duration: len)
+        o.aspect = c.aspect ?? A
+        o.speed = min(max((c.outPoint - c.inPoint) / len, 0.1), 10)
+        // the same size on the canvas: a clip fits (or fills) the canvas, an overlay starts at 70 % of it
+        let clipW = c.baseFraction(canvasAspect: A).width
+        let overW = max(o.baseFraction(canvasAspect: A).width, 1e-6)
+        let k = Double(clipW / overW)
+        func placed(_ t: ClipTransform) -> ClipTransform { var n = t; n.scale = t.scale * k; return n }
+        let first = c.keyframes.first?.look ?? c.staticLook
+        o.transform = placed(first.transform)
+        o.opacity = first.opacity
+        o.effects = first.effects
+        if !c.keyframes.isEmpty {
+            let rt = c.retime
+            o.keys = c.keyframes.map { kf in
+                OverlayKey(t: min(max(rt.local(atSource: kf.t), 0), len), transform: placed(kf.look.transform),
+                           opacity: kf.look.opacity, ease: kf.ease, easeDir: kf.easeDir)
+            }
+        }
+        o.volume = c.volume
+        o.anim = c.anim
+        if var m = c.mask {
+            m.blur = 0; m.dim = 0; m.desaturate = 0     // an overlay's mask is a cut-out: no background to treat
+            o.mask = m
+        }
+        mutate { p in
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
+        selectOverlay(o.id)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+}
