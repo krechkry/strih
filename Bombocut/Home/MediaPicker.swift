@@ -186,13 +186,15 @@ struct MediaPicker: View {
                     .padding(5)
             }
         }
-        .overlay(alignment: .bottomLeading) {
-            if used.contains(id) {
-                // already in the timeline
-                Image(systemName: "film.stack.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(.black)
-                    .padding(4).background(.white, in: RoundedRectangle(cornerRadius: 5))
-                    .padding(5)
+        .overlay {
+            if used.contains(id) && order == nil {
+                // already in the timeline: a check in the middle
+                Image(systemName: "checkmark").font(.system(size: 20, weight: .heavy)).foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background(.black.opacity(0.55), in: Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1.5))
                     .accessibilityLabel(loc("In the timeline"))
+                    .allowsHitTesting(false)
             }
         }
         .overlay(alignment: .topTrailing) {

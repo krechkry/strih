@@ -472,17 +472,16 @@ struct PreviewArea: View {
                 .onEnded { _ in cropGrab = nil; model.liveEditEnded() }
         }
 
+        // lines stay on the picture area (a zoomed or turned clip reaches far past it)
+        let area = CGRect(origin: .zero, size: canvas).applying(CGAffineTransform(translationX: -W / 2, y: -H / 2)
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height)))
         return ZStack(alignment: .topLeading) {
-            // outside the crop: dimmed (the picture's own outline stays faintly visible)
-            Path { q in
-                q.addLines(pic); q.closeSubpath()
-                q.addLines(box); q.closeSubpath()
-            }
-            .fill(Color.black.opacity(0.55), style: FillStyle(eoFill: true))
-            .allowsHitTesting(false)
+            // (outside the crop the picture itself is dimmed by the renderer, so softness and corners show as they are)
             Path { q in q.addLines(pic); q.closeSubpath() }
                 .stroke(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                 .allowsHitTesting(false)
+                .mask(Rectangle().frame(width: area.width, height: area.height).position(x: area.midX, y: area.midY))
             // inside: drag to move the frame
             Path { q in q.addLines(box); q.closeSubpath() }
                 .fill(Color.white.opacity(0.001))
@@ -496,9 +495,11 @@ struct PreviewArea: View {
             }
             .stroke(.white.opacity(0.3), lineWidth: 0.75)
             .allowsHitTesting(false)
+            .mask(Rectangle().frame(width: area.width, height: area.height).position(x: area.midX, y: area.midY))
             Path { q in q.addLines(box); q.closeSubpath() }
                 .stroke(Theme.accent, lineWidth: 2.5)
                 .allowsHitTesting(false)
+                .mask(Rectangle().frame(width: area.width + 4, height: area.height + 4).position(x: area.midX, y: area.midY))
             ForEach(handles, id: \.0) { part, p in
                 let corner = [.topLeft, .topRight, .bottomLeft, .bottomRight].contains(part)
                 Group {

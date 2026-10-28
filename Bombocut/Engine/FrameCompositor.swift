@@ -277,11 +277,13 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
         // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
         let anim = state.anim.isNone ? nil : state.anim.pose(local: t - info.start, length: info.duration)
+        let editingCrop = info.preview && LookStore.shared.cropEditClip == info.clipID
         func geometry(_ img: CIImage, upright: Bool) -> CIImage {
             var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill, transform: look.transform,
                                  stab: state.stab.map { $0.pose(at: srcT) },
                                  follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
-                                 crop: upright || (info.preview && LookStore.shared.cropEditClip == info.clipID) ? nil : state.crop,
+                                 crop: upright ? nil : (state.crop ?? (editingCrop ? CropRect() : nil)),
+                                 cropEditing: !upright && editingCrop,
                                  in: size)
             if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                 let cx = size.width / 2, cy = size.height / 2
@@ -343,13 +345,22 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     static func place(_ input: CIImage, prefTransform: CGAffineTransform, fill: Bool, transform t: ClipTransform,
                       stab: StabPose? = nil,
                       follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))? = nil,
-                      crop: CropRect? = nil,
+                      crop: CropRect? = nil, cropEditing: Bool = false,
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let w = e.width, h = e.height
-        if let crop, !crop.isEmpty { img = cropped(img, crop, CGSize(width: w, height: h)) }
+        if let crop, !crop.isEmpty || cropEditing {
+            let kept = cropped(img, crop, CGSize(width: w, height: h))
+            // editing it: the whole picture stays faintly visible around the crop (its softness and corners show)
+            img = cropEditing
+                ? kept.composited(over: img.applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: 0.3, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 0.3, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
+                : kept
+        }
         let p = placement(source: CGSize(width: w, height: h), fill: fill, transform: t, stab: stab, follow: follow, in: size)
         if stab != nil {
             img = img.transformed(by: p.stab).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
