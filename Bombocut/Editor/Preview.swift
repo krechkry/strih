@@ -25,6 +25,7 @@ struct PreviewArea: View {
     @State private var pinching = false
     @State private var dragIsPan: Bool?
     @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
+    @State private var cropGrab: CropRect?          // Crop: the crop when the drag began
     @State private var zoomGrab: CGPoint?           // AutoZoom: the focus point when the drag began
     @State private var zoomCorner: CGPoint?         // AutoZoom: the tight frame's corner when the drag began
 
@@ -60,6 +61,9 @@ struct PreviewArea: View {
                 }
                 if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
                 if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
+                if model.cropPanelOpen && !model.isPlaying && model.analysis == nil, let i = model.selectedIndex, model.playheadInSelected {
+                    layer(canvas) { cropFrame(canvas, clip: i) }
+                }
                 if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil, let i = model.selectedIndex,
                    let z = model.project.clips[i].autoZoom, model.playheadInSelected {
                     layer(canvas) { zoomFrames(canvas, clip: i, zoom: z) }
@@ -447,6 +451,106 @@ struct PreviewArea: View {
                     break
                 }
             }
+    }
+
+    // MARK: Crop frame
+
+    private enum CropPart { case left, top, right, bottom, topLeft, topRight, bottomLeft, bottomRight, move }
+
+    /// The whole picture with the crop drawn over it: outside dimmed, lime edges with handles. Edges and corners drag,
+    /// inside moves the frame. Works in the clip's own (upright source) coordinates, so a turned or zoomed clip works too.
+    private func cropFrame(_ canvas: CGSize, clip i: Int) -> some View {
+        let c = model.project.clips[i].crop ?? CropRect()
+        let W = canvas.width, H = canvas.height
+        let toCanvas = model.sourceToCanvas(i, canvas: canvas)
+        let toScreen = toCanvas.concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
+        let toSource = toCanvas.inverted()
+        let r = c.rect
+        func pt(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x, y: y).applying(toScreen) }
+        let pic = [pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1)]
+        let box = [pt(r.minX, r.minY), pt(r.maxX, r.minY), pt(r.maxX, r.maxY), pt(r.minX, r.maxY)]
+        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+        let handles: [(CropPart, CGPoint)] = [
+            (.topLeft, box[0]), (.topRight, box[1]), (.bottomRight, box[2]), (.bottomLeft, box[3]),
+            (.top, mid(box[0], box[1])), (.right, mid(box[1], box[2])), (.bottom, mid(box[2], box[3])), (.left, mid(box[3], box[0])),
+        ]
+        /// A finger at screen point p, in normalized source coordinates.
+        func source(_ p: CGPoint) -> CGPoint { contentPoint(p, canvas).applying(toSource) }
+
+        func drag(_ part: CropPart) -> _EndedGesture<_ChangedGesture<DragGesture>> {
+            DragGesture(minimumDistance: 0)
+                .onChanged { v in
+                    if cropGrab == nil { cropGrab = c; model.liveEditBegan() }
+                    guard let g = cropGrab else { return }
+                    let q = source(v.location)
+                    let gap = 0.05
+                    model.editCrop { n in
+                        switch part {
+                        case .move:
+                            let a = source(v.startLocation)
+                            let dx = Double(q.x - a.x), dy = Double(q.y - a.y)
+                            let mx = min(max(dx, -g.left), g.right), my = min(max(dy, -g.top), g.bottom)
+                            n.left = g.left + mx; n.right = g.right - mx
+                            n.top = g.top + my; n.bottom = g.bottom - my
+                        default:
+                            if [.left, .topLeft, .bottomLeft].contains(part) { n.left = min(max(Double(q.x), 0), 1 - n.right - gap) }
+                            if [.right, .topRight, .bottomRight].contains(part) { n.right = min(max(1 - Double(q.x), 0), 1 - n.left - gap) }
+                            if [.top, .topLeft, .topRight].contains(part) { n.top = min(max(Double(q.y), 0), 1 - n.bottom - gap) }
+                            if [.bottom, .bottomLeft, .bottomRight].contains(part) { n.bottom = min(max(1 - Double(q.y), 0), 1 - n.top - gap) }
+                        }
+                    }
+                }
+                .onEnded { _ in cropGrab = nil; model.liveEditEnded() }
+        }
+
+        return ZStack(alignment: .topLeading) {
+            // outside the crop: dimmed (the picture's own outline stays faintly visible)
+            Path { q in
+                q.addLines(pic); q.closeSubpath()
+                q.addLines(box); q.closeSubpath()
+            }
+            .fill(Color.black.opacity(0.55), style: FillStyle(eoFill: true))
+            .allowsHitTesting(false)
+            Path { q in q.addLines(pic); q.closeSubpath() }
+                .stroke(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .allowsHitTesting(false)
+            // inside: drag to move the frame
+            Path { q in q.addLines(box); q.closeSubpath() }
+                .fill(Color.white.opacity(0.001))
+                .gesture(drag(.move))
+            // thirds, to frame with
+            Path { q in
+                for k in [1.0 / 3, 2.0 / 3] {
+                    q.move(to: pt(r.minX + r.width * k, r.minY)); q.addLine(to: pt(r.minX + r.width * k, r.maxY))
+                    q.move(to: pt(r.minX, r.minY + r.height * k)); q.addLine(to: pt(r.maxX, r.minY + r.height * k))
+                }
+            }
+            .stroke(.white.opacity(0.3), lineWidth: 0.75)
+            .allowsHitTesting(false)
+            Path { q in q.addLines(box); q.closeSubpath() }
+                .stroke(Theme.accent, lineWidth: 2.5)
+                .allowsHitTesting(false)
+            ForEach(handles, id: \.0) { part, p in
+                let corner = [.topLeft, .topRight, .bottomLeft, .bottomRight].contains(part)
+                Group {
+                    if corner {
+                        Circle().fill(Theme.accent).frame(width: 18, height: 18)
+                            .overlay(Circle().strokeBorder(.black.opacity(0.4), lineWidth: 1))
+                    } else {
+                        Capsule().fill(Theme.accent)
+                            .frame(width: [.top, .bottom].contains(part) ? 30 : 8, height: [.top, .bottom].contains(part) ? 8 : 30)
+                            .overlay(Capsule().strokeBorder(.black.opacity(0.4), lineWidth: 1))
+                    }
+                }
+                .shadow(color: .black.opacity(0.4), radius: 3)
+                .contentShape(Rectangle().inset(by: -14))
+                .position(p)
+                .gesture(drag(part))
+            }
+        }
+        .frame(width: W, height: H, alignment: .topLeading)
     }
 
     // MARK: AutoZoom framing

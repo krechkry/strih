@@ -1621,6 +1621,8 @@ final class EditorModel: ObservableObject {
     var cueSnapshot: Project?
     /// The AutoZoom panel is open: paused, the clip shows unzoomed with its first and last framing drawn over it.
     @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
+    /// The Crop panel is open: the selected clip shows whole in the preview, with its crop frame to drag.
+    @Published var cropPanelOpen = false { didSet { if cropPanelOpen != oldValue { updateFraming() } } }
     /// Slip: the selected clip's content slides inside its place on the timeline.
     @Published private(set) var slip: SlipState?
     @Published var slipView: SlipView?
@@ -1939,6 +1941,7 @@ final class EditorModel: ObservableObject {
         case overlayAdjust, overlayMask, overlaySpeed, autoZoom
         /// Not a copy: picks the clips to put into a Stack.
         case stack
+        case crop
         /// Not a copy: picks the clips the captions listen to.
         case captions
 
@@ -1958,6 +1961,7 @@ final class EditorModel: ObservableObject {
             case .overlaySpeed: return "Speed"
             case .autoZoom: return "AutoZoom"
             case .stack: return "Stack"
+            case .crop: return "Crop"
             }
         }
         /// Copies between overlays instead of clips.
@@ -2003,6 +2007,8 @@ final class EditorModel: ObservableObject {
             c.speech = s.speech
         case .autoZoom:
             c.autoZoom = s.autoZoom
+        case .crop:
+            c.crop = s.crop
         case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions, .stack:
             break
         }
@@ -3136,9 +3142,29 @@ extension EditorModel {
 extension EditorModel {
     func updateFraming() {
         let id = autoZoomPanelOpen && !isPlaying ? selectedClipID : nil
-        guard LookStore.shared.framingClip != id else { return }
+        let crop = cropPanelOpen ? selectedClipID : nil
+        guard LookStore.shared.framingClip != id || LookStore.shared.cropEditClip != crop else { return }
         LookStore.shared.framingClip = id
+        LookStore.shared.cropEditClip = crop
         refreshFrame()
+    }
+
+    // MARK: Crop
+
+    func setCrop(_ c: CropRect?) {
+        guard let i = selectedIndex else { return }
+        let v = (c?.isEmpty ?? true) ? nil : c
+        guard project.clips[i].crop != v else { return }
+        mutateLook { $0.clips[i].crop = v }
+    }
+
+    /// Live change (dragging an edge, a slider); pair with liveEditBegan / liveEditEnded.
+    func editCrop(_ change: (inout CropRect) -> Void) {
+        guard let i = selectedIndex else { return }
+        var c = project.clips[i].crop ?? CropRect()
+        change(&c)
+        project.clips[i].crop = c
+        publishLook()
     }
 
     // MARK: Slip

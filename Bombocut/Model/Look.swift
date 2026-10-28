@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Color + finishing effects for a clip. Every field is keyframable.
 struct Effects: Codable, Hashable {
@@ -226,6 +227,7 @@ struct LookState: Hashable {
     var blurDirection = BlurDirection.both
     var anim = AnimPair()
     var autoZoom: AutoZoom? = nil
+    var crop: CropRect? = nil
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }
@@ -484,5 +486,35 @@ struct AutoZoom: Codable, Hashable {
         if !zoomIn { f = 1 - f }
         // even steps in log space feel like a steady push
         return exp(log(1 + amount) * f)
+    }
+}
+
+/// Crop of a clip's own picture (upright, before stabilization, tracking and masks): how much goes from each side
+/// (fractions of the width / height), a soft edge and rounded corners. Outside it the clip is see-through.
+struct CropRect: Codable, Hashable {
+    var left = 0.0
+    var top = 0.0
+    var right = 0.0
+    var bottom = 0.0
+    var softness = 0.0          // 0...1 feathered edge
+    var radius = 0.0            // 0...1 rounded corners (1 = as round as the short side allows)
+
+    var isEmpty: Bool { left < 0.0005 && top < 0.0005 && right < 0.0005 && bottom < 0.0005 && softness < 0.001 && radius < 0.001 }
+
+    /// The kept part, normalized, top-left origin.
+    var rect: CGRect { CGRect(x: left, y: top, width: max(0.01, 1 - left - right), height: max(0.01, 1 - top - bottom)) }
+
+    init() {}
+
+    enum CodingKeys: String, CodingKey { case left, top, right, bottom, softness, radius }
+
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        left = try c.decodeIfPresent(Double.self, forKey: .left) ?? 0
+        top = try c.decodeIfPresent(Double.self, forKey: .top) ?? 0
+        right = try c.decodeIfPresent(Double.self, forKey: .right) ?? 0
+        bottom = try c.decodeIfPresent(Double.self, forKey: .bottom) ?? 0
+        softness = try c.decodeIfPresent(Double.self, forKey: .softness) ?? 0
+        radius = try c.decodeIfPresent(Double.self, forKey: .radius) ?? 0
     }
 }

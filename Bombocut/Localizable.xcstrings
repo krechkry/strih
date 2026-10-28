@@ -1450,6 +1450,16 @@
         }
       }
     },
+    "Crop": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oříznout"
+          }
+        }
+      }
+    },
     "Crossfade": {
       "localizations": {
         "cs": {
@@ -1990,6 +2000,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přetažením klipu vyber část, která se přehraje"
+          }
+        }
+      }
+    },
+    "Drag the lime edges on the preview, or inside the frame to move it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V náhledu táhni limetkové okraje, nebo uvnitř rámečku a posuneš ho."
           }
         }
       }
@@ -4284,6 +4304,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jezdi s námi"
+          }
+        }
+      }
+    },
+    "Rounded corners": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaoblené rohy"
           }
         }
       }

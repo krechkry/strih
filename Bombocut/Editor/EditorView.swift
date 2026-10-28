@@ -71,6 +71,7 @@ struct EditorView: View {
         case .speech: return 470
         case .easing: return 330
         case .autoZoom: return 470
+        case .crop: return 330
         }
     }
 
@@ -141,6 +142,7 @@ struct EditorView: View {
         case .speech: SpeechSheet(model: model)
         case .easing: EasingSheet(model: model)
         case .autoZoom: AutoZoomSheet(model: model)
+        case .crop: CropSheet(model: model)
         }
     }
 
@@ -282,6 +284,7 @@ struct EditorView: View {
             model.trackPanelOpen = s == .track
             model.maskPanelOpen = s == .mask
             model.autoZoomPanelOpen = s == .autoZoom
+            model.cropPanelOpen = s == .crop
             if s != .mask && model.maskPaint { model.finishPaint() }
             if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
             // closing the captions panel leaves the generate page (unless clips are being picked for it)
@@ -641,6 +644,7 @@ struct EditorView: View {
                     if model.canSlip {
                         ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
                     }
+                    ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
                     if !clip.still {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
@@ -1135,7 +1139,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case easing, autoZoom
+    case easing, autoZoom, crop
     var id: String { rawValue }
 }
 

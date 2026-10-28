@@ -182,6 +182,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var reversed: ReverseOrigin?   // playing backwards: a reversed copy stands in for the original part
     var asset: String?             // the Photos item it came from (marks it as used in the gallery)
     var autoZoom: AutoZoom?        // a slow zoom from the first frame to the last
+    var crop: CropRect?            // crop of its own picture (soft edge, rounded corners)
     var stack: [Clip]?             // a Stack: the clips it was made of (rendered into `mediaFile`), back on Unstack
 
     /// Look used when the clip has no keyframes.
@@ -200,7 +201,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var lookState: LookState {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
-                  motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom)
+                  motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom, crop: crop)
     }
 
     /// Files this clip needs: its own, the original of a reversed clip, and everything inside a Stack.
@@ -223,7 +224,7 @@ struct Clip: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
-        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack
+        case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
     }
 
     init(from d: Decoder) throws {
@@ -258,6 +259,7 @@ struct Clip: Identifiable, Codable, Hashable {
         asset = try? c.decodeIfPresent(String.self, forKey: .asset)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         stack = try? c.decodeIfPresent([Clip].self, forKey: .stack)
+        crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

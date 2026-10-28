@@ -9,6 +9,13 @@ final class LookStore: @unchecked Sendable {
     private var states: [UUID: LookState] = [:]
     private var outline: UUID?
     private var framing: UUID?
+    private var cropping: UUID?
+
+    /// The clip whose crop is being edited: the preview shows its whole picture, the crop frame is drawn over it.
+    var cropEditClip: UUID? {
+        get { lock.lock(); defer { lock.unlock() }; return cropping }
+        set { lock.lock(); cropping = newValue; lock.unlock() }
+    }
 
     /// The clip the AutoZoom panel is showing unzoomed (paused, panel open). Never in exports.
     var framingClip: UUID? {
@@ -39,6 +46,7 @@ final class LookStore: @unchecked Sendable {
             s.keyframes = c.keyframes
             s.mask = c.mask
             s.autoZoom = c.autoZoom
+            s.crop = c.crop
             states[c.id] = s
             lock.unlock()
         } else {
