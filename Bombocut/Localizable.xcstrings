@@ -2384,12 +2384,12 @@
         }
       }
     },
-    "Finds people (fast) or the main subject in every frame, on your iPhone, or the objects you paint over (Custom). Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
+    "Finds people (fast) or the main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu, nebo věci, které přetřeš štětcem (Vlastní). Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
           }
         }
       }
@@ -3028,12 +3028,12 @@
         }
       }
     },
-    "Keeps only the people, the main subject or the objects you paint over, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.": {
+    "Keeps only the people or the main subject, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nechá jen lidi, hlavní objekt nebo to, co přetřeš štětcem, a zbytek překrytí zprůhlední. Nic se nemaže natrvalo, kdykoli to zase vypneš."
+            "value": "Nechá jen lidi nebo hlavní objekt a zbytek překrytí zprůhlední. Nic se nemaže natrvalo, kdykoli to zase vypneš."
           }
         }
       }

@@ -108,6 +108,18 @@ final class EditorModel: ObservableObject {
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
     @Published private(set) var buildError: String?
+
+    /// A message about an analysis that didn't work (tracking, stabilizing…): shown on the preview for a few
+    /// seconds (tap it to hide it sooner).
+    func showNote(_ text: String) {
+        buildError = text
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if buildError == text { buildError = nil }
+        }
+    }
+
+    func hideNote() { buildError = nil }
     @Published private(set) var trim: TrimState?
     @Published var trimView: TrimView?
     @Published var live: LiveTransform?
@@ -1530,7 +1542,7 @@ final class EditorModel: ObservableObject {
                     mutateLook { $0.clips[j].stabilization = Stabilization(strength: strength, path: path) }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 } catch {
-                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                    if !(error is CancellationError) { showNote(error.localizedDescription) }
                 }
             } onCancel: { flag.set() }
             analysis = nil
@@ -1694,7 +1706,7 @@ final class EditorModel: ObservableObject {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     if forStab { openStabilizeSheet = true } else { openTrackSheet = true }
                 } catch {
-                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                    if !(error is CancellationError) { showNote(error.localizedDescription) }
                 }
             } onCancel: { flag.set() }
             analysis = nil
@@ -3062,7 +3074,7 @@ extension EditorModel {
                     }
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 } catch {
-                    if !(error is CancellationError) { buildError = error.localizedDescription }
+                    if !(error is CancellationError) { showNote(error.localizedDescription) }
                 }
             } onCancel: { flag.set() }
             analysis = nil

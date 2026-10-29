@@ -273,6 +273,9 @@ struct TrackCurve: Hashable {
 struct SubjectMask: Codable, Hashable {
     enum Kind: String, Codable, CaseIterable {
         case person, subject, custom
+        /// What the Mask panel offers. Custom (painted objects) is held back until it is steadier; a project that
+        /// already has one keeps it (and can switch it off).
+        static let offered: [Kind] = [.person, .subject]
         var title: String {
             switch self {
             case .person: return "People"

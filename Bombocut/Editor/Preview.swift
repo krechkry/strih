@@ -230,6 +230,7 @@ struct PreviewArea: View {
                 Text(e).font(.footnote).padding(8)
                     .background(.red.opacity(0.8), in: RoundedRectangle(cornerRadius: 8))
                     .padding(12)
+                    .onTapGesture { model.hideNote() }
             }
         }
         .frame(width: canvas.width, height: canvas.height)

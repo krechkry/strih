@@ -54,7 +54,7 @@ struct MaskSheet: View {
                 filesRow(i)
             }
         } else {
-            Text("Finds people (fast) or the main subject in every frame, on your iPhone, or the objects you paint over (Custom). Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
+            Text("Finds people (fast) or the main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -72,7 +72,7 @@ struct MaskSheet: View {
                 group("Edge") { edge(m) }
                 if model.project.overlays.filter(\.isMedia).count > 1 { ApplyRow(model: model, kind: .overlayMask) }
             } else {
-                Text("Keeps only the people, the main subject or the objects you paint over, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.")
+                Text("Keeps only the people or the main subject, and makes the rest of the overlay see-through. Nothing is removed for good: switch it off any time.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -83,7 +83,7 @@ struct MaskSheet: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 pill("Off", on: m == nil) { setKind(nil) }
-                ForEach(SubjectMask.Kind.allCases, id: \.self) { k in
+                ForEach(SubjectMask.Kind.offered + (m?.kind == .custom ? [.custom] : []), id: \.self) { k in
                     pill(k.title, on: m?.kind == k) { setKind(k) }
                 }
             }
