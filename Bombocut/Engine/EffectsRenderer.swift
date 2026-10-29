@@ -84,7 +84,13 @@ final class StackStore: @unchecked Sendable {
         var stack: ClipStack
     }
 
+    /// The project's background (the empty space around the clips), drawn under every clip.
+    private var bg = CIColor.black
+    var background: CIColor { lock.lock(); defer { lock.unlock() }; return bg }
+
     func update(_ p: Project) {
+        let b = p.background.map { CIColor(red: $0[0], green: $0[1], blue: $0[2]) } ?? CIColor.black
+        lock.lock(); bg = b; lock.unlock()
         var d: [UUID: Layer] = [:]
         for s in p.stacks where s.hasLayer {
             guard let t = p.stackTime(s) else { continue }

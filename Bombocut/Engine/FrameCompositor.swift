@@ -156,7 +156,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 }
                 // both clips move together; the one coming in is drawn over the one going out
                 let poses = cut.cut.poses(t - cut.start, length: cut.length)
-                let bg = CIImage(color: .black).cropped(to: frame)
+                let bg = CIImage(color: StackStore.shared.background).cropped(to: frame)
                 image = Self.posed(top, poses.into, size)
                     .composited(over: Self.posed(image, poses.out, size))
                     .composited(over: bg)
@@ -312,7 +312,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         if opacity < 0.999 {
             image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
         }
-        let bg = CIImage(color: .black).cropped(to: frame)
+        let bg = CIImage(color: StackStore.shared.background).cropped(to: frame)
         image = image.composited(over: bg).cropped(to: frame)
 
         // subject cut-out: background effects and overlays that go behind the subject
@@ -374,7 +374,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         if s.opacity < 0.999 {
             out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, s.opacity))])
         }
-        out = out.composited(over: CIImage(color: .black).cropped(to: frame)).cropped(to: frame)
+        out = out.composited(over: CIImage(color: StackStore.shared.background).cropped(to: frame)).cropped(to: frame)
         return EffectsRenderer.canvas(out, s.effects, size: size, frame: Int((t * 30).rounded()))
     }
 

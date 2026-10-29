@@ -427,6 +427,8 @@ struct Project: Identifiable, Codable, Hashable {
     var overlays: [Overlay] = []
     var audio: [AudioItem] = []
     var stacks: [ClipStack] = []   // groups of neighbouring clips treated as one (see ClipStack)
+    /// Color of the empty space around and behind the clips (red, green, blue 0...1); nil is black.
+    var background: [Double]?
 
     /// The caption track being edited (setting nil removes it).
     var captions: Captions? {
@@ -499,7 +501,7 @@ struct Project: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, created, modified, canvas, clips, captions, captionTracks, activeCaption, overlays, audio
-        case layerRows, stacks
+        case layerRows, stacks, background
     }
 
     func encode(to e: Encoder) throws {
@@ -516,6 +518,7 @@ struct Project: Identifiable, Codable, Hashable {
         try c.encode(audio, forKey: .audio)
         try c.encode(true, forKey: .layerRows)
         if !stacks.isEmpty { try c.encode(stacks, forKey: .stacks) }
+        if let background { try c.encode(background, forKey: .background) }
     }
 
     init(from d: Decoder) throws {
@@ -538,6 +541,7 @@ struct Project: Identifiable, Codable, Hashable {
         // texts and pictures share layer rows now
         if (try? c.decodeIfPresent(Bool.self, forKey: .layerRows)) != true { mergeOverlayLanes() }
         stacks = (try? c.decodeIfPresent([ClipStack].self, forKey: .stacks)) ?? []
+        if let b = try? c.decodeIfPresent([Double].self, forKey: .background), b.count == 3 { background = b }
     }
 
     /// Earlier versions made a transition by fading the clip before out and the clip after in (through

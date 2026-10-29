@@ -462,6 +462,7 @@ final class EditorModel: ObservableObject {
         if let id = selectedAudioID, !project.audio.contains(where: { $0.id == id }) { selectedAudioID = nil }
         currentTime = min(currentTime, duration)
         LookStore.shared.update(project.clips)
+        StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
         rebuild()
@@ -1051,6 +1052,13 @@ final class EditorModel: ObservableObject {
 
     func setCanvas(_ c: Canvas) {
         mutate { $0.canvas = c }
+    }
+
+    /// The color of the empty space around and behind the clips (nil: black).
+    func setBackground(_ rgb: [Double]?) {
+        let v = rgb.flatMap { $0 == [0, 0, 0] ? nil : $0 }
+        guard project.background != v else { return }
+        mutateLook { $0.background = v }
     }
 
     func rename(_ name: String) {

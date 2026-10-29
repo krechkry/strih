@@ -55,7 +55,7 @@ struct EditorView: View {
     private func naturalHeight(_ s: EditorSheet) -> CGFloat {
         switch s {
         case .export: return 0
-        case .canvas: return 124
+        case .canvas: return 210
         case .volume: return 260
         case .speed: return 620
         case .adjust: return 470
