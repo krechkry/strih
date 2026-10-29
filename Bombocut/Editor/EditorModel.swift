@@ -2483,10 +2483,23 @@ final class EditorModel: ObservableObject {
         var d = max(0.2, duration)
         if let m = o.maxDuration { d = min(d, m) }
         // whole frames, so a block starting at the playhead shows on the frame there
-        let s0 = onFrame(min(max(0, start), max(0, self.duration - 0.2)))
+        var s0 = onFrame(min(max(0, start), max(0, self.duration - 0.2)))
         // a head trim keeps the end where it was
         if let snap = overlayTimingSnapshot?.overlays.first(where: { $0.id == id }), abs(start + duration - snap.end) < 0.02,
            abs(start - snap.start) > 1e-6 {
+            if case .video(let file, let srcDur, let snapIn) = snap.kind {
+                // a video keeps every frame on the moment it was on: trimming the head moves its in point along,
+                // and it can reach back only as far as its footage goes
+                if let rt = snap.curveRetime {
+                    let off = rt.local(atSource: snapIn)
+                    s0 = min(max(s0, snap.start - off), snap.end - 0.2)
+                    o.kind = .video(file: file, sourceDuration: srcDur, inPoint: rt.source(atLocal: off + (s0 - snap.start)))
+                } else {
+                    let v = max(snap.speed, 0.05)
+                    s0 = min(max(s0, snap.start - snapIn / v), snap.end - 0.2)
+                    o.kind = .video(file: file, sourceDuration: srcDur, inPoint: max(0, snapIn + (s0 - snap.start) * v))
+                }
+            }
             d = max(0.2, snap.end - s0)
             if let m = o.maxDuration { d = min(d, m) }
         }
