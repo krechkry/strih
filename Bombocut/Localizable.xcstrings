@@ -4778,6 +4778,16 @@
         }
       }
     },
+    "Shows wherever no clip covers the frame: borders, moved or smaller clips, and behind transitions.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukáže se všude, kde obraz nezakrývá žádný klip: okraje, posunuté nebo zmenšené klipy a za přechody."
+          }
+        }
+      }
+    },
     "Shrink / grow": {
       "localizations": {
         "cs": {

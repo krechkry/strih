@@ -55,7 +55,8 @@ struct EditorView: View {
     private func naturalHeight(_ s: EditorSheet) -> CGFloat {
         switch s {
         case .export: return 0
-        case .canvas: return 210
+        case .canvas: return 124
+        case .background: return 230
         case .volume: return 260
         case .speed: return 620
         case .adjust: return 470
@@ -130,6 +131,7 @@ struct EditorView: View {
         switch s {
         case .export: EmptyView()
         case .canvas: CanvasSheet(model: model)
+        case .background: BackgroundSheet(model: model)
         case .volume: VolumeSheet(model: model)
         case .speed: SpeedSheet(model: model)
         case .adjust: AdjustSheet(model: model)
@@ -741,6 +743,7 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
                     ToolButton(icon: "aspectratio", label: "Aspect") { sheet = .canvas }
+                    ToolButton(icon: "square.fill.on.square", label: "Background") { sheet = .background }
                 }
             }
             .padding(.horizontal, 10)
@@ -1193,7 +1196,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case easing, autoZoom, crop, trackPick
+    case easing, autoZoom, crop, trackPick, background
     var id: String { rawValue }
 }
 

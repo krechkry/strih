@@ -3,54 +3,20 @@ import AVFoundation
 
 // MARK: Canvas (aspect ratio)
 
-/// One row of shapes (tap one and the panel slides away), and the background color of the empty space.
+/// One row of shapes. Tap one and the panel slides away.
 struct CanvasSheet: View {
     @ObservedObject var model: EditorModel
     @Environment(\.closePanel) private var dismiss
 
     private let presets: [(Double, Double)] = [(9, 16), (4, 5), (1, 1), (4, 3), (16, 9), (2.39, 1)]
-    private static let swatches: [[Double]] = [[0, 0, 0], [1, 1, 1], [0.5, 0.5, 0.5], [0.898, 0.992, 0.42],
-                                               [0.96, 0.27, 0.25], [0.2, 0.45, 0.95]]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            shapes
-            Text("Background").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-            backgroundRow
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 20)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .presentationBackground(Theme.panel)
-        .presentationDragIndicator(.hidden)
-    }
-
-    /// The empty space around and behind the clips: a few colors, or any color.
-    private var backgroundRow: some View {
-        let cur = model.project.background ?? [0, 0, 0]
-        return HStack(spacing: 10) {
-            ForEach(Self.swatches.indices, id: \.self) { i in
-                let c = Self.swatches[i]
-                let on = zip(c, cur).allSatisfy { abs($0 - $1) < 0.01 }
-                Button { model.setBackground(c) } label: {
-                    Circle().fill(Color(red: c[0], green: c[1], blue: c[2]))
-                        .frame(width: 34, height: 34)
-                        .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
-                        .padding(3)
-                        .overlay(Circle().strokeBorder(on ? Theme.accent : .clear, lineWidth: 2.5))
-                }
-                .buttonStyle(.plain)
-            }
-            ColorPicker("", selection: Binding(
-                get: { Color(red: cur[0], green: cur[1], blue: cur[2]) },
-                set: { col in
-                    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                    UIColor(col).getRed(&r, green: &g, blue: &b, alpha: &a)
-                    model.setBackground([Double(r), Double(g), Double(b)].map { min(max($0, 0), 1) })
-                }), supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 40, height: 40)
-        }
+        shapes
+            .padding(.horizontal, 16)
+            .padding(.top, 20)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .presentationBackground(Theme.panel)
+            .presentationDragIndicator(.hidden)
     }
 
     private var shapes: some View {
@@ -80,6 +46,52 @@ struct CanvasSheet: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+// MARK: Background
+
+/// The empty space around and behind the clips: a few colors, or any color. (More background options can join it.)
+struct BackgroundSheet: View {
+    @ObservedObject var model: EditorModel
+
+    private static let swatches: [[Double]] = [[0, 0, 0], [1, 1, 1], [0.5, 0.5, 0.5], [0.898, 0.992, 0.42],
+                                               [0.96, 0.27, 0.25], [0.2, 0.45, 0.95]]
+
+    var body: some View {
+        let cur = model.project.background ?? [0, 0, 0]
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Background").font(.title3.weight(.heavy))
+            Text("Color").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            HStack(spacing: 10) {
+                ForEach(Self.swatches.indices, id: \.self) { i in
+                    let c = Self.swatches[i]
+                    let on = zip(c, cur).allSatisfy { abs($0 - $1) < 0.01 }
+                    Button { model.setBackground(c) } label: {
+                        Circle().fill(Color(red: c[0], green: c[1], blue: c[2]))
+                            .frame(width: 34, height: 34)
+                            .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
+                            .padding(3)
+                            .overlay(Circle().strokeBorder(on ? Theme.accent : .clear, lineWidth: 2.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+                ColorPicker("", selection: Binding(
+                    get: { Color(red: cur[0], green: cur[1], blue: cur[2]) },
+                    set: { col in
+                        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                        UIColor(col).getRed(&r, green: &g, blue: &b, alpha: &a)
+                        model.setBackground([Double(r), Double(g), Double(b)].map { min(max($0, 0), 1) })
+                    }), supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 40, height: 40)
+            }
+            Text("Shows wherever no clip covers the frame: borders, moved or smaller clips, and behind transitions.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 
