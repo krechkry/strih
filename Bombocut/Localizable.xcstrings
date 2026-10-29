@@ -880,6 +880,26 @@
         }
       }
     },
+    "Bloom size": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velikost záře"
+          }
+        }
+      }
+    },
+    "Bloom threshold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Práh záře"
+          }
+        }
+      }
+    },
     "Blue": {
       "localizations": {
         "cs": {

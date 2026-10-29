@@ -278,12 +278,7 @@ enum EffectsRenderer {
             ])
         }
         if e.halation > 0 { out = halation(out, amount: e.halation, size: size) }
-        if e.bloom > 0 {
-            out = out.clampedToExtent().applyingFilter("CIBloom", parameters: [
-                kCIInputRadiusKey: min(size.width, size.height) * 0.03,
-                kCIInputIntensityKey: e.bloom * 1.1,
-            ]).cropped(to: rect)
-        }
+        if e.bloom > 0 { out = bloom(out, amount: e.bloom, size: e.bloomSize, threshold: e.bloomThreshold, canvas: size) }
         if e.grain > 0 { out = grain(out, amount: e.grain, size: e.grainSize, canvas: size, frame: frame) }
         return out.cropped(to: rect)
     }
@@ -308,6 +303,39 @@ enum EffectsRenderer {
         if clarity > 0 { out = sharpen(out, radius: short * 0.03, amount: clarity * 0.55) }
         if clarity < 0 { out = soften(out, sigma: short * 0.012, amount: -clarity * 0.5) }
         return out
+    }
+
+    /// Bloom: a soft glow around the bright parts. `size` sets how far it spreads (0.4 is the original 3 % of the
+    /// short side), `threshold` how bright a part must be to glow (0: the whole picture blooms, like before).
+    private static func bloom(_ img: CIImage, amount: Double, size: Double, threshold: Double, canvas: CGSize) -> CIImage {
+        let rect = CGRect(origin: .zero, size: canvas)
+        let radius = Double(min(canvas.width, canvas.height)) * (0.005 + 0.0625 * min(max(size, 0), 1))
+        let t = min(max(threshold, 0), 0.95)
+        guard t > 0.001 else {
+            return img.clampedToExtent().applyingFilter("CIBloom", parameters: [
+                kCIInputRadiusKey: radius, kCIInputIntensityKey: amount * 1.1,
+            ]).cropped(to: rect)
+        }
+        // only what is brighter than the threshold glows (in its own color), spread out and added on top
+        let span = 1 - t
+        let a = CGFloat(amount * 1.4)
+        let glow = img
+            .applyingFilter("CIToneCurve", parameters: [
+                "inputPoint0": CIVector(x: 0, y: 0),
+                "inputPoint1": CIVector(x: t, y: 0),
+                "inputPoint2": CIVector(x: t + span * 0.35, y: 0.2),
+                "inputPoint3": CIVector(x: t + span * 0.7, y: 0.6),
+                "inputPoint4": CIVector(x: 1, y: 1),
+            ])
+            .clampedToExtent()
+            .applyingGaussianBlur(sigma: radius * 0.6)
+            .cropped(to: rect)
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: a, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: a, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0, y: 0, z: a, w: 0),
+            ])
+        return glow.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: rect)
     }
 
     /// Film halation: the brightest parts glow red-orange into their surroundings.
@@ -364,28 +392,34 @@ enum EffectsRenderer {
     }
 
     /// Monochrome noise that changes every frame, soft-light blended.
+    /// Film grain: gray (monochrome) noise laid over the picture in Overlay mode, so it lives in the midtones
+    /// and leaves pure black and white alone. Its size follows the canvas, so the preview and a 4K export match.
     private static func grain(_ img: CIImage, amount: Double, size: Double, canvas: CGSize, frame: Int) -> CIImage {
         let rect = CGRect(origin: .zero, size: canvas)
-        let scale = 1 + CGFloat(size) * 3
+        // one grain: 0.07 % to 0.6 % of the short side (about 0.8 to 6.5 px at 1080)
+        let short = min(canvas.width, canvas.height)
+        let cell = max(0.5, short * (0.0007 + 0.0053 * CGFloat(min(max(size, 0), 1))))
         let h = UInt64(truncatingIfNeeded: frame &* 2_654_435_761)
         let ox = CGFloat(h % 997), oy = CGFloat((h / 997) % 991)
         guard let noise = CIFilter(name: "CIRandomGenerator")?.outputImage else { return img }
-        let mono = noise
+        var mono = noise
             .transformed(by: CGAffineTransform(translationX: -ox, y: -oy))
-            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-            .cropped(to: rect)
+            .transformed(by: CGAffineTransform(scaleX: cell, y: cell))
             .applyingFilter("CIColorMatrix", parameters: [
-                // gray noise squeezed around mid-gray so even 100% stays filmic
-                "inputRVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
-                "inputGVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
-                "inputBVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
+                // one channel for all three: gray, no color speckles; squeezed around mid-gray (neutral in Overlay)
+                "inputRVector": CIVector(x: 0.7, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0.7, y: 0, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0.7, y: 0, z: 0, w: 0),
                 "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
-                "inputBiasVector": CIVector(x: 0.2, y: 0.2, z: 0.2, w: 0),
+                "inputBiasVector": CIVector(x: 0.15, y: 0.15, z: 0.15, w: 0),
             ])
-        let blended = mono.applyingFilter("CISoftLightBlendMode", parameters: [kCIInputBackgroundImageKey: img])
+        // rounder grains instead of square pixels
+        if cell > 1.2 { mono = mono.applyingGaussianBlur(sigma: Double(cell) * 0.35) }
+        mono = mono.cropped(to: rect)
+        let blended = mono.applyingFilter("CIOverlayBlendMode", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: rect)
         return img.applyingFilter("CIDissolveTransition", parameters: [
             kCIInputTargetImageKey: blended,
-            "inputTime": min(1, amount * 0.6),
+            "inputTime": min(1, amount * 0.7),
         ])
     }
 

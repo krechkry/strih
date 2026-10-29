@@ -15,6 +15,8 @@ struct Effects: Codable, Hashable {
     var grain = 0.0         //  0...1  animated film grain
     var grainSize = 0.4     //  0...1
     var bloom = 0.0         //  0...1  soft glow around bright parts
+    var bloomSize = 0.4     //  0...1  how far the glow spreads
+    var bloomThreshold = 0.0 // 0...1  how bright a part must be to glow (0: everything glows a little)
     var halation = 0.0      //  0...1  red film glow around highlights
     var clarity = 0.0       // -1...1  local contrast in the midtones (− = soft, dreamy)
     var texture = 0.0       // -1...1  fine detail (− = smoother skin and surfaces)
@@ -61,6 +63,8 @@ struct Effects: Codable, Hashable {
         e.grain = m(a.grain, b.grain)
         e.grainSize = m(a.grainSize, b.grainSize)
         e.bloom = m(a.bloom, b.bloom)
+        e.bloomSize = m(a.bloomSize, b.bloomSize)
+        e.bloomThreshold = m(a.bloomThreshold, b.bloomThreshold)
         e.halation = m(a.halation, b.halation)
         e.clarity = m(a.clarity, b.clarity)
         e.texture = m(a.texture, b.texture)
@@ -81,6 +85,7 @@ struct Effects: Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case exposure, contrast, saturation, temperature, tint, highlights, shadows, vignette, aberration, grain, grainSize
         case motionBlur, bloom, halation, clarity, texture, curve, curveR, curveG, curveB, hslHue, hslSat, hslLum
+        case bloomSize, bloomThreshold
     }
 
     init(from d: Decoder) throws {
@@ -99,6 +104,8 @@ struct Effects: Codable, Hashable {
         grainSize = try v(.grainSize, 0.4)
         motionBlur = try v(.motionBlur)
         bloom = try v(.bloom)
+        bloomSize = try v(.bloomSize, 0.4)
+        bloomThreshold = try v(.bloomThreshold)
         halation = try v(.halation)
         clarity = try v(.clarity)
         texture = try v(.texture)
@@ -247,13 +254,14 @@ struct LookState: Hashable {
 /// The sliders in the Adjust sheet.
 enum LookParam: String, CaseIterable, Identifiable {
     case exposure, contrast, saturation, temperature, tint, highlights, shadows
-    case vignette, aberration, grain, grainSize, opacity, bloom, halation, clarity, texture
+    case vignette, aberration, grain, grainSize, opacity, bloom, halation, clarity, texture, bloomSize, bloomThreshold
 
     var id: String { rawValue }
 
     /// Basic tab (light and color) and Effects tab (lens and film).
     static let basic: [LookParam] = [.exposure, .contrast, .saturation, .temperature, .tint, .highlights, .shadows, .opacity]
-    static let effects: [LookParam] = [.clarity, .texture, .bloom, .halation, .vignette, .aberration, .grain, .grainSize]
+    static let effects: [LookParam] = [.clarity, .texture, .bloom, .bloomSize, .bloomThreshold, .halation, .vignette, .aberration,
+                                        .grain, .grainSize]
 
     var title: String {
         switch self {
@@ -270,6 +278,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grainSize: return "Grain size"
         case .opacity: return "Opacity"
         case .bloom: return "Bloom"
+        case .bloomSize: return "Bloom size"
+        case .bloomThreshold: return "Bloom threshold"
         case .halation: return "Halation"
         case .clarity: return "Clarity"
         case .texture: return "Texture"
@@ -291,6 +301,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grainSize: return "circle.grid.2x2"
         case .opacity: return "square.on.square"
         case .bloom: return "sparkles"
+        case .bloomSize: return "arrow.up.left.and.arrow.down.right.circle"
+        case .bloomThreshold: return "sun.max.circle"
         case .halation: return "sun.haze.fill"
         case .clarity: return "diamond.lefthalf.filled"
         case .texture: return "circle.hexagongrid.fill"
@@ -299,7 +311,7 @@ enum LookParam: String, CaseIterable, Identifiable {
 
     var range: ClosedRange<Double> {
         switch self {
-        case .vignette, .aberration, .grain, .grainSize, .opacity, .bloom, .halation: return 0...1
+        case .vignette, .aberration, .grain, .grainSize, .opacity, .bloom, .halation, .bloomSize, .bloomThreshold: return 0...1
         default: return -1...1
         }
     }
@@ -307,7 +319,7 @@ enum LookParam: String, CaseIterable, Identifiable {
     var neutral: Double {
         switch self {
         case .opacity: return 1
-        case .grainSize: return 0.4
+        case .grainSize, .bloomSize: return 0.4
         default: return 0
         }
     }
@@ -327,6 +339,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grainSize: return l.effects.grainSize
         case .opacity: return l.opacity
         case .bloom: return l.effects.bloom
+        case .bloomSize: return l.effects.bloomSize
+        case .bloomThreshold: return l.effects.bloomThreshold
         case .halation: return l.effects.halation
         case .clarity: return l.effects.clarity
         case .texture: return l.effects.texture
@@ -349,6 +363,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .grainSize: l.effects.grainSize = v
         case .opacity: l.opacity = v
         case .bloom: l.effects.bloom = v
+        case .bloomSize: l.effects.bloomSize = v
+        case .bloomThreshold: l.effects.bloomThreshold = v
         case .halation: l.effects.halation = v
         case .clarity: l.effects.clarity = v
         case .texture: l.effects.texture = v
