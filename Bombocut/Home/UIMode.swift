@@ -443,7 +443,7 @@ private struct Brackets: Shape {
     }
 }
 
-/// Settings: interface, languages.
+/// Settings: interface, languages, defaults, the clip quick menu, sound, subtitles.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(UIMode.key) private var mode = UIMode.pro.rawValue
@@ -490,6 +490,8 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    group("Defaults") { DefaultsSettings() }
+                    group("Quick menu") { QuickMenuSettings() }
                     group("Sound") {
                         OnOffRow(title: "Keep music from other apps playing",
                                  subtitle: "Spotify, Apple Music and others keep playing while you edit. The editor's sound plays on top.",

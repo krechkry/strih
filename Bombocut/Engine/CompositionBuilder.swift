@@ -11,7 +11,9 @@ struct ClipRenderInfo {
     var srcFps: Double = 30            // source frame rate (smooth slow motion phase)
     var smoothSlowMo = false
     var preview = false                // editor playback (lighter frame-engine work) vs export
-    var duration: Double = 0           // length on the timeline (in / out animations)
+    var duration: Double = 0           // length in the composition, handles included
+    var lead: Double = 0               // handle played before the clip's own start (a transition into it)
+    var trail: Double = 0              // handle played after the clip's own end (a transition out of it)
     var light = false                  // simple frame blending instead of Apple's frame engine (less memory)
 }
 
@@ -145,7 +147,8 @@ enum CompositionBuilder {
         var placed: [Placed] = []
 
         /// Puts one clip on the timeline at `at` on lane `l`. Returns where it ended (nil: no video in the file).
-        func place(_ clip: Clip, asset: AVURLAsset, at start: CMTime, lane l: Int, cut: CutTransition?) async throws -> Placed? {
+        func place(_ clip: Clip, asset: AVURLAsset, at start: CMTime, lane l: Int, cut: CutTransition?,
+                   lead: Double = 0, trail: Double = 0) async throws -> Placed? {
             guard let src = try await asset.loadTracks(withMediaType: .video).first else { return nil }
             let (prefTransform, srcRange, nominalFps) = try await src.load(.preferredTransform, .timeRange, .nominalFrameRate)
             let fps = nominalFps > 1 ? Double(nominalFps) : 30
@@ -207,7 +210,7 @@ enum CompositionBuilder {
             let info = ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: start.seconds,
                                       retime: clip.retime, state: clip.lookState, srcFps: fps,
                                       smoothSlowMo: clip.smoothSlowMo, preview: preview,
-                                      duration: (cursor - start).seconds, light: light)
+                                      duration: (cursor - start).seconds, lead: lead, trail: trail, light: light)
             let layer = ClipLayer(trackID: vTrack.trackID, info: info,
                                   prevTrackID: aux ? neighbours.prev?.trackID : nil,
                                   nextTrackID: aux ? neighbours.next?.trackID : nil)
@@ -221,14 +224,20 @@ enum CompositionBuilder {
             let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
             var start = placed.last?.end ?? .zero
             var cut: CutTransition? = nil
-            let ov = project.overlap(k)
-            if ov > 0, let before = placed.last {
-                // the clip comes in over the one before: both play for the length of the transition
-                start = max(before.start, before.end - time(ov))
+            let shape = project.cutShape(k)
+            let window = shape.shrink + shape.tail + shape.head
+            var head = 0.0
+            if window > 0.001, let before = placed.last {
+                // the clip comes in over the one before: both play for the length of the transition (the one
+                // before on past its end, this one from before its start, where they have footage there)
+                start = max(before.start, before.end - time(window))
+                head = shape.head
                 cut = clip.cut
                 lane = 1 - lane
             }
-            guard let p = try await place(clip, asset: asset, at: start, lane: lane, cut: cut) else {
+            let tail = project.cutShape(k + 1).tail
+            guard let p = try await place(clip.withHandles(head: head, tail: tail), asset: asset, at: start, lane: lane, cut: cut,
+                                          lead: head, trail: tail) else {
                 if cut != nil { lane = 1 - lane }
                 continue
             }

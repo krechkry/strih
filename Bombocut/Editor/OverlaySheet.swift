@@ -344,13 +344,19 @@ struct AnimEditor: View {
     let began: () -> Void
     let ended: () -> Void
     let preview: () -> Void
+    /// Only the way in (true) or only the way out (false); nil shows both.
+    var only: Bool? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            row("In", anim.inAnim, anim.inDur) { a in var n = anim; n.inAnim = a; set(n); preview() }
-                dur: { d in var n = anim; n.inDur = d; live(n) }
-            row("Out", anim.outAnim, anim.outDur) { a in var n = anim; n.outAnim = a; set(n); preview() }
-                dur: { d in var n = anim; n.outDur = d; live(n) }
+            if only != false {
+                row("In", anim.inAnim, anim.inDur) { a in var n = anim; n.inAnim = a; set(n); preview() }
+                    dur: { d in var n = anim; n.inDur = d; live(n) }
+            }
+            if only != true {
+                row("Out", anim.outAnim, anim.outDur) { a in var n = anim; n.outAnim = a; set(n); preview() }
+                    dur: { d in var n = anim; n.outDur = d; live(n) }
+            }
         }
     }
 

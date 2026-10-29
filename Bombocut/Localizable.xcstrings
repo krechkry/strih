@@ -820,26 +820,6 @@
         }
       }
     },
-    "Between clip %lld and %lld": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mezi klipem %lld a %lld"
-          }
-        }
-      }
-    },
-    "Between clips": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mezi klipy"
-          }
-        }
-      }
-    },
     "Bezier": {
       "localizations": {
         "cs": {
@@ -936,16 +916,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obojí"
-          }
-        }
-      }
-    },
-    "Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Oba klipy se během přechodu pohybují spolu, takže se video zkrátí o délku přechodu."
           }
         }
       }
@@ -1576,6 +1546,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "DeepFilterNet3"
+          }
+        }
+      }
+    },
+    "Defaults": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výchozí hodnoty"
           }
         }
       }
@@ -2618,6 +2598,26 @@
         }
       }
     },
+    "From black": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z černé"
+          }
+        }
+      }
+    },
+    "From the clip before": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z předchozího klipu"
+          }
+        }
+      }
+    },
     "From this keyframe to the next one.": {
       "localizations": {
         "cs": {
@@ -2888,6 +2888,16 @@
         }
       }
     },
+    "Into the next clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do dalšího klipu"
+          }
+        }
+      }
+    },
     "Invents in-between frames": {
       "localizations": {
         "cs": {
@@ -2914,6 +2924,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zmizí navždy i s importovanými videi. Koš tu není. Originály ve Fotkách zůstanou."
+          }
+        }
+      }
+    },
+    "It plays over the footage past the cut where the clips have some, so nothing is cut away. Where they don't, the clips overlap and the video gets a little shorter.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přechod hraje přes záběry za střihem, pokud v klipech nějaké zbývají, takže se nic neusekne. Kde nezbývají, klipy se překryjí a video se o kousek zkrátí."
           }
         }
       }
@@ -3478,6 +3498,16 @@
         }
       }
     },
+    "New clips fill the frame": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nové klipy vyplní obraz"
+          }
+        }
+      }
+    },
     "New project": {
       "localizations": {
         "cs": {
@@ -3614,6 +3644,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vypnuto"
+          }
+        }
+      }
+    },
+    "Off: they fit inside it, with borders where the shapes differ.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vypnuto: vejdou se dovnitř, s okraji tam, kde se tvary liší."
           }
         }
       }
@@ -3898,6 +3938,16 @@
         }
       }
     },
+    "Photo length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka fotky"
+          }
+        }
+      }
+    },
     "Photos": {
       "localizations": {
         "cs": {
@@ -3954,6 +4004,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat překrytí"
+          }
+        }
+      }
+    },
+    "Pick up to %lld, in the order they show. Tap a selected clip again to open the menu.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber až %lld, v pořadí, v jakém se ukážou. Menu otevřeš dalším klepnutím na vybraný klip."
           }
         }
       }
@@ -4114,6 +4174,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quad"
+          }
+        }
+      }
+    },
+    "Quick menu": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlé menu"
           }
         }
       }
@@ -5328,6 +5398,16 @@
         }
       }
     },
+    "Text and picture length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka textu a obrázku"
+          }
+        }
+      }
+    },
     "Texture": {
       "localizations": {
         "cs": {
@@ -5408,6 +5488,16 @@
         }
       }
     },
+    "The end of the video: the clip goes out to black.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konec videa: klip odejde do černé."
+          }
+        }
+      }
+    },
     "The first clip goes out and the next one comes in the same way, through black.": {
       "localizations": {
         "cs": {
@@ -5454,6 +5544,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "V aplikaci chybí model pro řeč."
+          }
+        }
+      }
+    },
+    "The start of the video: the clip comes in from black.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Začátek videa: klip naběhne z černé."
           }
         }
       }
@@ -5628,6 +5728,16 @@
         }
       }
     },
+    "To black": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do černé"
+          }
+        }
+      }
+    },
     "Too heavy for this iPhone": {
       "localizations": {
         "cs": {
@@ -5674,6 +5784,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přechod"
+          }
+        }
+      }
+    },
+    "Transition length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka přechodu"
           }
         }
       }

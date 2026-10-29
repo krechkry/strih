@@ -85,9 +85,9 @@ enum StillVideo {
     }
 
     /// A clip for a still video: 2 s long, the rest of the minute there to stretch into.
-    static func clip(_ video: URL, size: CGSize) -> Clip {
+    static func clip(_ video: URL, size: CGSize, duration: Double? = nil) -> Clip {
         var c = Clip(mediaFile: video.lastPathComponent, sourceDuration: length)
-        c.outPoint = defaultDuration
+        c.outPoint = min(length, max(0.2, duration ?? Defaults.stillLength))
         c.still = true
         if size.height > 0 { c.aspect = size.width / size.height }
         return c

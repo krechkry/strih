@@ -213,6 +213,27 @@ struct Clip: Identifiable, Codable, Hashable {
     }
 
     var retime: Retime { Retime(self) }
+
+    /// Footage left before the in point / after the out point, in timeline seconds (a transition can play over
+    /// it). None for speed curves and held pictures.
+    var headHandle: Double {
+        guard !hasCurve, !still, reversed == nil, stack == nil else { return 0 }
+        return max(0, inPoint / max(speed, 0.01))
+    }
+    var tailHandle: Double {
+        guard !hasCurve, !still, reversed == nil, stack == nil else { return 0 }
+        return max(0, (sourceDuration - outPoint) / max(speed, 0.01))
+    }
+
+    /// The clip with `head` / `tail` timeline seconds of its handles added (constant speed only).
+    func withHandles(head: Double, tail: Double) -> Clip {
+        guard head > 0 || tail > 0, !hasCurve else { return self }
+        var c = self
+        let v = max(speed, 0.01)
+        c.inPoint = max(0, inPoint - head * v)
+        c.outPoint = min(sourceDuration, outPoint + tail * v)
+        return c
+    }
     /// Length on the timeline.
     var duration: Double { retime.outDuration }
     var hasCurve: Bool { (speedCurve?.count ?? 0) >= 2 }
@@ -433,16 +454,35 @@ struct Project: Identifiable, Codable, Hashable {
         return starts[starts.count - 1] + d[d.count - 1]
     }
 
-    /// Seconds clip k overlaps the clip before it (its transition in). Never more than 45 % of either
-    /// clip, so a clip with transitions at both ends always keeps a moment of its own.
-    func overlap(_ k: Int) -> Double {
-        guard k > 0, k < clips.count else { return 0 }
-        return Self.overlap(clips[k].cut, clips[k - 1].duration, clips[k].duration)
+    /// Seconds clip k overlaps the clip before it (the part of its transition the handles can't cover:
+    /// the video gets that much shorter).
+    func overlap(_ k: Int) -> Double { cutShape(k).shrink }
+
+    /// The transition into clip k: `shrink` seconds the two clips overlap on the timeline, `tail` seconds the
+    /// clip before plays on past its end (its handle), `head` seconds clip k starts before its start.
+    /// The transition runs from clip k's start − head for head + shrink + tail seconds.
+    func cutShape(_ k: Int) -> (shrink: Double, tail: Double, head: Double) {
+        guard k > 0, k < clips.count else { return (0, 0, 0) }
+        return Self.cutShape(clips[k].cut, clips[k - 1], clips[k])
     }
 
-    static func overlap(_ cut: CutTransition?, _ before: Double, _ after: Double) -> Double {
-        guard let c = cut, c.kind != .none else { return 0 }
-        return max(0, min(c.duration, before * 0.45, after * 0.45))
+    /// Centered on the cut and over the handles where there are any; what they can't cover overlaps the clips.
+    /// The transition never takes more than 45 % of either clip, so a clip with transitions at both ends
+    /// always keeps a moment of its own.
+    static func cutShape(_ cut: CutTransition?, _ a: Clip, _ b: Clip) -> (shrink: Double, tail: Double, head: Double) {
+        guard let c = cut, c.kind != .none else { return (0, 0, 0) }
+        let capA = a.duration * 0.45, capB = b.duration * 0.45
+        let d = max(0, c.duration)
+        guard c.handles == true else { return (max(0, min(d, capA, capB)), 0, 0) }
+        let (hA, hB) = (a.tailHandle, b.headHandle)
+        var tail = min(hA, d / 2), head = min(hB, d / 2)
+        tail = min(hA, d - head)
+        head = min(hB, d - tail)
+        // the clip before shows over clip k's own part for shrink + tail (and the other way round)
+        tail = min(tail, capB)
+        head = min(head, capA)
+        let shrink = max(0, min(d - tail - head, capB - tail, capA - head))
+        return (shrink, tail, head)
     }
 
     private static func starts(_ clips: [Clip], _ d: [Double]) -> [Double] {
@@ -450,7 +490,7 @@ struct Project: Identifiable, Codable, Hashable {
         out.reserveCapacity(clips.count)
         for k in clips.indices {
             if k == 0 { out.append(0); continue }
-            out.append(out[k - 1] + d[k - 1] - overlap(clips[k].cut, d[k - 1], d[k]))
+            out.append(out[k - 1] + d[k - 1] - cutShape(clips[k].cut, clips[k - 1], clips[k]).shrink)
         }
         return out
     }

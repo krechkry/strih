@@ -137,18 +137,22 @@ struct TimelineView: View {
                     }
                     .overlay(alignment: .leading) {
                         // transitions: a diagonal across the overlap, tap it to change the transition
-                        if reorder == nil && model.pick == nil && shown.count > 1 {
+                        if reorder == nil && model.pick == nil && shown.count > 1 && shown.map(\.id) == model.project.clips.map(\.id) {
                             ZStack(alignment: .leading) {
                                 ForEach(1..<shown.count, id: \.self) { k in
-                                    if k < overlaps.count, overlaps[k] > 0 {
+                                    // the whole transition: over the clip before's handle, the overlap, and this
+                                    // clip's handle (centered on the cut where the clips have footage past it)
+                                    let sh = model.project.cutShape(k)
+                                    let span = CGFloat(sh.head + sh.shrink + sh.tail) * model.pxPerSec
+                                    if k < overlaps.count, span > 0.5 {
                                         let busy = model.trim != nil || shown[k].id == model.selectedClipID
                                             || shown[k - 1].id == model.selectedClipID
                                         TransitionMark(selected: model.transitionCut == k - 1)
-                                            .frame(width: overlaps[k], height: stripHeight)
+                                            .frame(width: max(span, 8), height: stripHeight)
                                             .contentShape(Rectangle())
                                             .onTapGesture { model.openTransition(cut: k - 1) }
                                             .allowsHitTesting(!busy && UIMode.isPro)   // Basic has no transitions
-                                            .offset(x: slotX(shown, k))
+                                            .offset(x: slotX(shown, k) - CGFloat(sh.head) * model.pxPerSec)
                                     }
                                 }
                             }
@@ -234,15 +238,12 @@ struct TimelineView: View {
                     let x0 = half + shift + slotX(shown, k) - offsetX
                     let mid = (max(x0, 0) + min(x0 + width(shown[k]), geo.size.width)) / 2
                     let stacked = shown[k].stack != nil
-                    let w = QuickMenu.width(pro: UIMode.isPro, extra: stacked ? 1 : 0)
+                    let actions = model.quickActions(for: shown[k])
+                    let w = QuickMenu.width(count: actions.count + (stacked ? 1 : 0))
                     let cx = min(max(mid, w / 2 + 8), geo.size.width - w / 2 - 8)
-                    QuickMenu(pro: UIMode.isPro, pointer: mid - cx,
+                    QuickMenu(pointer: mid - cx, actions: actions,
                               unstack: stacked ? { model.quickMenuClipID = nil; model.unstackSelected() } : nil,
-                              transition: { model.quickMenuClipID = nil; model.openTransitionForSelection() },
-                              volume: { model.quickMenuClipID = nil; model.pause(); model.openVolumePanel = true },
-                              duplicate: { model.quickMenuClipID = nil; model.duplicateSelected() },
-                              copyAsOverlay: { model.quickMenuClipID = nil; model.copyClipAsOverlay() },
-                              delete: { model.quickMenuClipID = nil; model.deleteSelected() })
+                              perform: { model.performQuick($0) })
                         .position(x: cx, y: LaneLayout.top - 8 - QuickMenu.height / 2)
                         .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
                         .zIndex(5)
@@ -1444,36 +1445,26 @@ struct LaneLayout {
 
 /// Tap the selected clip again: its most used tools float above it.
 struct QuickMenu: View {
-    let pro: Bool
     /// Where the clip is, relative to the menu's middle (the little pointer aims there).
     let pointer: CGFloat
+    /// The actions picked in Settings > Quick menu that fit this clip.
+    let actions: [QuickAction]
     /// A Stack: its own Unstack button.
     var unstack: (() -> Void)? = nil
-    let transition: () -> Void
-    let volume: () -> Void
-    let duplicate: () -> Void
-    /// Pro: the clip copied as a video overlay.
-    var copyAsOverlay: (() -> Void)? = nil
-    let delete: () -> Void
+    let perform: (QuickAction) -> Void
 
     static let height: CGFloat = 54
     private static func item(_ n: Int) -> CGFloat { n > 5 ? 58 : 64 }
-    private static func count(pro: Bool, extra: Int) -> Int { (pro ? 5 : 3) + extra }
-    static func width(pro: Bool, extra: Int = 0) -> CGFloat {
-        let n = count(pro: pro, extra: extra)
-        return CGFloat(n) * item(n) + 12
-    }
-    private var n: Int { Self.count(pro: pro, extra: unstack == nil ? 0 : 1) }
-    private var w: CGFloat { Self.width(pro: pro, extra: unstack == nil ? 0 : 1) }
+    static func width(count n: Int) -> CGFloat { CGFloat(max(n, 1)) * item(n) + 12 }
+    private var n: Int { actions.count + (unstack == nil ? 0 : 1) }
+    private var w: CGFloat { Self.width(count: n) }
 
     var body: some View {
         HStack(spacing: 0) {
             if let unstack { button("square.stack.3d.up.slash", "Unstack", action: unstack) }
-            if pro { button("arrow.left.and.right.square", "Transition", action: transition) }
-            button("speaker.wave.2", "Volume", action: volume)
-            button("plus.square.on.square", "Duplicate", action: duplicate)
-            if pro, let copyAsOverlay { button("square.on.square.dashed", "Copy as overlay", action: copyAsOverlay) }
-            button("trash", "Delete", tint: Color(red: 1, green: 0.38, blue: 0.36), action: delete)
+            ForEach(actions) { a in
+                button(a.icon, a.title, tint: a == .delete ? Color(red: 1, green: 0.38, blue: 0.36) : .white) { perform(a) }
+            }
         }
         .padding(.horizontal, 6)
         .frame(width: w, height: Self.height)

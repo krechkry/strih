@@ -272,11 +272,14 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         var look = p.look
         // AutoZoom: from the clip's first frame to its last, on top of its own placement
         // (the AutoZoom panel shows the clip unzoomed while paused, with the two framings drawn over it)
+        // the clip's own part (a transition may play its handles before and after it)
+        let local = t - info.start - info.lead
+        let length = max(0.01, info.duration - info.lead - info.trail)
         if let z = state.autoZoom, info.duration > 0.01, !(info.preview && LookStore.shared.framingClip == info.clipID) {
-            look.transform = z.apply(look.transform, at: (t - info.start) / info.duration)
+            look.transform = z.apply(look.transform, at: min(max(local / length, 0), 1))
         }
         // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
-        let anim = state.anim.isNone ? nil : state.anim.pose(local: t - info.start, length: info.duration)
+        let anim = state.anim.isNone ? nil : state.anim.pose(local: local, length: length)
         let editingCrop = info.preview && LookStore.shared.cropEditClip == info.clipID
         func geometry(_ img: CIImage, upright: Bool) -> CIImage {
             var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill, transform: look.transform,

@@ -208,6 +208,9 @@ struct EditorView: View {
         .onChange(of: model.openTransitionPanel) { _, open in
             if open { model.openTransitionPanel = false; sheet = .animation }
         }
+        .onChange(of: model.requestedPanel) { _, p in
+            if let p { model.requestedPanel = nil; sheet = p }
+        }
         .onChange(of: model.openVolumePanel) { _, open in
             if open { model.openVolumePanel = false; sheet = .volume }
         }

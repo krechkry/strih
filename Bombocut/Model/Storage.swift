@@ -125,13 +125,15 @@ enum Media {
         var clips: [Clip] = []
         var first: CGSize?
         for url in urls {
-            // photos: held for 2 seconds
+            // photos: held as long as Settings > Defaults says
             if StillVideo.isImage(url) {
                 defer { try? FileManager.default.removeItem(at: url) }
                 guard let video = try? await StillVideo.make(fromImageAt: url),
                       let info = try? await probe(video) else { continue }
                 if first == nil { first = info.size }
-                clips.append(StillVideo.clip(video, size: info.size))
+                var still = StillVideo.clip(video, size: info.size)
+                still.fill = Defaults.fillNewClips
+                clips.append(still)
                 continue
             }
             guard let info = try? await probe(url), info.duration > 0.05 else {
@@ -141,6 +143,7 @@ enum Media {
             if first == nil { first = info.size }
             var c = Clip(mediaFile: url.lastPathComponent, sourceDuration: info.duration)
             if info.size.height > 0 { c.aspect = info.size.width / info.size.height }
+            c.fill = Defaults.fillNewClips
             clips.append(c)
         }
         return (clips, first)

@@ -645,7 +645,7 @@ final class EditorModel: ObservableObject {
             gen.requestedTimeToleranceAfter = .zero
             guard let frame = try? await gen.image(at: CMTime(seconds: src, preferredTimescale: 600)).image,
                   let video = try? await StillVideo.make(from: frame) else { return }
-            var still = StillVideo.clip(video, size: CGSize(width: frame.width, height: frame.height))
+            var still = StillVideo.clip(video, size: CGSize(width: frame.width, height: frame.height), duration: StillVideo.defaultDuration)
             // it looks like the frame it came from
             still.staticLook = c.look(atSource: src)
             still.fill = c.fill
@@ -1320,7 +1320,11 @@ final class EditorModel: ObservableObject {
 
     /// The cut being edited: between clip `cut` and clip `cut + 1`.
     @Published var transitionCut: Int?
+    /// The Transition panel works on the selected clip's start (true) or its end.
+    @Published var transitionAtStart = true
     @Published var openTransitionPanel = false
+    /// A panel asked for from outside the toolbar (the clip quick menu); the editor opens it.
+    @Published var requestedPanel: EditorSheet?
     @Published var openAddClips = false
     @Published var openVolumePanel = false
     /// The selected clip whose quick tools (transition, volume, duplicate, delete) float above it.
@@ -1334,6 +1338,7 @@ final class EditorModel: ObservableObject {
             openTransition(cut: i + 1 < project.clips.count ? i : i - 1)
         } else {
             transitionCut = nil
+            transitionAtStart = true
             openTransitionPanel = true
         }
     }
@@ -1352,8 +1357,30 @@ final class EditorModel: ObservableObject {
         }
         cutDurationEnded()
         transitionCut = k
-        scrub(to: project.clipStarts[k + 1] + project.overlap(k + 1) / 2)
+        transitionAtStart = selectedClipID == project.clips[k + 1].id
+        scrub(to: cutMiddle(k + 1))
         openTransitionPanel = true
+    }
+
+    /// The middle of the transition into clip k.
+    func cutMiddle(_ k: Int) -> Double {
+        let s = project.cutShape(k)
+        return project.clipStarts[k] - s.head + (s.head + s.shrink + s.tail) / 2
+    }
+
+    /// Transition panel: the selected clip's start or end. With a clip next to it there, the transition between
+    /// the two; at the start or end of the video, the clip's own way in from (or out to) black.
+    func openTransitionEdge(start: Bool) {
+        guard let i = selectedIndex else { return }
+        let n = project.clips.count
+        if start && i > 0 { openTransition(cut: i - 1); return }
+        if !start && i + 1 < n { openTransition(cut: i); return }
+        cutDurationEnded()
+        transitionCut = nil
+        transitionAtStart = start
+        pause()
+        let a = project.clipStarts[i], b = a + project.clips[i].duration
+        scrub(to: start ? a : max(a, b - 1.0 / 30))
     }
 
     /// The transition at cut k (between clip k and k + 1): the clip after comes in over the clip before,
@@ -1372,9 +1399,9 @@ final class EditorModel: ObservableObject {
                 p.clips[k + 1].cut = nil
             } else {
                 // a smooth cut is a few frames; the others start at half a second
-                var d = old?.duration ?? 0.5
+                var d = old?.duration ?? Defaults.transitionLength
                 if kind == .smooth && old?.kind != .smooth { d = 0.2 }
-                if kind != .smooth && old?.kind == .smooth { d = 0.5 }
+                if kind != .smooth && old?.kind == .smooth { d = Defaults.transitionLength }
                 p.clips[k + 1].cut = CutTransition(kind: kind, duration: d)
             }
         }
@@ -1388,6 +1415,7 @@ final class EditorModel: ObservableObject {
         guard let k = transitionCut, k + 1 < project.clips.count, project.clips[k + 1].cut != nil else { return }
         if cutEditBefore == nil { cutEditBefore = project }
         project.clips[k + 1].cut?.duration = d
+        project.clips[k + 1].cut?.handles = true
     }
 
     /// Finishes a length change (slider released, panel closed or another cut picked). Safe to call twice.
@@ -1402,10 +1430,14 @@ final class EditorModel: ObservableObject {
 
     private var cutEditBefore: Project?
 
-    /// The longest the transition at cut k can be (45 % of the shorter clip).
+    /// The longest the transition at cut k can be: 45 % of the shorter clip, plus what the clips' footage past
+    /// the cut adds (see `Project.cutShape`).
     func maxCutDuration(_ k: Int) -> Double {
         guard k >= 0, k + 1 < project.clips.count else { return 0.5 }
-        return max(0.1, min(project.clips[k].duration, project.clips[k + 1].duration) * 0.45)
+        let a = project.clips[k], b = project.clips[k + 1]
+        let capA = a.duration * 0.45, capB = b.duration * 0.45
+        let most = min(capB + min(b.headHandle, capA), capA + min(a.tailHandle, capB))
+        return max(0.1, max(min(capA, capB), most))
     }
 
     /// Same transition on every cut.
@@ -1424,9 +1456,9 @@ final class EditorModel: ObservableObject {
             // the change just rebuilt the video: play the new one, not the old
             await build?.value
             guard let k2 = transitionCut, k2 == k, k + 1 < project.clips.count else { return }
-            let start = project.clipStarts[k + 1]
-            let ov = project.overlap(k + 1)
-            playOnce(from: max(0, start - 0.6), to: min(duration, start + ov + 0.6), back: start + ov / 2)
+            let sh = project.cutShape(k + 1)
+            let from = project.clipStarts[k + 1] - sh.head, len = sh.head + sh.shrink + sh.tail
+            playOnce(from: max(0, from - 0.6), to: min(duration, from + len + 0.6), back: from + len / 2)
         }
     }
 
@@ -2281,7 +2313,7 @@ final class EditorModel: ObservableObject {
     /// Text overlay at the playhead (3 s).
     func addText() {
         let start = onFrame(min(currentTime, max(0, duration - 0.5)))
-        var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(3, max(0.5, duration - start)))
+        var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
         focusNewText = true
         o.transform.y = -0.15
         mutateLook { p in
@@ -2309,7 +2341,7 @@ final class EditorModel: ObservableObject {
             mutate { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }     // video needs its own track: rebuild
         } else {
             guard let img = UIImage(contentsOfFile: url.path) else { return }
-            o = Overlay(kind: .image(file: url.lastPathComponent), start: start, duration: min(3, max(0.5, duration - start)))
+            o = Overlay(kind: .image(file: url.lastPathComponent), start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
             if img.size.height > 0 { o.aspect = img.size.width / img.size.height }
             let new = o
             mutateLook { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }
@@ -3669,5 +3701,46 @@ extension EditorModel {
     var editedVolume: Double? {
         if let st = selectedStack { return st.volume }
         return selectedIndex.map { project.clips[$0].volume }
+    }
+}
+
+
+// MARK: Quick menu
+
+extension EditorModel {
+    /// The quick menu's actions for the selected clip: the ones picked in Settings that fit this clip.
+    func quickActions(for clip: Clip) -> [QuickAction] {
+        Defaults.quickActions.filter { a in
+            (!a.pro || UIMode.isPro) && (!clip.still || a.forStills) && (a != .slip || canSlip)
+        }
+    }
+
+    /// Does what the toolbar button of the same name does.
+    func performQuick(_ a: QuickAction) {
+        quickMenuClipID = nil
+        func panel(_ s: EditorSheet) { pause(); requestedPanel = s }
+        switch a {
+        case .split: split()
+        case .adjust: panel(.adjust)
+        case .speed: panel(.speed)
+        case .slip: requestedPanel = nil; startSlip()
+        case .crop: pause(); playheadIntoSelected(); requestedPanel = .crop
+        case .autoZoom: panel(.autoZoom)
+        case .captions: openClipCaptions()
+        case .track: panel(.track)
+        case .mask: panel(.mask)
+        case .stabilize: panel(.stabilize)
+        case .motionBlur: panel(.motionBlur)
+        case .transition: openTransitionForSelection()
+        case .freeze: freezeFrame()
+        case .reverse: reverseSelected()
+        case .fill: fitClip(fill: true)
+        case .duplicate: duplicateSelected()
+        case .copyAsOverlay: copyClipAsOverlay()
+        case .soundFromVideo: pause(); Task { await extractClipAudio() }
+        case .speech: panel(.speech)
+        case .volume: pause(); openVolumePanel = true
+        case .delete: deleteSelected()
+        }
     }
 }

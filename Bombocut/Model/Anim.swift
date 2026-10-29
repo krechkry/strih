@@ -99,10 +99,15 @@ struct AnimPair: Codable, Hashable {
 }
 
 /// A transition between two clips: the clip after comes in over the clip before while both play
-/// (a real crossfade when `kind` is .fade). The overlap makes the video shorter by `duration`.
+/// (a real crossfade when `kind` is .fade). Where the clips have footage left past their ends (handles), the
+/// transition plays over that, centered on the cut, and nothing is cut away; only what the handles can't
+/// cover makes the clips overlap (and the video shorter). See `Project.cutShape`.
 struct CutTransition: Codable, Hashable {
     var kind: MotionAnim = .fade
     var duration = 0.5
+    /// Uses the footage past the clips' ends. Nil in projects made before this (they keep overlapping, so
+    /// nothing in them moves); set again whenever the transition is changed.
+    var handles: Bool? = true
 
     /// Offset (fractions of the canvas, + = right / down), scale and opacity of one clip in a transition.
     struct Pose: Equatable {

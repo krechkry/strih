@@ -83,36 +83,36 @@ struct ApplyRow: View {
     }
 }
 
-/// Transitions: the cut into the selected clip (the two clips overlap and blend), or the clip's own
-/// in / out animation (from and to black, for the start and end of the video).
+/// Transitions of the selected clip, at its start or its end. With a clip next to it there: the transition
+/// between the two (they blend). At the start or end of the video: the clip's own way in from black or out to black.
 struct ClipAnimSheet: View {
     @ObservedObject var model: EditorModel
-    @State private var showClipAnim = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 6) {
-                    Text("Transition").font(.title3.weight(.heavy))
-                    Spacer()
-                    if model.transitionCut != nil && model.selectedIndex != nil {
-                        tab("Between clips", on: !showClipAnim) { showClipAnim = false }
-                        tab("In / out", on: showClipAnim) { showClipAnim = true }
+                Text("Transition").font(.title3.weight(.heavy))
+                if let i = model.selectedIndex {
+                    let n = model.project.clips.count
+                    let start = model.transitionAtStart
+                    HStack(spacing: 8) {
+                        edgeButton(start: true, neighbour: i > 0, on: start)
+                        edgeButton(start: false, neighbour: i + 1 < n, on: !start)
                     }
-                }
-                if let k = model.transitionCut, k + 1 < model.project.clips.count, !showClipAnim {
-                    cutEditor(k)
-                } else if let i = model.selectedIndex {
-                    let c = model.project.clips[i]
-                    AnimEditor(anim: c.anim, maxLength: c.duration,
-                               set: { model.setClipAnim($0) },
-                               live: { a in model.editClip { $0.anim = a } },
-                               began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
-                               preview: { model.previewClipAnim() })
-                    Text("The clip comes in from black or goes out to black. For the start and the end of the video.")
-                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    ApplyRow(model: model, kind: .animation)
+                    if let k = model.transitionCut, k + 1 < n, k == (start ? i - 1 : i) {
+                        cutEditor(k)
+                    } else {
+                        let c = model.project.clips[i]
+                        AnimEditor(anim: c.anim, maxLength: c.duration,
+                                   set: { model.setClipAnim($0) },
+                                   live: { a in model.editClip { $0.anim = a } },
+                                   began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
+                                   preview: { model.previewClipAnim() }, only: start)
+                        Text(start ? "The start of the video: the clip comes in from black." : "The end of the video: the clip goes out to black.")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ApplyRow(model: model, kind: .animation)
+                    }
                 }
             }
             .padding(20)
@@ -121,36 +121,45 @@ struct ClipAnimSheet: View {
         .onDisappear { model.cutDurationEnded() }
     }
 
-    private func tab(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(loc(title)).font(.footnote.weight(.bold))
+    /// Start or end of the clip, drawn: the clip with its edge marked, and the clip next to it (or black).
+    private func edgeButton(start: Bool, neighbour: Bool, on: Bool) -> some View {
+        let ink: Color = on ? .black : .white
+        return Button { model.openTransitionEdge(start: start) } label: {
+            HStack(spacing: 10) {
+                HStack(spacing: 2) {
+                    if start { side(neighbour, ink) }
+                    RoundedRectangle(cornerRadius: 3).fill(ink.opacity(0.28))
+                        .frame(width: 30, height: 18)
+                        .overlay(alignment: start ? .leading : .trailing) {
+                            Capsule().fill(on ? Color.black : Theme.accent).frame(width: 3.5, height: 24)
+                                .offset(x: start ? -1.5 : 1.5)
+                        }
+                    if !start { side(neighbour, ink) }
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(loc(start ? "Start" : "End")).font(.subheadline.weight(.heavy))
+                    Text(loc(start ? (neighbour ? "From the clip before" : "From black") : (neighbour ? "Into the next clip" : "To black")))
+                        .font(.caption2.weight(.semibold)).opacity(0.7)
+                }
                 .lineLimit(1).minimumScaleFactor(0.7)
-                .foregroundStyle(on ? .black : .white)
-                .padding(.horizontal, 12).frame(height: 30)
-                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(ink)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
     }
 
-    /// Which cut: a clip in the middle has one before it and one after it.
+    /// The neighbour: a bit of the next clip, or black (the start / end of the video).
     @ViewBuilder
-    private func cutPicker(_ k: Int) -> some View {
-        let n = model.project.clips.count
-        if let i = model.selectedIndex, i > 0, i + 1 < n, k == i - 1 || k == i {
-            HStack(spacing: 8) {
-                ForEach([i - 1, i], id: \.self) { c in
-                    Button { model.openTransition(cut: c) } label: {
-                        Text(verbatim: "\(loc("Clips")) \(c + 1) ↔ \(c + 2)")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(k == c ? .black : .white)
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                            .background(k == c ? Theme.accent : Theme.panel2, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+    private func side(_ neighbour: Bool, _ ink: Color) -> some View {
+        if neighbour {
+            RoundedRectangle(cornerRadius: 3).fill(ink.opacity(0.12)).frame(width: 12, height: 18)
         } else {
-            Text("Between clip \(k + 1) and \(k + 2)").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+            RoundedRectangle(cornerRadius: 3).strokeBorder(ink.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                .frame(width: 12, height: 18)
         }
     }
 
@@ -161,7 +170,6 @@ struct ClipAnimSheet: View {
         let current = cut?.kind ?? .none
         let maxLen = model.maxCutDuration(k)
         let length = min(cut?.duration ?? 0.5, maxLen)
-        cutPicker(k)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(MotionAnim.transitions, id: \.self) { m in
@@ -198,7 +206,7 @@ struct ClipAnimSheet: View {
                    })
                 .tint(Theme.accent)
                 .doubleTapReset {
-                    model.cutDurationChanged(current == .smooth ? 0.2 : 0.5)
+                    model.cutDurationChanged(current == .smooth ? 0.2 : Defaults.transitionLength)
                     model.cutDurationEnded()
                     model.previewCut()
                 }
@@ -214,7 +222,7 @@ struct ClipAnimSheet: View {
         }
         Text(current == .smooth
              ? "Smooth cut morphs one shot into the next, so a jump cut in similar footage (someone talking, the same spot) does not jump. Keep it short."
-             : "Both clips move together while one hands over to the other, so the video gets shorter by the length of the transition.")
+             : "It plays over the footage past the cut where the clips have some, so nothing is cut away. Where they don't, the clips overlap and the video gets a little shorter.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
     }
