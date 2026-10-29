@@ -70,7 +70,17 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let prev = layer.prevTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         let speed = info.retime.speed(atLocal: t - info.start)
         let srcTime = CMTime(seconds: srcT, preferredTimescale: 600)
-        func ready(_ img: CIImage) { done(Prepared(layer: layer, source: img, look: look, state: state, srcT: srcT)) }
+        // editor playback works at most at the output size (1080p): a 4K source is scaled down first, so its
+        // color, effects and masks are worked out on a quarter of the pixels (export keeps the full source)
+        let render = request.renderContext.size
+        let most = max(render.width, render.height) * CGFloat(max(1, look.transform.scale))
+        func ready(_ img: CIImage) {
+            // (frames from the frame engine are already about the output size)
+            let long = max(img.extent.width, img.extent.height)
+            let cap = info.preview && long.isFinite && long > 0 ? min(1, most / long) : 1
+            let small = cap < 0.95 ? img.transformed(by: CGAffineTransform(scaleX: cap, y: cap)) : img
+            done(Prepared(layer: layer, source: small, look: look, state: state, srcT: srcT))
+        }
         // the frame engine works at (about) the output size, not the source's 4K: much faster, same look
         let work = SmoothFrames.workSize(source: CGSize(width: CVPixelBufferGetWidth(src), height: CVPixelBufferGetHeight(src)),
                                          render: request.renderContext.size, preview: info.preview)
