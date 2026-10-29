@@ -332,7 +332,7 @@ struct EditorView: View {
         .onChange(of: model.selectedOverlayID) { _, id in
             if id == nil && sheet == .overlay { sheet = nil }
             // the overlay's Adjust / Mask panel closes with it (a clip selected instead keeps its own)
-            if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask) { sheet = nil }
+            if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask || sheet == .crop) { sheet = nil }
         }
         .onChange(of: overlayItems) { _, items in
             guard let item = items.first else { return }
@@ -642,6 +642,9 @@ struct EditorView: View {
                         ToolButton(icon: "speedometer", label: "Speed") { openOverlay(.speed) }
                     }
                     if pro { ToolButton(icon: "camera.filters", label: "Adjust") { model.pause(); sheet = .adjust } }
+                    if o.isMedia {
+                        ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
+                    }
                     if pro && o.isMedia {
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                     }

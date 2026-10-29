@@ -7,7 +7,7 @@ struct CropSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if model.editsStackOrClip {
+            if model.editsCrop {
                 let c = model.editedCrop ?? CropRect()
                 HStack {
                     Text("Crop").font(.title3.weight(.heavy))
@@ -26,7 +26,7 @@ struct CropSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                 slider("Softness", c.softness) { v in model.editCrop { $0.softness = v } }
                 slider("Rounded corners", c.radius) { v in model.editCrop { $0.radius = v } }
-                if model.selectedStackIndex == nil { ApplyRow(model: model, kind: .crop) }
+                if model.selectedStackIndex == nil && model.selectedOverlayIndex == nil { ApplyRow(model: model, kind: .crop) }
             }
         }
         .padding(20)

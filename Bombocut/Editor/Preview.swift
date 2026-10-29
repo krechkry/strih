@@ -67,6 +67,11 @@ struct PreviewArea: View {
                     } else if let i = model.selectedIndex, model.playheadInSelected {
                         layer(canvas) { cropFrame(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
                                                   crop: model.project.clips[i].crop ?? CropRect()) }
+                    } else if let oi = model.selectedOverlayIndex, model.project.overlays[oi].isMedia,
+                              model.currentTime >= model.project.overlays[oi].start - 0.01,
+                              model.currentTime < model.project.overlays[oi].end {
+                        let o = model.project.overlays[oi]
+                        layer(canvas) { cropFrame(canvas, toCanvas: overlayMap(o, canvas), crop: o.crop ?? CropRect()) }
                     }
                 }
                 if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil {
@@ -279,6 +284,18 @@ struct PreviewArea: View {
                 .allowsHitTesting(false)
             }
         }
+    }
+
+    /// An overlay's picture (0...1 across and down, upright) to canvas points, at the playhead.
+    private func overlayMap(_ o: Overlay, _ canvas: CGSize) -> CGAffineTransform {
+        let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
+        let t = o.pose(at: model.currentTime).transform
+        let bw = base.width * t.scale, bh = base.height * t.scale
+        let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+        return CGAffineTransform(scaleX: bw, y: bh)
+            .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
+            .concatenating(CGAffineTransform(rotationAngle: t.rotation))
+            .concatenating(CGAffineTransform(translationX: cx, y: cy))
     }
 
     /// The tracked subject, shown while the clip is selected and paused.

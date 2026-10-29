@@ -113,7 +113,17 @@ final class OverlayRenderer: @unchecked Sendable {
         let w = e.width, h = e.height
         guard w > 0, h > 0 else { return nil }
         let src = CGSize(width: w, height: h)
-        if let c = o.crop, !c.isEmpty, o.isMedia { img = FrameCompositor.cropped(img, c, src) }
+        // the crop (the Crop panel open on it: the whole picture stays faintly visible around the crop)
+        let editingCrop = preview && o.isMedia && LookStore.shared.cropEditClip == o.id
+        if o.isMedia, let c = o.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
+            let kept = FrameCompositor.cropped(img, c, src)
+            img = editingCrop
+                ? kept.composited(over: img.applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: 0.3, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 0.3, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
+                : kept
+        }
         img = finished(o, img, at: t, outline: preview && OverlayStore.shared.outlineOverlay == o.id)
         // a video copied from a clip: its stabilization and tracking, as on the clip
         let srcT = o.sourceTime(at: t)
@@ -158,7 +168,7 @@ final class OverlayRenderer: @unchecked Sendable {
         let mask = o.isMedia ? o.mask : nil
         guard fx.hasColor || fx.hasCanvasFX || mask != nil else { return img }
         guard case .image(let file) = o.kind, fx.grain == 0 else { return look(o, img, at: t, outline: outline) }
-        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)"
+        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)|\(o.crop?.hashValue ?? 0)|\(LookStore.shared.cropEditClip == o.id)"
         lock.lock()
         if let c = looks[key] { lock.unlock(); return c }
         lock.unlock()

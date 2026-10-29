@@ -2288,6 +2288,7 @@ final class EditorModel: ObservableObject {
         didSet {
             if maskPanelOpen && selectedOverlayID != oldValue { updateMaskOutline() }
             if maskPaint && selectedOverlayID != oldValue { maskPaint = false }
+            if cropPanelOpen && selectedOverlayID != oldValue { updateFraming() }
         }
     }
     /// A text was just added: its panel opens with the keyboard up.
@@ -3306,7 +3307,7 @@ extension EditorModel {
     func updateFraming() {
         let target = selectedStackID ?? selectedClipID
         let id = autoZoomPanelOpen && !isPlaying ? target : nil
-        let crop = cropPanelOpen ? target : nil
+        let crop = cropPanelOpen ? (target ?? selectedOverlayID) : nil
         guard LookStore.shared.framingClip != id || LookStore.shared.cropEditClip != crop else { return }
         LookStore.shared.framingClip = id
         LookStore.shared.cropEditClip = crop
@@ -3316,6 +3317,12 @@ extension EditorModel {
     // MARK: Crop
 
     func setCrop(_ c: CropRect?) {
+        if let oi = selectedOverlayIndex {
+            let v = (c?.isEmpty ?? true) ? nil : c
+            guard project.overlays[oi].isMedia, project.overlays[oi].crop != v else { return }
+            mutateLook { $0.overlays[oi].crop = v }
+            return
+        }
         if let k = selectedStackIndex {
             let v = (c?.isEmpty ?? true) ? nil : c
             guard project.stacks[k].crop != v else { return }
@@ -3330,6 +3337,14 @@ extension EditorModel {
 
     /// Live change (dragging an edge, a slider); pair with liveEditBegan / liveEditEnded.
     func editCrop(_ change: (inout CropRect) -> Void) {
+        if let oi = selectedOverlayIndex {
+            guard project.overlays[oi].isMedia else { return }
+            var c = project.overlays[oi].crop ?? CropRect()
+            change(&c)
+            project.overlays[oi].crop = c
+            publishLook()
+            return
+        }
         if let k = selectedStackIndex {
             var c = project.stacks[k].crop ?? CropRect()
             change(&c)
@@ -3464,6 +3479,11 @@ extension EditorModel {
 extension EditorModel {
     /// The playhead onto the selected clip (so the preview shows what a panel works on).
     func playheadIntoSelected() {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            if currentTime < o.start || currentTime >= o.end { pause(); scrub(to: onFrame(o.start) + 0.01) }
+            return
+        }
         if let (a, b) = selectedSpan, selectedStackIndex != nil {
             if currentTime < a || currentTime >= b { pause(); scrub(to: a + 0.01) }
             return
@@ -3700,7 +3720,13 @@ extension EditorModel {
     /// What the Crop, AutoZoom and Volume panels work on: the selected Stack, or the selected clip.
     var editsStackOrClip: Bool { selectedStackIndex != nil || selectedIndex != nil }
 
+    /// What the Crop panel works on: the selected Stack, clip, or picture / video overlay.
+    var editsCrop: Bool {
+        editsStackOrClip || selectedOverlayIndex.map { project.overlays[$0].isMedia } == true
+    }
+
     var editedCrop: CropRect? {
+        if let oi = selectedOverlayIndex { return project.overlays[oi].crop }
         if let st = selectedStack { return st.crop }
         return selectedIndex.flatMap { project.clips[$0].crop }
     }
