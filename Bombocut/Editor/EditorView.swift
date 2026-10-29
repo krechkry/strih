@@ -101,6 +101,7 @@ struct EditorView: View {
     private var panelLayer: some View {
         if let s = sheet, s != .export {
             Panel(height: typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra, check: !typing,
+                  grabAbove: ![.crop, .autoZoom, .mask, .trackPick].contains(s),
                   close: { sheet = nil }) {
                 if scrollsItself(s) || typing {
                     panelContent(s).environment(\.panelCompact, typing)
@@ -1255,6 +1256,9 @@ private struct Panel<Content: View>: View {
     let height: CGFloat
     /// Off while typing: the panel's own check (stop typing) takes that spot.
     var check = true
+    /// The extra grab strip just above the panel's edge. Off while handles on the preview sit right there
+    /// (Crop, AutoZoom, Mask painting): the strip would take their touches.
+    var grabAbove = true
     let close: () -> Void
     @ViewBuilder let content: () -> Content
     @State private var drag: CGFloat = 0
@@ -1275,11 +1279,13 @@ private struct Panel<Content: View>: View {
                     }
                 }
                 .overlay(alignment: .top) {
-                    Color.clear
-                        .frame(height: 26)
-                        .contentShape(Rectangle())
-                        .offset(y: -26)
-                        .gesture(grab)
+                    if grabAbove {
+                        Color.clear
+                            .frame(height: 26)
+                            .contentShape(Rectangle())
+                            .offset(y: -26)
+                            .gesture(grab)
+                    }
                 }
             content()
                 .environment(\.closePanel, close)
