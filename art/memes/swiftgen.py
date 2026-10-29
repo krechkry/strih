@@ -58,16 +58,12 @@ def main(src, dst):
             out.append(f"                    motions: {mots},")
             out.append(f"                    eyes: {eyes},")
             out.append(f"                    blink: {blink},")
-            if "mood" in lay:
-                f = lay["mood"]
-                def curve(c):
-                    return "MemeCurve(" + ", ".join(f"{n}: {num(v)}" for n, v in zip(("x0", "y0", "cx", "cy", "x1", "y1", "w"), c)) + ")"
-                strokes = ", ".join(f'MemeFaceStroke(from: {curve(s["a"])}, to: {curve(s["b"])}, start: {num(s["s"])}, end: {num(s["e"])})' for s in f["strokes"])
-                ekeys = ("cx", "cy", "rx", "ry", "top", "bottom", "pupil0", "pupil1", "dx", "dy")
-                eyes = ", ".join("MemeFaceEye(" + ", ".join(f"{n}: {num(e[n])}" for n in ekeys) + ")" for e in f["eyes"])
-                out.append(f"                    face: MemeFace(strokes: [{strokes}], eyes: [{eyes}])")
+            if "mouth" in lay:
+                m = lay["mouth"]
+                keys = ["x", "y", "half", "flat", "smile", "lift", "widen", "width", "lipY", "lipHalf", "lipSag", "lipWidth", "openFrom"]
+                out.append("                    mouth: MemeMouth(" + ", ".join(f"{k}: {num(m[k])}" for k in keys) + ")")
             else:
-                out.append("                    face: nil")
+                out.append("                    mouth: nil")
             out.append("                ),")
         out.append("            ]")
     out += ["        }", "    }", "}", ""]

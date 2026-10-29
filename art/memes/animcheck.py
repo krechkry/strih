@@ -49,25 +49,22 @@ def render_svg(body, px):
 
 def clamp01(v): return max(0.0, min(1.0, v))
 
-def mood_parts(m, mood, tf):
-    """The mood face as (eye covers, eye cuts, pupils, stroke cuts), in drawing order. Same math as MemeView.swift."""
+def mouth_svg(m, mood, tf):
+    """The mood mouth as white shapes (they get cut out). Same math as MemeView.swift."""
     k = clamp01(mood)
-    covers = cuts = pupils = strokes = ""
-    if k > 0:
-        for e in m["eyes"]:
-            cx, cy, rx, ry = e["cx"], e["cy"], e["rx"], e["ry"]
-            top = ry + (e["top"] - ry) * k; bottom = ry + (e["bottom"] - ry) * k
-            covers += f'<ellipse transform="{tf}" cx="{cx}" cy="{cy}" rx="{rx + 1.5}" ry="{ry + 1.5}" fill="#fff"/>'
-            cuts += (f'<path transform="{tf}" d="M{cx - rx} {cy} Q{cx} {cy - 2 * top} {cx + rx} {cy} '
-                     f'Q{cx} {cy + 2 * bottom} {cx - rx} {cy} Z" fill="#fff"/>')
-            r = e["pupil0"] + (e["pupil1"] - e["pupil0"]) * k
-            pupils += f'<circle transform="{tf}" cx="{cx + e["dx"] * k}" cy="{cy + 1 + e["dy"] * k}" r="{r}" fill="#fff"/>'
-    for st in m["strokes"]:
-        f = clamp01((k - st["s"]) / (st["e"] - st["s"])) if st["e"] > st["s"] else (1.0 if k >= st["s"] else 0.0)
-        x0, y0, qx, qy, x1, y1, w = [a + (b - a) * f for a, b in zip(st["a"], st["b"])]
-        if w >= 0.3:
-            strokes += f'<path transform="{tf}" d="M{x0} {y0} Q{qx} {qy} {x1} {y1}" fill="none" stroke="#fff" stroke-width="{w}" stroke-linecap="round"/>'
-    return covers, cuts, pupils, strokes
+    hw = m["half"] + m["widen"] * k; cy = m["y"] - m["lift"] * k
+    ctrl = m["flat"] + (m["smile"] - m["flat"]) * k
+    x = m["x"]; l, r = (x - hw, cy), (x + hw, cy)
+    s = f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]}" fill="none" stroke="#fff" stroke-width="{m["width"]}" stroke-linecap="round"/>'
+    op = clamp01((k - m["openFrom"]) / (1 - m["openFrom"]))
+    if op > 0:
+        up = ctrl + (cy - 4 - ctrl) * op
+        s += f'<path transform="{tf}" d="M{l[0]} {l[1]} Q{x} {ctrl} {r[0]} {r[1]} Q{x} {up} {l[0]} {l[1]} Z" fill="#fff"/>'
+    lk = clamp01(1 - k / 0.3)
+    if lk > 0:
+        lh = m["lipHalf"] * lk; ly = m["lipY"]
+        s += f'<path transform="{tf}" d="M{x-lh} {ly} Q{x} {ly+m["lipSag"]} {x+lh} {ly}" fill="none" stroke="#fff" stroke-width="{m["lipWidth"]}" stroke-linecap="round"/>'
+    return s
 
 def frame(meme, t, px=480, mood=0.0):
     acc = np.zeros((px, px), np.float32)
@@ -79,16 +76,12 @@ def frame(meme, t, px=480, mood=0.0):
         if "gap" in lay:
             acc *= 1 - render_svg(f'<path transform="{tf}" fill="#fff" d="{lay["gap"]}"/>', px)
         body = f'<path transform="{tf}" fill="#fff" fill-rule="evenodd" d="{lay["d"]}"/>'
-        acc = np.maximum(acc, render_svg(body, px))
-        if "mood" in lay:
-            covers, cuts, pupils, strokes = mood_parts(lay["mood"], mood, tf)
-            if covers: acc = np.maximum(acc, render_svg(covers, px))
-            if cuts: acc *= 1 - render_svg(cuts, px)
-            if pupils: acc = np.maximum(acc, render_svg(pupils, px))
-            if strokes: acc *= 1 - render_svg(strokes, px)
         if blink > 0:
-            lids = "".join(f'<ellipse transform="{tf}" cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry*blink:.3f}" fill="#fff"/>' for cx, cy, rx, ry in lay["eyes"])
-            acc = np.maximum(acc, render_svg(lids, px))
+            for cx, cy, rx, ry in lay["eyes"]:
+                body += f'<ellipse transform="{tf}" cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry*blink:.3f}" fill="#fff"/>'
+        acc = np.maximum(acc, render_svg(body, px))
+        if "mouth" in lay:
+            acc *= 1 - render_svg(mouth_svg(lay["mouth"], mood, tf), px)
     return acc
 
 def to_img(a):

@@ -11,8 +11,8 @@ enum Meme: String, CaseIterable, Identifiable {
 
 /// A meme, drawn in `color` and moving. Square; it fits the space it gets.
 /// Holds still when the system asks for reduced motion.
-/// `mood` (0...1) drives memes that have a mood face (the deadpan): 0 is the drawing as it is,
-/// 1 the full expression (the deadpan's knowing smirk). Animate it with `.animation(_:value:)` and it eases between values.
+/// `mood` (0...1) drives memes that have a mood mouth (the deadpan): 0 is the drawing as it is,
+/// 1 a big open grin. Animate it with `.animation(_:value:)` and it eases between values.
 struct MemeView: View, Animatable {
     let meme: Meme
     var mood: Double = 0
@@ -60,8 +60,8 @@ struct MemeView: View, Animatable {
                     c.blendMode = .normal
                 }
                 c.fill(layer.path, with: .color(color), style: FillStyle(eoFill: true))
-                if let face = layer.spec.face {
-                    MemeView.drawFace(face, mood: mood, color: color, in: c)
+                if let mouth = layer.spec.mouth {
+                    MemeView.cutMouth(mouth, mood: mood, in: c)
                 }
                 if state.blink > 0 {
                     for eye in layer.spec.eyes {
@@ -74,99 +74,61 @@ struct MemeView: View, Animatable {
         }
     }
 
-    /// Draws the mood face over its layer: eyes redrawn narrower, then the strokes cut out.
-    /// Same math as art/memes/animcheck.py (mood_parts).
-    static func drawFace(_ face: MemeFace, mood: Double, color: Color, in context: GraphicsContext) {
-        let k = CGFloat(min(max(mood, 0), 1))
+    /// Cuts the mood mouth out of its layer. Same math as art/memes/animcheck.py.
+    static func cutMouth(_ m: MemeMouth, mood: Double, in context: GraphicsContext) {
         var c = context
-        if k > 0 {
-            for e in face.eyes {
-                let cover = CGRect(x: e.cx - e.rx - 1.5, y: e.cy - e.ry - 1.5, width: 2 * e.rx + 3, height: 2 * e.ry + 3)
-                c.fill(Path(ellipseIn: cover), with: .color(color))
-            }
-            c.blendMode = .destinationOut
-            for e in face.eyes {
-                let top = e.ry + (e.top - e.ry) * k
-                let bottom = e.ry + (e.bottom - e.ry) * k
-                var lens = Path()
-                lens.move(to: CGPoint(x: e.cx - e.rx, y: e.cy))
-                lens.addQuadCurve(to: CGPoint(x: e.cx + e.rx, y: e.cy), control: CGPoint(x: e.cx, y: e.cy - 2 * top))
-                lens.addQuadCurve(to: CGPoint(x: e.cx - e.rx, y: e.cy), control: CGPoint(x: e.cx, y: e.cy + 2 * bottom))
-                lens.closeSubpath()
-                c.fill(lens, with: .color(.black))
-            }
-            c.blendMode = .normal
-            for e in face.eyes {
-                let r = e.pupil0 + (e.pupil1 - e.pupil0) * k
-                let center = CGPoint(x: e.cx + e.dx * k, y: e.cy + 1 + e.dy * k)
-                c.fill(Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r, width: 2 * r, height: 2 * r)),
-                       with: .color(color))
-            }
-        }
         c.blendMode = .destinationOut
-        for st in face.strokes {
-            let f: CGFloat
-            if st.end > st.start {
-                f = min(max((k - st.start) / (st.end - st.start), 0), 1)
-            } else {
-                f = k >= st.start ? 1 : 0
+        let k = CGFloat(min(max(mood, 0), 1))
+        let hw = m.half + m.widen * k
+        let cy = m.y - m.lift * k
+        let ctrl = m.flat + (m.smile - m.flat) * k
+        let left = CGPoint(x: m.x - hw, y: cy)
+        let right = CGPoint(x: m.x + hw, y: cy)
+        let bottom = CGPoint(x: m.x, y: ctrl)
+        if m.openFrom < 1 {
+            let open = min(max((k - m.openFrom) / (1 - m.openFrom), 0), 1)
+            if open > 0 {
+                var grin = Path()
+                grin.move(to: left)
+                grin.addQuadCurve(to: right, control: bottom)
+                grin.addQuadCurve(to: left, control: CGPoint(x: m.x, y: ctrl + (cy - 4 - ctrl) * open))
+                grin.closeSubpath()
+                c.fill(grin, with: .color(.black))
             }
-            let cur = st.from.mixed(with: st.to, f)
-            guard cur.w >= 0.3 else { continue }
-            var line = Path()
-            line.move(to: CGPoint(x: cur.x0, y: cur.y0))
-            line.addQuadCurve(to: CGPoint(x: cur.x1, y: cur.y1), control: CGPoint(x: cur.cx, y: cur.cy))
-            c.stroke(line, with: .color(.black), style: StrokeStyle(lineWidth: cur.w, lineCap: .round))
+        }
+        var line = Path()
+        line.move(to: left)
+        line.addQuadCurve(to: right, control: bottom)
+        c.stroke(line, with: .color(.black), style: StrokeStyle(lineWidth: m.width, lineCap: .round))
+        let lip = min(max(1 - k / 0.3, 0), 1)
+        if lip > 0 {
+            let lh = m.lipHalf * lip
+            var lower = Path()
+            lower.move(to: CGPoint(x: m.x - lh, y: m.lipY))
+            lower.addQuadCurve(to: CGPoint(x: m.x + lh, y: m.lipY), control: CGPoint(x: m.x, y: m.lipY + m.lipSag))
+            c.stroke(lower, with: .color(.black), style: StrokeStyle(lineWidth: m.lipWidth, lineCap: .round))
         }
     }
 }
 
-/// A quadratic stroke from (x0, y0) bending toward (cx, cy) to (x1, y1), w wide.
-struct MemeCurve {
-    let x0: CGFloat
-    let y0: CGFloat
-    let cx: CGFloat
-    let cy: CGFloat
-    let x1: CGFloat
-    let y1: CGFloat
-    let w: CGFloat
-
-    func mixed(with b: MemeCurve, _ f: CGFloat) -> MemeCurve {
-        func m(_ a: CGFloat, _ z: CGFloat) -> CGFloat { a + (z - a) * f }
-        return MemeCurve(x0: m(x0, b.x0), y0: m(y0, b.y0), cx: m(cx, b.cx), cy: m(cy, b.cy),
-                         x1: m(x1, b.x1), y1: m(y1, b.y1), w: m(w, b.w))
-    }
-}
-
-/// A cut-out stroke that morphs from `from` at mood `start` to `to` at mood `end` (width 0 = not there).
-struct MemeFaceStroke {
-    let from: MemeCurve
-    let to: MemeCurve
-    let start: CGFloat
-    let end: CGFloat
-}
-
-/// An eye hole (cx, cy, rx, ry) with a pupil of radius pupil0 at (cx, cy + 1). With mood it is
-/// redrawn as a lens whose upper and lower halves go from ry to `top` / `bottom`, and the pupil
-/// moves by (dx, dy) and shrinks to pupil1, at mood 1.
-struct MemeFaceEye {
-    let cx: CGFloat
-    let cy: CGFloat
-    let rx: CGFloat
-    let ry: CGFloat
-    let top: CGFloat
-    let bottom: CGFloat
-    let pupil0: CGFloat
-    let pupil1: CGFloat
-    let dx: CGFloat
-    let dy: CGFloat
-}
-
-/// A face that follows the mood (see art/memes/layers.py, mood_face). At mood 0 it draws exactly
-/// the still; at 1 the full expression.
-struct MemeFace {
-    let strokes: [MemeFaceStroke]
-    let eyes: [MemeFaceEye]
+/// A mouth that follows the mood (see art/memes/layers.py, mood_mouth). At mood 0 it is a stroke
+/// from (x - half, y) to (x + half, y) bending toward (x, flat), plus a lower lip. Mood lifts the
+/// corners by `lift`, widens them by `widen`, bends the line toward (x, smile), removes the lip by
+/// mood 0.3 and opens the mouth from `openFrom` on.
+struct MemeMouth {
+    let x: CGFloat
+    let y: CGFloat
+    let half: CGFloat
+    let flat: CGFloat
+    let smile: CGFloat
+    let lift: CGFloat
+    let widen: CGFloat
+    let width: CGFloat
+    let lipY: CGFloat
+    let lipHalf: CGFloat
+    let lipSag: CGFloat
+    let lipWidth: CGFloat
+    let openFrom: CGFloat
 }
 
 /// A blink cover: an ellipse in the meme's color that shuts an eye hole.
@@ -207,8 +169,8 @@ struct MemeLayer {
         let motions: [MemeMotion]
         let eyes: [MemeEye]
         let blink: MemeBlink?
-        /// A face that follows the mood, drawn over this layer.
-        let face: MemeFace?
+        /// A mouth that follows the mood, cut out of this layer.
+        let mouth: MemeMouth?
     }
 
     let spec: Spec

@@ -14,21 +14,16 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from gen import obj, solid, limb, cut, text, open_hand, explosion, cat_bust, INTER800, INTER900, K
 
-def L(c, gap=0, anims=(), eyes=(), blink=None, mood=None):
-    return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink, "mood": mood}
+def L(c, gap=0, anims=(), eyes=(), blink=None, mouth=None):
+    return {"c": c, "gap": gap, "anims": list(anims), "eyes": list(eyes), "blink": blink, "mouth": mouth}
 
-# A face that follows a mood value (0 = the drawing as it is, 1 = the full expression), on top of its layer.
-# strokes: cut-out quadratic strokes that morph from a = (x0, y0, cx, cy, x1, y1, width) at mood `start`
-#          to b at mood `end` (width 0 = not there), e.g. a mouth curling into a smirk or a brow going up.
-# eyes:    an eye hole (cx, cy, rx, ry) with a pupil of radius pupil0 at (cx, cy + 1). Once mood is above 0
-#          the hole is redrawn as a lens whose upper and lower halves shrink from ry to top / bottom, and
-#          the pupil moves by (dx, dy) and shrinks to pupil1, all at mood 1.
-def stroke(a, b, start=0.0, end=1.0):
-    return {"a": list(a), "b": list(b), "s": start, "e": end}
-
-def mood_face(strokes, eyes):
-    keys = ("cx", "cy", "rx", "ry", "top", "bottom", "pupil0", "pupil1", "dx", "dy")
-    return {"strokes": strokes, "eyes": [dict(zip(keys, e)) for e in eyes]}
+# A mouth that follows a mood value (0 = the drawing as it is, 1 = big open grin), cut out of its layer.
+# At mood 0 it draws exactly the still: a stroke from (x - half, y) to (x + half, y) through control (x, flat),
+# plus a lower-lip stroke. Mood lifts the corners by lift, widens them by widen, pulls the control to smile,
+# shrinks the lip away by mood 0.3, and opens the mouth from openFrom on.
+def mood_mouth(x, y, half, flat, smile, lift, widen, width, lip_y, lip_half, lip_sag, lip_width, open_from):
+    return {"x": x, "y": y, "half": half, "flat": flat, "smile": smile, "lift": lift, "widen": widen, "width": width,
+            "lipY": lip_y, "lipHalf": lip_half, "lipSag": lip_sag, "lipWidth": lip_width, "openFrom": open_from}
 
 def rot(a, p, x, y, ph=0.0): return {"t": "rot", "a": a, "p": p, "ph": ph, "x": x, "y": y}
 def move(dx, dy, p, ph=0.0): return {"t": "move", "dx": dx, "dy": dy, "p": p, "ph": ph}
@@ -198,28 +193,14 @@ MEMES["10_absolute_cinema"] = [
 body = solid('path d="M240 70 C330 70 365 130 362 200 C358 280 310 320 240 320 C170 320 120 280 118 200 C115 130 150 70 240 70 Z"')
 body += solid('ellipse cx="204" cy="166" rx="17" ry="11"', K) + solid('ellipse cx="276" cy="166" rx="17" ry="11"', K)
 body += solid('circle cx="204" cy="167" r="5"') + solid('circle cx="276" cy="167" r="5"')
+body += cut("M184 154 Q204 144 224 154 M256 154 Q276 144 296 154", 5)
 body += cut("M240 178 L235 204", 4) + solid('ellipse cx="232" cy="208" rx="5" ry="3.5"', K) + solid('ellipse cx="248" cy="208" rx="5" ry="3.5"', K)
-# brows and mouth are not drawn here: they are the mood face below, so the app can turn him into a smirk
-deadpan_face = mood_face(
-    strokes=[
-        # brows: his right one (viewer's left) arches up, the other drops a bit and flattens
-        stroke((184, 154, 204, 144, 224, 154, 5), (182, 146, 202, 130, 225, 146, 5.5)),
-        stroke((256, 154, 276, 144, 296, 154, 5), (255, 157, 276, 151, 298, 152, 5.5)),
-        # mouth: flat line to a one-sided smirk, the right corner up
-        stroke((212, 250, 240, 245, 268, 250, 7), (208, 253, 230, 259, 272, 236, 7)),
-        # lower lip goes away early
-        stroke((224, 264, 240, 268, 256, 264, 3), (240, 265, 240, 265, 240, 265, 0), 0, 0.3),
-        # dimple by the raised corner
-        stroke((284, 238, 284, 238, 284, 238, 0), (282, 229, 289, 237, 283, 246, 4), 0.45, 1),
-    ],
-    # narrowed, knowing eyes: heavy upper lid, lower lid pushed up, pupil small and level
-    eyes=[(204, 166, 17, 11, 6.5, 3.5, 5, 3.6, 1, -1), (276, 166, 17, 11, 5.5, 3, 5, 3.4, 1, 0)],
-)
+# the mouth is not drawn here: it is the mood mouth below, so the app can make him smile
 body += limb("M210 316 L204 440", 8, 0) + limb("M270 316 L276 440", 8, 0)
 body += solid('ellipse cx="196" cy="446" rx="20" ry="8"') + solid('ellipse cx="284" cy="446" rx="20" ry="8"')
 MEMES["11_deadpan"] = [
     L(body, 0, [], [(204, 168, 18.5, 12.5), (276, 168, 18.5, 12.5)], (6.5, 0.2, 0.022),
-      deadpan_face),
+      mood_mouth(240, 250, 28, 245, 312, 10, 6, 7, 264, 16, 4, 3, 0.55)),
     L(limb("M130 236 Q108 320 120 400", 8, 0) + solid('ellipse cx="120" cy="410" rx="12" ry="14"'), 0, [rot(0.8, 4.5, 130, 236)]),
     L(limb("M350 236 Q372 320 360 400", 8, 0) + solid('ellipse cx="360" cy="410" rx="12" ry="14"'), 0, [rot(-0.8, 4.5, 350, 236)]),
 ]
@@ -300,8 +281,8 @@ def build():
             if lay["eyes"]:
                 entry["eyes"] = [list(e) for e in lay["eyes"]]
                 entry["blink"] = list(lay["blink"])
-            if lay["mood"]:
-                entry["mood"] = lay["mood"]
+            if lay["mouth"]:
+                entry["mouth"] = lay["mouth"]
             out.append(entry)
         data[name] = out
     return data

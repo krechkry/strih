@@ -429,7 +429,7 @@ struct ExportSheet: View {
     private func progressView(_ p: Double) -> some View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
-            // Starts deadpan and turns into a knowing smirk as the export gets closer to done
+            // Starts deadpan and cheers up into a smile as the export gets closer to done
             MemeView(meme: .deadpan, mood: min(max(p, 0), 1))
                 .frame(width: 230, height: 230)
                 .animation(.easeOut(duration: 0.6), value: p)
