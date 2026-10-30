@@ -750,6 +750,15 @@ struct EditorView: View {
             }
             .padding(.horizontal, 10)
         }
+        // a new selection starts the bar from its left end, never where the last one was scrolled to
+        .id(toolbarKey)
+    }
+
+    /// What the bottom bar is showing tools for.
+    private var toolbarKey: String {
+        let ids: [UUID?] = [model.selectedClipID, model.selectedStackID, model.selectedOverlayID, model.selectedAudioID]
+        let sel = ids.map { $0?.uuidString ?? "-" }.joined(separator: "|")
+        return sel + (model.captionsSelected ? "|cap" : "") + (model.slip != nil ? "|slip" : "") + (model.pick != nil ? "|pick" : "")
     }
 
     /// A selected Stack: what goes on top of all its clips, and the Stack itself.

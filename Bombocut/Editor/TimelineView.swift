@@ -110,6 +110,7 @@ struct TimelineView: View {
                                      rollLead: k > 0, rollTrail: k < shown.count - 1,
                                      rollEdge: rollEdge(clip.id),
                                      rollAtLimit: model.roll?.atLimit == true,
+                                     rollDelta: model.roll?.delta ?? 0,
                                      onRoll: { leading, phase, delta, x in roll(clip.id, leading, phase, delta, x) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
@@ -698,6 +699,8 @@ struct ClipTile: View {
     /// Rolling: this clip's edge at the cut (true = head).
     var rollEdge: Bool? = nil
     var rollAtLimit = false
+    /// Rolling: how far the cut moved (timeline seconds, + = right).
+    var rollDelta: Double = 0
     var onRoll: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void = { _, _, _, _ in }
     var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
 
@@ -785,38 +788,36 @@ struct ClipTile: View {
         .overlay(alignment: .leading) {
             if let tr = trim { trimBand(tr, width: w) }
         }
-        .overlay(alignment: rollEdge == true ? .leading : .trailing) {
-            // rolling: the cut lights up on both clips
-            if rollEdge != nil {
-                Rectangle().fill(rollAtLimit ? Color.red : Theme.accent)
-                    .frame(width: 3, height: height)
-                    .allowsHitTesting(false)
-            }
+        .overlay(alignment: .leading) {
+            if let edge = rollEdge { rollBand(edge, width: w) }
         }
         .overlay(alignment: .leading) {
-            // the handles sit outside the clip, so its first and last frames (and keyframes there) stay in view
-            if selected {
-                let color = trim?.atLimit == true ? Color.red : Theme.accent
+            // the handles sit outside the clip, so its first and last frames (and keyframes there) stay in view;
+            // rolling, the clip on the other side of the cut is outlined too (it changes as well)
+            if selected || rollEdge != nil {
+                let color = edgeAtLimit ? Color.red : Theme.accent
                 HStack(spacing: 0) {
-                    if lead { handle(leading: true) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
+                    if lead && selected { handle(leading: true) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
                     Rectangle().fill(.clear).frame(width: w, height: height)
                         .overlay(alignment: .top) { Rectangle().fill(color).frame(height: 2.5) }
                         .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2.5) }
                         .allowsHitTesting(false)
-                    if trail { handle(leading: false) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
+                    if trail && selected { handle(leading: false) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
                 }
                 .offset(x: -handleW)
             }
         }
-        .overlay(alignment: .topLeading) {
-            if rollEdge == true {
-                Image(systemName: "arrow.left.and.line.vertical.and.arrow.right")
-                    .font(.system(size: 11, weight: .heavy))
+        .overlay(alignment: rollEdge == true ? .topLeading : .topTrailing) {
+            // rolling: what each clip gains (lime) or gives up (white)
+            if let edge = rollEdge {
+                let change = edge ? -rollDelta : rollDelta
+                Text(verbatim: Fmt.delta(change))
+                    .font(.system(size: 11, weight: .bold).monospacedDigit())
                     .foregroundStyle(.black)
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(rollAtLimit ? Color.red : Theme.accent, in: Capsule())
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(change >= 0 ? Theme.accent : Color.white, in: Capsule())
                     .fixedSize()
-                    .offset(x: -16, y: -24)
+                    .offset(x: edge ? 14 : -14, y: -24)
                     .allowsHitTesting(false)
             }
         }
@@ -855,6 +856,23 @@ struct ClipTile: View {
             })
     }
 
+    private var edgeAtLimit: Bool { rollEdge != nil ? rollAtLimit : trim?.atLimit == true }
+
+    /// Rolling: the stretch of footage that changed hands, drawn on the clip that took it over.
+    @ViewBuilder
+    private func rollBand(_ edgeIsHead: Bool, width w: CGFloat) -> some View {
+        let bw = min(abs(CGFloat(rollDelta)) * pxPerSec, w)
+        let gains = edgeIsHead ? rollDelta < 0 : rollDelta > 0
+        if gains && bw > 1 {
+            Rectangle()
+                .fill(Theme.accent.opacity(0.22))
+                .overlay(Rectangle().strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+                .frame(width: bw, height: height)
+                .offset(x: edgeIsHead ? 0 : w - bw)
+                .allowsHitTesting(false)
+        }
+    }
+
     /// Shows how much is being cut away (red) or added (lime) compared to where the edge started.
     @ViewBuilder
     private func trimBand(_ tr: TrimState, width w: CGFloat) -> some View {
@@ -873,15 +891,29 @@ struct ClipTile: View {
     }
 
     private func handle(leading: Bool) -> some View {
-        UnevenRoundedRectangle(topLeadingRadius: leading ? 6 : 0, bottomLeadingRadius: leading ? 6 : 0,
-                               bottomTrailingRadius: leading ? 0 : 6, topTrailingRadius: leading ? 0 : 6)
-            .fill(trim?.atLimit == true ? Color.red : Theme.accent)
-            .frame(width: handleW, height: height)
+        // rolling: the handle sits on the cut, rounded on both sides, as it works on both clips
+        let onCut = rollEdge == leading
+        let otherEnd = rollEdge != nil && !onCut
+        let outer: CGFloat = 6
+        return UnevenRoundedRectangle(topLeadingRadius: leading || onCut ? outer : 0, bottomLeadingRadius: leading || onCut ? outer : 0,
+                                      bottomTrailingRadius: !leading || onCut ? outer : 0, topTrailingRadius: !leading || onCut ? outer : 0)
+            .fill(edgeAtLimit ? Color.red : Theme.accent)
+            .frame(width: onCut ? handleW + 6 : handleW, height: height)
+            .frame(width: handleW)
             .overlay {
-                Image(systemName: leading ? "chevron.compact.left" : "chevron.compact.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.black)
+                HStack(spacing: -4) {
+                    if onCut || leading {
+                        Image(systemName: "chevron.compact.left")
+                    }
+                    if onCut || !leading {
+                        Image(systemName: "chevron.compact.right")
+                    }
+                }
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.black)
             }
+            .offset(x: onCut ? (leading ? handleW / 2 : -handleW / 2) : 0)
+            .opacity(otherEnd ? 0.3 : 1)
             .contentShape(Rectangle().inset(by: -12))
             .highPriorityGesture(handleGesture(leading: leading))
     }

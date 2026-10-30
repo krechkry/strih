@@ -1966,6 +1966,9 @@ final class EditorModel: ObservableObject {
 
     private func grabEdge(_ c: Clip, leading: Bool) {
         let t = leading ? c.inPoint : max(c.inPoint, c.outPoint - 0.04)
+        // until the sharp frame arrives, the filmstrip's nearest thumbnail stands in (never a black preview)
+        if leading, trimView?.right == nil { trimView?.right = ThumbnailCache.shared.image(file: c.mediaFile, at: t) }
+        if !leading, trimView?.left == nil { trimView?.left = ThumbnailCache.shared.image(file: c.mediaFile, at: t) }
         edgeGrabber.grab(file: c.mediaFile, at: t) { [weak self] img in
             guard let self, self.trimView != nil else { return }
             if leading { self.trimView?.right = img } else { self.trimView?.left = img }
@@ -2077,6 +2080,8 @@ final class EditorModel: ObservableObject {
 
     /// The two frames that meet at the cut: the left clip's last and the right clip's first.
     private func grabRoll(_ a: Clip, _ b: Clip) {
+        if trimView?.left == nil { trimView?.left = ThumbnailCache.shared.image(file: a.mediaFile, at: a.outPoint) }
+        if trimView?.right == nil { trimView?.right = ThumbnailCache.shared.image(file: b.mediaFile, at: b.inPoint) }
         edgeGrabber.grab(file: a.mediaFile, at: max(a.inPoint, a.outPoint - 0.04)) { [weak self] img in
             guard let self, self.trimView?.roll == true else { return }
             self.trimView?.left = img
