@@ -50,49 +50,78 @@ struct PreviewArea: View {
                 .scaleEffect(viewZoom)
                 .offset(viewOffset)
                 .frame(width: w, height: h)
-                if !model.trackPick && model.analysis == nil && !model.maskPaint {
-                    if model.previewScrubs {
-                        // zoomed in, the picture spills past the canvas: the whole area takes the fingers
-                        scrubSurface(canvas, area: geo.size)
-                            .frame(width: viewZoom > 1.01 ? geo.size.width : w, height: viewZoom > 1.01 ? geo.size.height : h)
-                    } else {
-                        layer(canvas) { touch(canvas) }
-                    }
-                }
-                if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
-                if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
-                if model.cropPanelOpen && !model.isPlaying && model.analysis == nil {
-                    if let st = model.selectedStack, model.playheadInSelectedStack {
-                        layer(canvas) { cropFrame(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
-                    } else if let i = model.selectedIndex, model.playheadInSelected {
-                        layer(canvas) { cropFrame(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
-                                                  crop: model.project.clips[i].crop ?? CropRect()) }
-                    } else if let oi = model.selectedOverlayIndex, model.project.overlays[oi].isMedia,
-                              model.currentTime >= model.project.overlays[oi].start - 0.01,
-                              model.currentTime < model.project.overlays[oi].end {
-                        let o = model.project.overlays[oi]
-                        layer(canvas) { cropFrame(canvas, toCanvas: overlayMap(o, canvas), crop: o.crop ?? CropRect()) }
-                    }
-                }
-                if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil {
-                    if let st = model.selectedStack, let z = st.autoZoom, model.playheadInSelectedStack {
-                        layer(canvas) { zoomFrames(canvas, transform: st.transform, zoom: z) }
-                    } else if let i = model.selectedIndex, let z = model.project.clips[i].autoZoom, model.playheadInSelected {
-                        layer(canvas) { zoomFrames(canvas, transform: model.lookAtPlayhead(i).transform, zoom: z) }
-                    }
-                }
-                if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
-                if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
+                editingLayers(canvas, area: geo.size)
                 if let p = pulse { layer(canvas) { PlayPulse(icon: p.icon).id(p.id) } }
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
-            .simultaneousGesture(viewPinch(canvas, area: geo.size),
-                                including: model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil ? .all : .subviews)
+            .simultaneousGesture(viewPinch(canvas, area: geo.size), including: pinchMask)
         }
         .overlay(alignment: .topLeading) { bypassEye }
         .clipped()
         .onChange(of: model.previewScrubs) { _, on in if !on { resetViewZoom() } }
+    }
+
+    /// Two-finger zoom of the view: everywhere, except while painting a mask, picking a track box or analysing.
+    private var pinchMask: GestureMask {
+        let free = model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil
+        return free ? .all : .subviews
+    }
+
+    /// Touch handling and the tools drawn over the picture (crop, AutoZoom, mask, track pick, analysis, scrub bar).
+    @ViewBuilder
+    private func editingLayers(_ canvas: CGSize, area: CGSize) -> some View {
+        if !model.trackPick && model.analysis == nil && !model.maskPaint {
+            touchLayer(canvas, area: area)
+        }
+        if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
+        if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
+        if model.cropPanelOpen && !model.isPlaying && model.analysis == nil { cropLayer(canvas) }
+        if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil { autoZoomLayer(canvas) }
+        if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
+        if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
+    }
+
+    @ViewBuilder
+    private func touchLayer(_ canvas: CGSize, area: CGSize) -> some View {
+        if model.previewScrubs {
+            // zoomed in, the picture spills past the canvas: the whole area takes the fingers
+            let zoomed: Bool = viewZoom > 1.01
+            let size: CGSize = zoomed ? area : canvas
+            scrubSurface(canvas, area: area).frame(width: size.width, height: size.height)
+        } else {
+            layer(canvas) { touch(canvas) }
+        }
+    }
+
+    @ViewBuilder
+    private func cropLayer(_ canvas: CGSize) -> some View {
+        if let st = model.selectedStack, model.playheadInSelectedStack {
+            layer(canvas) { cropFrame(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
+        } else if let i = model.selectedIndex, model.playheadInSelected {
+            layer(canvas) { cropFrame(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
+                                      crop: model.project.clips[i].crop ?? CropRect()) }
+        } else if let o = croppedOverlay {
+            layer(canvas) { cropFrame(canvas, toCanvas: overlayMap(o, canvas), crop: o.crop ?? CropRect()) }
+        }
+    }
+
+    /// The selected media overlay, when the playhead is over it (Crop works on it then).
+    private var croppedOverlay: Overlay? {
+        guard let oi = model.selectedOverlayIndex else { return nil }
+        let o = model.project.overlays[oi]
+        let t = model.currentTime
+        guard o.isMedia, t >= o.start - 0.01, t < o.end else { return nil }
+        return o
+    }
+
+    @ViewBuilder
+    private func autoZoomLayer(_ canvas: CGSize) -> some View {
+        if let st = model.selectedStack, let z = st.autoZoom, model.playheadInSelectedStack {
+            layer(canvas) { zoomFrames(canvas, transform: st.transform, zoom: z) }
+        } else if let i = model.selectedIndex, let z = model.project.clips[i].autoZoom, model.playheadInSelected {
+            layer(canvas) { zoomFrames(canvas, transform: model.lookAtPlayhead(i).transform, zoom: z) }
+        }
     }
 
     /// Before / after: hold the eye and every effect and adjustment is off in the preview; let go and they are back.
@@ -630,10 +659,7 @@ struct PreviewArea: View {
             .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
         // what a framing shows, on the unzoomed picture (canvas points)
         func window(_ f: AutoZoom.Framing) -> CGRect {
-            let k = CGFloat(max(f.zoom, 0.05))
-            let cx = W / 2 + CGFloat(t.x) * W + CGFloat(f.x) * W - CGFloat(t.x) * W / k
-            let cy = H / 2 + CGFloat(t.y) * H + CGFloat(f.y) * H - CGFloat(t.y) * H / k
-            return CGRect(x: cx - W / k / 2, y: cy - H / k / 2, width: W / k, height: H / k)
+            Self.zoomWindow(f, transform: t, canvas: canvas)
         }
         let editsEnd = model.autoZoomEditsEnd
         let cur = editsEnd ? z.end : z.start
@@ -655,17 +681,7 @@ struct PreviewArea: View {
                          CGPoint(x: startS.maxX, y: startS.maxY), CGPoint(x: startS.minX, y: startS.maxY)]
                 let b = [CGPoint(x: endS.minX, y: endS.minY), CGPoint(x: endS.maxX, y: endS.minY),
                          CGPoint(x: endS.maxX, y: endS.maxY), CGPoint(x: endS.minX, y: endS.maxY)]
-                for (s0, e0) in zip(a, b) {
-                    let dx = e0.x - s0.x, dy = e0.y - s0.y, len = hypot(dx, dy)
-                    guard len > 18 else { continue }
-                    let ux = dx / len, uy = dy / len
-                    let s1 = CGPoint(x: s0.x + ux * 8, y: s0.y + uy * 8), e1 = CGPoint(x: e0.x - ux * 8, y: e0.y - uy * 8)
-                    q.move(to: s1)
-                    q.addLine(to: e1)
-                    q.move(to: CGPoint(x: e1.x - ux * 7 - uy * 4, y: e1.y - uy * 7 + ux * 4))
-                    q.addLine(to: e1)
-                    q.addLine(to: CGPoint(x: e1.x - ux * 7 + uy * 4, y: e1.y - uy * 7 - ux * 4))
-                }
+                for (s0, e0) in zip(a, b) { Self.addArrow(&q, from: s0, to: e0) }
             }
             .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
             .allowsHitTesting(false)
@@ -710,12 +726,9 @@ struct PreviewArea: View {
                         let nz = Double(zs.reduce(0, +) / CGFloat(zs.count))
                         let newZ = min(max(nz, 1), 4)
                         // keep the framing's center where it is on the picture while its size changes
-                        let cx = cr.midX, cy = cr.midY
+                        let center = CGPoint(x: cr.midX, y: cr.midY)
                         model.editAutoZoomFraming { f in
-                            f.zoom = newZ
-                            let k = CGFloat(newZ)
-                            f.x = Double((cx - W / 2 - CGFloat(t.x) * W + CGFloat(t.x) * W / k) / W)
-                            f.y = Double((cy - H / 2 - CGFloat(t.y) * H + CGFloat(t.y) * H / k) / H)
+                            f = Self.zoomFraming(center: center, zoom: newZ, transform: t, canvas: canvas)
                         }
                     }
                     .onEnded { _ in zoomCorner = nil; model.liveEditEnded() })
@@ -730,6 +743,44 @@ struct PreviewArea: View {
                 .offset(x: os.minX + 8, y: stacked ? cs.minY + 36 : os.minY + 8)
         }
         .frame(width: W, height: H, alignment: .topLeading)
+    }
+
+    /// What an AutoZoom framing shows, on the unzoomed picture (canvas points).
+    static func zoomWindow(_ f: AutoZoom.Framing, transform t: ClipTransform, canvas: CGSize) -> CGRect {
+        let W: CGFloat = canvas.width, H: CGFloat = canvas.height
+        let k: CGFloat = CGFloat(max(f.zoom, 0.05))
+        let tx: CGFloat = CGFloat(t.x), ty: CGFloat = CGFloat(t.y)
+        let fx: CGFloat = CGFloat(f.x), fy: CGFloat = CGFloat(f.y)
+        let cx: CGFloat = W / 2 + tx * W + fx * W - tx * W / k
+        let cy: CGFloat = H / 2 + ty * H + fy * H - ty * H / k
+        let ww: CGFloat = W / k, hh: CGFloat = H / k
+        return CGRect(x: cx - ww / 2, y: cy - hh / 2, width: ww, height: hh)
+    }
+
+    /// The framing whose window is centered on `center` (canvas points) at `zoom`.
+    static func zoomFraming(center: CGPoint, zoom: Double, transform t: ClipTransform, canvas: CGSize) -> AutoZoom.Framing {
+        let W: CGFloat = canvas.width, H: CGFloat = canvas.height
+        let k: CGFloat = CGFloat(zoom)
+        let tx: CGFloat = CGFloat(t.x), ty: CGFloat = CGFloat(t.y)
+        let x: CGFloat = (center.x - W / 2 - tx * W + tx * W / k) / W
+        let y: CGFloat = (center.y - H / 2 - ty * H + ty * H / k) / H
+        return AutoZoom.Framing(zoom: zoom, x: Double(x), y: Double(y))
+    }
+
+    /// An arrow from one corner of the first framing to the same corner of the last (skipped when they are close).
+    static func addArrow(_ q: inout Path, from s0: CGPoint, to e0: CGPoint) {
+        let dx: CGFloat = e0.x - s0.x, dy: CGFloat = e0.y - s0.y
+        let len: CGFloat = hypot(dx, dy)
+        guard len > 18 else { return }
+        let ux: CGFloat = dx / len, uy: CGFloat = dy / len
+        let s1 = CGPoint(x: s0.x + ux * 8, y: s0.y + uy * 8)
+        let e1 = CGPoint(x: e0.x - ux * 8, y: e0.y - uy * 8)
+        let bx: CGFloat = e1.x - ux * 7, by: CGFloat = e1.y - uy * 7
+        q.move(to: s1)
+        q.addLine(to: e1)
+        q.move(to: CGPoint(x: bx - uy * 4, y: by + ux * 4))
+        q.addLine(to: e1)
+        q.addLine(to: CGPoint(x: bx + uy * 4, y: by - ux * 4))
     }
 
     private func framePill(_ title: String, lime: Bool) -> some View {
