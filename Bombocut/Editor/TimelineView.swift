@@ -713,6 +713,11 @@ struct ClipTile: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        // tap and hold-to-move belong to the clip itself; the trim handles below sit outside it and keep
+        // their own (bigger) touch area, which a touch shape on the whole tile would cut off
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .gesture(holdToMove)
         .overlay(alignment: .bottomLeading) {
             ForEach(clip.keyframes) { kf in
                 Image(systemName: "diamond.fill")
@@ -759,9 +764,6 @@ struct ClipTile: View {
         }
         .scaleEffect(lifted ? 1.06 : 1)
         .shadow(color: .black.opacity(lifted ? 0.7 : 0), radius: 8, y: 4)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-        .gesture(holdToMove)
     }
 
     /// Hold, then slide to move the clip. A UIKit long press, so a normal swipe still scrolls the strip.
@@ -808,7 +810,7 @@ struct ClipTile: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.black)
             }
-            .contentShape(Rectangle().inset(by: -10))
+            .contentShape(Rectangle().inset(by: -12))
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .onChanged { v in
@@ -891,7 +893,7 @@ struct CaptionLane: View {
                         .offset(y: -20)
                 }
             }
-            .contentShape(Rectangle())
+            .contentShape(OutsetX(dx: tapped ? LaneEdge.width + 8 : 0))
             .onTapGesture { model.tapCaption(cue, track: track) }
             .gesture(HoldToDrag(
                 onBegan: { x in
@@ -971,6 +973,12 @@ struct CaptionLane: View {
 }
 
 /// A trim handle on the end of a block in a lane: outside the block, lime, rounded on its outer side.
+/// A touch area wider than the view on both sides (the trim edges that sit just outside a block).
+struct OutsetX: Shape {
+    var dx: CGFloat
+    func path(in r: CGRect) -> Path { Path(r.insetBy(dx: -dx, dy: 0)) }
+}
+
 struct LaneEdge: View {
     static let width: CGFloat = 11
     let leading: Bool
@@ -1138,7 +1146,8 @@ struct OverlayLane: View {
             }
         }
         .overlay { if let pk = model.pick, pk.kind.forOverlays { PickMark(source: pk.source == o.id, picked: pk.picked.contains(o.id)) } }
-        .contentShape(Rectangle())
+        // the edges sit outside the block: its touch area reaches out to them, or they would be cut off
+        .contentShape(OutsetX(dx: selected ? LaneEdge.width + 8 : 0))
         .onTapGesture {
             if model.pick != nil { model.togglePick(o.id); return }
             // tap 1 selects, tap 2 deselects
@@ -1304,7 +1313,7 @@ struct AudioLane: View {
                 .offset(x: -LaneEdge.width)
             }
         }
-        .contentShape(Rectangle())
+        .contentShape(OutsetX(dx: selected ? LaneEdge.width + 8 : 0))
         .onTapGesture {
             // tap 1 selects, tap 2 deselects
             if selected { model.selectAudio(nil) } else { model.selectAudio(a.id) }
