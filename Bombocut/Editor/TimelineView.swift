@@ -127,7 +127,6 @@ struct TimelineView: View {
                                             .allowsHitTesting(false)
                                     }
                                 }
-                                .highPriorityGesture(slipGesture, including: slipping ? .all : .subviews)
                                 .offset(x: dragged ? draggedOffset(shown) : 0)
                                 .zIndex(dragged || slipping ? 3 : (clip.id == model.selectedClipID || edges != nil ? 1 : 0))
                                 .opacity(reorder != nil && !dragged ? 0.6 : (model.slip != nil && !slipping ? 0.35 : 1))
@@ -214,6 +213,8 @@ struct TimelineView: View {
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
                     .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
+                    // slipping: a finger anywhere on the timeline slides the footage (not just on the clip itself)
+                    .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
                 }
                 .scrollPosition($scrollPos)
                 .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil
