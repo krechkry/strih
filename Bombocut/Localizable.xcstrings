@@ -1824,6 +1824,16 @@
         }
       }
     },
+    "Deselect": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušit výběr"
+          }
+        }
+      }
+    },
     "Difference": {
       "localizations": {
         "cs": {

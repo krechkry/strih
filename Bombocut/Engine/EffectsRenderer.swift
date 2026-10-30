@@ -311,37 +311,37 @@ enum EffectsRenderer {
         return out
     }
 
-    /// Bloom: a soft glow around the bright parts. `size` sets how far it spreads (0.4 is the original 3 % of the
-    /// short side), `threshold` how bright a part must be to glow (0: the whole picture blooms, like before).
+    /// Bloom: a soft glow around the bright parts (Core Image's bloom, the look at threshold 0). `size` sets how
+    /// far it spreads (0.4 is the original 3 % of the short side). `threshold` keeps that same glow only around parts
+    /// brighter than it: the bloomed picture is blended in through a mask made from the (blurred) brightness, which
+    /// is all white at 0, so the look changes smoothly from 0 up and never adds anything on top.
     private static func bloom(_ img: CIImage, amount: Double, size: Double, threshold: Double, canvas: CGSize) -> CIImage {
         let rect = CGRect(origin: .zero, size: canvas)
         let radius = Double(min(canvas.width, canvas.height)) * (0.005 + 0.0625 * min(max(size, 0), 1))
-        let t = min(max(threshold, 0), 0.95)
-        guard t > 0.001 else {
-            return img.clampedToExtent().applyingFilter("CIBloom", parameters: [
-                kCIInputRadiusKey: radius, kCIInputIntensityKey: amount * 1.1,
-            ]).cropped(to: rect)
-        }
-        // only what is brighter than the threshold glows (in its own color), spread out and added on top
-        let span = 1 - t
-        let a = CGFloat(amount * 1.4)
-        let glow = img
-            .applyingFilter("CIToneCurve", parameters: [
-                "inputPoint0": CIVector(x: 0, y: 0),
-                "inputPoint1": CIVector(x: t, y: 0),
-                "inputPoint2": CIVector(x: t + span * 0.35, y: 0.2),
-                "inputPoint3": CIVector(x: t + span * 0.7, y: 0.6),
-                "inputPoint4": CIVector(x: 1, y: 1),
-            ])
-            .clampedToExtent()
-            .applyingGaussianBlur(sigma: radius * 0.6)
+        let bloomed = img.clampedToExtent().applyingFilter("CIBloom", parameters: [
+            kCIInputRadiusKey: radius, kCIInputIntensityKey: amount * 1.1,
+        ]).cropped(to: rect)
+        let t = min(max(threshold, 0), 1)
+        guard t > 0.001 else { return bloomed }
+        // mask: 1 where the (spread) brightness is at least the threshold, fading to 0 a little below it
+        let w = 0.2
+        let lw = CIVector(x: 0.2126 / w, y: 0.7152 / w, z: 0.0722 / w, w: 0)
+        let bias = 1 - t / w
+        let mask = img.clampedToExtent()
+            .applyingGaussianBlur(sigma: radius * 0.5)
             .cropped(to: rect)
             .applyingFilter("CIColorMatrix", parameters: [
-                "inputRVector": CIVector(x: a, y: 0, z: 0, w: 0),
-                "inputGVector": CIVector(x: 0, y: a, z: 0, w: 0),
-                "inputBVector": CIVector(x: 0, y: 0, z: a, w: 0),
+                "inputRVector": lw, "inputGVector": lw, "inputBVector": lw,
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+                "inputBiasVector": CIVector(x: bias, y: bias, z: bias, w: 0),
             ])
-        return glow.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: rect)
+            .applyingFilter("CIColorClamp", parameters: [
+                "inputMinComponents": CIVector(x: 0, y: 0, z: 0, w: 0),
+                "inputMaxComponents": CIVector(x: 1, y: 1, z: 1, w: 1),
+            ])
+        return bloomed.applyingFilter("CIBlendWithMask", parameters: [
+            kCIInputBackgroundImageKey: img, kCIInputMaskImageKey: mask,
+        ]).cropped(to: rect)
     }
 
     /// Film halation: the brightest parts glow red-orange into their surroundings.

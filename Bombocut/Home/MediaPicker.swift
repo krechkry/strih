@@ -1,3 +1,4 @@
+import AVFoundation
 import Photos
 import PhotosUI
 import SwiftUI
@@ -190,10 +191,10 @@ struct MediaPicker: View {
         .overlay {
             if used.contains(id) && order == nil {
                 // already in the timeline: a check in the middle
-                Image(systemName: "checkmark").font(.system(size: 20, weight: .heavy)).foregroundStyle(.white)
+                Image(systemName: "checkmark").font(.system(size: 20, weight: .heavy)).foregroundStyle(.black)
                     .frame(width: 40, height: 40)
-                    .background(.black.opacity(0.55), in: Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1.5))
+                    .background(Theme.accent, in: Circle())
+                    .shadow(color: .black.opacity(0.4), radius: 3)
                     .accessibilityLabel(loc("In the timeline"))
                     .allowsHitTesting(false)
             }
@@ -212,6 +213,13 @@ struct MediaPicker: View {
         .overlay { if order != nil { Rectangle().strokeBorder(Theme.accent, lineWidth: 3) } }
         .contentShape(Rectangle())
         .onTapGesture { tap(a, index: i) }
+        // hold: a bigger look (a video plays), like in Photos
+        .contextMenu {
+            Button(loc(limit == 1 ? "Add" : (order == nil ? "Select" : "Deselect")),
+                   systemImage: order == nil ? "checkmark.circle" : "xmark.circle") { tap(a, index: i) }
+        } preview: {
+            AssetPreview(asset: a)
+        }
     }
 
     // MARK: Selection
@@ -431,5 +439,72 @@ struct SidewaysPan: UIGestureRecognizerRepresentable {
         default:
             ended()
         }
+    }
+}
+
+
+/// Holding an item in the gallery: the photo bigger, or the video playing (silent, on a loop).
+private struct AssetPreview: View {
+    let asset: PHAsset
+    @State private var image: UIImage?
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
+
+    private var size: CGSize {
+        let w = CGFloat(max(asset.pixelWidth, 1)), h = CGFloat(max(asset.pixelHeight, 1))
+        let maxW: CGFloat = 340, maxH: CGFloat = 520
+        let k = min(maxW / w, maxH / h)
+        return CGSize(width: w * k, height: h * k)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let image { Image(uiImage: image).resizable().scaledToFit() }
+            if let player { LoopingPlayer(player: player) }
+        }
+        .frame(width: size.width, height: size.height)
+        .onAppear(perform: load)
+        .onDisappear { player?.pause() }
+    }
+
+    private func load() {
+        let io = PHImageRequestOptions()
+        io.deliveryMode = .opportunistic
+        io.isNetworkAccessAllowed = true
+        PHImageManager.default().requestImage(for: asset, targetSize: CGSize(width: size.width * 3, height: size.height * 3),
+                                              contentMode: .aspectFit, options: io) { img, _ in
+            if let img { image = img }
+        }
+        guard asset.mediaType == .video else { return }
+        let vo = PHVideoRequestOptions()
+        vo.isNetworkAccessAllowed = true
+        vo.deliveryMode = .fastFormat
+        PHImageManager.default().requestPlayerItem(forVideo: asset, options: vo) { item, _ in
+            guard let item else { return }
+            DispatchQueue.main.async {
+                let q = AVQueuePlayer()
+                q.isMuted = true
+                looper = AVPlayerLooper(player: q, templateItem: item)
+                player = q
+                q.play()
+            }
+        }
+    }
+}
+
+private struct LoopingPlayer: UIViewRepresentable {
+    let player: AVPlayer
+    func makeUIView(context: Context) -> PlayerLayerView {
+        let v = PlayerLayerView()
+        v.playerLayer.player = player
+        v.playerLayer.videoGravity = .resizeAspect
+        return v
+    }
+    func updateUIView(_ v: PlayerLayerView, context: Context) { v.playerLayer.player = player }
+
+    final class PlayerLayerView: UIView {
+        override static var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
     }
 }
