@@ -163,7 +163,7 @@ struct PreviewArea: View {
                 let q = CGPoint(x: p.x - inset.width, y: p.y - inset.height)
                 if !model.tapTitle(contentPoint(q, canvas), canvas: canvas) { tapPlay() }
             }
-            .simultaneousGesture(HoldToCompare { on in model.setEffectsBypassed(on) })
+            .gesture(HoldToCompare { on in model.setEffectsBypassed(on) })
             .gesture(
                 // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
@@ -1025,7 +1025,7 @@ struct FullscreenPlayer: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()   // felt, not seen: screen recordings stay clean
         }
         // hold: before / after (effects off until the finger lifts)
-        .simultaneousGesture(HoldToCompare { on in model.setEffectsBypassed(on) })
+        .gesture(HoldToCompare { on in model.setEffectsBypassed(on) })
         // swipe up (or down) to leave fullscreen
         .simultaneousGesture(
             DragGesture(minimumDistance: 30)
