@@ -280,6 +280,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let frame = CGRect(origin: .zero, size: size)
         let info = p.layer.info, state = p.state, srcT = p.srcT
         var look = p.look
+        if info.preview && LookStore.shared.bypassEffects { look.effects = Effects() }
         // AutoZoom: from the clip's first frame to its last, on top of its own placement
         // (the AutoZoom panel shows the clip unzoomed while paused, with the two framings drawn over it)
         // the clip's own part (a transition may play its handles before and after it)
@@ -347,7 +348,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// (with AutoZoom over the whole Stack), its film effects and opacity, like a clip of its own.
     static func stackLayer(_ img: CIImage, _ l: StackStore.Layer, t: Double, size: CGSize, preview: Bool) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
-        let s = l.stack
+        var s = l.stack
+        if preview && LookStore.shared.bypassEffects { s.effects = Effects() }
         var out = img
         let editingCrop = preview && LookStore.shared.cropEditClip == l.id
         if let c = s.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {

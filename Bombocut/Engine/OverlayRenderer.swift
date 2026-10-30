@@ -94,6 +94,8 @@ final class OverlayRenderer: @unchecked Sendable {
     /// The overlay as an image placed on the canvas (Core Image, y-up), before blending.
     func layer(_ o: Overlay, at t: Double, size: CGSize, canvasAspect A: Double, preview: Bool = false,
                video: (UUID) -> (CIImage, CGAffineTransform)?) -> CIImage? {
+        var o = o
+        if preview && LookStore.shared.bypassEffects { o.effects = Effects() }
         var img: CIImage
         var natural = false   // text keeps its rendered pixel size; pictures fit the canvas
         switch o.kind {

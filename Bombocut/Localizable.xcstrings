@@ -2858,6 +2858,16 @@
         }
       }
     },
+    "Hold to see without effects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Podrž a uvidíš video bez efektů"
+          }
+        }
+      }
+    },
     "Holds the shot still as if on a tripod. Where the camera really moves, it follows as little as the zoom allows.": {
       "localizations": {
         "cs": {

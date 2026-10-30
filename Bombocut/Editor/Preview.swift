@@ -88,8 +88,28 @@ struct PreviewArea: View {
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
+        .overlay(alignment: .topLeading) { bypassEye }
         .clipped()
         .onChange(of: model.previewScrubs) { _, on in if !on { resetViewZoom() } }
+    }
+
+    /// Before / after: hold the eye and every effect and adjustment is off in the preview; let go and they are back.
+    @ViewBuilder
+    private var bypassEye: some View {
+        if model.hasAnyEffects && !model.fullscreen {
+            let on = model.effectsBypassed
+            Image(systemName: on ? "eye.slash.fill" : "eye")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(on ? .black : .white)
+                .frame(width: 40, height: 40)
+                .background(on ? Theme.accent : Color.black.opacity(0.5), in: Circle())
+                .contentShape(Circle())
+                .onLongPressGesture(minimumDuration: 30, maximumDistance: 60, perform: {}, onPressingChanged: { pressing in
+                    model.setEffectsBypassed(pressing)
+                })
+                .padding(6)
+                .accessibilityLabel(loc("Hold to see without effects"))
+        }
     }
 
     private func resetViewZoom() {

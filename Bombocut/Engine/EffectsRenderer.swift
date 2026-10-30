@@ -10,6 +10,14 @@ final class LookStore: @unchecked Sendable {
     private var outline: UUID?
     private var framing: UUID?
     private var cropping: UUID?
+    private var bypass = false
+
+    /// Holding the eye on the preview: the editor shows every clip, overlay and Stack without its Adjust
+    /// effects (color and film), to compare. Never in exports.
+    var bypassEffects: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return bypass }
+        set { lock.lock(); bypass = newValue; lock.unlock() }
+    }
 
     /// The clip whose crop is being edited: the preview shows its whole picture, the crop frame is drawn over it.
     var cropEditClip: UUID? {

@@ -1343,6 +1343,8 @@ final class EditorModel: ObservableObject {
     /// The Transition panel works on the selected clip's start (true) or its end.
     @Published var transitionAtStart = true
     @Published var openTransitionPanel = false
+    /// The eye on the preview is held: effects off in the editor (see LookStore.bypassEffects).
+    @Published private(set) var effectsBypassed = false
     /// A panel asked for from outside the toolbar (the clip quick menu); the editor opens it.
     @Published var requestedPanel: EditorSheet?
     @Published var openAddClips = false
@@ -3801,5 +3803,27 @@ extension EditorModel {
         case .volume: pause(); openVolumePanel = true
         case .delete: deleteSelected()
         }
+    }
+}
+
+
+// MARK: Before / after
+
+extension EditorModel {
+    /// Any Adjust effects in the project (the eye on the preview shows only then).
+    var hasAnyEffects: Bool {
+        func on(_ e: Effects) -> Bool { e.hasColor || e.hasCanvasFX }
+        return project.clips.contains { on($0.staticLook.effects) || $0.keyframes.contains { on($0.look.effects) } }
+            || project.overlays.contains { on($0.effects) }
+            || project.stacks.contains { on($0.effects) }
+    }
+
+    /// Holding the eye: everything without its effects, until the finger lifts.
+    func setEffectsBypassed(_ on: Bool) {
+        guard effectsBypassed != on else { return }
+        effectsBypassed = on
+        LookStore.shared.bypassEffects = on
+        if on { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        publishLook()
     }
 }
