@@ -46,6 +46,7 @@ struct AboutView: View {
                     credit("speech-swift", "soniqo. Signal processing around DeepFilterNet3. License: Apache 2.0.")
                     credit("Firefox Translations", "Mozilla. Caption translation models, downloaded per language. License: MPL 2.0.")
                     credit("bergamot-translator", "Mozilla and the Bergamot project. The offline translation engine. License: MPL 2.0.")
+                    credit("Google Fonts", "The fonts for texts and captions, by their designers. License: SIL Open Font License 1.1 (Luckiest Guy and Ultra: Apache 2.0).")
                     credit("Apple Vision, Video Toolbox, Core Image", "Subject tracking, masks, motion blur, smooth slow motion, effects.")
                     Text("Made in Czechia.").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     #if DEBUG

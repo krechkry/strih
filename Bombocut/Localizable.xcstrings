@@ -930,6 +930,16 @@
         }
       }
     },
+    "Bold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tučná"
+          }
+        }
+      }
+    },
     "Both": {
       "localizations": {
         "cs": {
@@ -986,6 +996,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Krytí pozadí"
+          }
+        }
+      }
+    },
+    "Built-in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vestavěná"
           }
         }
       }
@@ -1306,6 +1326,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí"
+          }
+        }
+      }
+    },
+    "Condensed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úzká"
           }
         }
       }
@@ -1820,6 +1850,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jiný poměr stran než plátno (%@). Klipy se do něj vejdou, nebo ho vyplní."
+          }
+        }
+      }
+    },
+    "Display": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výrazná"
           }
         }
       }
@@ -2494,6 +2534,16 @@
         }
       }
     },
+    "Fonts from Google Fonts, free to use in your videos.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Písma z Google Fonts, ve videích je můžeš volně používat."
+          }
+        }
+      }
+    },
     "Forward": {
       "localizations": {
         "cs": {
@@ -2744,6 +2794,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Halace"
+          }
+        }
+      }
+    },
+    "Handwritten": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ručně psaná"
           }
         }
       }
@@ -3394,6 +3454,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mb/s"
+          }
+        }
+      }
+    },
+    "Mono": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neproporcionální"
           }
         }
       }
@@ -4458,6 +4528,16 @@
         }
       }
     },
+    "Rounded": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaoblené"
+          }
+        }
+      }
+    },
     "Rounded corners": {
       "localizations": {
         "cs": {
@@ -4674,6 +4754,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Napsat zpětnou vazbu"
+          }
+        }
+      }
+    },
+    "Serif": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patková"
           }
         }
       }
@@ -5284,6 +5374,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "System": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systémové"
           }
         }
       }

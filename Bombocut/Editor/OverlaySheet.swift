@@ -12,10 +12,11 @@ struct OverlaySheet: View {
     @State private var snapped = false
 
     enum Tab: String, CaseIterable {
-        case text, style, animation, blend, speed
+        case text, font, style, animation, blend, speed
         var title: String {
             switch self {
             case .text: return "Text"
+            case .font: return "Font"
             case .style: return "Style"
             case .animation: return "Animation"
             case .blend: return "Blend"
@@ -28,8 +29,8 @@ struct OverlaySheet: View {
     /// only that part; a text's words and its style stay together.
     private func tabs(_ o: Overlay) -> [Tab] {
         switch tab {
-        case .text, .style:
-            if case .text = o.kind { return UIMode.isPro ? [.text, .style] : [.text] }
+        case .text, .font, .style:
+            if case .text = o.kind { return UIMode.isPro ? [.text, .font, .style] : [.text, .font] }
             return [.animation]
         case .speed: return o.kind.isVideo ? [.speed] : [.animation]
         case .animation, .blend: return [tab]
@@ -83,6 +84,7 @@ struct OverlaySheet: View {
                         VStack(alignment: .leading, spacing: 18) {
                             switch shown {
                             case .text: textLook(o.style)
+                            case .font: fontTab(o)
                             case .style: styleTab(o.style)
                             case .animation: animationTab(o)
                             case .blend: blendTab(o)
@@ -147,23 +149,6 @@ struct OverlaySheet: View {
 
     @ViewBuilder
     private func textLook(_ s: CaptionStyle) -> some View {
-        section("Font") {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(CaptionFont.allCases, id: \.self) { f in
-                        Button { model.setOverlay { $0.style.font = f } } label: {
-                            Text("Aa")
-                                .font(Font(CaptionRenderer.uiFont(f, size: 20) as CTFont))
-                                .foregroundStyle(s.font == f ? .black : .white)
-                                .frame(width: 54, height: 44)
-                                .background(s.font == f ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-        colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
         slider("Size", value: s.size, def: Overlay.defaultTextStyle.size, in: 0.03...0.4) { v in model.editOverlay { $0.style.size = v } }
         slider("Letter spacing", value: s.tracking, def: Overlay.defaultTextStyle.tracking, in: -0.2...1) { v in model.editOverlay { $0.style.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Overlay.defaultTextStyle.lineSpacing, in: 0.2...4) { v in model.editOverlay { $0.style.lineSpacing = v } }
@@ -171,8 +156,20 @@ struct OverlaySheet: View {
 
     // MARK: Style
 
+    // MARK: Font
+
+    @ViewBuilder
+    private func fontTab(_ o: Overlay) -> some View {
+        if case .text(let t) = o.kind {
+            FontPicker(style: o.style, sample: t) { f, name in
+                model.setOverlay { $0.style.font = f; $0.style.fontName = name }
+            }
+        }
+    }
+
     @ViewBuilder
     private func styleTab(_ s: CaptionStyle) -> some View {
+        colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
         colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
         slider("Outline width", value: s.strokeWidth, def: Overlay.defaultTextStyle.strokeWidth, in: 0...2) { v in model.editOverlay { $0.style.strokeWidth = v } }
         if s.strokeWidth > 0 {

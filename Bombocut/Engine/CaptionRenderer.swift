@@ -118,6 +118,12 @@ final class CaptionRenderer: @unchecked Sendable {
         return render(cue, style: style, canvas: canvas, active: nil, visibleWords: nil, visibleFraction: nil)
     }
 
+    /// The style's font: a font that comes with the app when one is picked, else the built-in kind.
+    static func uiFont(_ s: CaptionStyle, size: CGFloat) -> UIFont {
+        if let n = s.fontName, let f = FontCatalog.font(n, size: size) { return f }
+        return uiFont(s.font, size: size)
+    }
+
     static func uiFont(_ f: CaptionFont, size: CGFloat) -> UIFont {
         func named(_ n: String, _ w: UIFont.Weight) -> UIFont { UIFont(name: n, size: size) ?? .systemFont(ofSize: size, weight: w) }
         switch f {
@@ -172,13 +178,13 @@ final class CaptionRenderer: @unchecked Sendable {
         guard !lines.isEmpty else { return nil }
 
         // shrink to fit the widest line
-        var font = Self.uiFont(style.font, size: fontSize)
+        var font = Self.uiFont(style, size: fontSize)
         let widest = lines.map {
             ($0 as NSString).size(withAttributes: [.font: font, .kern: CGFloat(style.tracking) * fontSize]).width
         }.max() ?? 0
         if widest > maxWidth {
             fontSize *= maxWidth / widest
-            font = Self.uiFont(style.font, size: fontSize)
+            font = Self.uiFont(style, size: fontSize)
         }
 
         let padX = style.box ? fontSize * 0.35 : fontSize * 0.15

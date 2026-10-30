@@ -66,6 +66,8 @@ enum CaptionAnim: String, Codable, CaseIterable {
 
 struct CaptionStyle: Codable, Hashable {
     var font: CaptionFont = .heavy
+    /// A font that comes with the app (FontCatalog), by PostScript name; when set it is used instead of `font`.
+    var fontName: String?
     var size = 0.065             // fraction of the canvas' short side
     var text = RGBA.white
     var highlight = RGBA.lime
@@ -97,13 +99,14 @@ struct CaptionStyle: Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case font, size, text, highlight, stroke, strokeWidth, strokeOutside, tracking, lineSpacing, box, boxColor, boxOpacity
         case shadow, shadowOpacity, shadowBlur, shadowAngle, shadowDistance, caps, y, x, rotation, lines, maxChars, anim, punctuation
-        case behindSubject
+        case behindSubject, fontName
     }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         let def = CaptionStyle()
         font = try c.decodeIfPresent(CaptionFont.self, forKey: .font) ?? def.font
+        fontName = try? c.decodeIfPresent(String.self, forKey: .fontName)
         size = try c.decodeIfPresent(Double.self, forKey: .size) ?? def.size
         text = try c.decodeIfPresent(RGBA.self, forKey: .text) ?? def.text
         highlight = try c.decodeIfPresent(RGBA.self, forKey: .highlight) ?? def.highlight

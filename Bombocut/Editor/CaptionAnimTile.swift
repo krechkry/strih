@@ -45,7 +45,7 @@ struct CaptionAnimTile: View {
         return style.caps ? w.map { $0.uppercased() } : w
     }
 
-    private var font: Font { Font(CaptionRenderer.uiFont(style.font, size: 16) as CTFont) }
+    private var font: Font { Font(CaptionRenderer.uiFont(style, size: 16) as CTFont) }
     private var ink: Color { Color(red: style.text.r, green: style.text.g, blue: style.text.b) }
     private var accent: Color { Color(red: style.highlight.r, green: style.highlight.g, blue: style.highlight.b) }
 

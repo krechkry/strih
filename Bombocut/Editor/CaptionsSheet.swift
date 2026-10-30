@@ -429,20 +429,7 @@ struct CaptionsSheet: View {
             }
         }
         section("Font") {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(CaptionFont.allCases, id: \.self) { f in
-                        Button { setStyle { $0.font = f } } label: {
-                            Text("Aa")
-                                .font(Font(CaptionRenderer.uiFont(f, size: 20) as CTFont))
-                                .foregroundStyle(s.font == f ? .black : .white)
-                                .frame(width: 54, height: 44)
-                                .background(s.font == f ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+            FontPicker(style: s, sample: "Aa", grid: false) { f, name in setStyle { $0.font = f; $0.fontName = name } }
         }
         colorRow("Text", s.text) { c in { $0.text = c } }
         if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
@@ -531,7 +518,7 @@ struct CaptionsSheet: View {
         } label: {
             VStack(spacing: 6) {
                 Text(st.caps ? "AA" : "Aa")
-                    .font(Font(CaptionRenderer.uiFont(st.font, size: 24) as CTFont))
+                    .font(Font(CaptionRenderer.uiFont(st, size: 24) as CTFont))
                     .foregroundStyle(Color(red: st.text.r, green: st.text.g, blue: st.text.b))
                     .padding(.horizontal, 8).padding(.vertical, 2)
                     .background(st.box ? Color(red: st.boxColor.r, green: st.boxColor.g, blue: st.boxColor.b).opacity(st.boxOpacity) : .clear,
