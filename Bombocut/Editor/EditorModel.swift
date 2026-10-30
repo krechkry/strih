@@ -3,6 +3,17 @@ import Combine
 import SwiftUI
 
 /// Active edge trim (ripple: neighbours always stay glued to the edited clip).
+/// Roll edit: the cut between two clips slides; both stay where they are, one gets longer and the other shorter.
+struct RollState: Equatable {
+    var leftID: UUID
+    var rightID: UUID
+    var leading: Bool          // started from the right clip's head handle (true) or the left clip's tail handle
+    var startCut: Double       // where the cut was on the timeline when the roll began
+    var delta = 0.0            // how far it moved (timeline seconds, + = right)
+    var atLimit = false        // one of the two ran out of footage (or got as short as a clip can be)
+    var snapped = false        // the cut sits on the playhead
+}
+
 struct TrimState: Equatable {
     var id: UUID
     var leading: Bool          // true = head (left edge), false = tail (right edge)
@@ -17,6 +28,7 @@ struct TrimView {
     var left: UIImage?
     var right: UIImage?
     var delta: Double = 0      // timeline seconds, + = clip got longer
+    var roll = false           // roll edit: both sides of the cut, side by side
 }
 
 enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
@@ -121,6 +133,9 @@ final class EditorModel: ObservableObject {
 
     func hideNote() { buildError = nil }
     @Published private(set) var trim: TrimState?
+    @Published private(set) var roll: RollState?
+    /// A clip edge is being dragged (trim or roll): the strip doesn't scroll by itself meanwhile.
+    var edgeEditing: Bool { trim != nil || roll != nil }
     @Published var trimView: TrimView?
     @Published var live: LiveTransform?
     @Published var fullscreen = false
@@ -148,6 +163,8 @@ final class EditorModel: ObservableObject {
     private let liveGrabber = FrameGrabber(maxSize: 1600)
     private var trimSnapshot: Project?
     private var trimOriginal: Clip?
+    private var rollOriginal: (left: Clip, right: Clip)?
+    private let rollGrabber = LiveFrameGrabber()
     private var liveStart: ClipTransform?
     private var liveSource: Double?
     private var gestureSnapshot: Project?
@@ -978,6 +995,36 @@ final class EditorModel: ObservableObject {
             p.clips[i].keyframes = []
             p.clips[i].effects = Effects()
             p.clips[i].opacity = 1
+        }
+    }
+
+    /// The Adjust panel's reset: only the values of the tab that is showing, everywhere on the clip (its fixed look
+    /// and every keyframe), so the other tabs and the keyframes' timing stay as they are.
+    func resetLookTab(_ tab: LookTab) {
+        if let k = selectedStackIndex {
+            mutateLook { pr in
+                var l = Look(transform: ClipTransform(), opacity: pr.stacks[k].opacity, effects: pr.stacks[k].effects)
+                tab.reset(&l)
+                pr.stacks[k].opacity = l.opacity
+                pr.stacks[k].effects = l.effects
+            }
+            return
+        }
+        if let oi = selectedOverlayIndex {
+            // an overlay's opacity has its own keyframes (Animate), so only its effects reset here
+            mutateLook { pr in
+                var l = Look(transform: ClipTransform(), opacity: 1, effects: pr.overlays[oi].effects)
+                tab.reset(&l)
+                pr.overlays[oi].effects = l.effects
+            }
+            return
+        }
+        guard let i = selectedIndex else { return }
+        mutateLook { pr in
+            var st = pr.clips[i].staticLook
+            tab.reset(&st)
+            pr.clips[i].staticLook = st
+            for k in pr.clips[i].keyframes.indices { tab.reset(&pr.clips[i].keyframes[k].look) }
         }
     }
 
@@ -1940,6 +1987,104 @@ final class EditorModel: ObservableObject {
             currentTime = leading ? start : start + project.clips[i].duration - 0.001
         }
         commit()
+    }
+
+    /// The trim turns into a roll (the handle was held still): undo whatever the first touch did, quietly.
+    func trimCancelled() {
+        if let s = trimSnapshot { project = s }
+        trimSnapshot = nil
+        trimOriginal = nil
+        trim = nil
+        trimView = nil
+        edgeGrabber.reset()
+    }
+
+    // MARK: Roll edit
+
+    /// Can the edge of this clip roll (is there a clip on the other side of it)?
+    func canRoll(_ id: UUID, leading: Bool) -> Bool {
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return false }
+        return leading ? i > 0 : i < project.clips.count - 1
+    }
+
+    /// Hold a clip's edge handle still, then drag: the cut between it and its neighbour slides.
+    @discardableResult
+    func rollBegan(_ id: UUID, leading: Bool) -> Bool {
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return false }
+        let l = leading ? i - 1 : i, r = l + 1
+        guard l >= 0, r < project.clips.count else { return false }
+        pause()
+        trimSnapshot = project
+        rollOriginal = (left: project.clips[l], right: project.clips[r])
+        roll = RollState(leftID: project.clips[l].id, rightID: project.clips[r].id, leading: leading,
+                         startCut: project.clipStarts[r])
+        trimView = TrimView(leading: leading, roll: true)
+        grabRoll(project.clips[l], project.clips[r])
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        return true
+    }
+
+    /// delta = seconds of timeline the finger moved the cut since the roll began (+ = right).
+    func rollChanged(delta raw: Double) {
+        guard let o = rollOriginal, let st = roll,
+              let l = project.clips.firstIndex(where: { $0.id == st.leftID }),
+              let r = project.clips.firstIndex(where: { $0.id == st.rightID }) else { return }
+        let ra = o.left.retime, rb = o.right.retime
+        let sa = max(ra.speed(atLocal: ra.outDuration), 0.01)
+        let sb = max(rb.speed(atLocal: 0), 0.01)
+        // how far each side can go: the left clip's footage after its end, the right one's before its start,
+        // and neither shorter than a tenth of a second
+        let lo = max(-(o.left.outPoint - o.left.inPoint - 0.1) / sa, -o.right.inPoint / sb)
+        let hi = min((o.left.sourceDuration - o.left.outPoint) / sa, (o.right.outPoint - o.right.inPoint - 0.1) / sb)
+        var delta = raw
+        // the cut snaps to the playhead (not when the playhead sits where the cut started)
+        let reach = Double(10 / max(pxPerSec, 1))
+        let snap = abs(st.startCut - currentTime) > reach && abs(st.startCut + raw - currentTime) < reach
+        if snap { delta = currentTime - st.startCut }
+        if snap && !st.snapped { UISelectionFeedbackGenerator().selectionChanged() }
+        let clamped = lo <= hi ? min(max(delta, lo), hi) : 0
+        let hitLimit = abs(clamped - delta) > 1e-6
+        if hitLimit && !st.atLimit { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
+        var a = o.left, b = o.right
+        a.outPoint = o.left.outPoint + clamped * sa
+        b.inPoint = o.right.inPoint + clamped * sb
+        project.clips[l] = a
+        project.clips[r] = b
+        roll?.delta = clamped
+        roll?.atLimit = hitLimit
+        roll?.snapped = snap
+        trimView?.delta = clamped
+        grabRoll(a, b)
+    }
+
+    func rollEnded() {
+        let rightID = roll?.rightID
+        if let s = trimSnapshot, s != project {
+            pushUndo(s)
+            followFootage(from: s)
+        }
+        trimSnapshot = nil
+        rollOriginal = nil
+        roll = nil
+        trimView = nil
+        edgeGrabber.reset()
+        rollGrabber.reset()
+        if let id = rightID, let r = project.clips.firstIndex(where: { $0.id == id }) {
+            currentTime = project.clipStarts[r]
+        }
+        commit()
+    }
+
+    /// The two frames that meet at the cut: the left clip's last and the right clip's first.
+    private func grabRoll(_ a: Clip, _ b: Clip) {
+        edgeGrabber.grab(file: a.mediaFile, at: max(a.inPoint, a.outPoint - 0.04)) { [weak self] img in
+            guard let self, self.trimView?.roll == true else { return }
+            self.trimView?.left = img
+        }
+        rollGrabber.grab(file: b.mediaFile, at: b.inPoint) { [weak self] img in
+            guard let self, self.trimView?.roll == true else { return }
+            self.trimView?.right = img
+        }
     }
 
     // MARK: Audio lane

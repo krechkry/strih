@@ -27,6 +27,7 @@ struct PreviewArea: View {
     @State private var cropGrab: CropRect?          // Crop: the crop when the drag began
     @State private var zoomGrab: CGPoint?           // AutoZoom: the focus point when the drag began
     @State private var zoomCorner: CGPoint?         // AutoZoom: the tight frame's corner when the drag began
+    @State private var zoomGuides: Set<Guide> = []  // AutoZoom: the canvas lines the framing snapped to
 
     var body: some View {
         GeometryReader { geo in
@@ -685,6 +686,13 @@ struct PreviewArea: View {
             }
             .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
             .allowsHitTesting(false)
+            // the canvas lines the framing snapped to
+            if !zoomGuides.isEmpty {
+                Self.guidePath(zoomGuides, canvas: canvas)
+                    .applying(toScreen)
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    .allowsHitTesting(false)
+            }
             // the other framing: dashed, its label switches to it
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
@@ -697,41 +705,14 @@ struct PreviewArea: View {
                 .background(Color.white.opacity(0.001))
                 .frame(width: cs.width, height: cs.height)
                 .offset(x: cs.minX, y: cs.minY)
-                .gesture(DragGesture(minimumDistance: 1)
-                    .onChanged { v in
-                        if zoomGrab == nil { zoomGrab = CGPoint(x: cur.x, y: cur.y); model.liveEditBegan() }
-                        guard let g0 = zoomGrab else { return }
-                        model.editAutoZoomFraming { f in
-                            f.x = Double(g0.x) + Double(v.translation.width / viewZoom / W)
-                            f.y = Double(g0.y) + Double(v.translation.height / viewZoom / H)
-                        }
-                    }
-                    .onEnded { _ in zoomGrab = nil; model.liveEditEnded() })
+                .gesture(zoomMoveGesture(cur, transform: t, canvas: canvas))
             Circle().fill(Theme.accent)
                 .frame(width: 26, height: 26)
                 .overlay(Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 10, weight: .heavy)).foregroundStyle(.black))
                 .shadow(color: .black.opacity(0.4), radius: 3)
                 .contentShape(Circle().inset(by: -10))
                 .offset(x: cs.maxX - 13, y: cs.maxY - 13)
-                .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        if zoomCorner == nil { zoomCorner = CGPoint(x: cr.maxX, y: cr.maxY); model.liveEditBegan() }
-                        guard let q0 = zoomCorner else { return }
-                        // the corner (canvas points) sets the size around the framing's own center
-                        let q = CGPoint(x: q0.x + v.translation.width / viewZoom, y: q0.y + v.translation.height / viewZoom)
-                        var zs: [CGFloat] = []
-                        if q.x - cr.midX > 4 { zs.append(W / 2 / (q.x - cr.midX)) }
-                        if q.y - cr.midY > 4 { zs.append(H / 2 / (q.y - cr.midY)) }
-                        guard !zs.isEmpty else { return }
-                        let nz = Double(zs.reduce(0, +) / CGFloat(zs.count))
-                        let newZ = min(max(nz, 1), 4)
-                        // keep the framing's center where it is on the picture while its size changes
-                        let center = CGPoint(x: cr.midX, y: cr.midY)
-                        model.editAutoZoomFraming { f in
-                            f = Self.zoomFraming(center: center, zoom: newZ, transform: t, canvas: canvas)
-                        }
-                    }
-                    .onEnded { _ in zoomCorner = nil; model.liveEditEnded() })
+                .gesture(zoomCornerGesture(cr, transform: t, canvas: canvas))
             // labels: tap the other one to set that framing
             framePill(editsEnd ? "End" : "Start", lime: true).offset(x: cs.minX + 8, y: cs.minY + 8)
                 .allowsHitTesting(false)
@@ -743,6 +724,111 @@ struct PreviewArea: View {
                 .offset(x: os.minX + 8, y: stacked ? cs.minY + 36 : os.minY + 8)
         }
         .frame(width: W, height: H, alignment: .topLeading)
+    }
+
+    /// Drag the framing being set to move it (snapping to the canvas edges and middle).
+    private func zoomMoveGesture(_ cur: AutoZoom.Framing, transform t: ClipTransform, canvas: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { v in
+                if zoomGrab == nil { zoomGrab = CGPoint(x: cur.x, y: cur.y); model.liveEditBegan() }
+                guard let g0 = zoomGrab else { return }
+                let dx: CGFloat = v.translation.width / viewZoom / canvas.width
+                let dy: CGFloat = v.translation.height / viewZoom / canvas.height
+                var nf = cur
+                nf.x = Double(g0.x + dx)
+                nf.y = Double(g0.y + dy)
+                let snapped = Self.snapZoomMove(nf, transform: t, canvas: canvas, reach: 8 / viewZoom)
+                showZoomGuides(snapped.guides)
+                model.editAutoZoomFraming { f in f = snapped.framing }
+            }
+            .onEnded { _ in
+                zoomGrab = nil
+                zoomGuides = []
+                model.liveEditEnded()
+            }
+    }
+
+    /// Drag the corner to choose how close, around the framing's own center (an edge snaps to the canvas edge).
+    private func zoomCornerGesture(_ cr: CGRect, transform t: ClipTransform, canvas: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                if zoomCorner == nil { zoomCorner = CGPoint(x: cr.maxX, y: cr.maxY); model.liveEditBegan() }
+                guard let q0 = zoomCorner else { return }
+                let center = CGPoint(x: cr.midX, y: cr.midY)
+                let qx: CGFloat = q0.x + v.translation.width / viewZoom
+                let qy: CGFloat = q0.y + v.translation.height / viewZoom
+                var zs: [CGFloat] = []
+                if qx - center.x > 4 { zs.append(canvas.width / 2 / (qx - center.x)) }
+                if qy - center.y > 4 { zs.append(canvas.height / 2 / (qy - center.y)) }
+                guard !zs.isEmpty else { return }
+                let nz = Double(zs.reduce(0, +) / CGFloat(zs.count))
+                let snapped = Self.snapZoomSize(min(max(nz, 1), 4), center: center, canvas: canvas, reach: 8 / viewZoom)
+                showZoomGuides(snapped.guides)
+                let framing = Self.zoomFraming(center: center, zoom: snapped.zoom, transform: t, canvas: canvas)
+                model.editAutoZoomFraming { f in f = framing }
+            }
+            .onEnded { _ in
+                zoomCorner = nil
+                zoomGuides = []
+                model.liveEditEnded()
+            }
+    }
+
+    /// Moving a framing: its edges snap to the canvas edges and its middle to the canvas middle (canvas points).
+    static func snapZoomMove(_ f: AutoZoom.Framing, transform t: ClipTransform, canvas: CGSize,
+                             reach: CGFloat) -> (framing: AutoZoom.Framing, guides: Set<Guide>) {
+        let r = zoomWindow(f, transform: t, canvas: canvas)
+        let W: CGFloat = canvas.width, H: CGFloat = canvas.height
+        let sx = snap1D([(0 - r.minX, .left), (W - r.maxX, .right), (W / 2 - r.midX, .centerX)], reach)
+        let sy = snap1D([(0 - r.minY, .top), (H - r.maxY, .bottom), (H / 2 - r.midY, .centerY)], reach)
+        var out = f
+        out.x += Double(sx.shift / W)
+        out.y += Double(sy.shift / H)
+        var g = Set<Guide>()
+        if let a = sx.guide { g.insert(a) }
+        if let b = sy.guide { g.insert(b) }
+        return (out, g)
+    }
+
+    /// Resizing a framing around its center: the edge closest to a canvas edge lands on it.
+    static func snapZoomSize(_ zoom: Double, center c: CGPoint, canvas: CGSize, reach: CGFloat) -> (zoom: Double, guides: Set<Guide>) {
+        let W: CGFloat = canvas.width, H: CGFloat = canvas.height
+        let k: CGFloat = CGFloat(zoom)
+        let hw: CGFloat = W / k / 2, hh: CGFloat = H / k / 2
+        // (how far that edge is from its canvas edge, the zoom that puts it there)
+        var options: [(CGFloat, CGFloat, Guide)] = []
+        if c.x > 1 { options.append((abs(c.x - hw), W / (2 * c.x), .left)) }
+        if W - c.x > 1 { options.append((abs(W - (c.x + hw)), W / (2 * (W - c.x)), .right)) }
+        if c.y > 1 { options.append((abs(c.y - hh), H / (2 * c.y), .top)) }
+        if H - c.y > 1 { options.append((abs(H - (c.y + hh)), H / (2 * (H - c.y)), .bottom)) }
+        let near = options.filter { $0.0 < reach && $0.1 >= 1 && $0.1 <= 4 }.min { $0.0 < $1.0 }
+        guard let n = near else { return (zoom, []) }
+        return (Double(n.1), [n.2])
+    }
+
+    /// The smallest shift (within reach) that puts one of these on its line.
+    private static func snap1D(_ options: [(CGFloat, Guide)], _ reach: CGFloat) -> (shift: CGFloat, guide: Guide?) {
+        guard let best = options.filter({ abs($0.0) < reach }).min(by: { abs($0.0) < abs($1.0) }) else { return (0, nil) }
+        return (best.0, best.1)
+    }
+
+    /// Lines on the canvas (canvas points) for snapping guides.
+    static func guidePath(_ g: Set<Guide>, canvas: CGSize) -> Path {
+        let w = canvas.width, h = canvas.height
+        return Path { p in
+            if g.contains(.centerX) { p.move(to: CGPoint(x: w / 2, y: 0)); p.addLine(to: CGPoint(x: w / 2, y: h)) }
+            if g.contains(.centerY) { p.move(to: CGPoint(x: 0, y: h / 2)); p.addLine(to: CGPoint(x: w, y: h / 2)) }
+            if g.contains(.left) { p.move(to: CGPoint(x: 1, y: 0)); p.addLine(to: CGPoint(x: 1, y: h)) }
+            if g.contains(.right) { p.move(to: CGPoint(x: w - 1, y: 0)); p.addLine(to: CGPoint(x: w - 1, y: h)) }
+            if g.contains(.top) { p.move(to: CGPoint(x: 0, y: 1)); p.addLine(to: CGPoint(x: w, y: 1)) }
+            if g.contains(.bottom) { p.move(to: CGPoint(x: 0, y: h - 1)); p.addLine(to: CGPoint(x: w, y: h - 1)) }
+        }
+    }
+
+    /// New snap lines get a light tick.
+    private func showZoomGuides(_ g: Set<Guide>) {
+        if !g.subtracting(zoomGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
+        if g != zoomGuides { zoomGuides = g }
     }
 
     /// What an AutoZoom framing shows, on the unzoomed picture (canvas points).
@@ -1036,7 +1122,13 @@ struct TrimTwoUp: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.black
-            if let img = view.leading ? view.right : view.left {
+            if view.roll {
+                // roll: the left clip's last frame and the right clip's first, side by side
+                HStack(spacing: 3) {
+                    side(view.left)
+                    side(view.right)
+                }
+            } else if let img = view.leading ? view.right : view.left {
                 Image(uiImage: img).resizable().scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -1048,6 +1140,16 @@ struct TrimTwoUp: View {
                 .padding(.top, 10)
         }
         .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func side(_ img: UIImage?) -> some View {
+        if let img {
+            Image(uiImage: img).resizable().scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            Color.black.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 

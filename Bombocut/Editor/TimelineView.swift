@@ -107,6 +107,10 @@ struct TimelineView: View {
                                      onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
+                                     rollLead: k > 0, rollTrail: k < shown.count - 1,
+                                     rollEdge: rollEdge(clip.id),
+                                     rollAtLimit: model.roll?.atLimit == true,
+                                     onRoll: { leading, phase, delta, x in roll(clip.id, leading, phase, delta, x) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
@@ -144,7 +148,7 @@ struct TimelineView: View {
                                     let sh = model.project.cutShape(k)
                                     let span = CGFloat(sh.head + sh.shrink + sh.tail) * model.pxPerSec
                                     if k < overlaps.count, span > 0.5 {
-                                        let busy = model.trim != nil || shown[k].id == model.selectedClipID
+                                        let busy = model.edgeEditing || shown[k].id == model.selectedClipID
                                             || shown[k - 1].id == model.selectedClipID
                                         TransitionMark(selected: model.transitionCut == k - 1)
                                             .frame(width: max(span, 8), height: stripHeight)
@@ -217,7 +221,7 @@ struct TimelineView: View {
                     .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
                 }
                 .scrollPosition($scrollPos)
-                .scrollDisabled(model.trim != nil || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil
+                .scrollDisabled(model.edgeEditing || reorder != nil || paintingPick || zoomAnchor != nil || model.laneFinger != nil
                                 || model.slip != nil)
                 .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.x }) { _, x in
                     offsetX = x
@@ -233,7 +237,7 @@ struct TimelineView: View {
                     model.isScrubbing = user && reorder == nil
                 }
 
-                if let qid = model.quickMenuClipID, reorder == nil, model.trim == nil, model.pick == nil,
+                if let qid = model.quickMenuClipID, reorder == nil, !model.edgeEditing, model.pick == nil,
                    let k = shown.firstIndex(where: { $0.id == qid }) {
                     // over the visible part of the clip, kept on screen
                     let x0 = half + shift + slotX(shown, k) - offsetX
@@ -258,7 +262,7 @@ struct TimelineView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 6)
                 .shadow(color: .black.opacity(0.6), radius: 2)
-                .opacity(model.trim == nil && reorder == nil ? 1 : 0.25)
+                .opacity(!model.edgeEditing && reorder == nil ? 1 : 0.25)
                 .allowsHitTesting(false)
             }
             .simultaneousGesture(
@@ -289,9 +293,9 @@ struct TimelineView: View {
         .onChange(of: model.pxPerSec) {
             if reorder == nil { scrollPos.scrollTo(x: CGFloat(zoomAnchor ?? model.currentTime) * model.pxPerSec) }
         }
-        .onChange(of: model.project.clips) { if model.trim == nil { follow() } }
+        .onChange(of: model.project.clips) { if !model.edgeEditing { follow() } }
         .task(id: reorder != nil) { await autoScroll() }
-        .task(id: model.trim != nil) { await trimScroll() }
+        .task(id: model.edgeEditing) { await trimScroll() }
         .task(id: model.laneFinger != nil) { await laneScroll() }
         .onChange(of: model.laneFinger == nil) { _, ended in
             // the strip scrolled along with a dragged block: the playhead stays where the view is now
@@ -385,8 +389,16 @@ struct TimelineView: View {
 
     /// Keeps the strip under the playhead when time changes from playback, edits or undo.
     private func follow() {
-        guard !model.isScrubbing, model.trim == nil, reorder == nil else { return }
+        guard !model.isScrubbing, !model.edgeEditing, reorder == nil else { return }
         scrollPos.scrollTo(x: CGFloat(model.currentTime) * model.pxPerSec)
+    }
+
+    /// While rolling: which edge of this clip is the cut (true = its head), so both sides light up.
+    private func rollEdge(_ id: UUID) -> Bool? {
+        guard let r = model.roll else { return nil }
+        if r.leftID == id { return false }
+        if r.rightID == id { return true }
+        return nil
     }
 
     private func trim(_ id: UUID, _ leading: Bool, _ phase: ClipTile.TrimPhase, _ delta: Double, _ x: CGFloat) {
@@ -406,6 +418,25 @@ struct TimelineView: View {
         }
     }
 
+    /// Roll edit from a held handle: the trim that the touch started is undone and the cut slides instead.
+    private func roll(_ id: UUID, _ leading: Bool, _ phase: ClipTile.TrimPhase, _ delta: Double, _ x: CGFloat) {
+        switch phase {
+        case .began:
+            model.trimCancelled()
+            trimAuto = 0
+            trimFinger = (id, leading, 0, x)
+            model.rollBegan(id, leading: leading)
+        case .changed:
+            trimFinger = (id, leading, delta, x)
+            model.rollChanged(delta: delta + trimAuto)
+        case .ended:
+            trimFinger = nil
+            trimAuto = 0
+            model.rollEnded()
+            withAnimation(.easeOut(duration: 0.25)) { follow() }
+        }
+    }
+
     // MARK: Reorder
 
     /// Where the dragged tile is drawn relative to its current slot, so it stays under the finger.
@@ -419,7 +450,7 @@ struct TimelineView: View {
         let clips = model.project.clips
         switch phase {
         case .began:
-            guard model.trim == nil, let k = clips.firstIndex(where: { $0.id == id }) else { return }
+            guard !model.edgeEditing, let k = clips.firstIndex(where: { $0.id == id }) else { return }
             // a closed Stack moves as one block
             var ids = [id]
             if let st = model.project.stack(of: id), !st.open, let r = model.project.stackRange(st) {
@@ -487,8 +518,9 @@ struct TimelineView: View {
     /// Finger near the left or right edge while trimming: keep trimming that way and slide the strip along,
     /// so the edge stays under the finger.
     private func trimScroll() async {
-        while !Task.isCancelled, model.trim != nil {
-            if let f = trimFinger, model.trim?.atLimit != true {
+        while !Task.isCancelled, model.edgeEditing {
+            let limit = model.roll?.atLimit ?? model.trim?.atLimit ?? false
+            if let f = trimFinger, !limit {
                 let zone: CGFloat = 50
                 let push: CGFloat = f.x < zone ? -(zone - f.x) / zone : (f.x > screenW - zone ? (f.x - (screenW - zone)) / zone : 0)
                 if push != 0 {
@@ -496,7 +528,11 @@ struct TimelineView: View {
                     let next = offsetX + step
                     if next >= 0 {
                         trimAuto += Double(step / model.pxPerSec)
-                        model.trimChanged(f.id, leading: f.leading, delta: f.delta + trimAuto)
+                        if model.roll != nil {
+                            model.rollChanged(delta: f.delta + trimAuto)
+                        } else {
+                            model.trimChanged(f.id, leading: f.leading, delta: f.delta + trimAuto)
+                        }
                         scrollPos.scrollTo(x: next)
                         offsetX = next
                     }
@@ -656,11 +692,26 @@ struct ClipTile: View {
     let onTap: () -> Void
     let onKeyframe: (Keyframe) -> Void
     let onTrim: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void
+    /// Hold a handle still: roll edit on that cut (only where there is a clip on the other side).
+    var rollLead = false
+    var rollTrail = false
+    /// Rolling: this clip's edge at the cut (true = head).
+    var rollEdge: Bool? = nil
+    var rollAtLimit = false
+    var onRoll: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void = { _, _, _, _ in }
     var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
     @State private var dragging: Bool? = nil   // which edge is being dragged (true = leading)
     @State private var holding = false
+    @State private var rolling = false
+    @State private var rollFrom: Double = 0          // finger movement (s) when the roll began
+    @State private var handleMoved = false
+    @State private var lastTranslation: CGFloat = 0
+    @State private var lastX: CGFloat = 0
+    @State private var holdTimer: Timer?
+    /// How long a handle has to be held still before it rolls instead of trimming.
+    static let rollHold: TimeInterval = 0.45
 
     private let handleW: CGFloat = 16
 
@@ -734,6 +785,14 @@ struct ClipTile: View {
         .overlay(alignment: .leading) {
             if let tr = trim { trimBand(tr, width: w) }
         }
+        .overlay(alignment: rollEdge == true ? .leading : .trailing) {
+            // rolling: the cut lights up on both clips
+            if rollEdge != nil {
+                Rectangle().fill(rollAtLimit ? Color.red : Theme.accent)
+                    .frame(width: 3, height: height)
+                    .allowsHitTesting(false)
+            }
+        }
         .overlay(alignment: .leading) {
             // the handles sit outside the clip, so its first and last frames (and keyframes there) stay in view
             if selected {
@@ -747,6 +806,18 @@ struct ClipTile: View {
                     if trail { handle(leading: false) } else { Color.clear.frame(width: handleW, height: height).allowsHitTesting(false) }
                 }
                 .offset(x: -handleW)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if rollEdge == true {
+                Image(systemName: "arrow.left.and.line.vertical.and.arrow.right")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(rollAtLimit ? Color.red : Theme.accent, in: Capsule())
+                    .fixedSize()
+                    .offset(x: -16, y: -24)
+                    .allowsHitTesting(false)
             }
         }
         .overlay(alignment: trim?.leading == true ? .topLeading : .topTrailing) {
@@ -812,23 +883,60 @@ struct ClipTile: View {
                     .foregroundStyle(.black)
             }
             .contentShape(Rectangle().inset(by: -12))
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                    .onChanged { v in
-                        if dragging == nil {
-                            dragging = leading
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            onTrim(leading, .began, 0, v.location.x)
-                        }
-                        // Head: dragging right shortens. Tail: dragging right lengthens.
-                        let d = Double(v.translation.width / pxPerSec)
-                        onTrim(leading, .changed, d, v.location.x)
-                    }
-                    .onEnded { v in
-                        dragging = nil
-                        onTrim(leading, .ended, 0, v.location.x)
-                    }
-            )
+            .highPriorityGesture(handleGesture(leading: leading))
+    }
+
+    /// Drag a handle to trim. Hold it still first (with a clip on the other side) and the drag rolls the cut.
+    private func handleGesture(leading: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { v in
+                lastTranslation = v.translation.width
+                lastX = v.location.x
+                if dragging == nil {
+                    dragging = leading
+                    rolling = false
+                    handleMoved = false
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onTrim(leading, .began, 0, v.location.x)
+                    if leading ? rollLead : rollTrail { startHoldTimer(leading: leading) }
+                }
+                if abs(v.translation.width) > 6 && !handleMoved && !rolling {
+                    handleMoved = true
+                    holdTimer?.invalidate()
+                    holdTimer = nil
+                }
+                // Head: dragging right shortens. Tail: dragging right lengthens. Roll: right moves the cut right.
+                let d = Double(v.translation.width / pxPerSec)
+                if rolling {
+                    onRoll(leading, .changed, d - rollFrom, v.location.x)
+                } else {
+                    onTrim(leading, .changed, d, v.location.x)
+                }
+            }
+            .onEnded { v in
+                holdTimer?.invalidate()
+                holdTimer = nil
+                dragging = nil
+                if rolling {
+                    rolling = false
+                    onRoll(leading, .ended, 0, v.location.x)
+                } else {
+                    onTrim(leading, .ended, 0, v.location.x)
+                }
+            }
+    }
+
+    private func startHoldTimer(leading: Bool) {
+        holdTimer?.invalidate()
+        holdTimer = Timer.scheduledTimer(withTimeInterval: Self.rollHold, repeats: false) { _ in
+            Task { @MainActor in
+                holdTimer = nil
+                guard dragging == leading, !handleMoved, !rolling else { return }
+                rolling = true
+                rollFrom = Double(lastTranslation / pxPerSec)
+                onRoll(leading, .began, 0, lastX)
+            }
+        }
     }
 }
 

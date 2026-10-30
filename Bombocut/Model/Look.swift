@@ -149,6 +149,29 @@ struct Look: Codable, Hashable {
     }
 }
 
+/// The Adjust panel's tabs; each one's reset only puts back what that tab shows.
+enum LookTab: Int {
+    case basic, advanced, effects
+
+    /// Back to neutral: this tab's values only.
+    func reset(_ l: inout Look) {
+        switch self {
+        case .basic:
+            for p in LookParam.basic { p.set(&l, p.neutral) }
+        case .advanced:
+            l.effects.curve = Effects.flatCurve
+            l.effects.curveR = Effects.flatCurve
+            l.effects.curveG = Effects.flatCurve
+            l.effects.curveB = Effects.flatCurve
+            l.effects.hslHue = Effects.flatHSL
+            l.effects.hslSat = Effects.flatHSL
+            l.effects.hslLum = Effects.flatHSL
+        case .effects:
+            for p in LookParam.effects + LookParam.effects.flatMap(\.subParams) { p.set(&l, p.neutral) }
+        }
+    }
+}
+
 /// How a change speeds up and slows down between two keyframes. "Ease" (smooth) is the usual one.
 enum Ease: String, Codable, Hashable, CaseIterable {
     case linear, smooth, quad, bezier

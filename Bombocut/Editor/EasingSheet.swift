@@ -119,6 +119,16 @@ struct AutoZoomSheet: View {
                     Text("AutoZoom").font(.title3.weight(.heavy))
                     Spacer()
                     if z != nil {
+                        Button { model.setAutoZoom(AutoZoom()) } label: {
+                            Image(systemName: "arrow.counterclockwise").font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white.opacity(0.8))
+                                .frame(width: 36, height: 36)
+                                .background(Theme.panel2, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc("Reset"))
+                    }
+                    if z != nil {
                         // plays the clip on a loop with the zoom (paused, the framings show instead)
                         Button { model.previewSelected() } label: {
                             Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
@@ -139,24 +149,17 @@ struct AutoZoomSheet: View {
                 if let z {
                     let end = model.autoZoomEditsEnd
                     let f = end ? z.end : z.start
+                    let zoomsIn = z.end.zoom >= z.start.zoom
                     HStack(spacing: 8) {
-                        pill("Start", "backward.end.fill", on: !end) { model.selectAutoZoomFraming(end: false) }
-                        pill("End", "forward.end.fill", on: end) { model.selectAutoZoomFraming(end: true) }
-                        Button {
-                            var n = z
-                            swap(&n.start, &n.end)
-                            model.setAutoZoom(n)
-                        } label: {
-                            Image(systemName: "arrow.left.arrow.right").font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                                .frame(width: 44, height: 38)
-                                .background(Theme.panel2, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(loc("Swap start and end"))
+                        pill("Zoom in", "plus.magnifyingglass", on: zoomsIn) { setDirection(z, zoomIn: true) }
+                        pill("Zoom out", "minus.magnifyingglass", on: !zoomsIn) { setDirection(z, zoomIn: false) }
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack {
+                        HStack(spacing: 6) {
                             Text("Zoom").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                                .padding(.trailing, 4)
+                            chip("Start", on: !end) { model.selectAutoZoomFraming(end: false) }
+                            chip("End", on: end) { model.selectAutoZoomFraming(end: true) }
                             Spacer()
                             Text(verbatim: "\(Int((f.zoom * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
                                 .doubleTapNumberReset { model.liveEditBegan(); model.editAutoZoomFraming { $0 = AutoZoom.Framing() }; model.liveEditEnded() }
@@ -171,7 +174,7 @@ struct AutoZoomSheet: View {
                         n.easeDir = d == .both ? nil : d
                         model.setAutoZoom(n)
                     }
-                    Text("Pick Start or End: the preview shows that frame. Drag the lime frame to choose what it shows, its corner to choose how close. It follows when you trim the clip or change its speed.")
+                    Text("Start and End: the preview shows that frame. Drag the lime frame to choose what it shows, its corner to choose how close; it snaps to the edges and the middle. It follows when you trim the clip or change its speed.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if model.selectedStackIndex == nil { ApplyRow(model: model, kind: .autoZoom) }
@@ -185,6 +188,29 @@ struct AutoZoomSheet: View {
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
         .onAppear { model.selectAutoZoomFraming(end: false) }
+    }
+
+    /// Zoom in: the last frame is the closer one. Picking the other way swaps the two framings
+    /// (and when both are just as close, the one that should be closer gets a little closer).
+    private func setDirection(_ z: AutoZoom, zoomIn: Bool) {
+        guard (z.end.zoom >= z.start.zoom) != zoomIn else { return }
+        var n = z
+        swap(&n.start, &n.end)
+        if abs(n.end.zoom - n.start.zoom) < 0.01 {
+            if zoomIn { n.end.zoom = min(4, n.start.zoom * 1.2) } else { n.start.zoom = min(4, n.end.zoom * 1.2) }
+        }
+        model.setAutoZoom(n)
+    }
+
+    private func chip(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(loc(title)).font(.caption.weight(.heavy))
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .foregroundStyle(on ? .black : .white)
+                .padding(.horizontal, 11).frame(height: 28)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func pill(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {

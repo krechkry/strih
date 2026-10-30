@@ -17,7 +17,7 @@ struct AdjustSheet: View {
                 tabButton("Advanced", 1)
                 tabButton("Effects", 2)
                 Spacer(minLength: 4)
-                Button { model.resetAllLook() } label: {
+                Button { model.resetLookTab(LookTab(rawValue: tab) ?? .basic) } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white.opacity(0.8))
@@ -25,7 +25,7 @@ struct AdjustSheet: View {
                         .background(Theme.panel2, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(loc("Reset all"))
+                .accessibilityLabel(loc("Reset this tab"))
             }
 
             Text(loc(hint))
@@ -319,13 +319,28 @@ private struct CurveGraph: View {
     @State private var moved = false
     @State private var touching = false
     @State private var lastTap: (Date, CGPoint)?
+    /// The points while a finger is down. The drag works on this copy: the model's points can come back a
+    /// moment late, and an index into them would then grab the wrong point (a new point's index is the
+    /// end point's until the new one shows up).
+    @State private var work: [CGPoint]?
 
-    private var pts: [CGPoint] { ToneCurve.points(points).map { CGPoint(x: $0.x, y: $0.y) } }
+    private var pts: [CGPoint] { work ?? ToneCurve.points(points).map { CGPoint(x: $0.x, y: $0.y) } }
+
+    private static func flat(_ q: [CGPoint]?) -> [Double]? {
+        guard let q else { return nil }
+        return ToneCurve.flat(q.map { pt in (Double(pt.x), Double(pt.y)) })
+    }
+
+    private func send(_ q: [CGPoint]) {
+        work = q
+        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+    }
 
     var body: some View {
         GeometryReader { g in
             let w = max(g.size.width, 1), h = max(g.size.height, 1)
             let p = pts
+            let line: [Double] = Self.flat(work) ?? points
             SwiftUI.Canvas { ctx, size in
                 for k in 1..<4 {
                     let x = size.width * CGFloat(k) / 4, y = size.height * CGFloat(k) / 4
@@ -339,7 +354,7 @@ private struct CurveGraph: View {
                 var path = Path()
                 for i in 0...96 {
                     let x = Double(i) / 96
-                    let pt = CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(1 - ToneCurve.value(points, x)))
+                    let pt = CGPoint(x: size.width * CGFloat(x), y: size.height * CGFloat(1 - ToneCurve.value(line, x)))
                     if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
                 }
                 ctx.stroke(path, with: .color(color), lineWidth: 2.5)
@@ -374,12 +389,13 @@ private struct CurveGraph: View {
                         let hi = k < q.count - 1 ? q[k + 1].x - 0.01 : 1
                         q[k].x = min(hi, max(lo, start.x + v.translation.width / w))
                         q[k].y = min(1, max(0, start.y - v.translation.height / h))
-                        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+                        send(q)
                     }
                     .onEnded { v in
                         if dragging != nil { ended() }
                         dragging = nil
                         touching = false
+                        work = nil
                         // a tap (no move): remembered for a double tap
                         lastTap = moved ? nil : (Date(), v.location)
                         moved = false
@@ -419,6 +435,7 @@ private struct CurveGraph: View {
             return
         }
         began()
+        work = p
         if let k = nearest(loc, p, w, h, reach: 30) {
             dragging = k
             selected = k
@@ -434,7 +451,7 @@ private struct CurveGraph: View {
         }
         let pt = CGPoint(x: x, y: ToneCurve.value(points, x))
         q.insert(pt, at: i)
-        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+        send(q)
         dragging = i
         selected = i
         start = pt

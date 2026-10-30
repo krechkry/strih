@@ -807,7 +807,7 @@ struct EditorView: View {
         }
         .padding(.top, LaneLayout.top)
         .opacity(model.pick == nil ? 1 : 0.3)
-        .allowsHitTesting(model.pick == nil && model.trim == nil)
+        .allowsHitTesting(model.pick == nil && !model.edgeEditing)
     }
 
     private func islandButton(height: CGFloat, icon: String?, label: String, action: @escaping () -> Void) -> some View {
