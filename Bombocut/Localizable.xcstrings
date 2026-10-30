@@ -5498,16 +5498,6 @@
         }
       }
     },
-    "Tap the line to add a point, drag points anywhere. Double tap the graph to straighten it.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Klepnutím na čáru přidáš bod, body můžeš táhnout kamkoli. Dvojklepnutím křivku narovnáš."
-          }
-        }
-      }
-    },
     "Tap the line to add · drag to scrub": {
       "localizations": {
         "cs": {
@@ -5878,6 +5868,16 @@
         }
       }
     },
+    "Threshold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Práh"
+          }
+        }
+      }
+    },
     "Thumbnails and system caches, rebuilt when needed": {
       "localizations": {
         "cs": {
@@ -5914,6 +5914,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Na tenhle iPhone je to moc těžké"
+          }
+        }
+      }
+    },
+    "Touch the curve and drag: a point appears under your finger. Drag points anywhere. Double tap to straighten it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dotkni se křivky a táhni: pod prstem se objeví bod. Body můžeš táhnout kamkoli. Dvojí klepnutí křivku narovná."
           }
         }
       }

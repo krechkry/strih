@@ -7,6 +7,9 @@ struct FontPicker: View {
     let style: CaptionStyle
     /// What the tiles show: the text itself (first line, shortened) or "Aa".
     let sample: String
+    /// The tabs and the heart on top; off where the panel shows them itself, fixed above its scrolling list
+    /// (`FontPickerHeader`).
+    var header = true
     let pick: (CaptionFont, String?) -> Void
 
     enum Filter: String, CaseIterable {
@@ -23,7 +26,8 @@ struct FontPicker: View {
     }
 
     @AppStorage("likedFonts") private var likedRaw = ""
-    @State private var filter: Filter?
+    /// The tab, shared with the fixed header ("" = Liked when there are likes, else Sans).
+    @AppStorage("fontFilter") private var filterRaw = ""
 
     private static let builtIn: [(CaptionFont, String, Filter)] = [
         (.heavy, "System", .sans), (.rounded, "Rounded", .sans), (.condensed, "Helvetica", .sans), (.avenir, "Avenir", .sans),
@@ -43,17 +47,8 @@ struct FontPicker: View {
     // MARK: Liked
 
     /// A font's key: "builtin.<kind>" or the bundled font's PostScript name.
-    private static func key(_ f: CaptionFont) -> String { "builtin." + f.rawValue }
+    static func key(_ f: CaptionFont) -> String { "builtin." + f.rawValue }
     private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
-    private var currentKey: String { style.fontName ?? Self.key(style.font) }
-    private var currentLiked: Bool { liked.contains(currentKey) }
-
-    private func toggleLike() {
-        var l = liked
-        if let i = l.firstIndex(of: currentKey) { l.remove(at: i) } else { l.append(currentKey) }
-        likedRaw = l.joined(separator: ",")
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
 
     private var shown: String {
         let line = sample.split(separator: "\n").first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -62,23 +57,12 @@ struct FontPicker: View {
         return s.count > 14 ? String(s.prefix(13)) + "…" : s
     }
 
+    static func tab(_ raw: String, liked: Bool) -> Filter { Filter(rawValue: raw) ?? (liked ? .liked : .sans) }
+
     var body: some View {
-        let tab = filter ?? (liked.isEmpty ? .sans : .liked)
+        let tab = Self.tab(filterRaw, liked: !liked.isEmpty)
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                ForEach(Filter.allCases, id: \.self) { f in tabButton(f, on: tab == f) }
-                Spacer(minLength: 4)
-                // like the font you have: it shows under Liked
-                Button(action: toggleLike) {
-                    Image(systemName: currentLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(currentLiked ? Theme.accent : .white)
-                        .frame(width: 44, height: 44)
-                        .background(Theme.panel2, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(loc(currentLiked ? "Unlike this font" : "Like this font"))
-            }
+            if header { FontPickerHeader(style: style) }
             content(tab)
         }
     }
@@ -116,32 +100,6 @@ struct FontPicker: View {
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
         }
-    }
-
-    /// The tab's icon: a heart, "Aa" with and without serifs, and a wonky one.
-    private func tabButton(_ f: Filter, on: Bool) -> some View {
-        Button { filter = f } label: {
-            VStack(spacing: 2) {
-                Group {
-                    switch f {
-                    case .liked: Image(systemName: "heart.fill").font(.system(size: 16, weight: .bold))
-                    case .serif: Text(verbatim: "Aa").font(.system(size: 18, weight: .bold, design: .serif))
-                    case .sans: Text(verbatim: "Aa").font(.system(size: 18, weight: .bold))
-                    case .wonky:
-                        Text(verbatim: "Aa")
-                            .font(Font((FontCatalog.font("Shrikhand-Regular", size: 17) ?? .systemFont(ofSize: 17, weight: .black)) as CTFont))
-                            .rotationEffect(.degrees(-8))
-                    }
-                }
-                .frame(height: 22)
-                Text(loc(f.title)).font(.system(size: 10, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
-            }
-            .foregroundStyle(on ? .black : .white)
-            .frame(width: 62, height: 48)
-            .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(loc(f.title))
     }
 
     private func grid<C: View>(@ViewBuilder _ content: () -> C) -> some View {
@@ -189,4 +147,69 @@ struct FontPicker: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+/// The font tabs (Liked, Serif, Sans, Wonky) and the heart that likes the font you have. Kept still above the
+/// scrolling fonts in the text panel, so the heart is always at hand.
+struct FontPickerHeader: View {
+    let style: CaptionStyle
+    @AppStorage("likedFonts") private var likedRaw = ""
+    @AppStorage("fontFilter") private var filterRaw = ""
+    typealias Filter = FontPicker.Filter
+
+    private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
+    private var currentKey: String { style.fontName ?? FontPicker.key(style.font) }
+    private var currentLiked: Bool { liked.contains(currentKey) }
+
+    private func toggleLike() {
+        var l = liked
+        if let i = l.firstIndex(of: currentKey) { l.remove(at: i) } else { l.append(currentKey) }
+        likedRaw = l.joined(separator: ",")
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    var body: some View {
+        let tab = FontPicker.tab(filterRaw, liked: !liked.isEmpty)
+        HStack(spacing: 6) {
+            ForEach(Filter.allCases, id: \.self) { f in tabButton(f, on: tab == f) }
+            Spacer(minLength: 4)
+            // like the font you have: it shows under Liked
+            Button(action: toggleLike) {
+                Image(systemName: currentLiked ? "heart.fill" : "heart")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(currentLiked ? Theme.accent : .white)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.panel2, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc(currentLiked ? "Unlike this font" : "Like this font"))
+        }
+    }
+
+    /// The tab's icon: a heart, "Aa" with and without serifs, and a wonky one.
+    private func tabButton(_ f: Filter, on: Bool) -> some View {
+        Button { filterRaw = f.rawValue } label: {
+            VStack(spacing: 2) {
+                Group {
+                    switch f {
+                    case .liked: Image(systemName: "heart.fill").font(.system(size: 16, weight: .bold))
+                    case .serif: Text(verbatim: "Aa").font(.system(size: 18, weight: .bold, design: .serif))
+                    case .sans: Text(verbatim: "Aa").font(.system(size: 18, weight: .bold))
+                    case .wonky:
+                        Text(verbatim: "Aa")
+                            .font(Font((FontCatalog.font("Shrikhand-Regular", size: 17) ?? .systemFont(ofSize: 17, weight: .black)) as CTFont))
+                            .rotationEffect(.degrees(-8))
+                    }
+                }
+                .frame(height: 22)
+                Text(loc(f.title)).font(.system(size: 10, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(on ? .black : .white)
+            .frame(width: 62, height: 48)
+            .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(f.title))
+    }
+
 }

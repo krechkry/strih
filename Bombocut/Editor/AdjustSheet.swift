@@ -97,6 +97,26 @@ struct AdjustSheet: View {
             if editing { model.lookEditBegan() } else { model.lookEditEnded() }
         })
         .doubleTapReset { model.resetParam(param) }
+        // the effect's own extra controls (Bloom: size, threshold; Grain: size)
+        ForEach(param.subParams) { sub in subSlider(sub) }
+    }
+
+    private func subSlider(_ p: LookParam) -> some View {
+        let v = p.get(model.adjustLook())
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(loc(p.subTitle)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(p.display(v)).font(.subheadline.weight(.bold).monospacedDigit())
+                    .foregroundStyle(abs(v - p.neutral) < 0.005 ? Theme.muted : .white)
+                    .doubleTapNumberReset { model.resetParam(p) }
+            }
+            BSlider(value: Binding(get: { p.get(model.adjustLook()) }, set: { nv in model.editLook { p.set(&$0, nv) } }),
+                    in: p.range, onEditingChanged: { editing in
+                if editing { model.lookEditBegan() } else { model.lookEditEnded() }
+            })
+            .doubleTapReset { model.resetParam(p) }
+        }
     }
 
     private var hint: String {
@@ -217,7 +237,7 @@ private struct AdvancedAdjust: View {
                        changed: { pts in model.editLook { $0.effects[keyPath: curveKey] = pts } },
                        ended: { model.lookEditEnded() })
                 .frame(height: 200)
-            Text("Tap the line to add a point, drag points anywhere. Double tap the graph to straighten it.")
+            Text("Touch the curve and drag: a point appears under your finger. Drag points anywhere. Double tap to straighten it.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
         }
@@ -296,6 +316,9 @@ private struct CurveGraph: View {
     @State private var dragging: Int?
     @State private var selected: Int?
     @State private var start = CGPoint.zero
+    @State private var moved = false
+    @State private var touching = false
+    @State private var lastTap: (Date, CGPoint)?
 
     private var pts: [CGPoint] { ToneCurve.points(points).map { CGPoint(x: $0.x, y: $0.y) } }
 
@@ -332,42 +355,19 @@ private struct CurveGraph: View {
             .background(Theme.panel2.opacity(0.6), in: RoundedRectangle(cornerRadius: 14))
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .contentShape(Rectangle())
-            .onTapGesture(count: 2) {
-                selected = nil
-                began()
-                changed(Effects.flatCurve)
-                ended()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            }
-            // one tap: pick a point, or add one where the line is
-            .onTapGesture(count: 1, coordinateSpace: .local) { loc in
-                if let k = nearest(loc, p, w, h) { selected = k; return }
-                let x = Double(loc.x / w)
-                let y = ToneCurve.value(points, x)
-                guard abs(CGFloat(1 - y) * h - loc.y) < 30, x > 0.01, x < 0.99 else { selected = nil; return }
-                var q = p
-                let i = q.firstIndex { Double($0.x) > x } ?? q.count
-                guard i > 0, i < q.count, x - Double(q[i - 1].x) > 0.02, Double(q[i].x) - x > 0.02 else { return }
-                q.insert(CGPoint(x: x, y: y), at: i)
-                began()
-                changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
-                ended()
-                selected = i
-                UISelectionFeedbackGenerator().selectionChanged()
-            }
-            // high priority: the panel can scroll, but a finger on the graph always moves a point
+            // one gesture, right from the touch: a finger on a point moves it, anywhere else adds a point on the
+            // line under it and moves that one straight away; a quick double tap straightens the curve
             .highPriorityGesture(
-                DragGesture(minimumDistance: 2)
+                DragGesture(minimumDistance: 0)
                     .onChanged { v in
-                        if dragging == nil {
-                            guard let k = nearest(v.startLocation, p, w, h, reach: 34) else { return }
-                            dragging = k
-                            selected = k
-                            start = p[k]
-                            began()
+                        if !touching {
+                            touching = true
+                            touchBegan(v.startLocation, p, w, h)
+                            return
                         }
                         guard let k = dragging else { return }
-                        var q = p
+                        if hypot(v.translation.width, v.translation.height) > 4 { moved = true }
+                        var q = pts
                         guard k < q.count else { return }
                         // keep its place between the neighbours, on both axes' edges
                         let lo = k > 0 ? q[k - 1].x + 0.01 : 0
@@ -376,9 +376,13 @@ private struct CurveGraph: View {
                         q[k].y = min(1, max(0, start.y - v.translation.height / h))
                         changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
                     }
-                    .onEnded { _ in
+                    .onEnded { v in
                         if dragging != nil { ended() }
                         dragging = nil
+                        touching = false
+                        // a tap (no move): remembered for a double tap
+                        lastTap = moved ? nil : (Date(), v.location)
+                        moved = false
                     }
             )
             .overlay(alignment: .bottomTrailing) {
@@ -401,6 +405,40 @@ private struct CurveGraph: View {
                 }
             }
         }
+    }
+
+    /// A finger lands: double tap straightens; on a point it grabs it; elsewhere it adds a point on the line there.
+    private func touchBegan(_ loc: CGPoint, _ p: [CGPoint], _ w: CGFloat, _ h: CGFloat) {
+        if let (t, at) = lastTap, Date().timeIntervalSince(t) < 0.32, hypot(at.x - loc.x, at.y - loc.y) < 30 {
+            lastTap = nil
+            selected = nil
+            began()
+            changed(Effects.flatCurve)
+            ended()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            return
+        }
+        began()
+        if let k = nearest(loc, p, w, h, reach: 30) {
+            dragging = k
+            selected = k
+            start = p[k]
+            return
+        }
+        let x = min(max(Double(loc.x / w), 0), 1)
+        var q = p
+        let i = q.firstIndex { Double($0.x) > x } ?? q.count
+        guard i > 0, i < q.count, x - Double(q[i - 1].x) > 0.02, Double(q[i].x) - x > 0.02 else {
+            ended()
+            return
+        }
+        let pt = CGPoint(x: x, y: ToneCurve.value(points, x))
+        q.insert(pt, at: i)
+        changed(ToneCurve.flat(q.map { (Double($0.x), Double($0.y)) }))
+        dragging = i
+        selected = i
+        start = pt
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     private func nearest(_ loc: CGPoint, _ p: [CGPoint], _ w: CGFloat, _ h: CGFloat, reach: CGFloat = 26) -> Int? {

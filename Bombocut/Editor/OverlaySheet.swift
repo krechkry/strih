@@ -79,6 +79,8 @@ struct OverlaySheet: View {
                     }
                 }
                 if case .text(let text) = o.kind, shown == .text { textField(text) }
+                // the font tabs and the heart stay put while the fonts scroll
+                if shown == .font, !compact { FontPickerHeader(style: o.style) }
                 if !compact {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
@@ -161,7 +163,7 @@ struct OverlaySheet: View {
     @ViewBuilder
     private func fontTab(_ o: Overlay) -> some View {
         if case .text(let t) = o.kind {
-            FontPicker(style: o.style, sample: t) { f, name in
+            FontPicker(style: o.style, sample: t, header: false) { f, name in
                 model.setOverlay { $0.style.font = f; $0.style.fontName = name }
             }
         }

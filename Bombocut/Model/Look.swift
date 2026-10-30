@@ -260,8 +260,25 @@ enum LookParam: String, CaseIterable, Identifiable {
 
     /// Basic tab (light and color) and Effects tab (lens and film).
     static let basic: [LookParam] = [.exposure, .contrast, .saturation, .temperature, .tint, .highlights, .shadows, .opacity]
-    static let effects: [LookParam] = [.clarity, .texture, .bloom, .bloomSize, .bloomThreshold, .halation, .vignette, .aberration,
-                                        .grain, .grainSize]
+    static let effects: [LookParam] = [.clarity, .texture, .bloom, .halation, .vignette, .aberration, .grain]
+
+    /// Extra controls shown under an effect's own slider (they belong to it, no chip of their own).
+    var subParams: [LookParam] {
+        switch self {
+        case .bloom: return [.bloomSize, .bloomThreshold]
+        case .grain: return [.grainSize]
+        default: return []
+        }
+    }
+
+    /// The name under its effect ("Size" under Bloom).
+    var subTitle: String {
+        switch self {
+        case .bloomSize, .grainSize: return "Size"
+        case .bloomThreshold: return "Threshold"
+        default: return title
+        }
+    }
 
     var title: String {
         switch self {
