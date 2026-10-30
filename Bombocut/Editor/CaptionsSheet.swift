@@ -429,7 +429,7 @@ struct CaptionsSheet: View {
             }
         }
         section("Font") {
-            FontPicker(style: s, sample: "Aa", grid: false) { f, name in setStyle { $0.font = f; $0.fontName = name } }
+            FontPicker(style: s, sample: "Aa") { f, name in setStyle { $0.font = f; $0.fontName = name } }
         }
         colorRow("Text", s.text) { c in { $0.text = c } }
         if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }

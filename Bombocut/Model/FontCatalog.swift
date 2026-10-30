@@ -5,15 +5,16 @@ import UIKit
 /// a bold cut that carries the Czech letters. Registered for this app the first time a font is needed.
 enum FontCatalog {
     enum Group: String, CaseIterable {
-        case bold, condensed, serif, script, fun
+        case sans, condensed, serif, script, display, pixel
 
         var title: String {
             switch self {
-            case .bold: return "Bold"
+            case .sans: return "Sans"
             case .condensed: return "Condensed"
             case .serif: return "Serif"
             case .script: return "Handwritten"
-            case .fun: return "Display"
+            case .display: return "Display"
+            case .pixel: return "Pixel"
             }
         }
     }
@@ -25,22 +26,37 @@ enum FontCatalog {
     }
 
     static let all: [Entry] = [
-        Entry(id: "Montserrat-Black", title: "Montserrat", group: .bold),
-        Entry(id: "Poppins-Black", title: "Poppins", group: .bold),
-        Entry(id: "Inter-ExtraBold", title: "Inter", group: .bold),
-        Entry(id: "ArchivoBlack-Regular", title: "Archivo Black", group: .bold),
-        Entry(id: "Rubik-ExtraBold", title: "Rubik", group: .bold),
-        Entry(id: "Kanit-Black", title: "Kanit", group: .bold),
-        Entry(id: "Unbounded-ExtraBold", title: "Unbounded", group: .bold),
-        Entry(id: "Syne-ExtraBold", title: "Syne", group: .bold),
-        Entry(id: "BricolageGrotesque-ExtraBold", title: "Bricolage", group: .bold),
-        Entry(id: "Outfit-ExtraBold", title: "Outfit", group: .bold),
-        Entry(id: "Sora-ExtraBold", title: "Sora", group: .bold),
-        Entry(id: "DMSans-ExtraBold", title: "DM Sans", group: .bold),
-        Entry(id: "Manrope-ExtraBold", title: "Manrope", group: .bold),
-        Entry(id: "WorkSans-ExtraBold", title: "Work Sans", group: .bold),
-        Entry(id: "SpaceGrotesk-Bold", title: "Space Grotesk", group: .bold),
-        Entry(id: "RussoOne-Regular", title: "Russo One", group: .bold),
+        // sans
+        Entry(id: "Montserrat-Black", title: "Montserrat", group: .sans),
+        Entry(id: "Montserrat-Medium", title: "Montserrat Medium", group: .sans),
+        Entry(id: "Inter-ExtraBold", title: "Inter", group: .sans),
+        Entry(id: "Inter-Medium", title: "Inter Medium", group: .sans),
+        Entry(id: "Poppins-Black", title: "Poppins", group: .sans),
+        Entry(id: "Roboto-Black", title: "Roboto", group: .sans),
+        Entry(id: "OpenSans-ExtraBold", title: "Open Sans", group: .sans),
+        Entry(id: "Lato-Black", title: "Lato", group: .sans),
+        Entry(id: "Raleway-Black", title: "Raleway", group: .sans),
+        Entry(id: "Nunito-Black", title: "Nunito", group: .sans),
+        Entry(id: "Figtree-Black", title: "Figtree", group: .sans),
+        Entry(id: "PlusJakartaSans-ExtraBold", title: "Plus Jakarta", group: .sans),
+        Entry(id: "Lexend-ExtraBold", title: "Lexend", group: .sans),
+        Entry(id: "DMSans-ExtraBold", title: "DM Sans", group: .sans),
+        Entry(id: "Manrope-ExtraBold", title: "Manrope", group: .sans),
+        Entry(id: "WorkSans-ExtraBold", title: "Work Sans", group: .sans),
+        Entry(id: "Outfit-ExtraBold", title: "Outfit", group: .sans),
+        Entry(id: "Sora-ExtraBold", title: "Sora", group: .sans),
+        Entry(id: "Rubik-ExtraBold", title: "Rubik", group: .sans),
+        Entry(id: "Kanit-Black", title: "Kanit", group: .sans),
+        Entry(id: "Barlow-Black", title: "Barlow", group: .sans),
+        Entry(id: "JosefinSans-Bold", title: "Josefin Sans", group: .sans),
+        Entry(id: "SpaceGrotesk-Bold", title: "Space Grotesk", group: .sans),
+        Entry(id: "Syne-ExtraBold", title: "Syne", group: .sans),
+        Entry(id: "BricolageGrotesque-ExtraBold", title: "Bricolage", group: .sans),
+        Entry(id: "Unbounded-ExtraBold", title: "Unbounded", group: .sans),
+        Entry(id: "ArchivoBlack-Regular", title: "Archivo Black", group: .sans),
+        Entry(id: "Exo2-ExtraBold", title: "Exo 2", group: .sans),
+        Entry(id: "RussoOne-Regular", title: "Russo One", group: .sans),
+        // condensed
         Entry(id: "Anton-Regular", title: "Anton", group: .condensed),
         Entry(id: "BebasNeue-Regular", title: "Bebas Neue", group: .condensed),
         Entry(id: "Oswald-Bold", title: "Oswald", group: .condensed),
@@ -48,31 +64,55 @@ enum FontCatalog {
         Entry(id: "BarlowCondensed-ExtraBold", title: "Barlow Condensed", group: .condensed),
         Entry(id: "Teko-SemiBold", title: "Teko", group: .condensed),
         Entry(id: "Staatliches-Regular", title: "Staatliches", group: .condensed),
-        Entry(id: "PlayfairDisplay-ExtraBold", title: "Playfair", group: .serif),
-        Entry(id: "DMSerifDisplay-Regular", title: "DM Serif", group: .serif),
+        // serif
+        Entry(id: "BodoniModa-Regular", title: "Bodoni Moda", group: .serif),
+        Entry(id: "BodoniModa-Italic", title: "Bodoni Moda Italic", group: .serif),
+        Entry(id: "BodoniModa-Bold", title: "Bodoni Moda Bold", group: .serif),
+        Entry(id: "BodoniModa-BoldItalic", title: "Bodoni Moda Bold Italic", group: .serif),
+        Entry(id: "BodoniModa-Black", title: "Bodoni Moda Black", group: .serif),
+        Entry(id: "PlayfairDisplay-Regular", title: "Playfair", group: .serif),
+        Entry(id: "PlayfairDisplay-ExtraBold", title: "Playfair Bold", group: .serif),
         Entry(id: "InstrumentSerif-Regular", title: "Instrument Serif", group: .serif),
+        Entry(id: "DMSerifDisplay-Regular", title: "DM Serif", group: .serif),
+        Entry(id: "Fraunces-ExtraBold", title: "Fraunces", group: .serif),
+        Entry(id: "CormorantGaramond-Bold", title: "Cormorant", group: .serif),
+        Entry(id: "EBGaramond-Bold", title: "EB Garamond", group: .serif),
+        Entry(id: "Lora-Bold", title: "Lora", group: .serif),
+        Entry(id: "Merriweather-Black", title: "Merriweather", group: .serif),
+        Entry(id: "NotoSerifDisplay-ExtraBold", title: "Noto Serif", group: .serif),
+        Entry(id: "Spectral-ExtraBold", title: "Spectral", group: .serif),
+        Entry(id: "Bitter-ExtraBold", title: "Bitter", group: .serif),
+        Entry(id: "YoungSerif-Regular", title: "Young Serif", group: .serif),
+        Entry(id: "Gloock-Regular", title: "Gloock", group: .serif),
         Entry(id: "AbrilFatface-Regular", title: "Abril Fatface", group: .serif),
         Entry(id: "AlfaSlabOne-Regular", title: "Alfa Slab", group: .serif),
         Entry(id: "Ultra-Regular", title: "Ultra", group: .serif),
+        // handwritten
         Entry(id: "Caveat-Bold", title: "Caveat", group: .script),
         Entry(id: "DancingScript-Bold", title: "Dancing Script", group: .script),
         Entry(id: "Pacifico-Regular", title: "Pacifico", group: .script),
         Entry(id: "Lobster-Regular", title: "Lobster", group: .script),
         Entry(id: "GreatVibes-Regular", title: "Great Vibes", group: .script),
         Entry(id: "Shrikhand-Regular", title: "Shrikhand", group: .script),
-        Entry(id: "Bangers-Regular", title: "Bangers", group: .fun),
-        Entry(id: "LuckiestGuy-Regular", title: "Luckiest Guy", group: .fun),
-        Entry(id: "TitanOne", title: "Titan One", group: .fun),
-        Entry(id: "Sigmar-Regular", title: "Sigmar", group: .fun),
-        Entry(id: "Bungee-Regular", title: "Bungee", group: .fun),
-        Entry(id: "Righteous-Regular", title: "Righteous", group: .fun),
-        Entry(id: "BlackOpsOne-Regular", title: "Black Ops", group: .fun),
-        Entry(id: "RubikMonoOne-Regular", title: "Rubik Mono", group: .fun),
-        Entry(id: "RubikGlitch-Regular", title: "Rubik Glitch", group: .fun),
-        Entry(id: "Monoton-Regular", title: "Monoton", group: .fun),
-        Entry(id: "PressStart2P-Regular", title: "Press Start", group: .fun),
-        Entry(id: "VT323-Regular", title: "VT323", group: .fun),
-        Entry(id: "SpaceMono-Bold", title: "Space Mono", group: .fun),
+        // display
+        Entry(id: "RacingSansOne-Regular", title: "Racing Sans", group: .display),
+        Entry(id: "Bangers-Regular", title: "Bangers", group: .display),
+        Entry(id: "LuckiestGuy-Regular", title: "Luckiest Guy", group: .display),
+        Entry(id: "TitanOne", title: "Titan One", group: .display),
+        Entry(id: "Sigmar-Regular", title: "Sigmar", group: .display),
+        Entry(id: "Bungee-Regular", title: "Bungee", group: .display),
+        Entry(id: "Righteous-Regular", title: "Righteous", group: .display),
+        Entry(id: "ChakraPetch-Bold", title: "Chakra Petch", group: .display),
+        Entry(id: "BlackOpsOne-Regular", title: "Black Ops", group: .display),
+        Entry(id: "RubikMonoOne-Regular", title: "Rubik Mono", group: .display),
+        Entry(id: "RubikGlitch-Regular", title: "Rubik Glitch", group: .display),
+        Entry(id: "Monoton-Regular", title: "Monoton", group: .display),
+        Entry(id: "SpaceMono-Bold", title: "Space Mono", group: .display),
+        // pixel
+        Entry(id: "Jersey10-Regular", title: "Jersey 10", group: .pixel),
+        Entry(id: "PixelifySans-Bold", title: "Pixelify Sans", group: .pixel),
+        Entry(id: "PressStart2P-Regular", title: "Press Start", group: .pixel),
+        Entry(id: "VT323-Regular", title: "VT323", group: .pixel),
     ]
 
     /// Makes the bundled fonts usable by name (once per launch; safe from any thread).
