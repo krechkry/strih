@@ -720,24 +720,23 @@ struct ClipTile: View {
 
     var body: some View {
         let w = max(6, CGFloat(clip.duration) * pxPerSec - inset)
-        let slot = max(36, w / 250)          // cap thumbnail count on long clips
-        let n = max(1, Int((w / slot).rounded(.up)))
+        let strip = filmstrip(width: w)
         let rt = clip.retime
 
         HStack(spacing: 0) {
-            ForEach(0..<n, id: \.self) { k in
-                let t = rt.source(atLocal: (Double(k) + 0.5) * Double(slot / pxPerSec))
+            ForEach(0..<strip.count, id: \.self) { k in
                 Group {
-                    if let img = thumbs.image(file: clip.mediaFile, at: min(t, clip.outPoint)) {
+                    if let img = thumbs.image(file: clip.mediaFile, at: strip.time(k)) {
                         Image(uiImage: img).resizable().scaledToFill()
                     } else {
                         Theme.panel2
                     }
                 }
-                .frame(width: slot, height: height)
+                .frame(width: strip.slot, height: height)
                 .clipped()
             }
         }
+        .offset(x: -strip.phase)
         .frame(width: w, height: height, alignment: .leading)
         .clipped()
         .overlay(alignment: .topLeading) {
@@ -837,6 +836,31 @@ struct ClipTile: View {
         }
         .scaleEffect(lifted ? 1.06 : 1)
         .shadow(color: .black.opacity(lifted ? 0.7 : 0), radius: 8, y: 4)
+    }
+
+    /// The filmstrip's frames sit on a grid tied to the footage, not to the clip's left edge: moving the head
+    /// (trim, roll) reveals or hides frames at the edge while the rest stay where they are.
+    private func filmstrip(width w: CGFloat) -> Filmstrip {
+        let rt = clip.retime
+        // cap the thumbnail count on long clips (from the whole file, so it doesn't change while trimming)
+        let slot: CGFloat = max(36, CGFloat(clip.sourceDuration) * pxPerSec / 250)
+        let slotSec = Double(slot / max(pxPerSec, 0.001))
+        let speed0 = max(rt.speed(atLocal: 0), 0.01)
+        let phaseSec = (clip.inPoint / speed0).truncatingRemainder(dividingBy: slotSec)
+        let phase = CGFloat(phaseSec) * pxPerSec
+        let n = max(1, Int(((w + phase) / slot).rounded(.up)))
+        let lo = clip.inPoint, hi = clip.outPoint
+        return Filmstrip(slot: slot, phase: phase, count: n) { k in
+            let t = rt.source(atLocal: (Double(k) + 0.5) * slotSec - phaseSec)
+            return min(max(t, lo), hi)
+        }
+    }
+
+    struct Filmstrip {
+        let slot: CGFloat
+        let phase: CGFloat
+        let count: Int
+        let time: (Int) -> Double
     }
 
     /// Hold, then slide to move the clip. A UIKit long press, so a normal swipe still scrolls the strip.
