@@ -4078,6 +4078,16 @@
         }
       }
     },
+    "Pick Start or End: the preview shows that frame. Drag the lime frame to choose what it shows, its corner to choose how close. It follows when you trim the clip or change its speed.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber Začátek nebo Konec: náhled ukáže ten snímek. Tažením limetkového rámečku vybereš, co ukazuje, jeho rohem jak zblízka. Přizpůsobí se, když klip zkrátíš nebo změníš jeho rychlost."
+          }
+        }
+      }
+    },
     "Pick a font and tap the heart: it shows up here for quick access.": {
       "localizations": {
         "cs": {
@@ -4594,16 +4604,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zaoblené rohy"
-          }
-        }
-      }
-    },
-    "Runs from the first frame of the clip to the last, and follows when you trim it or change its speed. On the preview, drag the lime frame to choose where it zooms, its corner to choose how close.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Běží od prvního snímku klipu do posledního a přizpůsobí se, když klip zkrátíš nebo změníš rychlost. V náhledu táhni limetkový rámeček, kam se má přiblížit, a jeho roh, jak moc."
           }
         }
       }
@@ -5434,6 +5434,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Swap start and end": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prohodit začátek a konec"
           }
         }
       }
@@ -6474,6 +6484,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Originálů ve Fotkách se nic nedotkne. Mazání je tady trvalé, koš neexistuje."
+          }
+        }
+      }
+    },
+    "Zoom": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiblížení"
           }
         }
       }

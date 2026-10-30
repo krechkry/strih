@@ -106,7 +106,8 @@ struct EasingSheet: View {
     }
 }
 
-/// AutoZoom for the selected clip: a slow zoom in or out from its first frame to its last.
+/// AutoZoom for the selected clip (or Stack): a slow move from a framing on its first frame to one on its last.
+/// Pick Start or End (here or on the preview): the preview shows that frame, with its framing to drag and resize.
 struct AutoZoomSheet: View {
     @ObservedObject var model: EditorModel
 
@@ -118,7 +119,7 @@ struct AutoZoomSheet: View {
                     Text("AutoZoom").font(.title3.weight(.heavy))
                     Spacer()
                     if z != nil {
-                        // plays the clip on a loop with the zoom (paused, the two framings show instead)
+                        // plays the clip on a loop with the zoom (paused, the framings show instead)
                         Button { model.previewSelected() } label: {
                             Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 15, weight: .bold)).foregroundStyle(.black)
@@ -128,25 +129,41 @@ struct AutoZoomSheet: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(loc("Play"))
                     }
-                    Toggle("", isOn: Binding(get: { z != nil }, set: { on in model.setAutoZoom(on ? (z ?? AutoZoom()) : nil) }))
+                    Toggle("", isOn: Binding(get: { z != nil }, set: { on in
+                        model.setAutoZoom(on ? (z ?? AutoZoom()) : nil)
+                        if on { model.selectAutoZoomFraming(end: model.autoZoomEditsEnd) }
+                    }))
                         .labelsHidden()
                         .tint(Theme.accent)
                 }
                 if let z {
+                    let end = model.autoZoomEditsEnd
+                    let f = end ? z.end : z.start
                     HStack(spacing: 8) {
-                        pill("Zoom in", "plus.magnifyingglass", on: z.zoomIn) { var n = z; n.zoomIn = true; model.setAutoZoom(n) }
-                        pill("Zoom out", "minus.magnifyingglass", on: !z.zoomIn) { var n = z; n.zoomIn = false; model.setAutoZoom(n) }
+                        pill("Start", "backward.end.fill", on: !end) { model.selectAutoZoomFraming(end: false) }
+                        pill("End", "forward.end.fill", on: end) { model.selectAutoZoomFraming(end: true) }
+                        Button {
+                            var n = z
+                            swap(&n.start, &n.end)
+                            model.setAutoZoom(n)
+                        } label: {
+                            Image(systemName: "arrow.left.arrow.right").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                                .frame(width: 44, height: 38)
+                                .background(Theme.panel2, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc("Swap start and end"))
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Amount").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                            Text("Zoom").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                             Spacer()
-                            Text(verbatim: "\(Int((z.amount * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
-                                .doubleTapNumberReset { model.liveEditBegan(); model.editAutoZoom { $0.amount = 0.2 }; model.liveEditEnded() }
+                            Text(verbatim: "\(Int((f.zoom * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
+                                .doubleTapNumberReset { model.liveEditBegan(); model.editAutoZoomFraming { $0 = AutoZoom.Framing() }; model.liveEditEnded() }
                         }
-                        BSlider(value: Binding(get: { z.amount }, set: { v in model.editAutoZoom { $0.amount = v } }), in: 0.03...1,
+                        BSlider(value: Binding(get: { f.zoom }, set: { v in model.editAutoZoomFraming { $0.zoom = v } }), in: 1...4,
                                 onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
-                            .doubleTapReset { model.liveEditBegan(); model.editAutoZoom { $0.amount = 0.2 }; model.liveEditEnded() }
+                            .doubleTapReset { model.liveEditBegan(); model.editAutoZoomFraming { $0 = AutoZoom.Framing() }; model.liveEditEnded() }
                     }
                     EaseGrid(ease: z.ease, dir: z.easeDir ?? .both) { e, d in
                         var n = z
@@ -154,7 +171,7 @@ struct AutoZoomSheet: View {
                         n.easeDir = d == .both ? nil : d
                         model.setAutoZoom(n)
                     }
-                    Text("Runs from the first frame of the clip to the last, and follows when you trim it or change its speed. On the preview, drag the lime frame to choose where it zooms, its corner to choose how close.")
+                    Text("Pick Start or End: the preview shows that frame. Drag the lime frame to choose what it shows, its corner to choose how close. It follows when you trim the clip or change its speed.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if model.selectedStackIndex == nil { ApplyRow(model: model, kind: .autoZoom) }
@@ -167,7 +184,7 @@ struct AutoZoomSheet: View {
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
-        .onAppear { model.playheadIntoSelected() }
+        .onAppear { model.selectAutoZoomFraming(end: false) }
     }
 
     private func pill(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {

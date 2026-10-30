@@ -87,7 +87,8 @@ struct PreviewArea: View {
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
-            .simultaneousGesture(viewPinch(canvas, area: geo.size), including: model.previewScrubs && !model.maskPaint ? .all : .subviews)
+            .simultaneousGesture(viewPinch(canvas, area: geo.size),
+                                including: model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil ? .all : .subviews)
         }
         .overlay(alignment: .topLeading) { bypassEye }
         .clipped()
@@ -167,7 +168,8 @@ struct PreviewArea: View {
                 // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
                     .onChanged { v in
-                        if dragIsPan == nil { dragIsPan = viewZoom > 1.02 || pinching }
+                        // AutoZoom: the playhead stays on the frame being framed (Start / End), no scrubbing
+                        if dragIsPan == nil { dragIsPan = viewZoom > 1.02 || pinching || model.autoZoomPanelOpen }
                         if dragIsPan == true {
                             guard !pinching else { return }
                             viewOffset = clampedOffset(CGSize(width: panBase.width + v.translation.width,
@@ -623,35 +625,36 @@ struct PreviewArea: View {
     /// lime with the rest dimmed. Drag the tight frame to choose where it goes, its corner to choose how close.
     private func zoomFrames(_ canvas: CGSize, transform t: ClipTransform, zoom z: AutoZoom) -> some View {
         let W = canvas.width, H = canvas.height
-        let c = CGPoint(x: W / 2 + CGFloat(t.x) * W, y: H / 2 + CGFloat(t.y) * H)
-        let p = CGPoint(x: c.x + CGFloat(z.focusX) * W, y: c.y + CGFloat(z.focusY) * H)
-        let k = CGFloat(1 + z.amount)
-        let tight = CGRect(x: p.x - p.x / k, y: p.y - p.y / k, width: W / k, height: H / k)
-        let wide = CGRect(origin: .zero, size: canvas)
         let toScreen = CGAffineTransform(translationX: -W / 2, y: -H / 2)
             .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
             .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
-        let ts = tight.applying(toScreen), ws = wide.applying(toScreen)
-        let startRect = z.zoomIn ? ws : ts, endRect = z.zoomIn ? ts : ws
+        // what a framing shows, on the unzoomed picture (canvas points)
+        func window(_ f: AutoZoom.Framing) -> CGRect {
+            let k = CGFloat(max(f.zoom, 0.05))
+            let cx = W / 2 + CGFloat(t.x) * W + CGFloat(f.x) * W - CGFloat(t.x) * W / k
+            let cy = H / 2 + CGFloat(t.y) * H + CGFloat(f.y) * H - CGFloat(t.y) * H / k
+            return CGRect(x: cx - W / k / 2, y: cy - H / k / 2, width: W / k, height: H / k)
+        }
+        let editsEnd = model.autoZoomEditsEnd
+        let cur = editsEnd ? z.end : z.start
+        let other = editsEnd ? z.start : z.end
+        let cr = window(cur), or = window(other)
+        let cs = cr.applying(toScreen), os = or.applying(toScreen), all = CGRect(origin: .zero, size: canvas).applying(toScreen)
+        let startS = editsEnd ? os : cs, endS = editsEnd ? cs : os
         return ZStack(alignment: .topLeading) {
-            // outside the tight framing: what the zoom leaves out
+            // outside the framing being set: what it leaves out
             Path { q in
-                q.addRect(ws)
-                q.addRoundedRect(in: ts, cornerSize: CGSize(width: 8, height: 8))
+                q.addRect(all.union(cs).union(os).insetBy(dx: -400, dy: -400))
+                q.addRoundedRect(in: cs, cornerSize: CGSize(width: 8, height: 8))
             }
             .fill(Color.black.opacity(0.42), style: FillStyle(eoFill: true))
             .allowsHitTesting(false)
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                .frame(width: ws.width, height: ws.height)
-                .offset(x: ws.minX, y: ws.minY)
-                .allowsHitTesting(false)
             // which way it goes: from each corner of the first framing to the same corner of the last
             Path { q in
-                let a = [CGPoint(x: startRect.minX, y: startRect.minY), CGPoint(x: startRect.maxX, y: startRect.minY),
-                         CGPoint(x: startRect.maxX, y: startRect.maxY), CGPoint(x: startRect.minX, y: startRect.maxY)]
-                let b = [CGPoint(x: endRect.minX, y: endRect.minY), CGPoint(x: endRect.maxX, y: endRect.minY),
-                         CGPoint(x: endRect.maxX, y: endRect.maxY), CGPoint(x: endRect.minX, y: endRect.maxY)]
+                let a = [CGPoint(x: startS.minX, y: startS.minY), CGPoint(x: startS.maxX, y: startS.minY),
+                         CGPoint(x: startS.maxX, y: startS.maxY), CGPoint(x: startS.minX, y: startS.maxY)]
+                let b = [CGPoint(x: endS.minX, y: endS.minY), CGPoint(x: endS.maxX, y: endS.minY),
+                         CGPoint(x: endS.maxX, y: endS.maxY), CGPoint(x: endS.minX, y: endS.maxY)]
                 for (s0, e0) in zip(a, b) {
                     let dx = e0.x - s0.x, dy = e0.y - s0.y, len = hypot(dx, dy)
                     guard len > 18 else { continue }
@@ -664,45 +667,67 @@ struct PreviewArea: View {
                     q.addLine(to: CGPoint(x: e1.x - ux * 7 + uy * 4, y: e1.y - uy * 7 - ux * 4))
                 }
             }
-            .stroke(Theme.accent.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .stroke(Theme.accent.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
             .allowsHitTesting(false)
-            // the tight framing: drag it to move where the zoom goes
+            // the other framing: dashed, its label switches to it
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                .frame(width: os.width, height: os.height)
+                .offset(x: os.minX, y: os.minY)
+                .allowsHitTesting(false)
+            // the framing being set: drag it to move it, its corner to choose how close
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(Theme.accent, lineWidth: 2.5)
                 .background(Color.white.opacity(0.001))
-                .frame(width: ts.width, height: ts.height)
-                .offset(x: ts.minX, y: ts.minY)
+                .frame(width: cs.width, height: cs.height)
+                .offset(x: cs.minX, y: cs.minY)
                 .gesture(DragGesture(minimumDistance: 1)
                     .onChanged { v in
-                        if zoomGrab == nil { zoomGrab = p; model.liveEditBegan() }
-                        guard let p0 = zoomGrab else { return }
-                        let np = CGPoint(x: min(max(p0.x + v.translation.width / viewZoom, 0), W),
-                                         y: min(max(p0.y + v.translation.height / viewZoom, 0), H))
-                        model.editAutoZoom { $0.focusX = Double((np.x - c.x) / W); $0.focusY = Double((np.y - c.y) / H) }
+                        if zoomGrab == nil { zoomGrab = CGPoint(x: cur.x, y: cur.y); model.liveEditBegan() }
+                        guard let g0 = zoomGrab else { return }
+                        model.editAutoZoomFraming { f in
+                            f.x = Double(g0.x) + Double(v.translation.width / viewZoom / W)
+                            f.y = Double(g0.y) + Double(v.translation.height / viewZoom / H)
+                        }
                     }
                     .onEnded { _ in zoomGrab = nil; model.liveEditEnded() })
-            // its corner: how close
             Circle().fill(Theme.accent)
                 .frame(width: 26, height: 26)
                 .overlay(Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 10, weight: .heavy)).foregroundStyle(.black))
                 .shadow(color: .black.opacity(0.4), radius: 3)
                 .contentShape(Circle().inset(by: -10))
-                .offset(x: ts.maxX - 13, y: ts.maxY - 13)
+                .offset(x: cs.maxX - 13, y: cs.maxY - 13)
                 .gesture(DragGesture(minimumDistance: 0)
                     .onChanged { v in
-                        if zoomCorner == nil { zoomCorner = CGPoint(x: tight.maxX, y: tight.maxY); model.liveEditBegan() }
+                        if zoomCorner == nil { zoomCorner = CGPoint(x: cr.maxX, y: cr.maxY); model.liveEditBegan() }
                         guard let q0 = zoomCorner else { return }
+                        // the corner (canvas points) sets the size around the framing's own center
                         let q = CGPoint(x: q0.x + v.translation.width / viewZoom, y: q0.y + v.translation.height / viewZoom)
                         var zs: [CGFloat] = []
-                        if q.x - p.x > 4 { zs.append((W - p.x) / (q.x - p.x)) }
-                        if q.y - p.y > 4 { zs.append((H - p.y) / (q.y - p.y)) }
+                        if q.x - cr.midX > 4 { zs.append(W / 2 / (q.x - cr.midX)) }
+                        if q.y - cr.midY > 4 { zs.append(H / 2 / (q.y - cr.midY)) }
                         guard !zs.isEmpty else { return }
-                        let nz = zs.reduce(0, +) / CGFloat(zs.count)
-                        model.editAutoZoom { $0.amount = min(max(Double(nz) - 1, 0.03), 1) }
+                        let nz = Double(zs.reduce(0, +) / CGFloat(zs.count))
+                        let newZ = min(max(nz, 1), 4)
+                        // keep the framing's center where it is on the picture while its size changes
+                        let cx = cr.midX, cy = cr.midY
+                        model.editAutoZoomFraming { f in
+                            f.zoom = newZ
+                            let k = CGFloat(newZ)
+                            f.x = Double((cx - W / 2 - CGFloat(t.x) * W + CGFloat(t.x) * W / k) / W)
+                            f.y = Double((cy - H / 2 - CGFloat(t.y) * H + CGFloat(t.y) * H / k) / H)
+                        }
                     }
                     .onEnded { _ in zoomCorner = nil; model.liveEditEnded() })
-            framePill(z.zoomIn ? "Start" : "End", lime: false).offset(x: ws.minX + 8, y: ws.minY + 8)
-            framePill(z.zoomIn ? "End" : "Start", lime: true).offset(x: ts.minX + 8, y: ts.minY + 8)
+            // labels: tap the other one to set that framing
+            framePill(editsEnd ? "End" : "Start", lime: true).offset(x: cs.minX + 8, y: cs.minY + 8)
+                .allowsHitTesting(false)
+            // (when both framings start at the same corner, the other label sits just under this one)
+            let stacked = abs(os.minX - cs.minX) < 70 && abs(os.minY - cs.minY) < 30
+            Button { model.selectAutoZoomFraming(end: !editsEnd) } label: { framePill(editsEnd ? "Start" : "End", lime: false) }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle().inset(by: -8))
+                .offset(x: os.minX + 8, y: stacked ? cs.minY + 36 : os.minY + 8)
         }
         .frame(width: W, height: H, alignment: .topLeading)
     }
@@ -713,7 +738,6 @@ struct PreviewArea: View {
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(lime ? Theme.accent : Color.white, in: Capsule())
             .fixedSize()
-            .allowsHitTesting(false)
     }
 
     // MARK: Painting a custom mask

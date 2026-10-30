@@ -482,43 +482,70 @@ enum ToneCurve {
 /// AutoZoom (like Dynamic Zoom in DaVinci): the clip slowly zooms in or out from its first frame to its last.
 /// It works like two keyframes sitting on the clip's ends, so it follows when the clip is trimmed or sped up.
 struct AutoZoom: Codable, Hashable {
-    var zoomIn = true          // false: starts close, ends wide
-    var amount = 0.2           // how much closer at the tight end (0.2 = 20 %)
+    /// One framing: how close (1 = the clip as placed) and where the view is centered, as canvas fractions from the
+    /// clip's middle (+ = right / down). The clip goes from the start framing on its first frame to the end framing
+    /// on its last.
+    struct Framing: Codable, Hashable {
+        var zoom = 1.0
+        var x = 0.0
+        var y = 0.0
+    }
+
+    var start = Framing()
+    var end = Framing(zoom: 1.2)
     var ease = Ease.linear
     var easeDir: EaseDir?      // nil = both
-    var focusX = 0.0           // where it zooms to: canvas fractions from the clip's middle (+ = right / down)
-    var focusY = 0.0
 
-    enum CodingKeys: String, CodingKey { case zoomIn, amount, ease, easeDir, focusX, focusY }
+    enum CodingKeys: String, CodingKey { case start, end, ease, easeDir, zoomIn, amount, focusX, focusY }
 
     init() {}
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        zoomIn = try c.decodeIfPresent(Bool.self, forKey: .zoomIn) ?? true
-        amount = try c.decodeIfPresent(Double.self, forKey: .amount) ?? 0.2
         ease = (try? c.decodeIfPresent(Ease.self, forKey: .ease)) ?? .linear
         easeDir = try? c.decodeIfPresent(EaseDir.self, forKey: .easeDir)
-        focusX = try c.decodeIfPresent(Double.self, forKey: .focusX) ?? 0
-        focusY = try c.decodeIfPresent(Double.self, forKey: .focusY) ?? 0
+        if let s = try? c.decodeIfPresent(Framing.self, forKey: .start), let e = try? c.decodeIfPresent(Framing.self, forKey: .end) {
+            start = s
+            end = e
+        } else {
+            // earlier projects: from the clip as placed to `amount` closer around a focus point (or back)
+            let zoomIn = try c.decodeIfPresent(Bool.self, forKey: .zoomIn) ?? true
+            let amount = try c.decodeIfPresent(Double.self, forKey: .amount) ?? 0.2
+            let fx = try c.decodeIfPresent(Double.self, forKey: .focusX) ?? 0
+            let fy = try c.decodeIfPresent(Double.self, forKey: .focusY) ?? 0
+            let z = 1 + amount
+            let tight = Framing(zoom: z, x: fx * (1 - 1 / z), y: fy * (1 - 1 / z))
+            start = zoomIn ? Framing() : tight
+            end = zoomIn ? tight : Framing()
+        }
     }
 
-    /// The clip's placement at progress p: zoomed by `scale(at:)` around the focus point.
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(start, forKey: .start)
+        try c.encode(end, forKey: .end)
+        try c.encode(ease, forKey: .ease)
+        try c.encodeIfPresent(easeDir, forKey: .easeDir)
+    }
+
+    /// The framing at progress p (0 = first frame, 1 = last): zoom in even steps (log scale, a steady push), the
+    /// view's center in a straight line.
+    func framing(at p: Double) -> Framing {
+        let f = ease.apply(min(max(p, 0), 1), easeDir ?? .both)
+        let z0 = max(start.zoom, 0.05), z1 = max(end.zoom, 0.05)
+        return Framing(zoom: exp(log(z0) + (log(z1) - log(z0)) * f),
+                       x: start.x + (end.x - start.x) * f,
+                       y: start.y + (end.y - start.y) * f)
+    }
+
+    /// The clip's placement at progress p: zoomed around the view's center.
     func apply(_ t: ClipTransform, at p: Double) -> ClipTransform {
-        let z = scale(at: p)
+        let f = framing(at: p)
         var out = t
-        out.scale *= z
-        out.x += (1 - z) * focusX
-        out.y += (1 - z) * focusY
+        out.scale *= f.zoom
+        out.x -= f.zoom * f.x
+        out.y -= f.zoom * f.y
         return out
-    }
-
-    /// Extra scale at progress p (0 = first frame, 1 = last).
-    func scale(at p: Double) -> Double {
-        var f = ease.apply(min(max(p, 0), 1), easeDir ?? .both)
-        if !zoomIn { f = 1 - f }
-        // even steps in log space feel like a steady push
-        return exp(log(1 + amount) * f)
     }
 }
 

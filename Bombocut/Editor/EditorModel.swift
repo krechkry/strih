@@ -1757,6 +1757,8 @@ final class EditorModel: ObservableObject {
     var cueSnapshot: Project?
     /// The AutoZoom panel is open: paused, the clip shows unzoomed with its first and last framing drawn over it.
     @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
+    /// AutoZoom panel: setting the last frame's framing (else the first's).
+    @Published var autoZoomEditsEnd = false
     /// The selected Stack (a closed Stack is selected as one; see ClipStack).
     @Published var selectedStackID: UUID? {
         didSet {
@@ -3309,6 +3311,21 @@ extension EditorModel {
         }
         guard let i = selectedIndex, project.clips[i].autoZoom != z else { return }
         mutateLook { $0.clips[i].autoZoom = z }
+    }
+
+    /// AutoZoom panel: the framing being set, the first frame's (false) or the last frame's (true). The playhead
+    /// sits on that frame, so the preview shows the picture that framing is for.
+    func selectAutoZoomFraming(end: Bool) {
+        autoZoomEditsEnd = end
+        guard let (a, b) = selectedSpan else { return }
+        pause()
+        scrub(to: end ? max(a, b - 1.0 / 30) : a + 0.001)
+    }
+
+    /// The framing being set, changed live (dragging on the preview, a slider); pair with liveEditBegan / liveEditEnded.
+    func editAutoZoomFraming(_ change: (inout AutoZoom.Framing) -> Void) {
+        let end = autoZoomEditsEnd
+        editAutoZoom { z in if end { change(&z.end) } else { change(&z.start) } }
     }
 
     /// Live change while a slider moves; pair with liveEditBegan / liveEditEnded.
