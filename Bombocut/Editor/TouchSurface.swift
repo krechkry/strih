@@ -10,6 +10,8 @@ struct TouchSurface: UIViewRepresentable {
     var onBegan: (CGPoint) -> Void                 // where the fingers first touched
     var onChanged: (CGAffineTransform) -> Void
     var onEnded: () -> Void
+    /// One finger held still for a moment (true) and lifted again (false): before / after.
+    var onHold: (Bool) -> Void = { _ in }
 
     func makeUIView(context: Context) -> SurfaceView {
         let v = SurfaceView()
@@ -33,6 +35,7 @@ struct TouchSurface: UIViewRepresentable {
         v.onBegan = onBegan
         v.onChanged = onChanged
         v.onEnded = onEnded
+        v.onHold = onHold
     }
 
     final class SurfaceView: UIView {
@@ -41,6 +44,10 @@ struct TouchSurface: UIViewRepresentable {
         var onBegan: ((CGPoint) -> Void)?
         var onChanged: ((CGAffineTransform) -> Void)?
         var onEnded: (() -> Void)?
+        var onHold: ((Bool) -> Void)?
+        private var holdTimer: Timer?
+        private var holding = false
+        private var held = false          // this touch was a hold: no tap when it lifts
 
         private var touches: [UITouch] = []
         private var startPoints: [UITouch: CGPoint] = [:]
@@ -51,8 +58,14 @@ struct TouchSurface: UIViewRepresentable {
         private var current = CGAffineTransform.identity
         private var active = false
 
-        @objc func tapped(_ g: UITapGestureRecognizer) { if !active { onTap?(g.location(in: self)) } }
-        @objc func doubleTapped() { if !active { onDoubleTap?() } }
+        @objc func tapped(_ g: UITapGestureRecognizer) { if !active && !held { onTap?(g.location(in: self)) } }
+        @objc func doubleTapped() { if !active && !held { onDoubleTap?() } }
+
+        private func stopHold() {
+            holdTimer?.invalidate()
+            holdTimer = nil
+            if holding { holding = false; onHold?(false) }
+        }
 
         private func positions() -> [CGPoint] { touches.prefix(2).map { $0.location(in: self) } }
 
@@ -97,6 +110,20 @@ struct TouchSurface: UIViewRepresentable {
                 rebase()
                 if touches.count == 2 { begin() }
             }
+            // one finger resting: after a moment, the effects go off until it lifts
+            if touches.count == 1 && !active && !holding {
+                held = false
+                holdTimer?.invalidate()
+                holdTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { [weak self] _ in
+                    guard let self, !self.active, self.touches.count == 1 else { return }
+                    self.holding = true
+                    self.held = true
+                    self.onHold?(true)
+                }
+            } else {
+                holdTimer?.invalidate()
+                holdTimer = nil
+            }
         }
 
         private func begin() {
@@ -107,6 +134,8 @@ struct TouchSurface: UIViewRepresentable {
         }
 
         override func touchesMoved(_ set: Set<UITouch>, with event: UIEvent?) {
+            // holding (before / after): the finger can wander, nothing moves
+            if holding { return }
             if !active {
                 let moved = touches.contains { t in
                     guard let s = startPoints[t] else { return false }
@@ -114,6 +143,8 @@ struct TouchSurface: UIViewRepresentable {
                     return hypot(p.x - s.x, p.y - s.y) > 6
                 }
                 guard moved else { return }
+                holdTimer?.invalidate()
+                holdTimer = nil
                 begin()
             }
             current = baked.concatenating(segment())
@@ -128,6 +159,7 @@ struct TouchSurface: UIViewRepresentable {
             touches.removeAll { set.contains($0) }
             for t in set { startPoints[t] = nil }
             if touches.isEmpty {
+                stopHold()
                 if active { onEnded?() }
                 active = false
                 baked = .identity
@@ -135,6 +167,35 @@ struct TouchSurface: UIViewRepresentable {
             } else {
                 rebase()
             }
+        }
+    }
+}
+
+
+/// Hold a finger still on the picture: the effects go off (before / after) until it lifts. For the preview while a
+/// panel is open and for fullscreen, next to their own tap and swipe gestures.
+struct HoldToCompare: UIGestureRecognizerRepresentable {
+    var onHold: (Bool) -> Void
+
+    final class Coordinator { var on = false }
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let g = UILongPressGestureRecognizer()
+        g.minimumPressDuration = 0.35
+        g.allowableMovement = 12
+        g.cancelsTouchesInView = false
+        return g
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
+        switch g.state {
+        case .began:
+            context.coordinator.on = true
+            onHold(true)
+        case .ended, .cancelled, .failed:
+            if context.coordinator.on { context.coordinator.on = false; onHold(false) }
+        default: break
         }
     }
 }

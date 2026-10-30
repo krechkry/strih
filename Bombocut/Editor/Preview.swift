@@ -87,6 +87,7 @@ struct PreviewArea: View {
             }
             .frame(width: w, height: h)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            .simultaneousGesture(viewPinch(canvas, area: geo.size), including: model.previewScrubs && !model.maskPaint ? .all : .subviews)
         }
         .overlay(alignment: .topLeading) { bypassEye }
         .clipped()
@@ -156,9 +157,12 @@ struct PreviewArea: View {
         return Color.clear
             .contentShape(Rectangle())
             .onTapGesture { p in
+                // the end of a hold (before / after) is not a tap
+                guard !model.justCompared else { return }
                 let q = CGPoint(x: p.x - inset.width, y: p.y - inset.height)
                 if !model.tapTitle(contentPoint(q, canvas), canvas: canvas) { tapPlay() }
             }
+            .simultaneousGesture(HoldToCompare { on in model.setEffectsBypassed(on) })
             .gesture(
                 // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
@@ -181,21 +185,23 @@ struct PreviewArea: View {
                         dragIsPan = nil
                     }
             )
-            .simultaneousGesture(
-                // two fingers: look closer (pinch back out to fit)
-                MagnifyGesture()
-                    .onChanged { v in
-                        pinching = true
-                        viewZoom = min(max(zoomBase * v.magnification, 1), 8)
-                        viewOffset = clampedOffset(viewOffset, canvas, area)
-                    }
-                    .onEnded { _ in
-                        pinching = false
-                        zoomBase = viewZoom
-                        panBase = viewOffset
-                        if viewZoom < 1.05 { resetViewZoom() }
-                    }
-            )
+    }
+
+    /// Two fingers on the preview while a panel is open: look closer (pinch back out to fit). On the whole preview,
+    /// so it works over the crop frame, the AutoZoom framings and anything else a panel draws there.
+    private func viewPinch(_ canvas: CGSize, area: CGSize) -> some Gesture {
+        MagnifyGesture()
+            .onChanged { v in
+                pinching = true
+                viewZoom = min(max(zoomBase * v.magnification, 1), 8)
+                viewOffset = clampedOffset(viewOffset, canvas, area)
+            }
+            .onEnded { _ in
+                pinching = false
+                zoomBase = viewZoom
+                panBase = viewOffset
+                if viewZoom < 1.05 { resetViewZoom() }
+            }
     }
 
     /// Slim position bar while scrubbing from a panel (like Photos, smaller).
@@ -229,7 +235,8 @@ struct PreviewArea: View {
             },
             onBegan: { p in if !model.project.clips.isEmpty { model.transformBegan(at: p, canvas: canvas) } },
             onChanged: { g in model.transformChanged(gesture: g, canvas: canvas) },
-            onEnded: { model.transformEnded() }
+            onEnded: { model.transformEnded() },
+            onHold: { on in model.setEffectsBypassed(on) }
         )
     }
 
@@ -989,9 +996,12 @@ struct FullscreenPlayer: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { exit() }
         .onTapGesture {
+            guard !model.justCompared else { return }
             model.togglePlay()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()   // felt, not seen: screen recordings stay clean
         }
+        // hold: before / after (effects off until the finger lifts)
+        .simultaneousGesture(HoldToCompare { on in model.setEffectsBypassed(on) })
         // swipe up (or down) to leave fullscreen
         .simultaneousGesture(
             DragGesture(minimumDistance: 30)

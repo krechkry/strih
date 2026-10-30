@@ -274,7 +274,8 @@ struct EditorView: View {
     private var editor: some View {
         ZStack {
             VStack(spacing: 0) {
-                topBar
+                // a panel open: no top bar, the picture gets that room
+                if sheet == nil || sheet == .export { topBar.transition(.move(edge: .top).combined(with: .opacity)) }
                 PreviewArea(model: model)
                     .padding(.horizontal, 12)
                     .frame(maxHeight: .infinity)

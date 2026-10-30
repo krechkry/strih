@@ -1345,6 +1345,8 @@ final class EditorModel: ObservableObject {
     @Published var openTransitionPanel = false
     /// The eye on the preview is held: effects off in the editor (see LookStore.bypassEffects).
     @Published private(set) var effectsBypassed = false
+    /// A hold (before / after) just ended: the tap that comes with the lift is ignored.
+    var justCompared = false
     /// A panel asked for from outside the toolbar (the clip quick menu); the editor opens it.
     @Published var requestedPanel: EditorSheet?
     @Published var openAddClips = false
@@ -3822,6 +3824,14 @@ extension EditorModel {
     func setEffectsBypassed(_ on: Bool) {
         guard effectsBypassed != on else { return }
         effectsBypassed = on
+        if !on {
+            // the lift that ends a hold must not count as a tap (play / pause)
+            justCompared = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
+                self.justCompared = false
+            }
+        }
         LookStore.shared.bypassEffects = on
         if on { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         publishLook()
