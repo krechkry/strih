@@ -371,7 +371,8 @@ struct EditorView: View {
                 pill
             }
             Spacer()
-            if pro { safeZoneMenu }
+            // the apps' layouts are for vertical videos only
+            if pro && SafeZone.fits(aspect: model.project.canvas.aspect) { safeZoneMenu }
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
                     .font(.footnote.weight(.bold))

@@ -805,7 +805,7 @@ struct PreviewArea: View {
     /// The picked app's covered areas, dimmed, while a title moves (or right after picking one).
     @ViewBuilder
     private func safeZoneLayer(_ canvas: CGSize) -> some View {
-        if (safeZoneAlways || model.safeZoneFlash) && safeZone != .off && !model.fullscreen {
+        if (safeZoneAlways || model.safeZoneFlash) && safeZone != .off && !model.fullscreen && SafeZone.fits(canvas) {
             PlatformMock(zone: safeZone, size: canvas, active: model.movingTitle || model.safeZoneFlash, danger: model.titleInDanger)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .transition(.opacity)

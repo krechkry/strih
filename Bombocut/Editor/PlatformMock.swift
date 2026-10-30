@@ -12,6 +12,9 @@ struct PlatformMock: View {
     private static let warn = Color(red: 1, green: 0.68, blue: 0.12)   // yellow-orange, a nudge not an alarm
 
     private var k: CGFloat { size.width / 390 }          // 1 at the width of a phone screen
+    /// The app's 9:16 screen at the canvas' width, centered on it: the layout keeps its real shape on a 4:5 or 3:4
+    /// video instead of being squeezed to it.
+    private var screen: CGRect { SafeZone.screen(in: size) }
     private func pt(_ v: CGFloat) -> CGFloat { v * k }
 
     var body: some View {
@@ -43,7 +46,7 @@ struct PlatformMock: View {
 
     // MARK: Pieces
 
-    private func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * size.width, y: y * size.height) }
+    private func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * size.width, y: screen.minY + y * screen.height) }
 
     private func icon(_ name: String, _ x: CGFloat, _ y: CGFloat, size s: CGFloat = 26, label: String? = nil) -> some View {
         VStack(spacing: pt(2)) {
@@ -60,7 +63,7 @@ struct PlatformMock: View {
             .font(.system(size: pt(s), weight: weight))
             .lineLimit(2)
             .frame(width: width * size.width, alignment: .leading)
-            .position(x: x * size.width + width * size.width / 2, y: y * size.height)
+            .position(x: x * size.width + width * size.width / 2, y: screen.minY + y * screen.height)
     }
 
     private func avatar(_ x: CGFloat, _ y: CGFloat, _ d: CGFloat = 30) -> some View {
