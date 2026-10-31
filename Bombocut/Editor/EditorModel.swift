@@ -601,7 +601,18 @@ final class EditorModel: ObservableObject {
         let i = hit.index
         let c = project.clips[i]
         let src = c.retime.source(atLocal: t - hit.start)
-        guard src - c.inPoint > 0.05, c.outPoint - src > 0.05 else { return }
+        guard let (a, b) = Self.clipHalves(c, at: src) else { return }
+        mutate { p in
+            p.clips[i] = a
+            p.clips.insert(b, at: i + 1)
+            p.joinStack(b.id, with: c.id)
+        }
+        selectedClipID = b.id
+    }
+
+    /// A clip cut in two at source time `src` (nil when either piece would be too short).
+    static func clipHalves(_ c: Clip, at src: Double) -> (Clip, Clip)? {
+        guard src - c.inPoint > 0.05, c.outPoint - src > 0.05 else { return nil }
         var a = c, b = c
         a.outPoint = src
         b.id = UUID()
@@ -615,12 +626,51 @@ final class EditorModel: ObservableObject {
             a.speedCurve = c.subCurve(0, u)
             b.speedCurve = c.subCurve(u, 1)
         }
-        mutate { p in
-            p.clips[i] = a
-            p.clips.insert(b, at: i + 1)
-            p.joinStack(b.id, with: c.id)
+        return (a, b)
+    }
+
+    /// Split with nothing selected: everything under the playhead is cut there in one step (the clip, texts,
+    /// pictures, videos and sounds; captions stay as they are).
+    func splitAll() {
+        let t = currentTime
+        let cut = onFrame(t)
+        var p = project
+        var did = false
+        if let hit = p.clipIndex(at: t) {
+            let c = p.clips[hit.index]
+            if let (a, b) = Self.clipHalves(c, at: c.retime.source(atLocal: t - hit.start)) {
+                p.clips[hit.index] = a
+                p.clips.insert(b, at: hit.index + 1)
+                p.joinStack(b.id, with: c.id)
+                did = true
+            }
         }
-        selectedClipID = b.id
+        for i in p.overlays.indices.reversed() {
+            if let (a, b) = Self.overlayHalves(p.overlays[i], at: cut) {
+                p.overlays[i] = a
+                p.overlays.insert(b, at: i + 1)
+                did = true
+            }
+        }
+        for i in p.audio.indices.reversed() {
+            let x = p.audio[i]
+            guard cut > x.start + 0.1, cut < x.end - 0.1 else { continue }
+            var a = x, b = x
+            b.id = UUID()
+            a.duration = cut - x.start
+            b.start = cut
+            b.duration = x.end - cut
+            b.inPoint = x.inPoint + (cut - x.start) * x.speed
+            p.audio[i] = a
+            p.audio.insert(b, at: i + 1)
+            did = true
+        }
+        guard did else { UINotificationFeedbackGenerator().notificationOccurred(.warning); return }
+        // nothing moves in time, so nothing needs to follow the footage: one undo step, then rebuild
+        pushUndo(project)
+        project = p
+        commit()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     @Published private(set) var freezing = false
@@ -3723,8 +3773,20 @@ extension EditorModel {
     func splitOverlay() {
         guard let i = selectedOverlayIndex else { return }
         let o = project.overlays[i]
-        let cut = onFrame(currentTime)
-        guard cut > o.start + 0.1, cut < o.end - 0.1 else { return }
+        guard let (a, b) = Self.overlayHalves(o, at: onFrame(currentTime)) else { return }
+        let video = o.kind.isVideo
+        let change: (inout Project) -> Void = { p in
+            p.overlays[i] = a
+            p.overlays.insert(b, at: i + 1)
+        }
+        if video { mutate(change) } else { mutateLook(change) }
+        selectedOverlayID = b.id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// A text, picture or video cut in two at timeline time `cut` (nil when either piece would be too short).
+    static func overlayHalves(_ o: Overlay, at cut: Double) -> (Overlay, Overlay)? {
+        guard cut > o.start + 0.1, cut < o.end - 0.1 else { return nil }
         let local = cut - o.start
         let pose = o.pose(at: cut)
         var a = o, b = o
@@ -3743,14 +3805,7 @@ extension EditorModel {
         }
         a.anim.outAnim = .none
         b.anim.inAnim = .none
-        let video = o.kind.isVideo
-        let change: (inout Project) -> Void = { p in
-            p.overlays[i] = a
-            p.overlays.insert(b, at: i + 1)
-        }
-        if video { mutate(change) } else { mutateLook(change) }
-        selectedOverlayID = b.id
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        return (a, b)
     }
 }
 

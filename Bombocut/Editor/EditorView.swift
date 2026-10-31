@@ -731,7 +731,8 @@ struct EditorView: View {
                     }
                 } else {
                     ToolButton(icon: "plus", label: "Add") { model.requestAddClips() }
-                    ToolButton(icon: "scissors", label: "Split") { model.split() }
+                    // nothing selected: everything under the playhead (not the captions)
+                    ToolButton(icon: "scissors", label: "Split") { model.splitAll() }
                     if pro && model.project.clips.count > 1 {
                         ToolButton(icon: "square.stack.3d.up", label: "Stack") { sheet = nil; model.startStackPick() }
                     }
