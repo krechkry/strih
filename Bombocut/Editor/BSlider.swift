@@ -3,6 +3,7 @@ import SwiftUI
 /// The app's slider. Drawn here instead of SwiftUI's `Slider` so a double tap can reset it:
 /// the system slider swallows taps before any gesture (SwiftUI's or a UIKit recognizer) sees them.
 /// Dragging is relative, like the system one: a touch never makes the value jump, only movement changes it.
+/// Only a sideways drag grabs it, so a panel full of sliders still scrolls up and down over them.
 struct BSlider: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
@@ -13,7 +14,6 @@ struct BSlider: View {
     @Environment(\.isEnabled) private var enabled
     @State private var startValue: Double?
     @State private var editing = false
-    @State private var lastTap: (time: Date, x: CGFloat)?
 
     init(value: Binding<Double>, in range: ClosedRange<Double>, onEditingChanged: @escaping (Bool) -> Void = { _ in }) {
         _value = value
@@ -50,40 +50,29 @@ struct BSlider: View {
             .frame(height: g.size.height)
             .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.4)
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onChanged { d in
-                        guard enabled else { return }
-                        if startValue == nil { startValue = value }
-                        // a few points of wobble is still a tap
-                        guard editing || abs(d.translation.width) > 3 else { return }
-                        if !editing {
-                            editing = true
-                            onEditingChanged(true)
-                        }
-                        let v = (startValue ?? value) + Double(d.translation.width / w) * span
-                        value = min(max(v, range.lowerBound), range.upperBound)
-                    }
-                    .onEnded { d in
-                        defer { startValue = nil }
-                        guard enabled else { return }
-                        if editing {
-                            editing = false
-                            onEditingChanged(false)
-                            lastTap = nil
-                            return
-                        }
-                        // a tap: two of them close together reset the slider
-                        let now = Date()
-                        if let t = lastTap, now.timeIntervalSince(t.time) < 0.4, abs(t.x - d.location.x) < 44, let reset {
-                            lastTap = nil
-                            reset.action()
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        } else {
-                            lastTap = (now, d.location.x)
-                        }
-                    }
-            )
+            // a sideways drag moves it; an up / down swipe is left to the panel, which scrolls
+            .gesture(SidewaysPan(changed: { start, here in
+                guard enabled else { return }
+                if startValue == nil {
+                    startValue = value
+                    editing = true
+                    onEditingChanged(true)
+                }
+                let v = (startValue ?? value) + Double((here.x - start.x) / w) * span
+                value = min(max(v, range.lowerBound), range.upperBound)
+            }, ended: {
+                if editing {
+                    editing = false
+                    onEditingChanged(false)
+                }
+                startValue = nil
+            }))
+            // a double tap resets it
+            .onTapGesture(count: 2) {
+                guard enabled, let reset else { return }
+                reset.action()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
             .animation(.snappy(duration: 0.15), value: editing)
         }
         .frame(height: 34)

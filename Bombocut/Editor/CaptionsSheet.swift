@@ -8,8 +8,8 @@ struct CaptionsSheet: View {
     @AppStorage("captionNames") private var names = ""
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
-    @State private var tab = 0                 // 0 text, 1 style, 2 animation, 3 translate
-    @AppStorage("captionStyleSection") private var styleSection = 0
+    @State private var tab = 0                 // 0 text, 1 style, 3 translate, 4 presets (2 was animation, now in style)
+    @AppStorage("captionStyleTab") private var styleSection = 0
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
     @State private var savingTemplate = false
     @State private var templateName = ""
@@ -40,7 +40,7 @@ struct CaptionsSheet: View {
         .presentationBackground(Theme.panel)
         .onAppear {
             if Demo.mode == "captionstyle" { tab = 1 }
-            if Demo.mode == "captionanim" { tab = 2 }
+            if Demo.mode == "captionanim" { tab = 1; styleSection = Self.animationSection }
             if let t = model.captionTab { tab = t; model.captionTab = nil }
             if model.captionFocus != nil { tab = 0 }
             model.dismissCaptionJob()
@@ -248,7 +248,7 @@ struct CaptionsSheet: View {
                     HStack(spacing: 6) {
                         tabButton("Text", 0)
                         tabButton("Style", 1)
-                        tabButton("Animation", 2)
+                        tabButton("Presets", 4)
                         if model.captionScope == nil { tabButton("Translate", 3) }
                         if model.captionScope != nil {
                             // this clip only: listen again, keeping everything else
@@ -264,14 +264,14 @@ struct CaptionsSheet: View {
                 }
             }
             }
-            if model.captionScope != nil && tab != 0 {
+            if model.captionScope != nil && (tab == 1 || tab == 4) {
                 Text("Style and animation apply to the whole captions track.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             switch tab {
             case 0: textList(caps)
-            case 1: styleEditor(caps)
-            case 2: animationEditor(caps)
+            case 1, 2: styleEditor(caps)
+            case 4: presets(caps)
             default: TranslateSheet(model: model, embedded: true)
             }
         }
@@ -365,22 +365,12 @@ struct CaptionsSheet: View {
 
     // MARK: Style
 
-    private static let styleSections = ["Look", "Layout", "Outline", "Shadow", "Box"]
+    private static let styleSections = ["Layout", "Font", "Color", "Outline", "Shadow", "Box", "Animation"]
+    private static let animationSection = 6
 
     private func styleEditor(_ caps: Captions) -> some View {
         let s = caps.style
         return VStack(alignment: .leading, spacing: 14) {
-            // lines and length: changed all the time, so always on top (a template remembers them too)
-            HStack(spacing: 8) {
-                pill("1 line", on: s.lines == 1) { setLines(1, min(s.maxChars, 20)) }
-                pill("2 lines", on: s.lines == 2) { setLines(2, max(s.maxChars, 28)) }
-                Spacer()
-                Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
-                        in: 8...48, step: 2) {
-                    Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
-                }
-                .fixedSize()
-            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(Self.styleSections.indices, id: \.self) { i in
@@ -398,11 +388,13 @@ struct CaptionsSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     switch styleSection {
-                    case 1: layoutSection(s)
-                    case 2: outlineSection(s)
-                    case 3: shadowSection(s)
-                    case 4: boxSection(s)
-                    default: lookSection(caps, s)
+                    case 1: fontSection(s)
+                    case 2: colorSection(s)
+                    case 3: outlineSection(s)
+                    case 4: shadowSection(s)
+                    case 5: boxSection(s)
+                    case 6: animationSection(s)
+                    default: layoutSection(s)
                     }
                 }
                 .padding(.bottom, 30)
@@ -410,42 +402,71 @@ struct CaptionsSheet: View {
         }
     }
 
-    /// Templates, font, colors, capitals.
-    @ViewBuilder
-    private func lookSection(_ caps: Captions, _ s: CaptionStyle) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(CaptionTemplate.builtIns + templates) { t in templateCard(t, selected: caps.templateID == t.id) }
-                Button { templateName = ""; savingTemplate = true } label: {
-                    VStack(spacing: 6) {
-                        Image(systemName: "plus").font(.system(size: 22, weight: .bold))
-                        Text("Save").font(.caption2.weight(.bold))
+    // MARK: Presets
+
+    /// Every style setting in one tap (layout, font, colors, outline, shadow, box, animation), and your own ones.
+    private func presets(_ caps: Captions) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+                    ForEach(CaptionTemplate.builtIns + templates) { t in templateCard(t, selected: caps.templateID == t.id) }
+                    Button { templateName = ""; savingTemplate = true } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: "plus").font(.system(size: 22, weight: .bold))
+                            Text("Save").font(.caption2.weight(.bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 84)
+                        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
                     }
-                    .foregroundStyle(.white)
-                    .frame(width: 84, height: 84)
-                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                Text("A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to delete it.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.bottom, 30)
         }
-        section("Font") {
-            FontPicker(style: s, sample: "Aa") { f, name in setStyle { $0.font = f; $0.fontName = name } }
-        }
-        colorRow("Text", s.text) { c in { $0.text = c } }
-        if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
-        OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
-        OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip (Mask tool)",
-                 isOn: s.behindSubject) { v in setStyle { $0.behindSubject = v } }
     }
 
-    /// Size, position, lines, spacing, punctuation.
+    // MARK: Style sections
+
+    /// Lines and length, size, position, spacing, punctuation, capitals, behind the subject.
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
+        HStack(spacing: 8) {
+            pill("1 line", on: s.lines == 1) { setLines(1, min(s.maxChars, 20)) }
+            pill("2 lines", on: s.lines == 2) { setLines(2, max(s.maxChars, 28)) }
+            Spacer()
+            Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
+                    in: 8...48, step: 2) {
+                Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            .fixedSize()
+        }
         slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
         slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
+        OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
         OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
+        OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip (Mask tool)",
+                 isOn: s.behindSubject) { v in setStyle { $0.behindSubject = v } }
+    }
+
+    /// The font, nothing else.
+    @ViewBuilder
+    private func fontSection(_ s: CaptionStyle) -> some View {
+        FontPicker(style: s, sample: "Aa") { f, name in setStyle { $0.font = f; $0.fontName = name } }
+    }
+
+    @ViewBuilder
+    private func colorSection(_ s: CaptionStyle) -> some View {
+        colorRow("Text", s.text) { c in { $0.text = c } }
+        colorRow("Highlight", s.highlight) { c in { $0.highlight = c } }
+        Text("Highlight colors the word being said (the Highlight animation).")
+            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder
@@ -477,29 +498,22 @@ struct CaptionsSheet: View {
         }
     }
 
-    // MARK: Animation
-
-    private func animationEditor(_ caps: Captions) -> some View {
-        let s = caps.style
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
-                    ForEach(CaptionAnim.allCases, id: \.self) { a in
-                        Button {
-                            setStyle { $0.anim = a }
-                            model.previewCaption()
-                        } label: {
-                            CaptionAnimTile(anim: a, style: s, selected: s.anim == a)
-                        }
-                        .buttonStyle(.plain)
-                    }
+    @ViewBuilder
+    private func animationSection(_ s: CaptionStyle) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            ForEach(CaptionAnim.allCases, id: \.self) { a in
+                Button {
+                    setStyle { $0.anim = a }
+                    model.previewCaption()
+                } label: {
+                    CaptionAnimTile(anim: a, style: s, selected: s.anim == a)
                 }
-                if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
-                Text("Tap one to see it on your video.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .buttonStyle(.plain)
             }
-            .padding(.bottom, 30)
         }
+        if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
+        Text("Tap one to see it on your video.")
+            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
     }
 
     private func templateCard(_ t: CaptionTemplate, selected: Bool) -> some View {
@@ -526,7 +540,7 @@ struct CaptionsSheet: View {
                     .shadow(color: st.strokeWidth > 0 ? .black : .clear, radius: 0, x: 1, y: 1)
                 Text(t.name).font(.caption2.weight(.bold)).foregroundStyle(.white).lineLimit(1)
             }
-            .frame(width: 84, height: 84)
+            .frame(maxWidth: .infinity, minHeight: 84)
             .background(Color.black, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(selected ? Theme.accent : Theme.line, lineWidth: selected ? 2.5 : 1))
         }
@@ -615,18 +629,10 @@ struct CaptionsSheet: View {
     private func colorRow(_ title: String, _ current: RGBA,
                           _ make: @escaping (RGBA) -> (inout CaptionStyle) -> Void) -> some View {
         section(title) {
-            HStack(spacing: 10) {
-                ForEach(RGBA.palette, id: \.self) { c in
-                    Button { setStyle(make(c)) } label: {
-                        Circle()
-                            .fill(Color(red: c.r, green: c.g, blue: c.b))
-                            .frame(width: 30, height: 30)
-                            .overlay(Circle().strokeBorder(current == c ? Theme.accent : Color.white.opacity(0.25),
-                                                           lineWidth: current == c ? 3 : 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            ColorControl(current: current, set: { c in setStyle(make(c)) },
+                         began: { model.liveEditBegan() },
+                         live: { c in model.editCaptions { cap in make(c)(&cap.style); cap.templateID = nil } },
+                         ended: { model.liveEditEnded() })
         }
     }
 }

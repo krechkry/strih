@@ -40,7 +40,15 @@ struct RGBA: Codable, Hashable {
     static let pink = RGBA(r: 1, g: 0.42, b: 0.75)
     static let cyan = RGBA(r: 0.3, g: 0.9, b: 1)
     static let blue = RGBA(r: 0.2, g: 0.45, b: 1)
-    static let palette: [RGBA] = [.white, .black, .lime, .yellow, .red, .pink, .cyan, .blue]
+    static let offWhite = RGBA(r: 0.9, g: 0.9, b: 0.88)
+    static let skin = RGBA(r: 0.91, g: 0.76, b: 0.63)
+    static let offBlack = RGBA(r: 0.1, g: 0.1, b: 0.1)
+    static let subtitleYellow = RGBA(r: 1, g: 0.85, b: 0.16)
+    static let vibrantRed = RGBA(r: 0.96, g: 0.14, b: 0.2)
+    /// The quick colors under every color control (any other one: eyedropper, or hold a swatch for the spectrum).
+    static let palette: [RGBA] = [.white, .offWhite, .skin, .black, .offBlack, .subtitleYellow, .vibrantRed, .lime]
+
+    func near(_ o: RGBA) -> Bool { abs(r - o.r) < 0.01 && abs(g - o.g) < 0.01 && abs(b - o.b) < 0.01 }
     var cg: CGColor { CGColor(srgbRed: r, green: g, blue: b, alpha: a) }
 }
 
@@ -73,7 +81,7 @@ struct CaptionStyle: Codable, Hashable {
     var highlight = RGBA.lime
     var stroke = RGBA.black
     var strokeWidth = 0.0        // 0...1
-    var strokeOutside = false    // true = the outline grows outwards only and never eats into the letters
+    var strokeOutside = true     // true = the outline grows outwards only and never eats into the letters
     var tracking = 0.0           // letter spacing, fraction of the font size (-0.1...0.5)
     var lineSpacing = 1.0        // line height multiplier
     var box = false

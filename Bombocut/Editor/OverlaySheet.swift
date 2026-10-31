@@ -171,8 +171,10 @@ struct OverlaySheet: View {
 
     @ViewBuilder
     private func styleTab(_ s: CaptionStyle) -> some View {
-        colors("Color", s.text) { c in model.setOverlay { $0.style.text = c } }
-        colors("Outline", s.stroke) { c in model.setOverlay { $0.style.stroke = c } }
+        colors("Color", s.text, { c in model.setOverlay { $0.style.text = c } },
+               live: { c in model.editOverlay { $0.style.text = c } })
+        colors("Outline", s.stroke, { c in model.setOverlay { $0.style.stroke = c } },
+               live: { c in model.editOverlay { $0.style.stroke = c } })
         slider("Outline width", value: s.strokeWidth, def: Overlay.defaultTextStyle.strokeWidth, in: 0...2) { v in model.editOverlay { $0.style.strokeWidth = v } }
         if s.strokeWidth > 0 {
             OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in model.setOverlay { $0.style.strokeOutside = v } }
@@ -186,7 +188,8 @@ struct OverlaySheet: View {
         }
         OnOffRow(title: "Box", isOn: s.box) { v in model.setOverlay { $0.style.box = v } }
         if s.box {
-            colors("Box color", s.boxColor) { c in model.setOverlay { $0.style.boxColor = c } }
+            colors("Box color", s.boxColor, { c in model.setOverlay { $0.style.boxColor = c } },
+                   live: { c in model.editOverlay { $0.style.boxColor = c } })
             slider("Box opacity", value: s.boxOpacity, def: Overlay.defaultTextStyle.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
         }
         OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
@@ -318,20 +321,16 @@ struct OverlaySheet: View {
         }
     }
 
-    private func colors(_ title: String, _ current: RGBA, _ set: @escaping (RGBA) -> Void) -> some View {
+    private func colors(_ title: String, _ current: RGBA, _ set: @escaping (RGBA) -> Void,
+                        live: ((RGBA) -> Void)? = nil) -> some View {
         section(title) {
-            HStack(spacing: 10) {
-                ForEach(RGBA.palette, id: \.self) { c in
-                    Button { set(c) } label: {
-                        Circle().fill(Color(red: c.r, green: c.g, blue: c.b)).frame(width: 30, height: 30)
-                            .overlay(Circle().strokeBorder(current == c ? Theme.accent : Color.white.opacity(0.25),
-                                                           lineWidth: current == c ? 3 : 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            ColorControl(current: current, set: set,
+                         began: live == nil ? nil : { model.liveEditBegan() },
+                         live: live,
+                         ended: live == nil ? nil : { model.liveEditEnded() })
         }
     }
+
 }
 
 /// In / out animation picker with lengths, shared by overlays and clips.

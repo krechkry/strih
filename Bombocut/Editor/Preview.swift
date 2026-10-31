@@ -28,6 +28,7 @@ struct PreviewArea: View {
     @State private var zoomGrab: CGPoint?           // AutoZoom: the focus point when the drag began
     @State private var zoomCorner: CGPoint?         // AutoZoom: the tight frame's corner when the drag began
     @State private var zoomGuides: Set<Guide> = []  // AutoZoom: the canvas lines the framing snapped to
+    @State private var dropAt: CGPoint?             // Eyedropper: where the finger is
 
     var body: some View {
         GeometryReader { geo in
@@ -63,6 +64,62 @@ struct PreviewArea: View {
         .onChange(of: model.previewScrubs) { _, on in if !on { resetViewZoom() } }
     }
 
+    // MARK: Eyedropper
+
+    /// Picking a color off the video: drag on it, a loupe shows the color under the finger, lift to keep it.
+    private func eyedropperLayer(_ canvas: CGSize) -> some View {
+        ZStack(alignment: .top) {
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { v in dropAt = v.location }
+                    .onEnded { v in
+                        let c = sampleColor(v.location, canvas)
+                        dropAt = nil
+                        model.finishEyedropper(c)
+                        if c != nil { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                    })
+            if let p = dropAt, let c = sampleColor(p, canvas) {
+                ZStack {
+                    Circle().fill(c.color)
+                        .frame(width: 58, height: 58)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 3))
+                        .shadow(color: .black.opacity(0.5), radius: 5)
+                        .position(x: p.x, y: max(30, p.y - 70))
+                    Circle().strokeBorder(.white, lineWidth: 2)
+                        .frame(width: 14, height: 14)
+                        .shadow(color: .black.opacity(0.6), radius: 1)
+                        .position(p)
+                }
+                .allowsHitTesting(false)
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "eyedropper").font(.system(size: 13, weight: .bold))
+                Text(model.eyedropperFrame == nil ? loc("Getting the frame…") : loc("Drag on the video to pick a color"))
+                    .font(.footnote.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
+                Button { model.finishEyedropper(nil) } label: {
+                    Image(systemName: "xmark").font(.system(size: 12, weight: .heavy))
+                        .frame(width: 26, height: 26)
+                        .background(.white.opacity(0.2), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Cancel"))
+            }
+            .foregroundStyle(.white)
+            .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
+            .background(.black.opacity(0.7), in: Capsule())
+            .padding(.top, 8)
+            .opacity(dropAt == nil ? 1 : 0)
+        }
+    }
+
+    /// The color of the grabbed frame under a point on the (zoomed) preview.
+    private func sampleColor(_ p: CGPoint, _ canvas: CGSize) -> RGBA? {
+        guard let f = model.eyedropperFrame else { return nil }
+        let q = contentPoint(p, canvas)
+        return f.color(u: Double(q.x / max(canvas.width, 1)), v: Double(q.y / max(canvas.height, 1)))
+    }
+
     /// Two-finger zoom of the view: everywhere, except while painting a mask, picking a track box or analysing.
     private var pinchMask: GestureMask {
         let free = model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil
@@ -72,7 +129,9 @@ struct PreviewArea: View {
     /// Touch handling and the tools drawn over the picture (crop, AutoZoom, mask, track pick, analysis, scrub bar).
     @ViewBuilder
     private func editingLayers(_ canvas: CGSize, area: CGSize) -> some View {
-        if !model.trackPick && model.analysis == nil && !model.maskPaint {
+        if model.eyedropper != nil {
+            layer(canvas) { eyedropperLayer(canvas) }
+        } else if !model.trackPick && model.analysis == nil && !model.maskPaint {
             touchLayer(canvas, area: area)
         }
         if model.trackPick { layer(canvas) { pickOverlay(canvas) } }

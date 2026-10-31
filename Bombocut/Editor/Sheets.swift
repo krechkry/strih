@@ -55,37 +55,16 @@ struct CanvasSheet: View {
 struct BackgroundSheet: View {
     @ObservedObject var model: EditorModel
 
-    private static let swatches: [[Double]] = [[0, 0, 0], [1, 1, 1], [0.5, 0.5, 0.5], [0.898, 0.992, 0.42],
-                                               [0.96, 0.27, 0.25], [0.2, 0.45, 0.95]]
-
     var body: some View {
         let cur = model.project.background ?? [0, 0, 0]
+        let rgba = RGBA(r: cur[0], g: cur[1], b: cur[2])
         VStack(alignment: .leading, spacing: 16) {
             Text("Background").font(.title3.weight(.heavy))
             Text("Color").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-            HStack(spacing: 10) {
-                ForEach(Self.swatches.indices, id: \.self) { i in
-                    let c = Self.swatches[i]
-                    let on = zip(c, cur).allSatisfy { abs($0 - $1) < 0.01 }
-                    Button { model.setBackground(c) } label: {
-                        Circle().fill(Color(red: c[0], green: c[1], blue: c[2]))
-                            .frame(width: 34, height: 34)
-                            .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
-                            .padding(3)
-                            .overlay(Circle().strokeBorder(on ? Theme.accent : .clear, lineWidth: 2.5))
-                    }
-                    .buttonStyle(.plain)
-                }
-                ColorPicker("", selection: Binding(
-                    get: { Color(red: cur[0], green: cur[1], blue: cur[2]) },
-                    set: { col in
-                        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-                        UIColor(col).getRed(&r, green: &g, blue: &b, alpha: &a)
-                        model.setBackground([Double(r), Double(g), Double(b)].map { min(max($0, 0), 1) })
-                    }), supportsOpacity: false)
-                    .labelsHidden()
-                    .frame(width: 40, height: 40)
-            }
+            ColorControl(current: rgba, set: { c in model.setBackground([c.r, c.g, c.b]) },
+                         began: { model.liveEditBegan() },
+                         live: { c in model.editBackground([c.r, c.g, c.b]) },
+                         ended: { model.liveEditEnded() })
             Text("Shows wherever no clip covers the frame: borders, moved or smaller clips, and behind transitions.")
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)

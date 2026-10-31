@@ -56,7 +56,7 @@ struct EditorView: View {
         switch s {
         case .export: return 0
         case .canvas: return 124
-        case .background: return 230
+        case .background: return 380
         case .volume: return 260
         case .speed: return 620
         case .adjust: return 470
@@ -100,6 +100,10 @@ struct EditorView: View {
         }
     }
 
+    private var startEyedropper: (@escaping (RGBA) -> Void) -> Void {
+        { pick in model.startEyedropper(pick) }
+    }
+
     @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
@@ -123,6 +127,8 @@ struct EditorView: View {
                 }
             }
             .id(s)
+            // any color control in a panel can pick a color off the video
+            .environment(\.startEyedropper, startEyedropper)
             // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
             .transition(.move(edge: .bottom))
         }
@@ -271,6 +277,8 @@ struct EditorView: View {
         // closing the captions panel leaves the generate page (unless clips are being picked for it)
         if s == nil && model.pick == nil { model.captionsGenerator = false }
         if s != .captions { model.closeClipCaptions() }
+        // a color being picked belongs to the panel that asked for it
+        if model.eyedropper != nil { model.finishEyedropper(nil) }
     }
 
     private var editor: some View {
@@ -665,6 +673,7 @@ struct EditorView: View {
                         model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
                     }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
+                    ToolButton(icon: "square.grid.2x2", label: "Presets") { model.pause(); model.captionTab = 4; sheet = .captions }
                     ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); model.captionTab = 3; sheet = .captions }
                     ToolButton(icon: "arrow.clockwise", label: "Regenerate") {
                         model.pause(); model.captionsGenerator = true; sheet = .captions
@@ -787,7 +796,8 @@ struct EditorView: View {
     private func addIsland(_ lanes: LaneLayout) -> some View {
         VStack(spacing: LaneLayout.gap) {
             // captions sit at the top (no + of their own: they come from the Captions tool)
-            if lanes.captions > 0 { Color.clear.frame(height: lanes.captions).allowsHitTesting(false) }
+            // (a fixed width: a flexible spacer would stretch the island across the timeline)
+            if lanes.captions > 0 { Color.clear.frame(width: 1, height: lanes.captions).allowsHitTesting(false) }
             // the layers lane: a text, and (Pro) a picture or video, both land in the same stack of rows
             VStack(spacing: LaneLayout.gap) {
                 let half = lanes.showOverlay ? (lanes.layers - LaneLayout.gap) / 2 : lanes.layers

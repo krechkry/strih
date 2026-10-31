@@ -170,6 +170,16 @@
         }
       }
     },
+    "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to delete it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením svojí ji smažeš."
+          }
+        }
+      }
+    },
     "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!": {
       "localizations": {
         "cs": {
@@ -2034,6 +2044,16 @@
         }
       }
     },
+    "Drag on the video to pick a color": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tažením po videu vyber barvu"
+          }
+        }
+      }
+    },
     "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.": {
       "localizations": {
         "cs": {
@@ -2728,6 +2748,16 @@
         }
       }
     },
+    "Getting the frame…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Načítám snímek…"
+          }
+        }
+      }
+    },
     "Getting the sound…": {
       "localizations": {
         "cs": {
@@ -2834,6 +2864,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zvýraznění"
+          }
+        }
+      }
+    },
+    "Highlight colors the word being said (the Highlight animation).": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvýraznění obarví právě vyslovované slovo (animace Zvýraznění)."
           }
         }
       }
@@ -3334,16 +3374,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamčeno na objektu: obraz se posouvá tak, aby objekt stál, a všechno ostatní se hýbe kolem něj."
-          }
-        }
-      }
-    },
-    "Look": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vzhled"
           }
         }
       }
@@ -4078,6 +4108,16 @@
         }
       }
     },
+    "Pick a color from the video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat barvu z videa"
+          }
+        }
+      }
+    },
     "Pick a font and tap the heart: it shows up here for quick access.": {
       "localizations": {
         "cs": {
@@ -4224,6 +4264,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Příprava hlasového modelu · %@"
+          }
+        }
+      }
+    },
+    "Presets": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolby"
           }
         }
       }

@@ -139,6 +139,9 @@ final class EditorModel: ObservableObject {
     @Published var trimView: TrimView?
     @Published var live: LiveTransform?
     @Published var fullscreen = false
+    /// Picking a color off the video: what to do with it, and the frame it is picked from (once grabbed).
+    @Published private(set) var eyedropper: EyedropperRequest?
+    @Published private(set) var eyedropperFrame: FramePixels?
     @Published private(set) var analysis: AnalysisState?
     @Published var trackPick = false
     @Published var pickPhase = PickPhase.select
@@ -1152,6 +1155,12 @@ final class EditorModel: ObservableObject {
     }
 
     /// The color of the empty space around and behind the clips (nil: black).
+    /// Live change while sliding through the spectrum; pair with liveEditBegan / liveEditEnded.
+    func editBackground(_ rgb: [Double]) {
+        project.background = rgb == [0, 0, 0] ? nil : rgb
+        publishLook()
+    }
+
     func setBackground(_ rgb: [Double]?) {
         let v = rgb.flatMap { $0 == [0, 0, 0] ? nil : $0 }
         guard project.background != v else { return }
@@ -4071,5 +4080,78 @@ extension EditorModel {
         LookStore.shared.bypassEffects = on
         if on { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         publishLook()
+    }
+}
+
+
+// MARK: Eyedropper
+
+/// A color control asked for a color from the video.
+struct EyedropperRequest {
+    let id = UUID()
+    let pick: (RGBA) -> Void
+}
+
+extension EditorModel {
+    /// The preview turns into a color picker: the frame on screen (with everything on it) is grabbed, a finger on
+    /// the video shows the color under it, lifting it hands the color to the control that asked.
+    func startEyedropper(_ pick: @escaping (RGBA) -> Void) {
+        pause()
+        eyedropper = EyedropperRequest(pick: pick)
+        eyedropperFrame = nil
+        guard let item = player.currentItem else { return }
+        let gen = AVAssetImageGenerator(asset: item.asset)
+        gen.videoComposition = item.videoComposition
+        gen.requestedTimeToleranceBefore = .zero
+        gen.requestedTimeToleranceAfter = .zero
+        let t = CMTime(seconds: currentTime, preferredTimescale: 600)
+        let id = eyedropper?.id
+        Task {
+            guard let cg = try? await gen.image(at: t).image else { return }
+            let px = FramePixels(cg)
+            if eyedropper?.id == id { eyedropperFrame = px }
+        }
+    }
+
+    /// Lifted on a color (or cancelled with nil).
+    func finishEyedropper(_ c: RGBA?) {
+        if let c, let r = eyedropper { r.pick(c) }
+        eyedropper = nil
+        eyedropperFrame = nil
+    }
+}
+
+/// A frame's pixels (sRGB, 8 bits) to read colors from.
+final class FramePixels {
+    let width: Int
+    let height: Int
+    private var data: [UInt8]
+
+    init(_ cg: CGImage) {
+        width = max(1, cg.width)
+        height = max(1, cg.height)
+        data = [UInt8](repeating: 0, count: width * height * 4)
+        let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        data.withUnsafeMutableBytes { buf in
+            if let ctx = CGContext(data: buf.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                   space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            }
+        }
+    }
+
+    /// The color at a point given as fractions of the frame (0...1 from the top left), averaged over a few pixels.
+    func color(u: Double, v: Double) -> RGBA {
+        let cx = Int((min(max(u, 0), 1) * Double(width - 1)).rounded())
+        let cy = Int((min(max(v, 0), 1) * Double(height - 1)).rounded())
+        var r = 0, g = 0, b = 0, n = 0
+        for y in max(0, cy - 1)...min(height - 1, cy + 1) {
+            for x in max(0, cx - 1)...min(width - 1, cx + 1) {
+                let i = (y * width + x) * 4
+                r += Int(data[i]); g += Int(data[i + 1]); b += Int(data[i + 2]); n += 1
+            }
+        }
+        let k = 255.0 * Double(max(n, 1))
+        return RGBA(r: Double(r) / k, g: Double(g) / k, b: Double(b) / k)
     }
 }
