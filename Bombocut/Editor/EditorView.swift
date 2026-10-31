@@ -581,10 +581,16 @@ struct EditorView: View {
         return nil
     }
 
-    /// A clip is selected: the pinned button on the right deletes it (everything else gets the check).
-    private var clipPinned: Bool {
-        model.pick == nil && model.selectedAudioIndex == nil && model.selectedOverlayIndex == nil
-            && !(model.captionsSelected && model.project.captions != nil) && model.selectedIndex != nil
+    /// Something on the timeline is selected: the pinned button on the right deletes it (a clip, a Stack, a text,
+    /// picture or video, a sound, the captions). Picking and slipping keep the check.
+    private var pinnedDelete: (() -> Void)? {
+        if model.pick != nil || model.slip != nil { return nil }
+        if model.selectedStackIndex != nil { return { model.deleteSelectedStack() } }
+        if model.selectedAudioIndex != nil { return { model.deleteAudio() } }
+        if model.selectedOverlayIndex != nil { return { model.deleteOverlay() } }
+        if model.captionsSelected, model.project.captions != nil { return { confirmRemoveCaptions = true } }
+        if model.selectedIndex != nil { return { model.deleteSelected() } }
+        return nil
     }
 
     private var toolbar: some View {
@@ -592,9 +598,9 @@ struct EditorView: View {
             toolScroller
             if let finish = finishSelection {
                 Group {
-                    if clipPinned {
+                    if let delete = pinnedDelete {
                         DoneCheck(icon: "trash", fill: Color(red: 0.95, green: 0.27, blue: 0.25), ink: .white,
-                                  label: "Delete") { model.deleteSelected() }
+                                  label: "Delete", action: delete)
                     } else {
                         DoneCheck(action: finish)
                     }
@@ -635,7 +641,6 @@ struct EditorView: View {
                 } else if model.selectedAudioIndex != nil {
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
-                    ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteAudio() }
                 } else if let oi = model.selectedOverlayIndex {
                     let o = model.project.overlays[oi]
                     ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
@@ -655,7 +660,6 @@ struct EditorView: View {
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
-                    ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteOverlay() }
                 } else if model.captionsSelected, model.project.captions != nil {
                     ToolButton(icon: "text.cursor", label: "Edit text") {
                         model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
@@ -665,7 +669,6 @@ struct EditorView: View {
                     ToolButton(icon: "arrow.clockwise", label: "Regenerate") {
                         model.pause(); model.captionsGenerator = true; sheet = .captions
                     }
-                    ToolButton(icon: "trash", label: "Remove", tint: .red) { confirmRemoveCaptions = true }
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
@@ -776,7 +779,6 @@ struct EditorView: View {
             ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetStackTransform() }
         }
         ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
-        ToolButton(icon: "trash", label: "Delete", tint: .red) { model.deleteSelectedStack() }
     }
 
     // MARK: Add island
