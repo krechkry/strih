@@ -79,10 +79,6 @@ struct OverlaySheet: View {
                     }
                 }
                 if case .text(let text) = o.kind, shown == .text { textField(text) }
-                // the font tabs and the weights stay put while the fonts scroll
-                if shown == .font, !compact {
-                    FontPickerHeader(style: o.style) { c in model.setOverlay { c.apply(&$0.style) } }
-                }
                 if !compact {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
@@ -165,9 +161,10 @@ struct OverlaySheet: View {
     @ViewBuilder
     private func fontTab(_ o: Overlay) -> some View {
         if case .text(let t) = o.kind {
-            FontPicker(style: o.style, sample: t, header: false) { c in
-                model.setOverlay { c.apply(&$0.style) }
-            }
+            FontMenu(style: o.style, sample: t, pick: { c in model.setOverlay { c.apply(&$0.style) } },
+                     began: { model.liveEditBegan() },
+                     live: { c in model.editOverlay { c.apply(&$0.style) } },
+                     ended: { model.liveEditEnded() })
         }
     }
 

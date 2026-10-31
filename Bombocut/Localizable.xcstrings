@@ -170,12 +170,12 @@
         }
       }
     },
-    "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to delete it.": {
+    "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to update it with the current look or delete it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením svojí ji smažeš."
+            "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením svojí ji aktualizuješ podle současného vzhledu nebo smažeš."
           }
         }
       }
@@ -2634,6 +2634,16 @@
         }
       }
     },
+    "Fonts": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Písma"
+          }
+        }
+      }
+    },
     "Fonts from Google Fonts, free to use in your videos.": {
       "localizations": {
         "cs": {
@@ -3654,16 +3664,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Další"
-          }
-        }
-      }
-    },
-    "More colors": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Další barvy"
           }
         }
       }
@@ -5638,16 +5638,6 @@
         }
       }
     },
-    "Suggestions": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Návrhy"
-          }
-        }
-      }
-    },
     "System": {
       "localizations": {
         "cs": {
@@ -6038,6 +6028,16 @@
         }
       }
     },
+    "Thickness": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tloušťka"
+          }
+        }
+      }
+    },
     "Thin": {
       "localizations": {
         "cs": {
@@ -6364,6 +6364,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nepoužitá videa"
+          }
+        }
+      }
+    },
+    "Update with current look": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualizovat podle současného vzhledu"
           }
         }
       }

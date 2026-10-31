@@ -83,18 +83,117 @@ enum FontPicking {
     }
 }
 
-/// Fonts to pick from, each tile showing your own words in that very font (the one the video draws with).
-/// Tabs on top: Liked, Imported (from Files), then by look. The selected family's weights and its italic sit
-/// under the tabs. Double tap the font you have picked to like it (it shows under Liked).
-struct FontPicker: View {
+/// The Font settings: the font (a big bubble with its name in the font itself; tap it for all the fonts), its
+/// thickness and italic. Changes show in the bubble and on the video right away.
+struct FontMenu: View {
     let style: CaptionStyle
-    /// What the tiles show: the text itself (first line, shortened) or "Aa".
+    /// What the font tiles show: the text itself (first line, shortened) or "Aa".
     let sample: String
-    /// The tabs and the weights on top; off where the panel shows them itself, fixed above its scrolling list
-    /// (`FontPickerHeader`).
-    var header = true
+    /// A font picked (one undo step).
+    let pick: (FontChoice) -> Void
+    /// While the thickness slider moves (one undo step for the whole slide).
+    var began: (() -> Void)? = nil
+    var live: ((FontChoice) -> Void)? = nil
+    var ended: (() -> Void)? = nil
+
+    @ObservedObject private var library = FontLibrary.shared
+    @State private var browsing = false
+
+    var body: some View {
+        let cur = FontCatalog.lookup(style.fontName, weight: style.fontWeight)
+        VStack(alignment: .leading, spacing: 18) {
+            section("Font") {
+                Button { browsing = true } label: { bubble(cur) }
+                    .buttonStyle(.plain)
+            }
+            thickness(cur)
+            if let cur, cur.family.hasItalic {
+                OnOffRow(title: "Italic", isOn: cur.italic) { v in
+                    let r = cur.family.resolve(weight: cur.weight, italic: v)
+                    pick(FontChoice(font: style.font, name: r.face.ps, weight: r.weight))
+                }
+            }
+        }
+        .sheet(isPresented: $browsing) {
+            FontBrowser(style: style, sample: sample, pick: pick)
+                .presentationDetents([.height(620), .large])
+                .presentationBackgroundInteraction(.enabled(upThrough: .height(620)))
+                .presentationBackground(Theme.panel)
+                .presentationCornerRadius(28)
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func section<C: View>(_ title: String, value: String? = nil, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                if let value { Text(value).font(.subheadline.weight(.bold)) }
+            }
+            content()
+        }
+    }
+
+    /// The font's name, written in the font, at its thickness and slant.
+    private func bubble(_ cur: (family: FontFamily, weight: Double, italic: Bool)?) -> some View {
+        let title: String
+        let ui: UIFont
+        if let cur {
+            let r = cur.family.resolve(weight: cur.weight, italic: cur.italic)
+            title = cur.family.title
+            ui = FontCatalog.font(r.face.ps, weight: r.weight, size: 26) ?? .systemFont(ofSize: 26, weight: .bold)
+        } else {
+            title = loc(FontPicking.builtIn.first { $0.font == style.font }?.title ?? "System")
+            ui = CaptionRenderer.uiFont(style.font, size: 26)
+        }
+        return HStack(spacing: 10) {
+            Text(verbatim: title)
+                .font(Font(ui as CTFont))
+                .lineLimit(1).minimumScaleFactor(0.5)
+            Spacer(minLength: 6)
+            Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.muted)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, minHeight: 64)
+        .background(Theme.panel2, in: Capsule())
+    }
+
+    /// Thin to heavy on the app's slider: smooth on a weight axis, in steps when the font has separate weights.
+    @ViewBuilder
+    private func thickness(_ cur: (family: FontFamily, weight: Double, italic: Bool)?) -> some View {
+        let ws = cur?.family.weights(italic: cur?.italic ?? false) ?? []
+        let lo = cur?.family.resolve(weight: 0, italic: cur?.italic ?? false)
+        let range: ClosedRange<Double> = {
+            guard let cur else { return 0...1 }
+            if let r = cur.family.resolve(weight: cur.weight, italic: cur.italic).face.range { return r }
+            return (ws.first ?? 400)...max((ws.last ?? 400), (ws.first ?? 400) + 1)
+        }()
+        let usable = cur != nil && (ws.count > 1 || lo?.face.range != nil)
+        section("Thickness", value: cur.map { loc(FontPicking.weightName(nearestStep($0.weight))) }) {
+            BSlider(value: Binding(get: { cur?.weight ?? 0.5 }, set: { w in
+                guard let cur else { return }
+                let r = cur.family.resolve(weight: w, italic: cur.italic)
+                let choice = FontChoice(font: style.font, name: r.face.ps, weight: r.weight)
+                if let live { live(choice) } else { pick(choice) }
+            }), in: range, onEditingChanged: { e in if e { began?() } else { ended?() } })
+            .disabled(!usable)
+        }
+    }
+
+    /// The named weight closest to a value (Light, Regular, Bold...).
+    private func nearestStep(_ w: Double) -> Double { (w / 100).rounded() * 100 }
+}
+
+/// All the fonts, a layer above the Font settings: tabs (heart Liked, folder Imported, then by look) and tiles
+/// showing your words in each font. Tap to pick, double tap the font you have to like it.
+struct FontBrowser: View {
+    let style: CaptionStyle
+    let sample: String
     let pick: (FontChoice) -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject private var library = FontLibrary.shared
     @AppStorage(FontPicking.likedKey) private var likedRaw = ""
     @AppStorage(FontPicking.tabKey) private var tabRaw = "clean"
@@ -115,14 +214,52 @@ struct FontPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if header { FontPickerHeader(style: style, pick: pick) }
-            content
+            HStack(spacing: 10) {
+                Text("Fonts").font(.title3.weight(.heavy))
+                Spacer()
+                DoneCheck(size: 36) { dismiss() }
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(FontTab.all, id: \.self) { t in tabButton(t, on: tab == t) }
+                }
+            }
+            ScrollView {
+                content.padding(.bottom, 30)
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.font], allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
             let n = library.add(urls)
             importNote = n == 0 ? loc("No new fonts in those files.") : nil
             UINotificationFeedbackGenerator().notificationOccurred(n == 0 ? .warning : .success)
+        }
+    }
+
+    private func tabButton(_ t: FontTab, on: Bool) -> some View {
+        Button { tabRaw = t.key } label: {
+            Group {
+                switch t {
+                case .liked: Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).frame(width: 16)
+                case .imported: Image(systemName: "folder.fill").font(.system(size: 12, weight: .bold)).frame(width: 16)
+                case .look(let l): Text(loc(l.title)).font(.footnote.weight(.bold)).lineLimit(1)
+                }
+            }
+            .foregroundStyle(on ? .black : .white.opacity(0.85))
+            .padding(.horizontal, 11).frame(height: 26)
+            .background(on ? Color.white : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(Self.title(t)))
+    }
+
+    static func title(_ t: FontTab) -> String {
+        switch t {
+        case .liked: return "Liked"
+        case .imported: return "Imported"
+        case .look(let l): return l.title
         }
     }
 
@@ -180,8 +317,6 @@ struct FontPicker: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) { content() }
     }
 
-    // MARK: Weights per tab
-
     /// Light shows each family at its light end, Fat at its heaviest, the others at the weight it starts with.
     private func previewWeight(_ fam: FontFamily, _ look: FontLook) -> Double {
         let ws = fam.weights(italic: false)
@@ -192,8 +327,6 @@ struct FontPicker: View {
         }
     }
 
-    // MARK: Tiles
-
     private var importTile: some View {
         Button { importing = true } label: {
             VStack(spacing: 4) {
@@ -203,15 +336,13 @@ struct FontPicker: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 60)
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         }
         .buttonStyle(.plain)
     }
 
     private func builtInTile(_ f: CaptionFont, _ title: String) -> some View {
-        let key = FontPicking.key(f)
-        return tile(font: CaptionRenderer.uiFont(f, size: 22), title: loc(title), key: key,
-                    on: style.fontName == nil && style.font == f) {
+        tile(font: CaptionRenderer.uiFont(f, size: 22), title: loc(title), key: FontPicking.key(f),
+             on: style.fontName == nil && style.font == f) {
             pick(FontChoice(font: f, name: nil, weight: nil))
         }
     }
@@ -277,109 +408,5 @@ struct FontPicker: View {
         if let i = l.firstIndex(of: key) { l.remove(at: i) } else { l.append(key) }
         likedRaw = l.joined(separator: ",")
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-}
-
-/// The font tabs (heart for Liked, folder for Imported, then the looks) and, under them, the weights and the
-/// italic of the font you have. Kept still above the scrolling fonts in the text panel.
-struct FontPickerHeader: View {
-    let style: CaptionStyle
-    let pick: (FontChoice) -> Void
-    @AppStorage(FontPicking.tabKey) private var tabRaw = "clean"
-    @ObservedObject private var library = FontLibrary.shared
-
-    var body: some View {
-        let tab = FontTab(key: tabRaw)
-        VStack(alignment: .leading, spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(FontTab.all, id: \.self) { t in tabButton(t, on: tab == t) }
-                }
-            }
-            if let cur = FontCatalog.lookup(style.fontName, weight: style.fontWeight) {
-                styleRow(cur.family, weight: cur.weight, italic: cur.italic)
-            }
-        }
-    }
-
-    static func title(_ t: FontTab) -> String {
-        switch t {
-        case .liked: return "Liked"
-        case .imported: return "Imported"
-        case .look(let l): return l.title
-        }
-    }
-
-    private func tabButton(_ t: FontTab, on: Bool) -> some View {
-        Button { tabRaw = t.key } label: {
-            Group {
-                switch t {
-                case .liked: Image(systemName: "heart.fill").font(.system(size: 13, weight: .bold)).frame(width: 18)
-                case .imported: Image(systemName: "folder.fill").font(.system(size: 13, weight: .bold)).frame(width: 18)
-                case .look(let l): Text(loc(l.title)).font(.footnote.weight(.bold)).lineLimit(1)
-                }
-            }
-            .foregroundStyle(on ? .black : .white.opacity(0.85))
-            .padding(.horizontal, 12).frame(height: 30)
-            .background(on ? Theme.accent : Theme.panel2, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(loc(Self.title(t)))
-    }
-
-    /// The weights the font has and its italic (when it has one).
-    @ViewBuilder
-    private func styleRow(_ fam: FontFamily, weight: Double, italic: Bool) -> some View {
-        let weights = fam.weights(italic: italic)
-        if weights.count > 1 || fam.hasItalic {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    if fam.hasItalic {
-                        chip(loc("Italic"), on: italic, italicLabel: true) {
-                            let p = fam.resolve(weight: weight, italic: !italic)
-                            pick(FontChoice(font: style.font, name: p.face.ps, weight: p.weight))
-                        }
-                            .padding(.trailing, 6)
-                    }
-                    ForEach(weights, id: \.self) { w in
-                        chip(loc(FontPicking.weightName(w)), on: abs(w - weight) < 1, weight: w) {
-                            let p = fam.resolve(weight: w, italic: italic)
-                            pick(FontChoice(font: style.font, name: p.face.ps, weight: p.weight))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func chip(_ title: String, on: Bool, weight: Double = 600, italicLabel: Bool = false,
-                      _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(verbatim: title)
-                .font(.system(size: 13, weight: Font.Weight.from(weight)))
-                .italic(italicLabel)
-                .lineLimit(1)
-                .foregroundStyle(on ? .black : .white.opacity(0.85))
-                .padding(.horizontal, 11).frame(height: 28)
-                .background(on ? Color.white : Theme.panel2, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private extension Font.Weight {
-    /// 100 ... 900 to the system's weights (the chips show each weight in its own thickness).
-    static func from(_ w: Double) -> Font.Weight {
-        switch Int(w.rounded()) {
-        case ..<150: return .thin
-        case ..<250: return .ultraLight
-        case ..<350: return .light
-        case ..<450: return .regular
-        case ..<550: return .medium
-        case ..<650: return .semibold
-        case ..<750: return .bold
-        case ..<850: return .heavy
-        default: return .black
-        }
     }
 }

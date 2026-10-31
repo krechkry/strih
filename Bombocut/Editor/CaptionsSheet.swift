@@ -423,7 +423,7 @@ struct CaptionsSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Text("A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to delete it.")
+                Text("A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to update it with the current look or delete it.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -458,7 +458,10 @@ struct CaptionsSheet: View {
     /// The font, nothing else.
     @ViewBuilder
     private func fontSection(_ s: CaptionStyle) -> some View {
-        FontPicker(style: s, sample: "Aa") { c in setStyle { c.apply(&$0) } }
+        FontMenu(style: s, sample: "Aa", pick: { c in setStyle { c.apply(&$0) } },
+                 began: { model.liveEditBegan() },
+                 live: { c in model.editCaptions { cap in c.apply(&cap.style); cap.templateID = nil } },
+                 ended: { model.liveEditEnded() })
     }
 
     @ViewBuilder
@@ -548,12 +551,25 @@ struct CaptionsSheet: View {
         .buttonStyle(.plain)
         .contextMenu {
             if !t.builtIn {
+                // the preset takes over the look the captions have now (everything in Style)
+                Button {
+                    updateTemplate(t)
+                } label: { Label("Update with current look", systemImage: "arrow.triangle.2.circlepath") }
                 Button(role: .destructive) {
                     templates.removeAll { $0.id == t.id }
                     TemplateStore.save(templates)
                 } label: { Label("Delete template", systemImage: "trash") }
             }
         }
+    }
+
+    /// Your own preset overwritten with how the captions look now; it stays picked.
+    private func updateTemplate(_ t: CaptionTemplate) {
+        guard let caps = model.project.captions, let i = templates.firstIndex(where: { $0.id == t.id }) else { return }
+        templates[i].style = caps.style
+        TemplateStore.save(templates)
+        model.setCaptions({ var c = caps; c.templateID = t.id; return c }())
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private func saveTemplate() {
