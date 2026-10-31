@@ -1303,23 +1303,23 @@ final class EditorModel: ObservableObject {
     @Published private(set) var translateJob: TranslateJob?
     private var translateTask: Task<Void, Never>?
 
-    /// Translates the captions line by line and replaces them (one undo step; your edits go with it).
-    /// `engine` turns the lines into translated lines, reporting progress.
+    /// Translates the captions a sentence at a time and lays the translation over the same lines and times
+    /// (one undo step; your edits go with it). `engine` turns texts into translated texts, reporting progress.
     func translateCaptions(to target: String, asNewTrack: Bool = false,
                            engine: @escaping ([String], @escaping @MainActor (Double) -> Void) async throws -> [String]) async {
         guard var caps = project.captions, !caps.cues.isEmpty, caps.language != target else { return }
-        // the lines as you see them, your edits included, each translated on its own: the translation keeps the
-        // original's lines and timing exactly
+        // the lines as you see them (your edits included), translated a sentence at a time for a natural
+        // translation, then shared back out over the same lines: both languages come and go together
         caps.absorbEdits()
         let snapshot = project
-        let lines = CaptionTranslate.lineTexts(caps)
+        let groups = CaptionTranslate.lineGroups(caps)
         translateJob = TranslateJob(progress: 0)
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = false }
         do {
-            let out = try await engine(lines) { [weak self] p in self?.translateJob?.progress = p }
-            guard out.count == lines.count else { throw CancellationError() }
-            var c = CaptionTranslate.captions(caps, lines: out, language: target)
+            let out = try await engine(groups.map(\.text)) { [weak self] p in self?.translateJob?.progress = p }
+            guard out.count == groups.count else { throw CancellationError() }
+            var c = CaptionTranslate.captions(caps, groups: groups, translated: out, language: target)
             // you kept editing meanwhile: move the captions onto the timeline as it is now
             if snapshot.timingKey != project.timingKey { c = c.remapped(from: snapshot, to: project) }
             if asNewTrack {
