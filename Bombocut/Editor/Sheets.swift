@@ -476,11 +476,18 @@ struct ExportSheet: View {
         }
     }
 
+    /// Export progress to how much the Deadpan smiles: flat until 30 %, then an ease-in curve, so by 70 % it is
+    /// only about a quarter of the way there and the rest arrives near the end.
+    static func smile(_ p: Double) -> Double {
+        let u = min(max((p - 0.3) / 0.7, 0), 1)
+        return pow(u, 2.5)
+    }
+
     private func progressView(_ p: Double) -> some View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
-            // Starts deadpan and cheers up into a smile as the export gets closer to done
-            MemeView(meme: .deadpan, mood: min(max(p, 0), 1))
+            // Stays deadpan until 30 %, then cheers up slowly, most of the smile coming in the last 30 %
+            MemeView(meme: .deadpan, mood: Self.smile(p))
                 .frame(width: 230, height: 230)
                 .animation(.easeOut(duration: 0.6), value: p)
             Text(verbatim: "\(Int(p * 100)) %")
