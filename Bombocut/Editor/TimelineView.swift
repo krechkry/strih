@@ -89,6 +89,29 @@ struct TimelineView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: LaneLayout.gap) {
+                    let lanes = LaneLayout(model.project, pro: UIMode.isPro)
+                    // desktop order, top to bottom: captions, layers (texts, pictures, videos), clips, sound.
+                    // While clips are reordered the other lanes only fade, so the strip stays where it is.
+                    if !model.project.captionTracks.isEmpty {
+                        // one lane per caption track (a second language, a second style…)
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(Array(model.project.captionTracks.indices), id: \.self) { k in
+                                CaptionLane(model: model, track: k, layersHeight: lanes.captionToLayers(k))
+                                    .frame(height: CaptionLane.height, alignment: .top)
+                                    .zIndex(model.captionsSelected && model.project.activeCaption == k ? 1 : 0)
+                            }
+                        }
+                        .frame(height: lanes.captions, alignment: .top)
+                        .opacity(reorder == nil ? 1 : 0)
+                        .allowsHitTesting(reorder == nil)
+                    }
+                    // texts, pictures and videos share one stack of rows: the higher row is drawn on top,
+                    // the lowest sits right above the clips
+                    lane(lanes.layers, empty: model.project.overlays.isEmpty, alignment: .bottom) {
+                        OverlayLane(model: model)
+                    }
+                    .opacity(reorder == nil ? 1 : 0)
+                    .allowsHitTesting(reorder == nil)
                     let overlaps = overlapsPx(shown)
                     HStack(spacing: gap) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
@@ -179,27 +202,11 @@ struct TimelineView: View {
                         }
                         return shown.isEmpty ? nil : shown.count - 1
                     }
-                    if reorder == nil {
-                        let lanes = LaneLayout(model.project, pro: UIMode.isPro)
-                        // texts, pictures and videos share one stack of rows: the higher row is drawn on top
-                        lane(lanes.layers, empty: model.project.overlays.isEmpty) {
-                            OverlayLane(model: model)
-                        }
-                        lane(lanes.music, empty: model.project.audio.isEmpty) {
-                            AudioLane(model: model)
-                        }
-                        if !model.project.captionTracks.isEmpty {
-                            // one lane per caption track (a second language, a second style…)
-                            VStack(alignment: .leading, spacing: 3) {
-                                ForEach(Array(model.project.captionTracks.indices), id: \.self) { k in
-                                    CaptionLane(model: model, track: k, layersHeight: lanes.layers + lanes.music + 2 * LaneLayout.gap)
-                                        .frame(height: CaptionLane.height, alignment: .top)
-                                        .zIndex(model.captionsSelected && model.project.activeCaption == k ? 1 : 0)
-                                }
-                            }
-                            .frame(height: lanes.captions, alignment: .top)
-                        }
+                    lane(lanes.music, empty: model.project.audio.isEmpty) {
+                        AudioLane(model: model)
                     }
+                    .opacity(reorder == nil ? 1 : 0)
+                    .allowsHitTesting(reorder == nil)
                     }
                     .overlay(alignment: .topLeading) {
                         // the edge a dragged block snapped to
@@ -250,7 +257,7 @@ struct TimelineView: View {
                     QuickMenu(pointer: mid - cx, actions: actions,
                               unstack: stacked ? { model.quickMenuClipID = nil; model.unstackSelected() } : nil,
                               perform: { model.performQuick($0) })
-                        .position(x: cx, y: LaneLayout.top - 8 - QuickMenu.height / 2)
+                        .position(x: cx, y: LaneLayout.top + LaneLayout(model.project, pro: UIMode.isPro).aboveStrip - 8 - QuickMenu.height / 2)
                         .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
                         .zIndex(5)
                 }
@@ -367,7 +374,8 @@ struct TimelineView: View {
 
     /// One lane at its fixed height; an empty lane is a faint strip as long as the video.
     @ViewBuilder
-    private func lane<V: View>(_ height: CGFloat, empty: Bool, @ViewBuilder _ content: () -> V) -> some View {
+    private func lane<V: View>(_ height: CGFloat, empty: Bool, alignment: Alignment = .top,
+                               @ViewBuilder _ content: () -> V) -> some View {
         Group {
             if empty {
                 RoundedRectangle(cornerRadius: 5)
@@ -378,7 +386,7 @@ struct TimelineView: View {
                 content()
             }
         }
-        .frame(height: height, alignment: .top)
+        .frame(height: height, alignment: alignment)
     }
 
     /// Slip: dragging the clip slides its footage through it (the clip stays where it is).
@@ -997,12 +1005,12 @@ struct ClipTile: View {
 }
 
 /// One caption track under the clips. Once it is selected (tap a line), its lines can be held and moved, the
-/// tapped line's ends dragged, and a line held and pulled up into the layers becomes a text with the captions' look.
+/// tapped line's ends dragged, and a line held and pulled down into the layers becomes a text with the captions' look.
 struct CaptionLane: View {
     @ObservedObject var model: EditorModel
     let track: Int
-    /// How far up the layer rows are (a line pulled up past this becomes a text).
-    var layersHeight: CGFloat = 60
+    /// How far down the layer rows are (a line pulled down past this becomes a text).
+    var layersHeight: CGFloat = 30
     @State private var dragStart: (id: UUID, start: Double, end: Double)?
     @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
     @State private var lift: CGFloat = 0
@@ -1011,8 +1019,8 @@ struct CaptionLane: View {
 
     private var captions: Captions? { model.project.captionTracks.indices.contains(track) ? model.project.captionTracks[track] : nil }
     private var selected: Bool { model.captionsSelected && model.project.activeCaption == track }
-    /// Pulled up far enough to turn into a text.
-    private var lifted: Bool { lift < -max(28, layersHeight * 0.5) }
+    /// Pulled down into the layers far enough to turn into a text.
+    private var lifted: Bool { lift > max(20, layersHeight) }
 
     var body: some View {
         let px = model.pxPerSec
@@ -1055,7 +1063,7 @@ struct CaptionLane: View {
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(.white, in: Capsule())
                         .fixedSize()
-                        .offset(y: -20)
+                        .offset(y: 20)
                 }
             }
             .contentShape(OutsetX(dx: tapped ? LaneEdge.width + 8 : 0))
@@ -1080,7 +1088,7 @@ struct CaptionLane: View {
                 onVertical: { dy in
                     guard active?.id == cue.id else { return }
                     let was = lifted
-                    lift = min(0, dy)
+                    lift = max(0, dy)
                     if was != lifted { UISelectionFeedbackGenerator().selectionChanged() }
                 }))
             .offset(x: CGFloat(cue.start) * px, y: moving ? lift : 0)
@@ -1216,7 +1224,7 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     }
 }
 
-/// Texts, pictures and videos under the clips, in rows (the higher row is drawn on top): tap to select (again to
+/// Texts, pictures and videos above the clips, in rows (the higher row is drawn on top): tap to select (again to
 /// deselect), hold and slide to move (up / down to another row), drag the ends to trim. Edges snap, and at the
 /// screen edge the strip keeps scrolling.
 struct OverlayLane: View {
@@ -1300,6 +1308,7 @@ struct OverlayLane: View {
             }
             .allowsHitTesting(false)
         }
+        .overlay(alignment: .leading) { trimGhost(o, px: px) }
         .overlay(alignment: .leading) {
             if selected {
                 HStack(spacing: 0) {
@@ -1348,6 +1357,43 @@ struct OverlayLane: View {
         .offset(x: CGFloat(o.start) * px, y: lift?.id == o.id ? lift!.dy : 0)
         .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
         .zIndex(selected ? 1 : 0)
+    }
+
+    /// Trimming: the part being cut away (red, like the clips), and for a video how far its footage reaches.
+    @ViewBuilder
+    private func trimGhost(_ o: Overlay, px: CGFloat) -> some View {
+        if let a = active, a.id == o.id, a.mode != .move, let d = dragStart {
+            let s0 = d.start, e0 = d.start + d.duration
+            ZStack(alignment: .leading) {
+                if let reach = footage(o) {
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Self.mediaTint.opacity(0.12))
+                        .overlay(RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(.white.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                        .frame(width: max(0, CGFloat(reach.end - reach.start) * px), height: Self.rowHeight)
+                        .offset(x: CGFloat(reach.start - o.start) * px)
+                }
+                if o.start > s0 + 0.001 { cutBand(from: s0, to: o.start, o, px: px) }
+                if o.end < e0 - 0.001 { cutBand(from: o.end, to: e0, o, px: px) }
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// A video overlay's whole footage on the timeline (where trimming its edges can reach).
+    private func footage(_ o: Overlay) -> (start: Double, end: Double)? {
+        guard case .video(_, _, let inPoint) = o.kind, let maxD = o.maxDuration else { return nil }
+        let speed = max(o.speed, 0.05)
+        let start = o.curveRetime.map { o.start - $0.local(atSource: inPoint) } ?? (o.start - inPoint / speed)
+        return (start, o.start + maxD)
+    }
+
+    private func cutBand(from a: Double, to b: Double, _ o: Overlay, px: CGFloat) -> some View {
+        Rectangle()
+            .fill(Color.red.opacity(0.3))
+            .overlay(Rectangle().strokeBorder(Color.red, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .frame(width: max(1, CGFloat(b - a) * px), height: Self.rowHeight)
+            .offset(x: CGFloat(a - o.start) * px)
     }
 
     private func edge(_ o: Overlay, leading: Bool) -> some View {
@@ -1400,7 +1446,7 @@ struct OverlayLane: View {
     }
 }
 
-/// Sound under the clips: tap to select, hold and slide to move, drag the edges to trim. Edges snap to the
+/// Sound below the clips: tap to select, hold and slide to move, drag the edges to trim. Edges snap to the
 /// playhead, the clips and the other sounds; at the screen edge the strip keeps scrolling.
 struct AudioLane: View {
     @ObservedObject var model: EditorModel
@@ -1614,6 +1660,15 @@ struct LaneLayout {
 
     var total: CGFloat {
         Self.top + Self.strip + Self.gap + layers + Self.gap + music + (captions > 0 ? Self.gap + captions : 0) + Self.bottom
+    }
+
+    /// Captions and layers sit above the clip strip: how far down (below the ruler) the strip starts.
+    var aboveStrip: CGFloat { (captions > 0 ? captions + Self.gap : 0) + layers + Self.gap }
+
+    /// From the top of caption track k down to the layers lane (a line pulled down past this becomes a text).
+    func captionToLayers(_ k: Int) -> CGFloat {
+        let n = captions > 0 ? Int(((captions + 3) / (CaptionLane.height + 3)).rounded()) : 0
+        return CGFloat(max(0, n - k)) * (CaptionLane.height + 3) + Self.gap
     }
 }
 

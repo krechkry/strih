@@ -74,7 +74,9 @@ struct EditorView: View {
         case .autoZoom: return 470
         case .crop: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
-        case .trackPick: return max(140, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
+        case .trackPick:
+            let above = LaneLayout(model.project, pro: pro).aboveStrip
+            return max(140, 34 + bottomHeight - 44 - LaneLayout.top - above - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
         }
     }
 
@@ -781,7 +783,8 @@ struct EditorView: View {
     /// Fixed column left of the timeline: one + per lane, each on the lane it adds to.
     private func addIsland(_ lanes: LaneLayout) -> some View {
         VStack(spacing: LaneLayout.gap) {
-            islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
+            // captions sit at the top (no + of their own: they come from the Captions tool)
+            if lanes.captions > 0 { Color.clear.frame(height: lanes.captions).allowsHitTesting(false) }
             // the layers lane: a text, and (Pro) a picture or video, both land in the same stack of rows
             VStack(spacing: LaneLayout.gap) {
                 let half = lanes.showOverlay ? (lanes.layers - LaneLayout.gap) / 2 : lanes.layers
@@ -794,7 +797,8 @@ struct EditorView: View {
                     .accessibilityLabel(loc("Overlay"))
                 }
             }
-            .frame(height: lanes.layers, alignment: .top)
+            .frame(height: lanes.layers, alignment: .bottom)
+            islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
             Menu {
                 Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
                 Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }

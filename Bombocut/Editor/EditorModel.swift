@@ -1938,10 +1938,11 @@ final class EditorModel: ObservableObject {
         // the dragged edge snaps to the playhead
         var delta = rawDelta
         let edge0 = project.clipStarts[i] + (leading ? 0 : o.duration)
-        let snap = abs(edge0 + rawDelta - currentTime) < Double(10 / max(pxPerSec, 1))
-        if snap { delta = currentTime - edge0 }
-        if snap && trim?.snapped == false { UISelectionFeedbackGenerator().selectionChanged() }
-        trim?.snapped = snap
+        // the dragged edge snaps to the playhead and to the edges of texts, pictures, videos, sounds and captions
+        let hit = clipEdgeSnap(edge0 + rawDelta)
+        if let e = hit { delta = e - edge0 }
+        setSnap(hit)
+        trim?.snapped = hit != nil
         let rt = o.retime
         var hitLimit = false
         if leading {
@@ -1985,6 +1986,7 @@ final class EditorModel: ObservableObject {
         trim = nil
         trimView = nil
         edgeGrabber.reset()
+        setSnap(nil)
         if let i = project.clips.firstIndex(where: { $0.id == id }) {
             let start = project.clipStarts[i]
             currentTime = leading ? start : start + project.clips[i].duration - 0.001
@@ -2000,6 +2002,7 @@ final class EditorModel: ObservableObject {
         trim = nil
         trimView = nil
         edgeGrabber.reset()
+        setSnap(nil)
     }
 
     // MARK: Roll edit
@@ -2040,11 +2043,12 @@ final class EditorModel: ObservableObject {
         let lo = max(-(o.left.outPoint - o.left.inPoint - 0.1) / sa, -o.right.inPoint / sb)
         let hi = min((o.left.sourceDuration - o.left.outPoint) / sa, (o.right.outPoint - o.right.inPoint - 0.1) / sb)
         var delta = raw
-        // the cut snaps to the playhead (not when the playhead sits where the cut started)
-        let reach = Double(10 / max(pxPerSec, 1))
-        let snap = abs(st.startCut - currentTime) > reach && abs(st.startCut + raw - currentTime) < reach
-        if snap { delta = currentTime - st.startCut }
-        if snap && !st.snapped { UISelectionFeedbackGenerator().selectionChanged() }
+        // the cut snaps to the playhead (not when the playhead sits where the cut started) and to the edges of
+        // the blocks in the other lanes
+        let hit = clipEdgeSnap(st.startCut + raw, skipPlayhead: abs(st.startCut - currentTime) < snapReach)
+        if let e = hit { delta = e - st.startCut }
+        setSnap(hit)
+        let snap = hit != nil
         let clamped = lo <= hi ? min(max(delta, lo), hi) : 0
         let hitLimit = abs(clamped - delta) > 1e-6
         if hitLimit && !st.atLimit { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
@@ -2072,6 +2076,7 @@ final class EditorModel: ObservableObject {
         trimView = nil
         edgeGrabber.reset()
         rollGrabber.reset()
+        setSnap(nil)
         if let id = rightID, let r = project.clips.firstIndex(where: { $0.id == id }) {
             currentTime = project.clipStarts[r]
         }
@@ -2623,8 +2628,7 @@ final class EditorModel: ObservableObject {
         guard let i = selectedOverlayIndex else { return }
         var o = project.overlays[i]
         o.id = UUID()
-        o.transform.x += 0.04
-        o.transform.y += 0.04
+        // exactly where the original is (same place, same time); it lands in its own row
         let video = o.kind.isVideo
         if video { mutate { $0.overlays.insert(o, at: i + 1) } } else { mutateLook { $0.overlays.insert(o, at: i + 1) } }
         selectedOverlayID = o.id
@@ -3282,6 +3286,16 @@ extension EditorModel {
     }
 
     private var snapReach: Double { 10 / Double(max(pxPerSec, 1)) }
+
+    /// A clip edge (trim) or a cut (roll) at `t`: the nearest playhead / block edge within reach, if any.
+    func clipEdgeSnap(_ t: Double, skipPlayhead: Bool = false) -> Double? {
+        var edges: [Double] = skipPlayhead ? [] : [currentTime]
+        for o in project.overlays { edges.append(o.start); edges.append(o.end) }
+        for a in project.audio { edges.append(a.start); edges.append(a.end) }
+        for caps in project.captionTracks { for c in caps.cues { edges.append(c.start); edges.append(c.end) } }
+        guard let e = edges.min(by: { abs($0 - t) < abs($1 - t) }), abs(e - t) < snapReach else { return nil }
+        return e
+    }
 
     private func setSnap(_ t: Double?) {
         if let t, snapTime.map({ abs($0 - t) > 1e-6 }) ?? true { UISelectionFeedbackGenerator().selectionChanged() }
