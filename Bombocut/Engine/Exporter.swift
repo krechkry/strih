@@ -11,6 +11,9 @@ final class Exporter: @unchecked Sendable {
     private var writer: AVAssetWriter?
 
     private var _lowMemory = false
+    /// Ends the wait for the frame pumps; cancel calls it too, because a cancelled writer stops asking for
+    /// frames and the pumps would never report back (the export screen stayed stuck after Cancel).
+    private var finishWait: (() -> Void)?
 
     var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return _cancelled }
 
@@ -32,9 +35,32 @@ final class Exporter: @unchecked Sendable {
     }
 
     func cancel() {
-        lock.lock(); _cancelled = true; lock.unlock()
+        lock.lock()
+        _cancelled = true
+        let finish = finishWait
+        lock.unlock()
         reader?.cancelReading()
         writer?.cancelWriting()
+        finish?()
+    }
+
+    private func setFinishWait(_ f: (() -> Void)?) {
+        lock.lock(); finishWait = f; lock.unlock()
+    }
+
+    /// Runs its action once, whoever calls first.
+    private final class Once: @unchecked Sendable {
+        private let lock = NSLock()
+        private var fired = false
+        private let action: () -> Void
+        init(_ action: @escaping () -> Void) { self.action = action }
+        func fire() {
+            lock.lock()
+            let go = !fired
+            fired = true
+            lock.unlock()
+            if go { action() }
+        }
     }
 
     /// Suggested bitrate for a given size and frame rate, in Mbps.
@@ -130,6 +156,8 @@ final class Exporter: @unchecked Sendable {
             aIn = i
         }
 
+        // cancelled while the composition was being built
+        if cancelled { throw stoppedForMemory ? LowMemory() as Error : CancellationError() }
         self.reader = reader
         self.writer = writer
         guard reader.startReading() else { throw reader.error ?? CompositionBuilder.err("Could not read.") }
@@ -150,6 +178,9 @@ final class Exporter: @unchecked Sendable {
         defer { watchdog.cancel() }
 
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let once = Once { cont.resume() }
+            setFinishWait { once.fire() }
+            if cancelled { once.fire() }
             let group = DispatchGroup()
             pump(input: vIn, output: vOut, reader: reader, group: group,
                  queue: DispatchQueue(label: "bombocut.export.video")) { t in progress(min(1, t / duration)) }
@@ -157,8 +188,9 @@ final class Exporter: @unchecked Sendable {
                 pump(input: aIn, output: aOut, reader: reader, group: group,
                      queue: DispatchQueue(label: "bombocut.export.audio"), onTime: nil)
             }
-            group.notify(queue: .global()) { cont.resume() }
+            group.notify(queue: .global()) { once.fire() }
         }
+        setFinishWait(nil)
 
         if cancelled {
             writer.cancelWriting()

@@ -436,6 +436,8 @@ struct ExportSheet: View {
                         if case .exporting = phase { phase = .exporting(p) }
                     }
                 }
+                // cancelled: the screen already went back to the settings
+                if Task.isCancelled || exp.cancelled { return }
                 doneMeme = EditEffort.doneMeme(for: project)
                 do {
                     try await Exporter.saveToPhotos(url)
@@ -445,14 +447,26 @@ struct ExportSheet: View {
                 }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch is CancellationError {
-                phase = .setup
+                if !Task.isCancelled { phase = .setup }
             } catch is Exporter.LowMemory {
                 UINotificationFeedbackGenerator().notificationOccurred(.warning)
                 phase = .tooHeavy
             } catch {
+                // a cancel can surface as a writer / reader error: the screen already went back
+                if Task.isCancelled || exp.cancelled { return }
                 phase = .failed(error.localizedDescription)
             }
         }
+    }
+
+    /// Cancel: the export stops and the screen goes straight back to the settings (it never waits for the
+    /// renderer to wind down).
+    private func cancelExport() {
+        exporter.cancel()
+        task?.cancel()
+        task = nil
+        UIApplication.shared.isIdleTimerDisabled = false
+        phase = .setup
     }
 
     /// Export progress to how much the Deadpan smiles: flat until 30 %, then an ease-in curve, so by 70 % it is
@@ -487,7 +501,7 @@ struct ExportSheet: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 0)
-            Button { exporter.cancel(); task?.cancel() } label: {
+            Button { cancelExport() } label: {
                 Text("Cancel")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white.opacity(0.85))
