@@ -98,6 +98,7 @@ struct FontMenu: View {
 
     @ObservedObject private var library = FontLibrary.shared
     @State private var browsing = false
+    @Environment(\.panelHeight) private var panelHeight
 
     var body: some View {
         let cur = FontCatalog.lookup(style.fontName, weight: style.fontWeight)
@@ -116,10 +117,10 @@ struct FontMenu: View {
         }
         .sheet(isPresented: $browsing) {
             FontBrowser(style: style, sample: sample, pick: pick)
-                .presentationDetents([.height(620), .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(620)))
+                .presentationDetents([.height(panelHeight)])
+                .presentationBackgroundInteraction(.enabled(upThrough: .height(panelHeight)))
                 .presentationBackground(Theme.panel)
-                .presentationCornerRadius(28)
+                .presentationCornerRadius(24)
                 .presentationDragIndicator(.visible)
         }
     }
@@ -163,23 +164,26 @@ struct FontMenu: View {
     /// Thin to heavy on the app's slider: smooth on a weight axis, in steps when the font has separate weights.
     @ViewBuilder
     private func thickness(_ cur: (family: FontFamily, weight: Double, italic: Bool)?) -> some View {
+        // the slider snaps to the weights the font really has (named steps on a weight axis), lightest to heaviest
         let ws = cur?.family.weights(italic: cur?.italic ?? false) ?? []
-        let lo = cur?.family.resolve(weight: 0, italic: cur?.italic ?? false)
-        let range: ClosedRange<Double> = {
-            guard let cur else { return 0...1 }
-            if let r = cur.family.resolve(weight: cur.weight, italic: cur.italic).face.range { return r }
-            return (ws.first ?? 400)...max((ws.last ?? 400), (ws.first ?? 400) + 1)
-        }()
-        let usable = cur != nil && (ws.count > 1 || lo?.face.range != nil)
+        let range: ClosedRange<Double> = (ws.first ?? 0)...max(ws.last ?? 1, (ws.first ?? 0) + 1)
+        let usable = cur != nil && ws.count > 1
         section("Thickness", value: cur.map { loc(FontPicking.weightName(nearestStep($0.weight))) }) {
-            BSlider(value: Binding(get: { cur?.weight ?? 0.5 }, set: { w in
+            BSlider(value: Binding(get: { cur.map { nearest($0.weight, in: ws) } ?? 0.5 }, set: { w in
                 guard let cur else { return }
-                let r = cur.family.resolve(weight: w, italic: cur.italic)
+                let snapped = nearest(w, in: ws)
+                guard abs(snapped - nearest(cur.weight, in: ws)) > 0.5 else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                let r = cur.family.resolve(weight: snapped, italic: cur.italic)
                 let choice = FontChoice(font: style.font, name: r.face.ps, weight: r.weight)
                 if let live { live(choice) } else { pick(choice) }
             }), in: range, onEditingChanged: { e in if e { began?() } else { ended?() } })
             .disabled(!usable)
         }
+    }
+
+    private func nearest(_ w: Double, in ws: [Double]) -> Double {
+        ws.min { abs($0 - w) < abs($1 - w) } ?? w
     }
 
     /// The named weight closest to a value (Light, Regular, Bold...).

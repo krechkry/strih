@@ -356,9 +356,22 @@ enum CaptionCutter {
 enum TemplateStore {
     private static var url: URL { Paths.docs.appendingPathComponent("caption-templates.json") }
 
+    private static let seededKey = "presetsSeeded"
+
+    /// Your presets, the starting ones (Clean, Punch, Box) included: they are copied in once, so they can be
+    /// updated and deleted like your own (same ids, so captions that use them stay linked).
     static func load() -> [CaptionTemplate] {
-        guard let data = try? Data(contentsOf: url) else { return [] }
-        return (try? JSONDecoder().decode([CaptionTemplate].self, from: data)) ?? []
+        var list: [CaptionTemplate] = []
+        if let data = try? Data(contentsOf: url) {
+            list = (try? JSONDecoder().decode([CaptionTemplate].self, from: data)) ?? []
+        }
+        if !UserDefaults.standard.bool(forKey: seededKey) {
+            let starters = CaptionTemplate.builtIns.map { t -> CaptionTemplate in var c = t; c.builtIn = false; return c }
+            list = starters.filter { s in !list.contains { $0.id == s.id } } + list
+            save(list)
+            UserDefaults.standard.set(true, forKey: seededKey)
+        }
+        return list
     }
 
     static func save(_ t: [CaptionTemplate]) {

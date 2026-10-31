@@ -129,6 +129,8 @@ struct EditorView: View {
             .id(s)
             // any color control in a panel can pick a color off the video
             .environment(\.startEyedropper, startEyedropper)
+            // menus that open from a panel (color, fonts) stay within its height, so the video stays in view
+            .environment(\.panelHeight, typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra)
             // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
             .transition(.move(edge: .bottom))
         }

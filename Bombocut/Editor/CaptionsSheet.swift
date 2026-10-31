@@ -411,7 +411,7 @@ struct CaptionsSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                    ForEach(CaptionTemplate.builtIns + templates) { t in templateCard(t, selected: caps.templateID == t.id) }
+                    ForEach(templates) { t in templateCard(t, selected: caps.templateID == t.id) }
                     Button { templateName = ""; savingTemplate = true } label: {
                         VStack(spacing: 6) {
                             Image(systemName: "plus").font(.system(size: 22, weight: .bold))
@@ -423,7 +423,7 @@ struct CaptionsSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Text("A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to update it with the current look or delete it.")
+                Text("A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold a preset to update it with the current look or delete it.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }

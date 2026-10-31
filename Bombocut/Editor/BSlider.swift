@@ -9,6 +9,8 @@ struct BSlider: View {
     let range: ClosedRange<Double>
     var onEditingChanged: (Bool) -> Void = { _ in }
     var color: Color = Theme.accent
+    /// A track that shows what each position gives (a color slider's hues, say) instead of the usual fill.
+    var trackColors: [Color]? = nil
 
     @Environment(\.sliderReset) private var reset
     @Environment(\.isEnabled) private var enabled
@@ -19,6 +21,13 @@ struct BSlider: View {
         _value = value
         self.range = range
         self.onEditingChanged = onEditingChanged
+    }
+
+    /// The track drawn with the values along it (left to right).
+    func track(_ colors: [Color]) -> BSlider {
+        var s = self
+        s.trackColors = colors
+        return s
     }
 
     /// Same call as `Slider.tint`, so existing chains keep reading the same.
@@ -37,10 +46,16 @@ struct BSlider: View {
             let f = CGFloat((min(max(value, range.lowerBound), range.upperBound) - range.lowerBound) / span)
             let x = Self.thumb / 2 + f * w
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.16)).frame(height: 4)
-                    .padding(.horizontal, Self.thumb / 2)
-                Capsule().fill(color).frame(width: max(0, x - Self.thumb / 2), height: 4)
-                    .offset(x: Self.thumb / 2)
+                if let trackColors {
+                    Capsule().fill(LinearGradient(colors: trackColors, startPoint: .leading, endPoint: .trailing))
+                        .frame(height: 8)
+                        .padding(.horizontal, Self.thumb / 2)
+                } else {
+                    Capsule().fill(Color.white.opacity(0.16)).frame(height: 4)
+                        .padding(.horizontal, Self.thumb / 2)
+                    Capsule().fill(color).frame(width: max(0, x - Self.thumb / 2), height: 4)
+                        .offset(x: Self.thumb / 2)
+                }
                 Circle().fill(.white)
                     .frame(width: Self.thumb, height: Self.thumb)
                     .shadow(color: .black.opacity(0.25), radius: 3, y: 1)

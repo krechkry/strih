@@ -45,10 +45,23 @@ extension EnvironmentValues {
     }
 }
 
-/// Your saved colors, shared by every color control (newest first).
+/// How tall the panel a menu opens from is (color and font menus never reach higher, so the video stays in view).
+struct PanelHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 470
+}
+
+extension EnvironmentValues {
+    var panelHeight: CGFloat {
+        get { self[PanelHeightKey.self] }
+        set { self[PanelHeightKey.self] = newValue }
+    }
+}
+
+/// Your colors, shared by every color control (newest first). They start as the quick colors.
 enum FavoriteColors {
     static let key = "favoriteColors"
     static let most = 18
+    static var startRaw: String { encode(RGBA.palette) }
 
     static func decode(_ raw: String) -> [RGBA] {
         raw.split(separator: ";").compactMap { RGBA(hex: String($0)) }
@@ -57,8 +70,8 @@ enum FavoriteColors {
     static func encode(_ colors: [RGBA]) -> String { colors.prefix(most).map(\.hex).joined(separator: ";") }
 }
 
-/// Every color control in the app: the color you have as one bubble, and the eyedropper next to it. Tap the
-/// bubble for the color menu.
+/// Every color control in the app: the color you have as a bubble (tap it for the color menu), the eyedropper,
+/// and your colors to pick with one tap.
 struct ColorControl: View {
     let current: RGBA
     /// A color picked (one undo step).
@@ -69,6 +82,8 @@ struct ColorControl: View {
     var ended: (() -> Void)? = nil
 
     @Environment(\.startEyedropper) private var startEyedropper
+    @Environment(\.panelHeight) private var panelHeight
+    @AppStorage(FavoriteColors.key) private var favoritesRaw = FavoriteColors.startRaw
     @State private var menu = false
 
     var body: some View {
@@ -87,14 +102,28 @@ struct ColorControl: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(loc("Pick a color from the video"))
             }
-            Spacer(minLength: 0)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(FavoriteColors.decode(favoritesRaw), id: \.hex) { c in
+                        let on = c.near(current)
+                        Button { set(c) } label: {
+                            Circle().fill(c.color)
+                                .frame(width: 30, height: 30)
+                                .overlay(Circle().strokeBorder(on ? Theme.accent : Color.white.opacity(0.25), lineWidth: on ? 3 : 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 4)
+                .padding(.leading, 4)
+            }
         }
         .sheet(isPresented: $menu) {
             ColorMenu(current: current, set: set, began: began, live: live, ended: ended, eyedropper: eyedropperAction)
-                .presentationDetents([.height(500)])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(500)))
+                .presentationDetents([.height(panelHeight)])
+                .presentationBackgroundInteraction(.enabled(upThrough: .height(panelHeight)))
                 .presentationBackground(Theme.panel)
-                .presentationCornerRadius(28)
+                .presentationCornerRadius(24)
                 .presentationDragIndicator(.visible)
         }
     }
@@ -123,8 +152,9 @@ struct EyedropperIcon: View {
     }
 }
 
-/// The color menu: the quick colors and your own (+ saves the color you have, hold one to remove it), the hex
-/// code with the eyedropper, and hue, saturation and brightness on the app's sliders.
+/// The color menu: the hex code with the color you have in a big pill and the eyedropper, your colors (+ saves
+/// the color you have, hold one to remove it), and hue, saturation and brightness on the app's sliders, each
+/// track showing what every position gives.
 struct ColorMenu: View {
     let current: RGBA
     let set: (RGBA) -> Void
@@ -135,7 +165,7 @@ struct ColorMenu: View {
     var eyedropper: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(FavoriteColors.key) private var favoritesRaw = ""
+    @AppStorage(FavoriteColors.key) private var favoritesRaw = FavoriteColors.startRaw
     @State private var h = 0.0
     @State private var s = 0.0
     @State private var b = 1.0
@@ -148,34 +178,11 @@ struct ColorMenu: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
                     Text("Color").font(.title3.weight(.heavy))
                     Spacer()
-                    DoneCheck(size: 36) { dismiss() }
-                }
-                bubbles(RGBA.palette)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("My colors").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                    HStack(spacing: 10) {
-                        Button(action: saveCurrent) {
-                            Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
-                                .frame(width: 34, height: 34)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(loc("Save this color"))
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(favorites, id: \.hex) { c in
-                                    bubble(c)
-                                        .contextMenu {
-                                            Button(role: .destructive) { remove(c) } label: { Label("Remove", systemImage: "trash") }
-                                        }
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
+                    DoneCheck(size: 32) { dismiss() }
                 }
                 HStack(spacing: 10) {
                     TextField("#FFFFFF", text: $hexText)
@@ -187,17 +194,46 @@ struct ColorMenu: View {
                         .onSubmit(applyHex)
                         .padding(.horizontal, 14).frame(height: 46)
                         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                    // the color you have, big
+                    RoundedRectangle(cornerRadius: 14).fill(color.color)
+                        .frame(width: 76, height: 46)
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.85), lineWidth: 2))
                     if let eyedropper {
                         Button(action: eyedropper) { EyedropperIcon(size: 46) }
                             .buttonStyle(.plain)
                             .accessibilityLabel(loc("Pick a color from the video"))
                     }
                 }
-                slider("Hue", value: $h)
-                slider("Saturation", value: $s)
-                slider("Brightness", value: $b)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("My colors").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                    HStack(spacing: 8) {
+                        Button(action: saveCurrent) {
+                            Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc("Save this color"))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(favorites, id: \.hex) { c in
+                                    bubble(c)
+                                        .contextMenu {
+                                            Button(role: .destructive) { remove(c) } label: { Label("Remove", systemImage: "trash") }
+                                        }
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+                slider("Hue", value: $h,
+                       track: (0...12).map { Color(hue: min(Double($0) / 12, 0.999), saturation: 1, brightness: 1) })
+                slider("Saturation", value: $s, track: [RGBA.hsb(h, 0, b).color, RGBA.hsb(h, 1, b).color])
+                slider("Brightness", value: $b, track: [.black, RGBA.hsb(h, s, 1).color])
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
         .onAppear { load(current) }
@@ -213,17 +249,11 @@ struct ColorMenu: View {
         hexText = c.hex
     }
 
-    private func bubbles(_ colors: [RGBA]) -> some View {
-        HStack(spacing: 10) {
-            ForEach(colors, id: \.hex) { c in bubble(c) }
-        }
-    }
-
     private func bubble(_ c: RGBA) -> some View {
         let on = c.near(current)
         return Button { pick(c) } label: {
             Circle().fill(c.color)
-                .frame(width: 34, height: 34)
+                .frame(width: 32, height: 32)
                 .overlay(Circle().strokeBorder(on ? Theme.accent : Color.white.opacity(0.25), lineWidth: on ? 3 : 1))
         }
         .buttonStyle(.plain)
@@ -255,9 +285,9 @@ struct ColorMenu: View {
         favoritesRaw = FavoriteColors.encode(favorites.filter { !$0.near(c) })
     }
 
-    /// The app's own slider, filled with the color it makes.
-    private func slider(_ title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+    /// The app's own slider, its track showing the color each position gives.
+    private func slider(_ title: String, value: Binding<Double>, track: [Color]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
             BSlider(value: Binding(get: { value.wrappedValue }, set: { v in
                 value.wrappedValue = v
@@ -272,7 +302,7 @@ struct ColorMenu: View {
                     if live != nil { ended?() } else { set(color) }
                 }
             })
-            .tint(color.color)
+            .track(track)
         }
     }
 }

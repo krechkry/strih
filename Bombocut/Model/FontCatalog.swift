@@ -95,9 +95,27 @@ enum FontCatalog {
             if w == nil { w = l.weight }
         }
         guard let base = UIFont(name: ps, size: size) else { return nil }
-        guard let w else { return base }
+        guard var w else { return base }
+        // CoreText can drop a weight set exactly on the axis default (the font then draws in some other cut):
+        // keep the value a hair off the default, inside the axis
+        if let axis = weightRange(base) {
+            w = min(max(w, axis.lo), axis.hi)
+            if abs(w - axis.def) < 0.5 { w = axis.def + (axis.def + 0.5 <= axis.hi ? 0.5 : -0.5) }
+        }
         let desc = CTFontDescriptorCreateCopyWithVariation(base.fontDescriptor as CTFontDescriptor, weightAxis, CGFloat(w))
         return CTFontCreateWithFontDescriptor(desc, size, nil) as UIFont
+    }
+
+    /// A font's weight axis: lowest, highest and default (nil when it has none).
+    static func weightRange(_ font: UIFont) -> (lo: Double, hi: Double, def: Double)? {
+        guard let axes = CTFontCopyVariationAxes(font as CTFont) as? [[String: Any]] else { return nil }
+        for a in axes where (a[kCTFontVariationAxisIdentifierKey as String] as? NSNumber)?.intValue == weightAxis.intValue {
+            let lo = (a[kCTFontVariationAxisMinimumValueKey as String] as? NSNumber)?.doubleValue ?? 0
+            let hi = (a[kCTFontVariationAxisMaximumValueKey as String] as? NSNumber)?.doubleValue ?? 0
+            let def = (a[kCTFontVariationAxisDefaultValueKey as String] as? NSNumber)?.doubleValue ?? lo
+            return hi > lo ? (lo, hi, def) : nil
+        }
+        return nil
     }
 
     /// Every family to pick from: the bundled ones and the imported ones.

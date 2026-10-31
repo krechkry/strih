@@ -170,12 +170,12 @@
         }
       }
     },
-    "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold one of yours to update it with the current look or delete it.": {
+    "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold a preset to update it with the current look or delete it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením svojí ji aktualizuješ podle současného vzhledu nebo smažeš."
+            "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením předvolbu aktualizuješ podle současného vzhledu nebo smažeš."
           }
         }
       }
