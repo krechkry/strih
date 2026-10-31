@@ -293,6 +293,8 @@ struct CaptionsSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 8) {
+                    OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
+                        .padding(.bottom, 4)
                     ForEach(scopedCues(caps)) { cue in
                         let on = model.currentTime >= cue.start && model.currentTime < cue.end
                         HStack(alignment: .top, spacing: 10) {
@@ -449,7 +451,6 @@ struct CaptionsSheet: View {
         slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
         OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
-        OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
         OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip (Mask tool)",
                  isOn: s.behindSubject) { v in setStyle { $0.behindSubject = v } }
     }

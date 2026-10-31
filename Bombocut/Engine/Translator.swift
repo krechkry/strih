@@ -484,6 +484,40 @@ enum CaptionTranslate {
         return out
     }
 
+    /// What gets translated: each line as you see it (your edits included), one per caption line, so the
+    /// translation keeps exactly the same lines and timing as the original.
+    static func lineTexts(_ caps: Captions) -> [String] {
+        caps.cues.sorted { $0.start < $1.start }.map { $0.text.replacingOccurrences(of: "\n", with: " ") }
+    }
+
+    /// The translated lines on the original lines' exact times (same start and end, same line breaks); within a
+    /// line the words share its time, longer words getting more of it.
+    static func captions(_ caps: Captions, lines translated: [String], language: String) -> Captions {
+        var cues: [CaptionCue] = []
+        var words: [CaptionWord] = []
+        for (cue, t) in zip(caps.cues.sorted { $0.start < $1.start }, translated) {
+            let clean = t.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            let span = [CaptionWord(text: cue.text, start: cue.start, end: cue.end)]
+            let w = Self.words(clean, over: span[...])
+            let text = cue.text.contains("\n") ? twoLines(clean) : clean
+            cues.append(CaptionCue(start: cue.start, end: cue.end, text: text, words: w))
+            words += w
+        }
+        return Captions(language: language, words: words, cues: cues, style: caps.style, templateID: caps.templateID)
+    }
+
+    /// A line broken in two where the halves come out closest in length (the original line had two).
+    static func twoLines(_ text: String) -> String {
+        let parts = text.split(separator: " ").map(String.init)
+        guard parts.count > 1 else { return text }
+        var best = 1, bestDiff = Int.max
+        for k in 1..<parts.count {
+            let a = parts[..<k].joined(separator: " ").count, b = parts[k...].joined(separator: " ").count
+            if abs(a - b) < bestDiff { bestDiff = abs(a - b); best = k }
+        }
+        return parts[..<best].joined(separator: " ") + "\n" + parts[best...].joined(separator: " ")
+    }
+
     /// The new captions, in the same style.
     static func captions(_ caps: Captions, sentences: [Sentence], translated: [String], language: String) -> Captions {
         var words: [CaptionWord] = []
