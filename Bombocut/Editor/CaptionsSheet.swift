@@ -523,11 +523,11 @@ struct CaptionsSheet: View {
             model.setCaptions({
                 var c = model.project.captions!
                 let needsRecut = c.style.lines != st.lines || c.style.maxChars != st.maxChars
+                    || c.style.punctuation != st.punctuation
                 let behind = c.style.behindSubject
-                c.style = st
+                if needsRecut { c.restyle { $0 = st } } else { c.style = st }
                 c.style.behindSubject = behind      // a look, not a placement: templates keep it
                 c.templateID = t.id
-                if needsRecut { c.recut() }
                 return c
             }())
         } label: {
@@ -570,9 +570,7 @@ struct CaptionsSheet: View {
     /// Lines and length don't make it another look: the template stays picked, and your own template remembers them.
     private func setLines(_ lines: Int, _ chars: Int) {
         guard var c = model.project.captions else { return }
-        c.style.lines = lines
-        c.style.maxChars = chars
-        c.recut()
+        c.restyle { $0.lines = lines; $0.maxChars = chars }
         if let tid = c.templateID, let i = templates.firstIndex(where: { $0.id == tid }) {
             templates[i].style.lines = lines
             templates[i].style.maxChars = chars
@@ -583,9 +581,8 @@ struct CaptionsSheet: View {
 
     private func setStyle(recut: Bool = false, _ change: (inout CaptionStyle) -> Void) {
         guard var c = model.project.captions else { return }
-        change(&c.style)
+        if recut { c.restyle(change) } else { change(&c.style) }
         c.templateID = nil
-        if recut { c.recut() }
         model.setCaptions(c)
     }
 

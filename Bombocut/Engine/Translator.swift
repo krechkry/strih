@@ -484,65 +484,111 @@ enum CaptionTranslate {
         return out
     }
 
-    /// A run of caption lines translated together (a sentence or two), so the translation reads naturally.
-    struct LineGroup: Equatable {
-        var cues: [CaptionCue]
-        var sources: [String]      // each line's text with its punctuation (from the words under it)
-        var text: String { sources.joined(separator: " ") }
-    }
-
-    /// The lines as you see them (your edits included) gathered into sentences: a group ends with a line that
-    /// ends a sentence, before a pause, or after a few lines. The punctuation the lines may hide comes from the
-    /// words under them, so the translator still sees where sentences end.
-    static func lineGroups(_ caps: Captions) -> [LineGroup] {
+    /// The translated sentences laid over the original lines: each sentence's translation is shared out over the
+    /// lines it was spoken across (by how much of it each line held, cut between words, preferably at nearby
+    /// punctuation), and every line keeps its exact start, end and line breaks. A line holding the end of one
+    /// sentence and the start of the next gets both pieces. Both languages come and go together.
+    /// `caps` must have its edits absorbed, and the sentences made from its words.
+    static func captions(_ caps: Captions, sentences: [Sentence], translated: [String], timedBy lines: Bool,
+                         language: String) -> Captions {
         let cues = caps.cues.sorted { $0.start < $1.start }
-        func source(_ cue: CaptionCue) -> String {
-            let inside = caps.words.filter { let m = ($0.start + $0.end) / 2; return m >= cue.start - 0.001 && m <= cue.end + 0.001 }
-            let shown = cue.text.replacingOccurrences(of: "\n", with: " ")
-            let fromWords = inside.map(\.text).joined(separator: " ")
-            // the words only stand in when they say the same as the line (with the punctuation put back)
-            let plain = { (t: String) in t.lowercased().filter { $0.isLetter || $0.isNumber } }
-            return !inside.isEmpty && plain(fromWords) == plain(shown) ? fromWords : shown
+        guard !cues.isEmpty else { return captions(caps, sentences: sentences, translated: translated, language: language) }
+        // which line each word was shown in (by its middle; a word between lines goes to the nearest one)
+        func cueIndex(_ w: CaptionWord) -> Int {
+            let m = (w.start + w.end) / 2
+            if let k = cues.firstIndex(where: { m >= $0.start - 0.001 && m <= $0.end + 0.001 }) { return k }
+            return cues.indices.min { min(abs(cues[$0].start - m), abs(cues[$0].end - m)) < min(abs(cues[$1].start - m), abs(cues[$1].end - m)) } ?? 0
         }
-        var out: [LineGroup] = []
-        var cur = LineGroup(cues: [], sources: [])
-        for (k, cue) in cues.enumerated() {
-            let src = source(cue)
-            cur.cues.append(cue)
-            cur.sources.append(src)
-            let last = src.trimmingCharacters(in: closers.union(.whitespaces)).last
-            let ends = last.map { ".?!…".contains($0) } ?? false
-            let gap = k + 1 < cues.count ? cues[k + 1].start - cue.end : 0
-            if ends || gap > 1.2 || cur.cues.count >= 6 || k == cues.count - 1 {
-                out.append(cur)
-                cur = LineGroup(cues: [], sources: [])
+        var pieces = [[String]](repeating: [], count: cues.count)
+        for (sen, t) in zip(sentences, translated) {
+            // the lines this sentence ran over, in order, with how many letters of it each one held
+            var parts: [(cue: Int, weight: Double)] = []
+            for w in caps.words[sen.range] {
+                let k = cueIndex(w)
+                if let last = parts.last, last.cue == k {
+                    parts[parts.count - 1].weight += Double(w.text.count + 1)
+                } else {
+                    parts.append((k, Double(w.text.count + 1)))
+                }
+            }
+            guard !parts.isEmpty else { continue }
+            for (part, chunk) in zip(parts, split(t, by: parts.map(\.weight))) where !chunk.isEmpty {
+                pieces[part.cue].append(chunk)
             }
         }
-        return out
+        var out: [CaptionCue] = []
+        var words: [CaptionWord] = []
+        for (k, cue) in cues.enumerated() {
+            let piece = pieces[k].joined(separator: " ")
+            let span = [CaptionWord(text: cue.text, start: cue.start, end: cue.end)]
+            let w = Self.words(piece, over: span[...])
+            var shown = piece
+            if !caps.style.punctuation {
+                shown = piece.split(separator: " ").map { CaptionCutter.stripPunctuation(String($0)) }
+                    .filter { !$0.isEmpty }.joined(separator: " ")
+            }
+            if cue.text.contains("\n") { shown = twoLines(shown) }
+            out.append(CaptionCue(start: cue.start, end: cue.end, text: shown, words: w))
+            words += w
+        }
+        return Captions(language: language, words: words, cues: out, style: caps.style, templateID: caps.templateID)
     }
 
-    /// Each group's translation shared out over its lines (by how long each original line was, cut between words,
-    /// preferably after a comma or full stop near the spot), every piece on its line's exact start and end, with
-    /// the same line breaks: the two languages come and go together.
-    static func captions(_ caps: Captions, groups: [LineGroup], translated: [String], language: String) -> Captions {
-        var cues: [CaptionCue] = []
-        var words: [CaptionWord] = []
-        for (g, t) in zip(groups, translated) {
-            let pieces = split(t, by: g.sources.map { Double(max($0.count, 1)) })
-            for (cue, piece) in zip(g.cues, pieces) {
-                let span = [CaptionWord(text: cue.text, start: cue.start, end: cue.end)]
-                let w = Self.words(piece, over: span[...])
-                var shown = piece
-                if !caps.style.punctuation {
-                    shown = piece.split(separator: " ").map { CaptionCutter.stripPunctuation(String($0)) }
-                        .filter { !$0.isEmpty }.joined(separator: " ")
+    // MARK: Hint words
+
+    /// The hint words (names, slang) stay as they are: each one in the text (also with a Czech ending of up to
+    /// three letters) is swapped for a placeholder the translator copies through, and put back afterwards.
+    struct Protected {
+        var text: String
+        var names: [String]          // names[i] stands behind placeholder(i)
+    }
+
+    static func placeholder(_ i: Int) -> String { "ZQ\(i)X" }
+
+    static func hints(_ raw: String) -> [String] {
+        raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    static func protect(_ text: String, hints: [String]) -> Protected {
+        guard !hints.isEmpty else { return Protected(text: text, names: []) }
+        var tokens = text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        var names: [String] = []
+        let trailing = CharacterSet.punctuationCharacters.union(closers)
+        func core(_ t: String) -> String { t.trimmingCharacters(in: trailing).lowercased() }
+        // longer hints first, so a phrase wins over a word inside it
+        for hint in hints.sorted(by: { $0.count > $1.count }) {
+            let parts = hint.split(separator: " ").map { $0.lowercased() }
+            guard !parts.isEmpty else { continue }
+            var i = 0
+            while i + parts.count <= tokens.count {
+                var match = true
+                for (j, p) in parts.enumerated() {
+                    let c = core(tokens[i + j])
+                    let last = j == parts.count - 1
+                    if !(c == p || (last && c.hasPrefix(p) && c.count - p.count <= 3 && p.count >= 3)) { match = false; break }
                 }
-                if cue.text.contains("\n") { shown = twoLines(shown) }
-                cues.append(CaptionCue(start: cue.start, end: cue.end, text: shown, words: w))
-                words += w
+                if match {
+                    let end = tokens[i + parts.count - 1]
+                    // keep what came after the word (a comma, a full stop)
+                    let tail = String(end.reversed().prefix { ch in ch.unicodeScalars.allSatisfy { trailing.contains($0) } }.reversed())
+                    let id = names.firstIndex(of: hint) ?? { names.append(hint); return names.count - 1 }()
+                    tokens.replaceSubrange(i..<(i + parts.count), with: [placeholder(id) + tail])
+                }
+                i += 1
             }
         }
-        return Captions(language: language, words: words, cues: cues, style: caps.style, templateID: caps.templateID)
+        return Protected(text: tokens.joined(separator: " "), names: names)
+    }
+
+    /// The hint words back in; nil when the translator lost a placeholder (then the text is translated plainly).
+    static func restore(_ text: String, _ names: [String]) -> String? {
+        var t = text
+        for (i, n) in names.enumerated() {
+            let p = placeholder(i)
+            guard t.range(of: p, options: .caseInsensitive) != nil else { return nil }
+            t = t.replacingOccurrences(of: p, with: n, options: .caseInsensitive)
+        }
+        return t
     }
 
     /// A translated text cut into as many pieces as there are weights, sized like them, between words; each cut

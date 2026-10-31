@@ -205,6 +205,16 @@ struct Captions: Codable, Hashable {
         cues = CaptionCutter.cues(from: words, style: style)
     }
 
+    /// A style change that changes how the lines are cut (lines, length, punctuation). Your edits go into the
+    /// words first, judged by the style the lines were cut with (with commas hidden, a line without them is not
+    /// an edit); only then does the style change and the lines get cut again. Judged by the new style, every line
+    /// would look edited and its words (with their punctuation) would be lost.
+    mutating func restyle(_ change: (inout CaptionStyle) -> Void) {
+        absorbEdits()
+        change(&style)
+        cues = CaptionCutter.cues(from: words, style: style)
+    }
+
     /// The lines are the truth once you touched them: a line whose words no longer match the words under it (text
     /// typed, moved, trimmed) replaces them with its own, and words no line covers any more (a deleted line) go.
     /// Untouched lines keep the full words underneath (with the punctuation a cut may have hidden).

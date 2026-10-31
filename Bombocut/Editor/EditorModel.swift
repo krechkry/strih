@@ -1303,23 +1303,36 @@ final class EditorModel: ObservableObject {
     @Published private(set) var translateJob: TranslateJob?
     private var translateTask: Task<Void, Never>?
 
-    /// Translates the captions a sentence at a time and lays the translation over the same lines and times
-    /// (one undo step; your edits go with it). `engine` turns texts into translated texts, reporting progress.
+    /// Translates the captions a sentence at a time (as before: whole sentences read best) and lays the
+    /// translation over the same lines and times (one undo step; your edits go with it). `engine` turns texts into
+    /// translated texts, reporting progress.
     func translateCaptions(to target: String, asNewTrack: Bool = false,
                            engine: @escaping ([String], @escaping @MainActor (Double) -> Void) async throws -> [String]) async {
         guard var caps = project.captions, !caps.cues.isEmpty, caps.language != target else { return }
-        // the lines as you see them (your edits included), translated a sentence at a time for a natural
-        // translation, then shared back out over the same lines: both languages come and go together
+        // your edits go into the words first; then whole sentences are translated (with their punctuation, the
+        // hint words kept as they are) and shared back out over the same lines: both languages come and go together
         caps.absorbEdits()
         let snapshot = project
-        let groups = CaptionTranslate.lineGroups(caps)
+        let sentences = CaptionTranslate.sentences(caps.words)
+        let hints = CaptionTranslate.hints(UserDefaults.standard.string(forKey: "captionNames") ?? "")
+        let protected = sentences.map { CaptionTranslate.protect($0.text, hints: hints) }
         translateJob = TranslateJob(progress: 0)
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = false }
         do {
-            let out = try await engine(groups.map(\.text)) { [weak self] p in self?.translateJob?.progress = p }
-            guard out.count == groups.count else { throw CancellationError() }
-            var c = CaptionTranslate.captions(caps, groups: groups, translated: out, language: target)
+            let raw = try await engine(protected.map(\.text)) { [weak self] p in self?.translateJob?.progress = p }
+            guard raw.count == sentences.count else { throw CancellationError() }
+            var out: [String] = []
+            var lost: [Int] = []
+            for (i, r) in raw.enumerated() {
+                if let t = CaptionTranslate.restore(r, protected[i].names) { out.append(t) } else { out.append(r); lost.append(i) }
+            }
+            // a sentence whose hint word got mangled: translated again as it is
+            if !lost.isEmpty {
+                let again = try await engine(lost.map { sentences[$0].text }) { _ in }
+                for (k, i) in lost.enumerated() where k < again.count { out[i] = again[k] }
+            }
+            var c = CaptionTranslate.captions(caps, sentences: sentences, translated: out, timedBy: true, language: target)
             // you kept editing meanwhile: move the captions onto the timeline as it is now
             if snapshot.timingKey != project.timingKey { c = c.remapped(from: snapshot, to: project) }
             if asNewTrack {
