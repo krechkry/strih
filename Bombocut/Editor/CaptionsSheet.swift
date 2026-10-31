@@ -380,7 +380,7 @@ struct CaptionsSheet: View {
                             Text(loc(Self.styleSections[i])).font(.footnote.weight(.bold))
                                 .lineLimit(1).minimumScaleFactor(0.7)
                                 .foregroundStyle(styleSection == i ? .black : .white.opacity(0.85))
-                                .padding(.horizontal, 12).frame(height: 30)
+                                .padding(.horizontal, 11).frame(height: 26)
                                 .background(styleSection == i ? Color.white : Theme.panel2, in: Capsule())
                         }
                         .buttonStyle(.plain)
@@ -458,7 +458,7 @@ struct CaptionsSheet: View {
     /// The font, nothing else.
     @ViewBuilder
     private func fontSection(_ s: CaptionStyle) -> some View {
-        FontPicker(style: s, sample: "Aa") { f, name in setStyle { $0.font = f; $0.fontName = name } }
+        FontPicker(style: s, sample: "Aa") { c in setStyle { c.apply(&$0) } }
     }
 
     @ViewBuilder

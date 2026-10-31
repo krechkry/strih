@@ -250,6 +250,16 @@
         }
       }
     },
+    "Add .ttf or .otf files from Files. Hold an added font to remove it. Use only fonts you have the rights to.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidej soubory .ttf nebo .otf ze Souborů. Podržením přidané písmo odebereš. Používej jen písma, ke kterým máš práva."
+          }
+        }
+      }
+    },
     "Add a clip to start": {
       "localizations": {
         "cs": {
@@ -286,6 +296,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přidat klipy"
+          }
+        }
+      }
+    },
+    "Add font": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat písmo"
           }
         }
       }
@@ -860,6 +880,16 @@
         }
       }
     },
+    "Black": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Black"
+          }
+        }
+      }
+    },
     "Black & white": {
       "localizations": {
         "cs": {
@@ -940,6 +970,16 @@
         }
       }
     },
+    "Bold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bold"
+          }
+        }
+      }
+    },
     "Both": {
       "localizations": {
         "cs": {
@@ -1000,12 +1040,12 @@
         }
       }
     },
-    "Built-in": {
+    "Brightness": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vestavěná"
+            "value": "Jas"
           }
         }
       }
@@ -1210,6 +1250,16 @@
         }
       }
     },
+    "Clean": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čistá"
+          }
+        }
+      }
+    },
     "Clean up": {
       "localizations": {
         "cs": {
@@ -1326,16 +1376,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí"
-          }
-        }
-      }
-    },
-    "Condensed": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Úzká"
           }
         }
       }
@@ -1864,16 +1904,6 @@
         }
       }
     },
-    "Display": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Výrazná"
-          }
-        }
-      }
-    },
     "Doesn't know %@.": {
       "localizations": {
         "cs": {
@@ -1890,6 +1920,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hotovo"
+          }
+        }
+      }
+    },
+    "Double tap the font you have picked: it shows up here for quick access.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dvakrát klepni na vybrané písmo: objeví se tady, ať ho máš po ruce."
           }
         }
       }
@@ -2214,6 +2254,16 @@
         }
       }
     },
+    "Elegant": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegantní"
+          }
+        }
+      }
+    },
     "End": {
       "localizations": {
         "cs": {
@@ -2364,6 +2414,26 @@
         }
       }
     },
+    "Extra Bold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extra Bold"
+          }
+        }
+      }
+    },
+    "Extra Light": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extra Light"
+          }
+        }
+      }
+    },
     "Extract audio": {
       "localizations": {
         "cs": {
@@ -2390,6 +2460,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prolínačka"
+          }
+        }
+      }
+    },
+    "Fat": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tlustá"
           }
         }
       }
@@ -2948,6 +3028,16 @@
         }
       }
     },
+    "Imported": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importovaná"
+          }
+        }
+      }
+    },
     "Imported videos no project uses any more": {
       "localizations": {
         "cs": {
@@ -3064,6 +3154,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přechod hraje přes záběry za střihem, pokud v klipech nějaké zbývají, takže se nic neusekne. Kde nezbývají, klipy se překryjí a video se o kousek zkrátí."
+          }
+        }
+      }
+    },
+    "Italic": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurzíva"
           }
         }
       }
@@ -3258,22 +3358,22 @@
         }
       }
     },
+    "Light": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lehká"
+          }
+        }
+      }
+    },
     "Lighten": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Zesvětlit"
-          }
-        }
-      }
-    },
-    "Like this font": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přidat písmo do oblíbených"
           }
         }
       }
@@ -3518,6 +3618,16 @@
         }
       }
     },
+    "Medium": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medium"
+          }
+        }
+      }
+    },
     "Mono": {
       "localizations": {
         "cs": {
@@ -3548,6 +3658,16 @@
         }
       }
     },
+    "More colors": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další barvy"
+          }
+        }
+      }
+    },
     "Motion blur": {
       "localizations": {
         "cs": {
@@ -3574,6 +3694,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Násobit"
+          }
+        }
+      }
+    },
+    "My colors": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moje barvy"
           }
         }
       }
@@ -3674,6 +3804,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Další keyframe"
+          }
+        }
+      }
+    },
+    "No new fonts in those files.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V těch souborech nejsou žádná nová písma."
           }
         }
       }
@@ -4118,16 +4258,6 @@
         }
       }
     },
-    "Pick a font and tap the heart: it shows up here for quick access.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vyber písmo a klepni na srdíčko: objeví se tady, ať ho máš po ruce."
-          }
-        }
-      }
-    },
     "Pick a subject (a rider, a face, a sign). BOMBOCUT tracks it through the clip and holds it in place, so the shake and the movement go into everything around it.": {
       "localizations": {
         "cs": {
@@ -4194,16 +4324,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obrázek"
-          }
-        }
-      }
-    },
-    "Pixel": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pixelová"
           }
         }
       }
@@ -4448,6 +4568,16 @@
         }
       }
     },
+    "Regular": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regular"
+          }
+        }
+      }
+    },
     "Remove": {
       "localizations": {
         "cs": {
@@ -4464,6 +4594,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odstranit titulky"
+          }
+        }
+      }
+    },
+    "Remove font": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat písmo"
           }
         }
       }
@@ -4628,6 +4768,16 @@
         }
       }
     },
+    "Round": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kulatá"
+          }
+        }
+      }
+    },
     "Rounded": {
       "localizations": {
         "cs": {
@@ -4688,16 +4838,6 @@
         }
       }
     },
-    "Sans": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bezpatková"
-          }
-        }
-      }
-    },
     "Saturation": {
       "localizations": {
         "cs": {
@@ -4744,6 +4884,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uložit šablonu"
+          }
+        }
+      }
+    },
+    "Save this color": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit tuhle barvu"
           }
         }
       }
@@ -4848,22 +4998,22 @@
         }
       }
     },
+    "Semi Bold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semi Bold"
+          }
+        }
+      }
+    },
     "Send feedback": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Napsat zpětnou vazbu"
-          }
-        }
-      }
-    },
-    "Serif": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Patková"
           }
         }
       }
@@ -5488,6 +5638,16 @@
         }
       }
     },
+    "Suggestions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Návrhy"
+          }
+        }
+      }
+    },
     "System": {
       "localizations": {
         "cs": {
@@ -5584,6 +5744,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepni na překrytí, kterým to chceš dát"
+          }
+        }
+      }
+    },
+    "Technical": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Technická"
           }
         }
       }
@@ -5864,6 +6034,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zmizí navždy i s importovanými videi. Koš tu není. Originály ve Fotkách zůstanou."
+          }
+        }
+      }
+    },
+    "Thin": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thin"
           }
         }
       }
@@ -6168,16 +6348,6 @@
         }
       }
     },
-    "Unlike this font": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odebrat písmo z oblíbených"
-          }
-        }
-      }
-    },
     "Unstack": {
       "localizations": {
         "cs": {
@@ -6338,6 +6508,16 @@
         }
       }
     },
+    "Wacky": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ujetá"
+          }
+        }
+      }
+    },
     "Waiting for the network · %lld %%": {
       "localizations": {
         "cs": {
@@ -6414,16 +6594,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vítr, provoz, brum a ozvěna místnosti pryč, hlas zůstane."
-          }
-        }
-      }
-    },
-    "Wonky": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ujeté"
           }
         }
       }

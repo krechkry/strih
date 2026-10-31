@@ -120,7 +120,7 @@ final class CaptionRenderer: @unchecked Sendable {
 
     /// The style's font: a font that comes with the app when one is picked, else the built-in kind.
     static func uiFont(_ s: CaptionStyle, size: CGFloat) -> UIFont {
-        if let n = s.fontName, let f = FontCatalog.font(n, size: size) { return f }
+        if let n = s.fontName, let f = FontCatalog.font(n, weight: s.fontWeight, size: size) { return f }
         return uiFont(s.font, size: size)
     }
 
