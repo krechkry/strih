@@ -125,6 +125,8 @@ struct EditorView: View {
                     .scrollBounceBehavior(.basedOnSize)
                 }
             }
+            // iPad: color and font menus open over the panel (the bottom half, the video stays in view)
+            .panelMenuHost()
             .overlay(alignment: .topTrailing) {
                 // undo / redo for what was done in this panel (Speed has its own, for the curve)
                 if s != .speed && s != .trackPick && !typing {
@@ -136,7 +138,11 @@ struct EditorView: View {
             .environment(\.startEyedropper, startEyedropper)
             // menus that open from a panel (color, fonts) stay within its height, so the video stays in view
             .environment(\.panelHeight, typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra)
-            // SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice)
+            // iPhone: SwiftUI already lifts the panel above the keyboard (adding our own padding lifted it twice).
+            // iPad: its keyboard (with the shortcut bar) covered the text being typed, so the panel sits on the
+            // keyboard's measured top instead (Device.pad never changes, so the panel keeps its identity)
+            .padding(.bottom, Device.pad ? keyboard : 0)
+            .ignoresSafeArea(Device.pad ? [.keyboard, .container] : [], edges: .bottom)
             .transition(.move(edge: .bottom))
         }
     }
@@ -175,7 +181,9 @@ struct EditorView: View {
         guard let s = sheet, s != .export else { return 0 }
         let extra = Panel<EmptyView>.extra
         if typing { return max(0, keyboard + compactPanel - 34 - bottomHeight + 6) }
-        return max(0, panelHeight(s) + extra - 34 - bottomHeight + 6)
+        // iPad: a hardware keyboard's shortcut bar lifts the panel too
+        let kb: CGFloat = Device.pad ? keyboard : 0
+        return max(0, panelHeight(s) + extra + kb - 34 - bottomHeight + 6)
     }
 
     init(project: Project, store: ProjectStore) {
@@ -1297,7 +1305,6 @@ private struct Panel<Content: View>: View {
     /// Handle row with the check on the right (14 pt taller than the old handle row; panels add that).
     static var header: CGFloat { 44 }
     static var extra: CGFloat { 14 }
-    static var widest: CGFloat { 720 }
     let height: CGFloat
     /// Off while typing: the panel's own check (stop typing) takes that spot.
     var check = true
@@ -1334,8 +1341,6 @@ private struct Panel<Content: View>: View {
                 }
             content()
                 .environment(\.closePanel, close)
-                // iPad: the panel spans the screen, its controls keep a comfortable width
-                .frame(maxWidth: Self.widest)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity)

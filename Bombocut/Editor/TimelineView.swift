@@ -211,9 +211,11 @@ struct TimelineView: View {
                     .overlay(alignment: .topLeading) {
                         // the edge a dragged block snapped to
                         if let t = model.snapTime {
+                            // a head being trimmed: the strip slides by `shift`, the line goes on the edge as drawn
+                            let x: CGFloat = CGFloat(t) * model.pxPerSec - shift
                             SnapLine()
                                 .frame(width: 14)
-                                .offset(x: CGFloat(t) * model.pxPerSec - 7)
+                                .offset(x: x - 7)
                                 .allowsHitTesting(false)
                         }
                     }

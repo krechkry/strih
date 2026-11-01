@@ -23,7 +23,7 @@ struct SpeedSheet: View {
     private var clip: Clip? { model.selectedIndex.map { model.project.clips[$0] } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        PanelStack(spacing: 18, span: 1) {
             HStack(spacing: 8) {
                 if UIMode.isPro || tab == 1 {
                     tabButton("Constant", 0)

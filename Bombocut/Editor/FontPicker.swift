@@ -193,6 +193,7 @@ struct FontBrowser: View {
     let pick: (FontChoice) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeMenu) private var closeMenu
     @ObservedObject private var library = FontLibrary.shared
     @AppStorage(FontPicking.likedKey) private var likedRaw = ""
     @AppStorage(FontPicking.tabKey) private var tabRaw = "clean"
@@ -216,7 +217,7 @@ struct FontBrowser: View {
             HStack(spacing: 10) {
                 Text("Fonts").font(.title3.weight(.heavy))
                 Spacer()
-                DoneCheck(size: 36) { dismiss() }
+                DoneCheck(size: 36) { if let closeMenu { closeMenu() } else { dismiss() } }
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -313,7 +314,7 @@ struct FontBrowser: View {
     }
 
     private func grid<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) { content() }
+        LazyVGrid(columns: Device.grid(3, spacing: 8, padMin: 190), spacing: 8) { content() }
     }
 
     /// Light shows each family at its light end, Fat at its heaviest, the others at the weight it starts with.

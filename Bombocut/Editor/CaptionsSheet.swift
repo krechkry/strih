@@ -388,7 +388,8 @@ struct CaptionsSheet: View {
                 }
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                // landscape iPad: two columns
+                PanelStack(spacing: 18) {
                     switch styleSection {
                     case 1: fontSection(s)
                     case 2: colorSection(s)
@@ -410,7 +411,7 @@ struct CaptionsSheet: View {
     private func presets(_ caps: Captions) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+                LazyVGrid(columns: Device.grid(4, spacing: 10, padMin: 150), spacing: 10) {
                     ForEach(templates) { t in templateCard(t, selected: caps.templateID == t.id) }
                     Button { templateName = ""; savingTemplate = true } label: {
                         VStack(spacing: 6) {
@@ -504,7 +505,7 @@ struct CaptionsSheet: View {
 
     @ViewBuilder
     private func animationSection(_ s: CaptionStyle) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+        LazyVGrid(columns: Device.grid(3, spacing: 10, padMin: 170), spacing: 10) {
             ForEach(CaptionAnim.allCases, id: \.self) { a in
                 Button {
                     setStyle { $0.anim = a }

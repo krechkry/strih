@@ -81,7 +81,8 @@ struct OverlaySheet: View {
                 if case .text(let text) = o.kind, shown == .text { textField(text) }
                 if !compact {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 18) {
+                        // landscape iPad: two columns
+                        PanelStack(spacing: 18) {
                             switch shown {
                             case .text: textLook(o.style)
                             case .font: fontTab(o)

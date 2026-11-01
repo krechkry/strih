@@ -74,7 +74,7 @@ struct QuickMenuSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            LazyVGrid(columns: Device.grid(4, spacing: 8, padMin: 150), spacing: 8) {
                 ForEach(available) { a in
                     let order = picked.firstIndex(of: a)
                     Button { toggle(a) } label: {

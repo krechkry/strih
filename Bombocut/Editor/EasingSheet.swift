@@ -112,7 +112,7 @@ struct AutoZoomSheet: View {
     @ObservedObject var model: EditorModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        PanelStack(spacing: 18, span: 1) {
             if model.editsStackOrClip {
                 let z = model.editedAutoZoom
                 HStack(spacing: 10) {

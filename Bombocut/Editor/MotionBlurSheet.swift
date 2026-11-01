@@ -5,7 +5,7 @@ struct MotionBlurSheet: View {
     @ObservedObject var model: EditorModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        PanelStack(spacing: 16, span: 1) {
             if let i = model.selectedIndex {
                 let c = model.project.clips[i]
                 Toggle(isOn: Binding(get: { c.motionBlurOn }, set: { model.setMotionBlurOn($0) })) {
@@ -90,7 +90,7 @@ struct ClipAnimSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            PanelStack(spacing: 16, span: 1) {
                 Text("Transition").font(.title3.weight(.heavy))
                 if let i = model.selectedIndex {
                     let n = model.project.clips.count
@@ -271,7 +271,7 @@ struct SpeechSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            PanelStack(spacing: 16, span: 1) {
                 if let i = model.selectedIndex {
                     let c = model.project.clips[i]
                     let fx = c.speech ?? SpeechFX()

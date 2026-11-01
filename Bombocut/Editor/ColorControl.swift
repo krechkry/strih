@@ -160,6 +160,7 @@ struct ColorMenu: View {
     var eyedropper: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeMenu) private var closeMenu
     @AppStorage(FavoriteColors.key) private var favoritesRaw = FavoriteColors.startRaw
     @State private var h = 0.0
     @State private var s = 0.0
@@ -173,11 +174,11 @@ struct ColorMenu: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            PanelStack(spacing: 16, span: 1) {
                 HStack(spacing: 10) {
                     Text("Color").font(.title3.weight(.heavy))
                     Spacer()
-                    DoneCheck(size: 32) { dismiss() }
+                    DoneCheck(size: 32) { if let closeMenu { closeMenu() } else { dismiss() } }
                 }
                 HStack(spacing: 10) {
                     TextField("#FFFFFF", text: $hexText)

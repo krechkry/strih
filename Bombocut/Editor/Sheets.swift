@@ -671,7 +671,7 @@ struct StabilizeSheet: View {
 
     var body: some View {
         ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
+        PanelStack(spacing: 16, span: 1) {
             Text("Stabilize").font(.title3.weight(.heavy))
             if let i = model.selectedIndex {
                 let c = model.project.clips[i]
@@ -779,7 +779,7 @@ struct TrackSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        PanelStack(spacing: 18, span: 1) {
             Text("Track subject").font(.title3.weight(.heavy))
             if let i = model.selectedIndex, let tr = model.project.clips[i].tracking {
                 Text("Follow").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
