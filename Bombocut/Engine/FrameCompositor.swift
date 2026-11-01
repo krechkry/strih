@@ -295,7 +295,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         func geometry(_ img: CIImage, upright: Bool) -> CIImage {
             var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill, transform: look.transform,
                                  stab: state.stab.map { $0.pose(at: srcT) },
-                                 follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
+                                 follow: state.track.map { $0.follow(at: srcT) },
                                  crop: upright ? nil : (state.crop ?? (editingCrop ? CropRect() : nil)),
                                  cropEditing: !upright && editingCrop,
                                  in: size)
@@ -399,7 +399,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// The SwiftUI live preview uses the same math.
     static func place(_ input: CIImage, prefTransform: CGAffineTransform, fill: Bool, transform t: ClipTransform,
                       stab: StabPose? = nil,
-                      follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))? = nil,
+                      follow: Follow? = nil,
                       crop: CropRect? = nil, cropEditing: Bool = false,
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
@@ -451,7 +451,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// `stab` moves and zooms the upright source (it is then cropped to the source rect); `place` puts it on the canvas.
     static func placement(source: CGSize, fill: Bool, transform t: ClipTransform,
                           stab: StabPose?,
-                          follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
+                          follow: Follow?,
                           in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
         let w = source.width, h = source.height
         // stabilization: undo the shake (zoom, turn, shift around the frame's center), then zoom in just
@@ -481,7 +481,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// Stabilization and tracking on top of a placement `m` (source pixels -> canvas), for a video overlay
     /// copied from a clip: the same math as for the clip.
     static func motion(_ m: CGAffineTransform, source: CGSize, stab: StabPose?,
-                       follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
+                       follow: Follow?,
                        in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
         let w = source.width, h = source.height
         var stabT = CGAffineTransform.identity
@@ -499,7 +499,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// Tracking: shifts placement `m` so the subject stays centered or where it was picked (and, with no borders,
     /// zooms so the picture always covers the canvas).
     private static func following(_ placed: CGAffineTransform, stabT: CGAffineTransform, source: CGSize,
-                                  follow: (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool, span: (x: Double, y: Double))?,
+                                  follow: Follow?,
                                   in size: CGSize) -> CGAffineTransform {
         let w = source.width, h = source.height
         var m = placed
@@ -513,14 +513,24 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
 
             if f.fill {
                 // no borders: grow the picture until it covers the canvas, then keep its edges outside
-                let cx = size.width / 2, cy = size.height / 2
+                var cx = size.width / 2, cy = size.height / 2
                 var r = CGRect(x: 0, y: 0, width: w, height: h).applying(m)
-                // zoom enough that the subject can stay where it is held over the whole clip
-                // without an edge showing (up to 3x; past that the edges stop it instead)
-                let sx = min(f.span.x, 0.33), sy = min(f.span.y, 0.33)
-                let need = max(size.width / max(r.width * (1 - 2 * sx), 1e-6),
-                               size.height / max(r.height * (1 - 2 * sy), 1e-6))
-                let k = max(size.width / max(r.width, 1e-6), size.height / max(r.height, 1e-6), need, 1)
+                let cover = max(size.width / max(r.width, 1e-6), size.height / max(r.height, 1e-6))
+                var k: CGFloat
+                if f.grow > 0 {
+                    // retain size: covering the canvas, then zoomed in on the subject as much as it got smaller than
+                    // on the reference frame (when it gets bigger the picture can't go smaller without borders)
+                    k = max(cover, 1) * max(CGFloat(f.grow), 1)
+                    cx = target.x
+                    cy = target.y
+                } else {
+                    // zoom enough that the subject can stay where it is held over the whole clip
+                    // without an edge showing (up to 3x; past that the edges stop it instead)
+                    let sx = min(f.span.x, 0.33), sy = min(f.span.y, 0.33)
+                    let need = max(size.width / max(r.width * (1 - 2 * sx), 1e-6),
+                                   size.height / max(r.height * (1 - 2 * sy), 1e-6))
+                    k = max(cover, need, 1)
+                }
                 if k > 1.0001 {
                     m = m.concatenating(CGAffineTransform(translationX: -cx, y: -cy))
                         .concatenating(CGAffineTransform(scaleX: k, y: k))

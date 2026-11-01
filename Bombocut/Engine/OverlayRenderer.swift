@@ -193,7 +193,7 @@ final class OverlayRenderer: @unchecked Sendable {
         let srcT = o.sourceTime(at: t)
         let mo = o.kind.isVideo ? OverlayStore.shared.motion(o.id) : nil
         let stab = mo?.stab?.pose(at: srcT)
-        let follow = mo?.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) }
+        let follow = mo?.track.map { $0.follow(at: srcT) }
         let s: CGFloat
         if natural {
             s = 1

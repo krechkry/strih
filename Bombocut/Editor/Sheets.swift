@@ -778,6 +778,20 @@ struct TrackSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// Retain size: lime when on and the playhead is on its reference frame, a lime outline when the reference is
+    /// another frame (tapping it there takes this frame instead).
+    private func retainPill(on: Bool, here: Bool) -> some View {
+        Button { model.setRetainSize() } label: {
+            Text(loc("Retain size")).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .foregroundStyle(on ? (here ? Color.black : Theme.accent) : .white)
+                .padding(.horizontal, 12).frame(height: 36)
+                .background(on && here ? Theme.accent : Theme.panel2, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.accent, lineWidth: on && !here ? 2 : 0))
+        }
+        .buttonStyle(.plain)
+    }
+
     var body: some View {
         PanelStack(spacing: 18, span: 1) {
             Text("Track subject").font(.title3.weight(.heavy))
@@ -798,8 +812,14 @@ struct TrackSheet: View {
                 if tr.mode != .off {
                     Text("Edges").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                     HStack(spacing: 8) {
-                        edgePill("Keep borders", on: tr.noBorders != true) { model.setNoBorders(false) }
-                        edgePill("Fill, no borders", on: tr.noBorders == true) { model.setNoBorders(true) }
+                        edgePill("Keep borders", on: tr.retain == nil && tr.noBorders != true) { model.setNoBorders(false) }
+                        edgePill("Fill, no borders", on: tr.retain == nil && tr.noBorders == true) { model.setNoBorders(true) }
+                        retainPill(on: tr.retain != nil, here: model.onRetainFrame)
+                    }
+                    if tr.retain != nil {
+                        Text(model.onRetainFrame ? "The subject keeps its size from this frame" : "Tap Retain size to keep the size from this frame instead")
+                            .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)

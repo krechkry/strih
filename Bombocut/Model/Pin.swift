@@ -136,7 +136,7 @@ struct PinPath {
             if let zoom = state.autoZoom { tr = zoom.apply(tr, at: min(max(local / length, 0), 1)) }
             let m = FrameCompositor.placement(source: src, fill: state.fill, transform: tr,
                                               stab: state.stab.map { $0.pose(at: s) },
-                                              follow: state.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders, $0.span) },
+                                              follow: state.track.map { $0.follow(at: s) },
                                               in: canvas)
             func onCanvas(_ u: Double, _ v: Double) -> CGPoint {
                 let q = CGPoint(x: u * src.width, y: (1 - v) * src.height).applying(m.stab).applying(m.place)

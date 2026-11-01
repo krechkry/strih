@@ -199,6 +199,9 @@ struct Tracking: Codable, Hashable {
     var smooth = 0.5    // 0...1
     var anchor: Double? // source time where the subject was picked ("keep in place" holds it there)
     var noBorders: Bool? // zoom in so the picture always covers the canvas while following
+    /// Retain size: source time of the frame whose subject size is kept through the clip (zooming in as it gets
+    /// smaller, no borders); nil when off.
+    var retain: Double?
 
     /// Smoothed subject centers, ready for the compositor.
     func curve() -> TrackCurve? {
@@ -207,18 +210,29 @@ struct Tracking: Codable, Hashable {
         let dt = max((samples[n - 1].t - samples[0].t) / Double(n - 1), 1.0 / 120)
         let radius = min(n - 1, Int(((0.05 + smooth * 0.7) / dt).rounded()))
         var xs = [Double](repeating: 0, count: n), ys = [Double](repeating: 0, count: n)
+        var sizes = [Double](repeating: 0, count: retain == nil ? 0 : n)
         for i in 0..<n {
-            var sx = 0.0, sy = 0.0, c = 0.0
+            var sx = 0.0, sy = 0.0, ss = 0.0, c = 0.0
             for k in -radius...radius {
                 let j = min(max(i + k, 0), n - 1)
                 sx += samples[j].x
                 sy += samples[j].y
+                if retain != nil { ss += log(max(samples[j].w * samples[j].h, 1e-6)) }
                 c += 1
             }
             xs[i] = sx / c
             ys[i] = sy / c
+            // the box's size (smoothed in log, so the zoom eases as evenly in as out)
+            if retain != nil { sizes[i] = exp(ss / c / 2) }
         }
-        return TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t, noBorders: noBorders ?? false).withSpan()
+        var curve = TrackCurve(t: samples.map(\.t), x: xs, y: ys, mode: mode, anchor: anchor ?? samples[0].t,
+                               noBorders: noBorders ?? false)
+        if let r = retain {
+            curve.size = sizes
+            curve.retain = true
+            curve.refSize = curve.sizeAt(r)
+        }
+        return curve.withSpan()
     }
 
     func box(at s: Double) -> TrackSample? {
@@ -240,6 +254,10 @@ struct TrackCurve: Hashable {
     var mode: FollowMode
     var anchor: Double
     var noBorders = false
+    /// Retain size: the subject's (smoothed) size at each sample, and the size to keep.
+    var size: [Double] = []
+    var retain = false
+    var refSize = 0.0
     /// Largest distance (fraction of the picture) the subject wanders from where it is held, over the clip.
     var span: (x: Double, y: Double) { (spanX, spanY) }
     private(set) var spanX = 0.0
@@ -267,7 +285,35 @@ struct TrackCurve: Hashable {
     }
 
     var start: (x: Double, y: Double) { at(anchor) }
+
+    func sizeAt(_ s: Double) -> Double {
+        guard size.count == t.count, let first = t.first, let last = t.last else { return 0 }
+        if s <= first { return size[0] }
+        if s >= last { return size[size.count - 1] }
+        var lo = 0, hi = t.count - 1
+        while hi - lo > 1 {
+            let mid = (lo + hi) / 2
+            if t[mid] <= s { lo = mid } else { hi = mid }
+        }
+        let f = (s - t[lo]) / max(t[hi] - t[lo], 1e-9)
+        return size[lo] + (size[hi] - size[lo]) * f
+    }
+
+    /// Everything the compositor needs at source time s.
+    func follow(at s: Double) -> Follow {
+        var grow = 0.0
+        if retain, refSize > 0 {
+            let now = sizeAt(s)
+            grow = now > 0 ? min(max(refSize / now, 0.25), 4) : 1
+        }
+        return (at(s), start, mode, noBorders || retain, span, grow)
+    }
 }
+
+/// Following a tracked subject at one moment: where it is now and where it is held, how (mode), whether the
+/// picture must cover the canvas (fill), how far it wanders (span), and the zoom that keeps its size (grow, 0 = off).
+typealias Follow = (now: (x: Double, y: Double), start: (x: Double, y: Double), mode: FollowMode, fill: Bool,
+                    span: (x: Double, y: Double), grow: Double)
 
 /// Cut the subject out of the frame (Apple Vision, on the phone) to treat the background separately.
 struct SubjectMask: Codable, Hashable {

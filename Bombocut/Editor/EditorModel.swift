@@ -1748,7 +1748,7 @@ final class EditorModel: ObservableObject {
         let src = CGSize(width: 1000 * a, height: 1000)
         let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
                                           stab: st.stab.map { $0.pose(at: s) },
-                                          follow: st.track.map { ($0.at(s), $0.start, $0.mode, $0.noBorders, $0.span) },
+                                          follow: st.track.map { $0.follow(at: s) },
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
         let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
@@ -1964,7 +1964,25 @@ final class EditorModel: ObservableObject {
 
     func setNoBorders(_ on: Bool) {
         guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
-        mutateLook { $0.clips[i].tracking?.noBorders = on }
+        mutateLook {
+            $0.clips[i].tracking?.noBorders = on
+            $0.clips[i].tracking?.retain = nil
+        }
+    }
+
+    /// Retain size: the subject keeps the size it has on the frame under the playhead (tapped again on another
+    /// frame, that frame becomes the reference).
+    func setRetainSize() {
+        guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
+        let s = sourceTime(i)
+        mutateLook { $0.clips[i].tracking?.retain = s }
+    }
+
+    /// The playhead is on the frame whose subject size Retain size keeps.
+    var onRetainFrame: Bool {
+        guard let i = selectedIndex, let r = project.clips[i].tracking?.retain, playheadInSelected else { return false }
+        let local = project.clips[i].retime.local(atSource: r)
+        return abs(currentTime - project.clipStarts[i] - local) < 0.5 / Self.fps + 1e-3
     }
 
     /// While a bottom panel is open, dragging on the preview scrubs instead of moving the clip:

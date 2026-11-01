@@ -5278,6 +5278,16 @@
         }
       }
     },
+    "Retain size": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zachovat velikost"
+          }
+        }
+      }
+    },
     "Reverse": {
       "localizations": {
         "cs": {
@@ -6288,6 +6298,16 @@
         }
       }
     },
+    "Tap Retain size to keep the size from this frame instead": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni na Zachovat velikost a vezme se velikost z tohoto snímku"
+          }
+        }
+      }
+    },
     "Tap a project to export it as it is, with the end card. Buy BOMBOCUT once to keep editing.": {
       "localizations": {
         "cs": {
@@ -6584,6 +6604,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Začátek videa: klip naběhne z černé."
+          }
+        }
+      }
+    },
+    "The subject keeps its size from this frame": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objekt si drží velikost z tohoto snímku"
           }
         }
       }

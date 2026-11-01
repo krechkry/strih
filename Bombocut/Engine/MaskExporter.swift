@@ -114,7 +114,7 @@ final class MaskExporter: @unchecked Sendable {
                 func geometry(_ img: CIImage, crop: CropRect?) -> CIImage {
                     var out = FrameCompositor.place(img, prefTransform: .identity, fill: state.fill, transform: look.transform,
                                                     stab: state.stab.map { $0.pose(at: srcT) },
-                                                    follow: state.track.map { ($0.at(srcT), $0.start, $0.mode, $0.noBorders, $0.span) },
+                                                    follow: state.track.map { $0.follow(at: srcT) },
                                                     crop: crop, in: size)
                     if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                         let cx = size.width / 2, cy = size.height / 2
