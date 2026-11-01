@@ -107,7 +107,7 @@ struct PasteControl: UIViewRepresentable {
     func makeUIView(context: Context) -> Host {
         let host = Host()
         host.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: Pasted.types.map(\.identifier))
-        var cfg = UIPasteControl.Configuration()
+        let cfg = UIPasteControl.Configuration()
         cfg.displayMode = .iconOnly
         cfg.cornerStyle = .capsule
         cfg.baseBackgroundColor = UIColor(Theme.accent)

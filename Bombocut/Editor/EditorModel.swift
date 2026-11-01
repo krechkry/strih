@@ -1945,11 +1945,12 @@ final class EditorModel: ObservableObject {
     /// Which of the point's moves the overlay follows (on the picked frame it sits where it was placed either way).
     func setPinFollows(position: Bool? = nil, rotation: Bool? = nil, scale: Bool? = nil) {
         guard let oi = selectedOverlayIndex, project.overlays[oi].pin != nil else { return }
-        mutateLook { p in
-            p.overlays[oi].pin?.position = position ?? p.overlays[oi].pin!.position
-            p.overlays[oi].pin?.rotation = rotation ?? p.overlays[oi].pin!.rotation
-            p.overlays[oi].pin?.scale = scale ?? p.overlays[oi].pin!.scale
-        }
+        guard var pin = project.overlays[oi].pin else { return }
+        if let position { pin.position = position }
+        if let rotation { pin.rotation = rotation }
+        if let scale { pin.scale = scale }
+        let new = pin
+        mutateLook { $0.overlays[oi].pin = new }
     }
 
     func removePin() {
