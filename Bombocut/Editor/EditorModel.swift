@@ -2567,11 +2567,11 @@ final class EditorModel: ObservableObject {
         return exactOnly ? t : Self.frameFloor(t)
     }
 
-    /// Text overlay at the playhead (3 s).
-    func addText() {
+    /// Text overlay at the playhead (3 s). A pasted text comes in as it is, without opening the keyboard.
+    func addText(_ text: String? = nil) {
         let start = onFrame(min(currentTime, max(0, duration - 0.5)))
-        var o = Overlay(kind: .text(loc("Text")), start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
-        focusNewText = true
+        var o = Overlay(kind: .text(text ?? loc("Text")), start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
+        focusNewText = text == nil
         o.transform.y = -0.15
         mutateLook { p in
             var n = o
@@ -2579,7 +2579,7 @@ final class EditorModel: ObservableObject {
             p.overlays.append(n)
         }
         selectOverlay(o.id)
-        openOverlayPanel = true
+        openOverlayPanel = text == nil
     }
 
     /// Picture or video from Photos, placed at the playhead.

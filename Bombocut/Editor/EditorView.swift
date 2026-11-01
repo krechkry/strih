@@ -35,6 +35,7 @@ struct EditorView: View {
     private var typing: Bool { keyboard > 60 && sheet != nil && sheet != .export }
     private let compactPanel: CGFloat = 150
     @ObservedObject private var speechStatus = SpeechStatus.shared
+    @ObservedObject private var clipboard = ClipboardWatch.shared
 
     /// Half and half: a panel never takes more than about half the screen, so the video stays big
     /// while you edit (taller panels scroll).
@@ -619,6 +620,14 @@ struct EditorView: View {
     private var toolbar: some View {
         HStack(spacing: 0) {
             toolScroller
+            if model.pick == nil, model.slip == nil, clipboard.hasContent {
+                PasteControl { providers in paste(providers) }
+                    .frame(width: 44, height: 44)
+                    .padding(.leading, 6)
+                    .padding(.trailing, finishSelection == nil ? 14 : 0)
+                    .background(alignment: .leading) { toolFade }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
             if let finish = finishSelection {
                 Group {
                     if let delete = pinnedDelete {
@@ -630,13 +639,7 @@ struct EditorView: View {
                 }
                     .padding(.leading, 6)
                     .padding(.trailing, 14)
-                    .background(alignment: .leading) {
-                        // the tools scroll under a soft edge
-                        LinearGradient(colors: [Theme.panel.opacity(0), Theme.panel], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: 30)
-                            .offset(x: -30)
-                            .allowsHitTesting(false)
-                    }
+                    .background(alignment: .leading) { toolFade }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -645,6 +648,32 @@ struct EditorView: View {
         .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
         .animation(.easeOut(duration: 0.15), value: model.selectedClipID)
         .animation(.easeOut(duration: 0.15), value: finishSelection == nil)
+        .animation(.easeOut(duration: 0.15), value: clipboard.hasContent)
+    }
+
+    /// The tools scroll under a soft edge left of a pinned button.
+    private var toolFade: some View {
+        LinearGradient(colors: [Theme.panel.opacity(0), Theme.panel], startPoint: .leading, endPoint: .trailing)
+            .frame(width: 30)
+            .offset(x: -30)
+            .allowsHitTesting(false)
+    }
+
+    /// Paste button: each clipboard item lands at the playhead as a text, picture or video overlay.
+    private func paste(_ providers: [NSItemProvider]) {
+        model.pause()
+        Task {
+            adding = true
+            defer { adding = false }
+            for p in providers {
+                switch await Pasted.load(p) {
+                case .text(let t): model.addText(t)
+                case .image(let url): await model.addMediaOverlay(url: url, isVideo: false)
+                case .video(let url): await model.addMediaOverlay(url: url, isVideo: true)
+                case nil: break
+                }
+            }
+        }
     }
 
     /// One part of the overlay panel (each has its own toolbar button).
