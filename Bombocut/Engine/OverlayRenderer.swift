@@ -19,6 +19,66 @@ final class OverlayStore: @unchecked Sendable {
         set { lock.lock(); outline = newValue; lock.unlock() }
     }
 
+    /// Pinned overlays (Track on an overlay): their point's path on the canvas, and what it was worked out from.
+    private var pins: [UUID: (key: Int, path: PinPath)] = [:]
+    /// The overlay whose point is being picked: hidden in the preview so the footage under it shows.
+    private var hiddenID: UUID?
+
+    var hidden: UUID? {
+        get { lock.lock(); defer { lock.unlock() }; return hiddenID }
+        set { lock.lock(); hiddenID = newValue; lock.unlock() }
+    }
+
+    /// Everything the overlays need from the project (call after `LookStore.update`: pins read the clips' looks).
+    func update(_ project: Project) {
+        update(project.overlays, canvasAspect: project.canvas.aspect)
+        let A = project.canvas.aspect
+        lock.lock()
+        let oldPins = pins
+        lock.unlock()
+        var next: [UUID: (key: Int, path: PinPath)] = [:]
+        let starts = project.clipStarts
+        for o in project.overlays {
+            guard let pin = o.pin, let ci = project.clips.firstIndex(where: { $0.id == pin.clip }) else { continue }
+            let c = project.clips[ci]
+            var h = Hasher()
+            h.combine(pin)
+            h.combine(o.start)
+            h.combine(o.duration)
+            h.combine(c)
+            h.combine(starts[ci])
+            h.combine(A)
+            let key = h.finalize()
+            if let kept = oldPins[o.id], kept.key == key {
+                next[o.id] = kept
+            } else if let path = PinPath.make(o, clip: c, clipStart: starts[ci],
+                                              state: LookStore.shared.state(c.id) ?? c.lookState, canvasAspect: A) {
+                next[o.id] = (key, path)
+            }
+        }
+        lock.lock()
+        pins = next
+        lock.unlock()
+    }
+
+    func pinPath(_ id: UUID) -> PinPath? {
+        lock.lock(); defer { lock.unlock() }
+        return pins[id]?.path
+    }
+
+    /// Where the overlay is on screen at timeline time t: its own placement, moved with its point when pinned.
+    func shown(_ o: Overlay, at t: Double) -> ClipTransform {
+        let tr = o.pose(at: t).transform
+        guard o.pin != nil, let p = pinPath(o.id) else { return tr }
+        return p.apply(tr, at: t, aspect: current.canvasAspect)
+    }
+
+    /// The overlay's own placement that shows as `shown` at t (dragging a pinned overlay on the preview).
+    func base(_ shown: ClipTransform, _ o: Overlay, at t: Double) -> ClipTransform {
+        guard o.pin != nil, let p = pinPath(o.id) else { return shown }
+        return p.remove(from: shown, at: t, aspect: current.canvasAspect)
+    }
+
     func update(_ overlays: [Overlay], canvasAspect: Double) {
         lock.lock()
         let old = list, oldMotion = motion
@@ -74,8 +134,10 @@ final class OverlayRenderer: @unchecked Sendable {
         guard !list.isEmpty else { return base }
         let frame = CGRect(origin: .zero, size: size)
         var out = base
+        let hide = preview ? OverlayStore.shared.hidden : nil
         for o in list where t >= o.start && t < o.end {
             if let b = behindOnly, o.behindSubject != b { continue }
+            if o.id == hide { continue }
             guard var img = layer(o, at: t, size: size, canvasAspect: A, preview: preview, video: video) else { continue }
             let a = o.anim.pose(local: t - o.start, length: o.duration)
             let opacity = o.pose(at: t).opacity * a.opacity
@@ -139,7 +201,7 @@ final class OverlayRenderer: @unchecked Sendable {
             let base = o.baseFraction(canvasAspect: A)
             s = min(base.width * size.width / w, base.height * size.height / h)
         }
-        var tr = o.pose(at: t).transform
+        var tr = OverlayStore.shared.shown(o, at: t)
         if let z = o.autoZoom, o.duration > 0.01 { tr = z.apply(tr, at: (t - o.start) / o.duration) }
         let a = o.anim.pose(local: t - o.start, length: o.duration)
         tr.x += a.dx

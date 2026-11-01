@@ -79,6 +79,7 @@ struct EditorView: View {
         case .easing: return 330
         case .autoZoom: return 470
         case .crop: return 330
+        case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         case .trackPick:
             let above = LaneLayout(model.project, pro: pro).aboveStrip
@@ -170,8 +171,9 @@ struct EditorView: View {
         case .easing: EasingSheet(model: model)
         case .autoZoom: AutoZoomSheet(model: model)
         case .crop: CropSheet(model: model)
+        case .overlayTrack: OverlayTrackSheet(model: model)
         case .trackPick: TrackPickPanel(model: model) {
-            let back: EditorSheet = model.stabilizeOnSubject ? .stabilize : .track
+            let back: EditorSheet = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize : .track
             model.cancelTrackPick()
             sheet = back
         }
@@ -283,6 +285,7 @@ struct EditorView: View {
         if s != .animation { model.cutDurationEnded(); model.transitionCut = nil }
         model.previewScrubs = s != nil && s != .export
         model.trackPanelOpen = s == .track
+        model.pinPanelOpen = s == .overlayTrack
         model.maskPanelOpen = s == .mask
         model.autoZoomPanelOpen = s == .autoZoom
         model.cropPanelOpen = s == .crop
@@ -362,6 +365,7 @@ struct EditorView: View {
             if id == nil && sheet == .overlay { sheet = nil }
             // the overlay's Adjust / Mask panel closes with it (a clip selected instead keeps its own)
             if id == nil && model.selectedIndex == nil && (sheet == .adjust || sheet == .mask || sheet == .crop) { sheet = nil }
+            if id == nil && sheet == .overlayTrack && !model.trackPick { sheet = nil }
         }
         .onChange(of: overlayItems) { _, items in
             guard let item = items.first else { return }
@@ -710,6 +714,9 @@ struct EditorView: View {
                     }
                     if pro && o.isMedia {
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
+                    }
+                    if pro {
+                        ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .overlayTrack }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                 } else if model.captionsSelected, model.project.captions != nil {
@@ -1268,7 +1275,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case easing, autoZoom, crop, trackPick, background
+    case easing, autoZoom, crop, trackPick, background, overlayTrack
     var id: String { rawValue }
 }
 

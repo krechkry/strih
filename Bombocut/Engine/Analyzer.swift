@@ -677,3 +677,174 @@ enum LucasKanade {
         return g
     }
 }
+
+// MARK: Overlay tracking: following a point with its turn and zoom
+
+extension GrayImage {
+    /// The most trackable point in each cell of a grid laid over `rect` (pixels), strongest corners only.
+    func corners(in rect: CGRect, cells: Int, threshold: Float) -> [SIMD2<Float>] {
+        let x0 = max(Int(rect.minX), 3), y0 = max(Int(rect.minY), 3)
+        let x1 = min(Int(rect.maxX), w - 4), y1 = min(Int(rect.maxY), h - 4)
+        guard x1 - x0 > 6, y1 - y0 > 6 else { return [] }
+        let cw = max(3, (x1 - x0) / cells), ch = max(3, (y1 - y0) / cells)
+        var out: [SIMD2<Float>] = []
+        var gy = y0
+        while gy < y1 {
+            var gx = x0
+            while gx < x1 {
+                var best: Float = 0, bx = 0, by = 0
+                var y = gy
+                while y < min(gy + ch, y1) {
+                    var x = gx
+                    while x < min(gx + cw, x1) {
+                        var sxx: Float = 0, syy: Float = 0, sxy: Float = 0
+                        for dy in -2...2 {
+                            for dx in -2...2 {
+                                let ix = (at(x + dx + 1, y + dy) - at(x + dx - 1, y + dy)) / 2
+                                let iy = (at(x + dx, y + dy + 1) - at(x + dx, y + dy - 1)) / 2
+                                sxx += ix * ix; syy += iy * iy; sxy += ix * iy
+                            }
+                        }
+                        let tr = sxx + syy, det = sxx * syy - sxy * sxy
+                        let minEig = tr / 2 - sqrt(max(0, tr * tr / 4 - det))
+                        if minEig > best { best = minEig; bx = x; by = y }
+                        x += 2
+                    }
+                    y += 2
+                }
+                if best > threshold { out.append(SIMD2(Float(bx), Float(by))) }
+                gx += cw
+            }
+            gy += ch
+        }
+        return out
+    }
+}
+
+/// Follows a patch of the picture frame to frame: the points inside it are tracked (Lucas-Kanade) and one
+/// shift + turn + zoom is fitted to them (robustly, so a few points sliding off do not count), so the patch's
+/// middle, its turn and its size are known in every frame.
+final class PatchFollower {
+    private(set) var cx: Double
+    private(set) var cy: Double
+    private var hw: Double
+    private var hh: Double
+    private(set) var a = 0.0
+    private(set) var z = 0.0
+    private var prev: [GrayImage]?
+    private var W = 0.0, H = 0.0
+
+    /// `box`: normalized, top-left origin; `size`: the frames' pixel size.
+    init(box: CGRect, size: CGSize) {
+        W = Double(size.width)
+        H = Double(size.height)
+        cx = Double(box.midX) * W
+        cy = Double(box.midY) * H
+        hw = min(max(Double(box.width) * W / 2, 12), W / 2)
+        hh = min(max(Double(box.height) * H / 2, 12), H / 2)
+    }
+
+    /// Normalized middle, turn and zoom since the start.
+    func sample(_ t: Double) -> PinSample {
+        PinSample(t: t, x: cx / max(W, 1), y: cy / max(H, 1), a: a, z: z)
+    }
+
+    func step(_ cg: CGImage) {
+        guard let g = GrayImage(cg) else { return }
+        let next = g.pyramid(levels: 3)
+        defer { prev = next }
+        guard let pa = prev, pa[0].w == g.w, pa[0].h == g.h else { return }
+        let rect = CGRect(x: cx - hw, y: cy - hh, width: 2 * hw, height: 2 * hh)
+        var pts = pa[0].corners(in: rect, cells: 7, threshold: 25)
+        if pts.count < 10 { pts = pa[0].corners(in: rect, cells: 7, threshold: 4) }
+        var src: [(Double, Double)] = [], dst: [(Double, Double)] = []
+        for p in pts {
+            guard let d = LucasKanade.track(p, from: pa, to: next) else { continue }
+            let px = Double(p.x) - cx, py = Double(p.y) - cy
+            src.append((px, py))
+            dst.append((px + Double(d.x), py + Double(d.y)))
+        }
+        if src.count >= 6, let m = CameraMotion.fit(src, dst, tolerance: max(0.8, W / 500)) {
+            // centered on the patch: the fit's shift is the patch middle's shift (y down: + turn = clockwise)
+            cx += m.dx
+            cy += m.dy
+            a += m.angle
+            z += m.logScale
+            let k = exp(m.logScale)
+            hw = min(max(hw * k, 12), W / 2)
+            hh = min(max(hh * k, 12), H / 2)
+        } else if src.count >= 2 {
+            // too few to turn or zoom: move with the points
+            let xs = zip(src, dst).map { $1.0 - $0.0 }.sorted(), ys = zip(src, dst).map { $1.1 - $0.1 }.sorted()
+            cx += xs[xs.count / 2]
+            cy += ys[ys.count / 2]
+        }
+        cx = min(max(cx, 0), W)
+        cy = min(max(cy, 0), H)
+    }
+}
+
+extension Analyzer {
+    /// Follows the patch in `box` (normalized, top-left origin, picked at source time `anchor`): where its middle
+    /// goes, how it turns and how it grows, forward to t1 and backward to t0 (an overlay sticks to it).
+    static func pin(file: String, from t0: Double, to t1: Double, anchor: Double, box: CGRect,
+                    progress: @escaping @Sendable (Double) -> Void,
+                    isCancelled: @escaping @Sendable () -> Bool) async throws -> [PinSample] {
+        let total = max(t1 - t0, 0.01)
+        let fwdLen = max(t1 - anchor, 0)
+        let maxSide: CGFloat = 640
+
+        // forward (its first frame is the picked one)
+        var forward: [PinSample] = []
+        var follower: PatchFollower?
+        try await readFrames(file: file, from: anchor, to: max(t1, anchor + 0.05), maxSide: maxSide, rate: 30,
+                             isCancelled: isCancelled) { t, cg in
+            if follower == nil {
+                follower = PatchFollower(box: box, size: CGSize(width: cg.width, height: cg.height))
+            }
+            guard let f = follower else { return }
+            if !forward.isEmpty && t > t1 + 1e-3 { return }
+            f.step(cg)
+            forward.append(f.sample(t))
+            progress(min(1, (t - anchor) / total))
+        }
+
+        // backward, one short chunk at a time (frames are read forward, followed in reverse),
+        // starting again from the picked frame
+        var backward: [PinSample] = []
+        if anchor - t0 > 0.02 {
+            var back: PatchFollower?
+            var chunkEnd = anchor
+            let chunk = 1.0
+            var first = true
+            while chunkEnd - t0 > 0.01 {
+                let chunkStart = max(t0, chunkEnd - chunk)
+                var frames: [(Double, CGImage)] = []
+                var seed: CGImage?
+                try await readFrames(file: file, from: chunkStart, to: chunkEnd + (first ? 0.05 : 0), maxSide: maxSide, rate: 30,
+                                     isCancelled: isCancelled) { t, cg in
+                    if t < chunkEnd - 1e-3 { frames.append((t, cg)) } else if first && seed == nil { seed = cg }
+                }
+                if first {
+                    first = false
+                    guard let s = seed ?? frames.last?.1 else { break }
+                    let b = PatchFollower(box: box, size: CGSize(width: s.width, height: s.height))
+                    b.step(s)
+                    back = b
+                }
+                guard let b = back else { break }
+                for (t, cg) in frames.reversed() {
+                    if isCancelled() { throw CancellationError() }
+                    b.step(cg)
+                    backward.append(b.sample(t))
+                }
+                progress(min(1, (fwdLen + anchor - chunkStart) / total))
+                chunkEnd = chunkStart
+            }
+        }
+        progress(1)
+        let all = (backward + forward).sorted { $0.t < $1.t }
+        guard all.count > 1 else { throw CompositionBuilder.err("Could not follow that point.") }
+        return all
+    }
+}

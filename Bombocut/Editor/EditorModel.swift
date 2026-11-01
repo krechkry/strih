@@ -225,7 +225,7 @@ final class EditorModel: ObservableObject {
         LookStore.shared.update(project.clips)
         StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
-        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        OverlayStore.shared.update(project)
         if let id = selectedStackID, !project.stacks.contains(where: { $0.id == id }) { selectedStackID = nil }
         rebuild()
         Task { await fillMissingAspects() }
@@ -484,7 +484,7 @@ final class EditorModel: ObservableObject {
         LookStore.shared.update(project.clips)
         StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
-        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        OverlayStore.shared.update(project)
         rebuild()
     }
 
@@ -514,7 +514,7 @@ final class EditorModel: ObservableObject {
         LookStore.shared.update(project.clips)
         StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
-        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        OverlayStore.shared.update(project)
         if let id = selectedOverlayID, !project.overlays.contains(where: { $0.id == id }) { selectedOverlayID = nil }
         refreshFrame()
     }
@@ -1697,7 +1697,7 @@ final class EditorModel: ObservableObject {
     /// What to do now, while picking a subject.
     var pickHint: String {
         switch pickPhase {
-        case .select: return "Tap or roughly box the subject"
+        case .select: return pinPickOverlay != nil ? "Tap or box the spot the overlay sticks to" : "Tap or roughly box the subject"
         case .detecting: return "Finding it…"
         case .adjust: return "Drag the box to fix it, then Track"
         }
@@ -1709,7 +1709,14 @@ final class EditorModel: ObservableObject {
     func trackPicked() {
         guard pickReady, let r = pickRect else { return }
         pickRect = nil
-        runTracking(canvasRect: r, canvas: pickCanvas)
+        if pinPickOverlay != nil { runPinTracking(canvasRect: r, canvas: pickCanvas) } else { runTracking(canvasRect: r, canvas: pickCanvas) }
+    }
+
+    /// The clip the point or subject is being picked in: the selected clip, or (picking a point for an overlay)
+    /// the clip under the playhead.
+    var pickClipIndex: Int? {
+        if pinPickOverlay != nil { return project.clipIndex(at: currentTime)?.index }
+        return selectedIndex
     }
 
     func startTrackPick() {
@@ -1723,6 +1730,8 @@ final class EditorModel: ObservableObject {
     func cancelTrackPick() {
         pickRect = nil
         stabilizeOnSubject = false
+        pinPickOverlay = nil
+        if OverlayStore.shared.hidden != nil { OverlayStore.shared.hidden = nil; refreshFrame() }
         detectTask?.cancel()
         trackPick = false
         pickPhase = .select
@@ -1767,7 +1776,18 @@ final class EditorModel: ObservableObject {
 
     /// The user marked the subject roughly (a tap is a tiny rect). Finds it and returns a tidy box in canvas points.
     func detectSubject(rough r: CGRect, canvas: CGSize, done: @escaping (CGRect) -> Void) {
-        guard let i = selectedIndex, let src = canvasToSource(r, clip: i, canvas: canvas) else { return }
+        if pinPickOverlay != nil {
+            // a point for an overlay: the spot itself (a tap: a small patch around it), no subject finding
+            let tap = r.width * r.height < 900
+            let side = min(canvas.width, canvas.height) * 0.18
+            var out = tap ? CGRect(x: r.midX - side / 2, y: r.midY - side / 2, width: side, height: side) : r
+            out = out.intersection(CGRect(origin: .zero, size: canvas))
+            pickPhase = .adjust
+            UISelectionFeedbackGenerator().selectionChanged()
+            done(out)
+            return
+        }
+        guard let i = pickClipIndex, let src = canvasToSource(r, clip: i, canvas: canvas) else { return }
         let c = project.clips[i]
         let t = sourceTime(i)
         let tap = r.width * r.height < 900
@@ -1848,6 +1868,95 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    // MARK: Overlay tracking
+
+    /// Picking the point the selected overlay should stick to (nil: picking a clip's subject).
+    @Published var pinPickOverlay: UUID?
+
+    /// Track on an overlay: pick a point in the clip under the playhead (the overlay hides meanwhile).
+    func startPinPick() {
+        guard let oi = selectedOverlayIndex else { return }
+        let o = project.overlays[oi]
+        pause()
+        if currentTime < o.start || currentTime >= o.end { scrub(to: onFrame(min(o.start + 0.01, o.end - 0.01))) }
+        guard let hit = project.clipIndex(at: currentTime), !project.clips[hit.index].still else {
+            showNote(loc("Put the overlay over a video clip to track it"))
+            return
+        }
+        pinPickOverlay = o.id
+        OverlayStore.shared.hidden = o.id
+        refreshFrame()
+        pickPhase = .select
+        trackPick = true
+    }
+
+    /// The (adjusted) box on the preview: follow that patch of the clip, and stick the overlay to it.
+    func runPinTracking(canvasRect r: CGRect, canvas: CGSize) {
+        guard let oid = pinPickOverlay, let oi = project.overlays.firstIndex(where: { $0.id == oid }),
+              let i = pickClipIndex, analysis == nil, canvas.width > 0,
+              let box = canvasToSource(r, clip: i, canvas: canvas), box.width > 0.005, box.height > 0.005 else { return }
+        trackPick = false
+        pickPhase = .select
+        pinPickOverlay = nil
+        OverlayStore.shared.hidden = nil
+        let o = project.overlays[oi]
+        let c = project.clips[i]
+        let cs = project.clipStarts[i]
+        let anchor = sourceTime(i)
+        // the part of the clip the overlay is over (a little more on both sides, for trims later)
+        let rt = c.retime
+        let from = rt.source(atLocal: max(0, max(o.start, cs) - 0.5 - cs))
+        let to = rt.source(atLocal: min(c.duration, min(o.end, cs + c.duration) + 0.5 - cs))
+        let (t0, t1) = (min(from, to, anchor), max(from, to, anchor))
+        let keep = o.pin
+        let pickTime = currentTime
+        analysis = AnalysisState(title: "Tracking", progress: 0)
+        analysisTask = Task {
+            let flag = CancelFlag()
+            await withTaskCancellationHandler {
+                do {
+                    let samples = try await Task.detached(priority: .userInitiated) {
+                        try await Analyzer.pin(file: c.mediaFile, from: t0, to: t1, anchor: anchor, box: box, progress: { f in
+                            Task { @MainActor in self.analysis?.progress = f }
+                        }, isCancelled: { flag.isSet })
+                    }.value
+                    guard let j = project.overlays.firstIndex(where: { $0.id == oid }) else { return }
+                    var pin = OverlayPin(clip: c.id, ref: anchor, samples: samples)
+                    if let keep { pin.position = keep.position; pin.rotation = keep.rotation; pin.scale = keep.scale }
+                    // picked again: it stays where it showed on the new picked frame (its own placement is the truth there)
+                    let o2 = project.overlays[j]
+                    let here = keep != nil && o2.keys.isEmpty ? OverlayStore.shared.shown(o2, at: pickTime) : nil
+                    mutateLook {
+                        if let here { $0.overlays[j].transform = here }
+                        $0.overlays[j].pin = pin
+                    }
+                    selectOverlay(oid)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    requestedPanel = .overlayTrack
+                } catch {
+                    if !(error is CancellationError) { showNote(error.localizedDescription) }
+                }
+            } onCancel: { flag.set() }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
+
+    /// Which of the point's moves the overlay follows (on the picked frame it sits where it was placed either way).
+    func setPinFollows(position: Bool? = nil, rotation: Bool? = nil, scale: Bool? = nil) {
+        guard let oi = selectedOverlayIndex, project.overlays[oi].pin != nil else { return }
+        mutateLook { p in
+            p.overlays[oi].pin?.position = position ?? p.overlays[oi].pin!.position
+            p.overlays[oi].pin?.rotation = rotation ?? p.overlays[oi].pin!.rotation
+            p.overlays[oi].pin?.scale = scale ?? p.overlays[oi].pin!.scale
+        }
+    }
+
+    func removePin() {
+        guard let oi = selectedOverlayIndex, project.overlays[oi].pin != nil else { return }
+        mutateLook { $0.overlays[oi].pin = nil }
+    }
+
     func setFollow(_ m: FollowMode) {
         guard let i = selectedIndex, project.clips[i].tracking != nil else { return }
         mutateLook { $0.clips[i].tracking?.mode = m }
@@ -1863,6 +1972,8 @@ final class EditorModel: ObservableObject {
     @Published var previewScrubs = false
     /// The Track panel is open (the tracked box is only drawn then).
     @Published var trackPanelOpen = false
+    /// An overlay's Track panel is open (its followed point is drawn then).
+    @Published var pinPanelOpen = false
     /// The Mask panel is open: the selected clip's subject gets a lime outline in the preview.
     @Published var maskPanelOpen = false {
         didSet {
@@ -2761,7 +2872,7 @@ final class EditorModel: ObservableObject {
         let o = project.overlays[i]
         guard currentTime >= o.start - 0.01, currentTime < o.end + 0.01 else { return false }
         pause()
-        overlayStart = o.pose(at: currentTime).transform
+        overlayStart = OverlayStore.shared.shown(o, at: currentTime)
         overlaySnapshot = project
         overlayGuides = []
         movingTitle = true
@@ -2806,8 +2917,10 @@ final class EditorModel: ObservableObject {
         if !guides.subtracting(overlayGuides).isEmpty { UISelectionFeedbackGenerator().selectionChanged() }
         overlayGuides = guides
         let now = currentTime
-        project.overlays[i].changePose(at: now) { tr, _ in tr = t }
-        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        // pinned: what is dragged is where it shows; its own placement is that minus the point's motion
+        let own = OverlayStore.shared.base(t, project.overlays[i], at: now)
+        project.overlays[i].changePose(at: now) { tr, _ in tr = own }
+        OverlayStore.shared.update(project)
         refreshFrame()
     }
 
@@ -2881,7 +2994,7 @@ final class EditorModel: ObservableObject {
             guard case .text = o.kind else { continue }
             let pose = o.pose(at: currentTime)
             guard pose.opacity > 0.02 else { continue }
-            let t = pose.transform
+            let t = OverlayStore.shared.shown(o, at: currentTime)
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
             let c = CGPoint(x: canvas.width / 2 + t.x * canvas.width, y: canvas.height / 2 + t.y * canvas.height)
             if Self.inside(p, center: c, size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
@@ -3206,7 +3319,7 @@ extension EditorModel {
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
-            let t = o.pose(at: currentTime).transform
+            let t = OverlayStore.shared.shown(o, at: currentTime)
             let bw = base.width * t.scale, bh = base.height * t.scale
             guard bw > 1, bh > 1 else { return nil }
             return CGAffineTransform(translationX: -0.5, y: -0.5)

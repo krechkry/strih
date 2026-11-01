@@ -838,3 +838,66 @@ struct TrackSheet: View {
         .presentationBackground(Theme.panel)
     }
 }
+
+// MARK: Track (overlay)
+
+/// Sticks the selected overlay to a point of the clip under it: pick the point, then choose what it follows.
+struct OverlayTrackSheet: View {
+    @ObservedObject var model: EditorModel
+
+    private func chip(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(loc(title)).font(.subheadline.weight(.bold))
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .foregroundStyle(on ? .black : .white)
+                .padding(.horizontal, 14).frame(height: 38)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    var body: some View {
+        PanelStack(spacing: 18, span: 1) {
+            Text("Track").font(.title3.weight(.heavy))
+            if let i = model.selectedOverlayIndex, let pin = model.project.overlays[i].pin {
+                Text("Follow").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                HStack(spacing: 8) {
+                    chip("Position", on: pin.position) { model.setPinFollows(position: !pin.position) }
+                    chip("Rotation", on: pin.rotation) { model.setPinFollows(rotation: !pin.rotation) }
+                    chip("Scale", on: pin.scale) { model.setPinFollows(scale: !pin.scale) }
+                }
+                Text("Move, turn or scale the overlay on the preview any time: it keeps sticking to the point.")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Button { model.startPinPick() } label: {
+                        Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                    }
+                    Button(role: .destructive) { model.removePin() } label: {
+                        Label("Remove", systemImage: "trash").font(.subheadline.weight(.bold))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+            } else {
+                Text("Place the overlay where it should sit, then tap Select point and tap or roughly box the spot in the video it should stick to. BOMBOCUT follows that spot through the clip, with its turn and size.")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { model.startPinPick() } label: {
+                    Label("Select point", systemImage: "viewfinder")
+                        .font(.headline.weight(.bold)).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(20)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationBackground(Theme.panel)
+    }
+}

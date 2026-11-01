@@ -44,6 +44,7 @@ struct PreviewArea: View {
                     layer(canvas) { stackBox(canvas) }
                     layer(canvas) { overlayBox(canvas) }
                     layer(canvas) { trackedBox(canvas) }
+                    layer(canvas) { pinnedPoint(canvas) }
                     layer(canvas) { safeZoneLayer(canvas) }
                     layer(canvas) { captionBox(canvas) }
                     layer(canvas) { guides(canvas) }
@@ -389,7 +390,7 @@ struct PreviewArea: View {
             let o = model.project.overlays[i]
             if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 {
                 let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
-                let t = o.pose(at: model.currentTime).transform
+                let t = OverlayStore.shared.shown(o, at: model.currentTime)
                 let bw = base.width * t.scale, bh = base.height * t.scale
                 let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
                 Path { p in
@@ -407,7 +408,7 @@ struct PreviewArea: View {
     /// An overlay's picture (0...1 across and down, upright) to canvas points, at the playhead.
     private func overlayMap(_ o: Overlay, _ canvas: CGSize) -> CGAffineTransform {
         let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
-        let t = o.pose(at: model.currentTime).transform
+        let t = OverlayStore.shared.shown(o, at: model.currentTime)
         let bw = base.width * t.scale, bh = base.height * t.scale
         let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
         return CGAffineTransform(scaleX: bw, y: bh)
@@ -417,6 +418,25 @@ struct PreviewArea: View {
     }
 
     /// The tracked subject, shown while the clip is selected and paused.
+    /// The point a pinned overlay follows, while its Track panel is open and paused.
+    @ViewBuilder
+    private func pinnedPoint(_ canvas: CGSize) -> some View {
+        if model.pinPanelOpen, !model.isPlaying, !model.trackPick, let i = model.selectedOverlayIndex,
+           model.project.overlays[i].pin != nil, let path = OverlayStore.shared.pinPath(model.project.overlays[i].id),
+           let first = path.t.first, let last = path.t.last,
+           model.currentTime >= first - 0.01, model.currentTime <= last + 0.01 {
+            let p = path.at(model.currentTime)
+            let x = canvas.width * CGFloat(0.5 + p.x)
+            let y = canvas.height * CGFloat(0.5 + p.y)
+            ZStack {
+                Circle().stroke(Theme.accent, lineWidth: 2).frame(width: 22, height: 22)
+                Circle().fill(Theme.accent).frame(width: 5, height: 5)
+            }
+            .position(x: x, y: y)
+            .allowsHitTesting(false)
+        }
+    }
+
     @ViewBuilder
     private func trackedBox(_ canvas: CGSize) -> some View {
         if model.trackPanelOpen, let i = model.selectedIndex, !model.isPlaying, model.trimView == nil, model.live == nil, !model.trackPick,

@@ -94,6 +94,8 @@ struct Overlay: Codable, Hashable, Identifiable {
     var speedCurve: [SpeedPoint]?
     var curveIn: Double?
     var curveSpan: Double?
+    /// Track: stuck to a point of the clip under it (texts, pictures and videos).
+    var pin: OverlayPin?
 
     var end: Double { start + duration }
 
@@ -150,7 +152,7 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
-        case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan
+        case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan, pin
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -185,6 +187,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         speedCurve = try? c.decodeIfPresent([SpeedPoint].self, forKey: .speedCurve)
         curveIn = try? c.decodeIfPresent(Double.self, forKey: .curveIn)
         curveSpan = try? c.decodeIfPresent(Double.self, forKey: .curveSpan)
+        pin = try? c.decodeIfPresent(OverlayPin.self, forKey: .pin)
     }
 
     /// The speed curve as timing (nil at a constant speed).

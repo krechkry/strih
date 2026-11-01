@@ -80,7 +80,7 @@ final class Exporter: @unchecked Sendable {
         LookStore.shared.update(project.clips)
         StackStore.shared.update(project)
         CaptionStore.shared.update(project.captionTracks)
-        OverlayStore.shared.update(project.overlays, canvasAspect: project.canvas.aspect)
+        OverlayStore.shared.update(project)
         // cleaned-up speech the editor has not made yet
         await SpeechCleanup.shared.prepare(project)
         let built = try await CompositionBuilder.build(project: project,

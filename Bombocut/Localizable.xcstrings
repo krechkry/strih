@@ -1600,6 +1600,16 @@
         }
       }
     },
+    "Could not follow that point.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To místo se nepodařilo sledovat."
+          }
+        }
+      }
+    },
     "Could not follow the subject.": {
       "localizations": {
         "cs": {
@@ -4078,6 +4088,16 @@
         }
       }
     },
+    "Move, turn or scale the overlay on the preview any time: it keeps sticking to the point.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překryv můžeš na náhledu kdykoli posunout, otočit nebo zvětšit: pořád se drží bodu."
+          }
+        }
+      }
+    },
     "Multiply": {
       "localizations": {
         "cs": {
@@ -4778,6 +4798,16 @@
         }
       }
     },
+    "Place the overlay where it should sit, then tap Select point and tap or roughly box the spot in the video it should stick to. BOMBOCUT follows that spot through the clip, with its turn and size.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dej překryv tam, kde má být, pak klepni na Vybrat bod a klepni nebo zhruba označ místo ve videu, kterého se má držet. BOMBOCUT to místo sleduje celým klipem, i s jeho natočením a velikostí."
+          }
+        }
+      }
+    },
     "Play": {
       "localizations": {
         "cs": {
@@ -4964,6 +4994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fialová"
+          }
+        }
+      }
+    },
+    "Put the overlay over a video clip to track it": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro tracking dej překryv nad videoklip"
           }
         }
       }
@@ -5268,6 +5308,16 @@
         }
       }
     },
+    "Rotation": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Natočení"
+          }
+        }
+      }
+    },
     "Round": {
       "localizations": {
         "cs": {
@@ -5448,6 +5498,16 @@
         }
       }
     },
+    "Scale": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Velikost"
+          }
+        }
+      }
+    },
     "Screen": {
       "localizations": {
         "cs": {
@@ -5494,6 +5554,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zrušit výběr"
+          }
+        }
+      }
+    },
+    "Select point": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat bod"
           }
         }
       }
@@ -6234,6 +6304,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepni na některou a uvidíš ji ve videu."
+          }
+        }
+      }
+    },
+    "Tap or box the spot the overlay sticks to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepni nebo označ místo, kterého se překryv bude držet"
           }
         }
       }
