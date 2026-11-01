@@ -135,6 +135,7 @@ struct EditorView: View {
                     PanelUndoBar(model: model).offset(y: -52).padding(.trailing, 14)
                 }
             }
+            .overlay(alignment: .topLeading) { panelKeys(s) }
             .id(s)
             // any color control in a panel can pick a color off the video
             .environment(\.startEyedropper, startEyedropper)
@@ -146,6 +147,15 @@ struct EditorView: View {
             .padding(.bottom, Device.pad ? keyboard : 0)
             .ignoresSafeArea(Device.pad ? [.keyboard, .container] : [], edges: .bottom)
             .transition(.move(edge: .bottom))
+        }
+    }
+
+    /// The keyframe diamond and previous / next keyframe, floating above panels that edit keyframed values
+    /// (left, level with undo / redo).
+    @ViewBuilder
+    private func panelKeys(_ s: EditorSheet) -> some View {
+        if pro, !typing, s == .adjust || s == .overlay, model.keysSelection {
+            PanelKeyBar(model: model).offset(y: -52).padding(.leading, 14)
         }
     }
 
@@ -624,11 +634,11 @@ struct EditorView: View {
     private var toolbar: some View {
         HStack(spacing: 0) {
             toolScroller
-            if model.pick == nil, model.slip == nil, clipboard.hasContent {
+            if model.pick == nil, model.slip == nil, finishSelection == nil, clipboard.hasContent {
                 PasteControl { providers in paste(providers) }
                     .frame(width: 44, height: 44)
                     .padding(.leading, 6)
-                    .padding(.trailing, finishSelection == nil ? 14 : 0)
+                    .padding(.trailing, 14)
                     .background(alignment: .leading) { toolFade }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -708,7 +718,7 @@ struct EditorView: View {
                     if o.kind.isVideo {
                         ToolButton(icon: "speedometer", label: "Speed") { openOverlay(.speed) }
                     }
-                    if pro { ToolButton(icon: "camera.filters", label: "Adjust") { model.pause(); sheet = .adjust } }
+                    if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if o.isMedia {
                         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     }
@@ -1483,6 +1493,45 @@ private struct TrackPickPanel: View {
                 .background(Theme.panel2, in: Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(loc(label))
+    }
+}
+
+/// Keyframes floating above an open panel: the diamond (add / remove the keyframe at the playhead) and jumps to
+/// the previous / next keyframe of what is selected.
+private struct PanelKeyBar: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        let here = model.keyHere
+        HStack(spacing: 8) {
+            Button { model.toggleAnyKeyframe() } label: {
+                Image(systemName: here ? "diamond.fill" : "diamond")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(here ? Theme.accent : .white)
+                    .frame(width: 40, height: 40)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .background(Color.black.opacity(0.35), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc(here ? "Delete keyframe" : "Add keyframe"))
+            step("chevron.left", dir: -1, label: "Previous keyframe")
+            step("chevron.right", dir: 1, label: "Next keyframe")
+        }
+    }
+
+    private func step(_ icon: String, dir: Int, label: String) -> some View {
+        let on = model.canStepKey(dir)
+        return Button { model.stepAnyKeyframe(dir) } label: {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white.opacity(on ? 1 : 0.35))
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+                .background(Color.black.opacity(0.35), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!on)
         .accessibilityLabel(loc(label))
     }
 }

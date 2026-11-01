@@ -122,7 +122,9 @@ extension View {
 
 /// A panel's rows. In a wide iPad window (landscape) they split into two columns, so long panels need no
 /// scrolling; everywhere else they stack like a VStack (leading). The first `span` rows (tabs, a title) stay
-/// across the full width, and a column never ends on a short label row (it stays with what it labels).
+/// across the full width. Where the columns split is fixed by the panel: rows after a `PanelBreak()` go to the
+/// right column, so a row appearing or growing (an outline width, a shadow turned on) only grows its own column and
+/// nothing jumps across. Without a break the rows are balanced by height (a column never ends on a short label).
 struct PanelStack: Layout {
     var spacing: CGFloat = 16
     var span = 0
@@ -148,22 +150,51 @@ struct PanelStack: Layout {
     }
 
     private func arrange(_ width: CGFloat, _ subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
-        var frames: [CGRect] = []
+        var frames = [CGRect](repeating: .zero, count: subviews.count)
+        // the rows (a break takes no room and splits the columns)
+        var rows: [Int] = []
+        var breakAt: Int?
+        for i in subviews.indices {
+            if subviews[i][PanelBreakKey.self] {
+                if breakAt == nil { breakAt = rows.count }
+            } else {
+                rows.append(i)
+            }
+        }
         var y: CGFloat = 0
-        let n = subviews.count
+        let n = rows.count
         let head = width >= Self.wide ? min(span, n) : n
-        for i in 0..<head {
-            let h = height(subviews[i], width)
-            frames.append(CGRect(x: 0, y: y, width: width, height: h))
+        for r in 0..<head {
+            let h = height(subviews[rows[r]], width)
+            frames[rows[r]] = CGRect(x: 0, y: y, width: width, height: h)
             y += h + spacing
         }
         if head == n {
             let total: CGFloat = n > 0 ? y - spacing : 0
             return (frames, CGSize(width: width, height: max(0, total)))
         }
-        // two columns: split where the taller column is shortest
         let cw: CGFloat = (width - gap) / 2
-        let hs: [CGFloat] = (head..<n).map { height(subviews[$0], cw) }
+        let hs: [CGFloat] = (head..<n).map { height(subviews[rows[$0]], cw) }
+        let m = hs.count
+        let split = breakAt.map { min(max($0 - head, 0), m) } ?? balanced(hs)
+        var ly = y
+        var ry = y
+        let rx: CGFloat = cw + gap
+        for j in 0..<m {
+            if j < split {
+                frames[rows[head + j]] = CGRect(x: 0, y: ly, width: cw, height: hs[j])
+                ly += hs[j] + spacing
+            } else {
+                frames[rows[head + j]] = CGRect(x: rx, y: ry, width: cw, height: hs[j])
+                ry += hs[j] + spacing
+            }
+        }
+        let bottom: CGFloat = max(ly, ry) - spacing
+        return (frames, CGSize(width: width, height: max(0, bottom)))
+    }
+
+    /// No break: split where the taller column is shortest.
+    private func balanced(_ hs: [CGFloat]) -> Int {
         let m = hs.count
         var best = m
         var bestH = CGFloat.infinity
@@ -174,19 +205,17 @@ struct PanelStack: Layout {
             let tallest: CGFloat = max(left, right)
             if tallest < bestH { bestH = tallest; best = k }
         }
-        var ly = y
-        var ry = y
-        let rx: CGFloat = cw + gap
-        for j in 0..<m {
-            if j < best {
-                frames.append(CGRect(x: 0, y: ly, width: cw, height: hs[j]))
-                ly += hs[j] + spacing
-            } else {
-                frames.append(CGRect(x: rx, y: ry, width: cw, height: hs[j]))
-                ry += hs[j] + spacing
-            }
-        }
-        let bottom: CGFloat = max(ly, ry) - spacing
-        return (frames, CGSize(width: width, height: max(0, bottom)))
+        return best
     }
+}
+
+/// In a `PanelStack`: the rows after it go to the right column on a wide iPad. Takes no room anywhere.
+struct PanelBreak: View {
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0).layoutValue(key: PanelBreakKey.self, value: true)
+    }
+}
+
+private struct PanelBreakKey: LayoutValueKey {
+    static let defaultValue = false
 }

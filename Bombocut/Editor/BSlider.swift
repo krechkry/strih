@@ -11,6 +11,8 @@ struct BSlider: View {
     var color: Color = Theme.accent
     /// A track that shows what each position gives (a color slider's hues, say) instead of the usual fill.
     var trackColors: [Color]? = nil
+    /// The value is keyframed and the playhead is on its keyframe: the handle is lime inside.
+    var keyed = false
 
     @Environment(\.sliderReset) private var reset
     @Environment(\.isEnabled) private var enabled
@@ -27,6 +29,13 @@ struct BSlider: View {
     func track(_ colors: [Color]) -> BSlider {
         var s = self
         s.trackColors = colors
+        return s
+    }
+
+    /// Lime handle: the value is keyframed here.
+    func keyed(_ on: Bool) -> BSlider {
+        var s = self
+        s.keyed = on
         return s
     }
 
@@ -57,6 +66,7 @@ struct BSlider: View {
                         .offset(x: Self.thumb / 2)
                 }
                 Circle().fill(.white)
+                    .overlay { if keyed { Circle().fill(Theme.accent).padding(4) } }
                     .frame(width: Self.thumb, height: Self.thumb)
                     .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
                     .scaleEffect(editing ? 1.08 : 1)
@@ -130,5 +140,14 @@ extension View {
                 reset()
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
+    }
+}
+
+extension View {
+    /// A value readout that is keyframed at the playhead: on a lime capsule (give it dark text).
+    func keyedValue(_ on: Bool) -> some View {
+        padding(.horizontal, on ? 8 : 0)
+            .padding(.vertical, on ? 1 : 0)
+            .background(on ? Theme.accent : Color.clear, in: Capsule())
     }
 }

@@ -706,6 +706,7 @@ struct StabilizeSheet: View {
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    PanelBreak()
                     HStack(alignment: .firstTextBaseline) {
                         Text("Max zoom").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                         Spacer()
@@ -822,6 +823,7 @@ struct TrackSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                PanelBreak()
                 Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 BSlider(value: Binding(get: { tr.smooth }, set: { v in
                     model.editClip { $0.tracking?.smooth = v }
@@ -886,6 +888,7 @@ struct OverlayTrackSheet: View {
                     chip("Rotation", on: pin.rotation) { model.setPinFollows(rotation: !pin.rotation) }
                     chip("Scale", on: pin.scale) { model.setPinFollows(scale: !pin.scale) }
                 }
+                PanelBreak()
                 Text("Move, turn or scale the overlay on the preview any time: it keeps sticking to the point.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -907,6 +910,7 @@ struct OverlayTrackSheet: View {
                 Text("Place the overlay where it should sit, then tap Select point and tap or roughly box the spot in the video it should stick to. BOMBOCUT follows that spot through the clip, with its turn and size.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
+                PanelBreak()
                 Button { model.startPinPick() } label: {
                     Label("Select point", systemImage: "viewfinder")
                         .font(.headline.weight(.bold)).foregroundStyle(.black)

@@ -75,12 +75,14 @@ struct AdjustSheet: View {
             .padding(.vertical, 2)
         }
         let value = param.get(model.adjustLook())
+        let keyed = model.isKeyed(param)
         HStack(alignment: .firstTextBaseline) {
             Text(loc(param.title)).font(.title3.weight(.bold))
             Spacer()
             Text(param.display(value))
                 .font(.system(size: 28, weight: .heavy).monospacedDigit())
-                .foregroundStyle(abs(value - param.neutral) < 0.005 ? Theme.muted : Theme.accent)
+                .foregroundStyle(valueInk(value, param, keyed: keyed, on: Theme.accent))
+                .keyedValue(keyed)
                 .doubleTapNumberReset { model.resetParam(param) }
         }
         BSlider(value: Binding(
@@ -96,25 +98,35 @@ struct AdjustSheet: View {
         ), in: param.range, onEditingChanged: { editing in
             if editing { model.lookEditBegan() } else { model.lookEditEnded() }
         })
+        .keyed(keyed)
         .doubleTapReset { model.resetParam(param) }
         // the effect's own extra controls (Bloom: size, threshold; Grain: size)
         ForEach(param.subParams) { sub in subSlider(sub) }
     }
 
+    /// The value's color: muted at neutral, dark on its lime capsule when keyframed here.
+    private func valueInk(_ v: Double, _ p: LookParam, keyed: Bool, on: Color) -> Color {
+        if keyed { return .black }
+        return abs(v - p.neutral) < 0.005 ? Theme.muted : on
+    }
+
     private func subSlider(_ p: LookParam) -> some View {
         let v = p.get(model.adjustLook())
+        let keyed = model.isKeyed(p)
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(loc(p.subTitle)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 Spacer()
                 Text(p.display(v)).font(.subheadline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(abs(v - p.neutral) < 0.005 ? Theme.muted : .white)
+                    .foregroundStyle(valueInk(v, p, keyed: keyed, on: .white))
+                    .keyedValue(keyed)
                     .doubleTapNumberReset { model.resetParam(p) }
             }
             BSlider(value: Binding(get: { p.get(model.adjustLook()) }, set: { nv in model.editLook { p.set(&$0, nv) } }),
                     in: p.range, onEditingChanged: { editing in
                 if editing { model.lookEditBegan() } else { model.lookEditEnded() }
             })
+            .keyed(keyed)
             .doubleTapReset { model.resetParam(p) }
         }
     }

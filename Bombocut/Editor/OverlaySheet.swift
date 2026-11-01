@@ -151,6 +151,7 @@ struct OverlaySheet: View {
     @ViewBuilder
     private func textLook(_ s: CaptionStyle) -> some View {
         slider("Size", value: s.size, def: Overlay.defaultTextStyle.size, in: 0.03...0.4) { v in model.editOverlay { $0.style.size = v } }
+        PanelBreak()
         slider("Letter spacing", value: s.tracking, def: Overlay.defaultTextStyle.tracking, in: -0.2...1) { v in model.editOverlay { $0.style.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Overlay.defaultTextStyle.lineSpacing, in: 0.2...4) { v in model.editOverlay { $0.style.lineSpacing = v } }
     }
@@ -179,6 +180,7 @@ struct OverlaySheet: View {
         if s.strokeWidth > 0 {
             OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in model.setOverlay { $0.style.strokeOutside = v } }
         }
+        PanelBreak()
         OnOffRow(title: "Shadow", isOn: s.shadow) { v in model.setOverlay { $0.style.shadow = v } }
         if s.shadow {
             slider("Shadow opacity", value: s.shadowOpacity, def: Overlay.defaultTextStyle.shadowOpacity, in: 0.05...1) { v in model.editOverlay { $0.style.shadowOpacity = v } }
@@ -219,7 +221,8 @@ struct OverlaySheet: View {
                 }
             }
         }
-        slider("Opacity", value: o.pose(at: model.currentTime).opacity, def: 1, in: 0.05...1) { v in model.editOverlayOpacity(v) }
+        slider("Opacity", value: o.pose(at: model.currentTime).opacity, def: 1, in: 0.05...1,
+               keyed: model.isKeyed(.opacity)) { v in model.editOverlayOpacity(v) }
         if o.kind.isVideo {
             section("Volume") {
                 HStack(spacing: 12) {
@@ -232,6 +235,7 @@ struct OverlaySheet: View {
                 }
             }
         }
+        PanelBreak()
         OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip below (Mask tool)",
                  isOn: o.behindSubject) { v in model.setOverlay { $0.behindSubject = v } }
         if model.project.overlays.count > 1 { ApplyRow(model: model, kind: .overlayStyle) }
@@ -283,6 +287,7 @@ struct OverlaySheet: View {
                 pill(Fmt.speed(t), on: !o.isCurved && abs(v - t) < 0.001) { speed = nil; model.setOverlaySpeed(t) }
             }
         }
+        PanelBreak()
         Text("The video overlay plays faster or slower; its sound keeps its pitch.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
@@ -311,12 +316,13 @@ struct OverlaySheet: View {
         .buttonStyle(.plain)
     }
 
-    private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>,
+    private func slider(_ title: String, value: Double, def: Double, in range: ClosedRange<Double>, keyed: Bool = false,
                         _ set: @escaping (Double) -> Void) -> some View {
         section(title) {
             BSlider(value: Binding(get: { value }, set: set), in: range, onEditingChanged: { e in
                 if e { model.liveEditBegan() } else { model.liveEditEnded() }
             })
+            .keyed(keyed)
             .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
         }
     }

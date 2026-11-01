@@ -20,7 +20,7 @@ final class OverlayStore: @unchecked Sendable {
     }
 
     /// Pinned overlays (Track on an overlay): their point's path on the canvas, and what it was worked out from.
-    private var pins: [UUID: (key: Int, path: PinPath)] = [:]
+    private var pins: [UUID: (key: Int, path: PinPath?, missing: PinMissing?)] = [:]
     /// The overlay whose point is being picked: hidden in the preview so the footage under it shows.
     private var hiddenID: UUID?
 
@@ -36,29 +36,41 @@ final class OverlayStore: @unchecked Sendable {
         lock.lock()
         let oldPins = pins
         lock.unlock()
-        var next: [UUID: (key: Int, path: PinPath)] = [:]
+        var next: [UUID: (key: Int, path: PinPath?, missing: PinMissing?)] = [:]
         let starts = project.clipStarts
         for o in project.overlays {
-            guard let pin = o.pin, let ci = project.clips.firstIndex(where: { $0.id == pin.clip }) else { continue }
-            let c = project.clips[ci]
+            guard let pin = o.pin, let media = project.pinMedia(pin) else { continue }
+            // worked out again only when the pin, the overlay's timing or a clip showing its footage changed
             var h = Hasher()
             h.combine(pin)
+            h.combine(media)
             h.combine(o.start)
             h.combine(o.duration)
-            h.combine(c)
-            h.combine(starts[ci])
             h.combine(A)
+            for (i, c) in project.clips.enumerated() where c.mediaFile == media {
+                h.combine(c)
+                h.combine(starts[i])
+            }
+            h.combine(project.clips.count)
             let key = h.finalize()
             if let kept = oldPins[o.id], kept.key == key {
                 next[o.id] = kept
-            } else if let path = PinPath.make(o, clip: c, clipStart: starts[ci],
-                                              state: LookStore.shared.state(c.id) ?? c.lookState, canvasAspect: A) {
-                next[o.id] = (key, path)
+            } else {
+                let made = PinPath.make(o, in: project, canvasAspect: A) { c in LookStore.shared.state(c.id) ?? c.lookState }
+                next[o.id] = (key, made.path, made.missing)
             }
         }
         lock.lock()
         pins = next
         lock.unlock()
+    }
+
+    /// Pinned overlays shown over footage that was never tracked (see `PinPath.make`).
+    var missingPins: [UUID: PinMissing] {
+        lock.lock(); defer { lock.unlock() }
+        var out: [UUID: PinMissing] = [:]
+        for (id, p) in pins { if let m = p.missing { out[id] = m } }
+        return out
     }
 
     func pinPath(_ id: UUID) -> PinPath? {

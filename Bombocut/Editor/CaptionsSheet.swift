@@ -449,6 +449,7 @@ struct CaptionsSheet: View {
         }
         slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
+        PanelBreak()
         slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
         slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
         OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
@@ -468,6 +469,7 @@ struct CaptionsSheet: View {
     @ViewBuilder
     private func colorSection(_ s: CaptionStyle) -> some View {
         colorRow("Text", s.text) { c in { $0.text = c } }
+        PanelBreak()
         colorRow("Highlight", s.highlight) { c in { $0.highlight = c } }
         Text("Highlight colors the word being said (the Highlight animation).")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -477,6 +479,7 @@ struct CaptionsSheet: View {
     @ViewBuilder
     private func outlineSection(_ s: CaptionStyle) -> some View {
         colorRow("Outline", s.stroke) { c in { $0.stroke = c } }
+        PanelBreak()
         slider("Outline width", value: s.strokeWidth, def: Self.base.strokeWidth, in: 0...2) { v in { $0.strokeWidth = v } }
         if s.strokeWidth > 0 {
             OnOffRow(title: "Outline outside only", isOn: s.strokeOutside) { v in setStyle { $0.strokeOutside = v } }
@@ -489,6 +492,7 @@ struct CaptionsSheet: View {
         if s.shadow {
             slider("Shadow opacity", value: s.shadowOpacity, def: Self.base.shadowOpacity, in: 0.05...1) { v in { $0.shadowOpacity = v } }
             slider("Shadow blur", value: s.shadowBlur, def: Self.base.shadowBlur, in: 0...1.2) { v in { $0.shadowBlur = v } }
+            PanelBreak()
             slider("Shadow distance", value: s.shadowDistance, def: Self.base.shadowDistance, in: 0...0.6) { v in { $0.shadowDistance = v } }
             slider("Shadow angle", value: s.shadowAngle, def: Self.base.shadowAngle, in: 0...360) { v in { $0.shadowAngle = v } }
         }
@@ -499,6 +503,7 @@ struct CaptionsSheet: View {
         OnOffRow(title: "Box", isOn: s.box) { v in setStyle { $0.box = v } }
         if s.box {
             colorRow("Box color", s.boxColor) { c in { $0.boxColor = c } }
+            PanelBreak()
             slider("Box opacity", value: s.boxOpacity, def: Self.base.boxOpacity, in: 0.1...1) { v in { $0.boxOpacity = v } }
         }
     }
@@ -516,6 +521,7 @@ struct CaptionsSheet: View {
                 .buttonStyle(.plain)
             }
         }
+        PanelBreak()
         if s.anim == .highlight { colorRow("Highlight", s.highlight) { c in { $0.highlight = c } } }
         Text("Tap one to see it on your video.")
             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)

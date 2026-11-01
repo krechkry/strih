@@ -168,6 +168,7 @@ struct AutoZoomSheet: View {
                                 onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
                             .doubleTapReset { model.liveEditBegan(); model.editAutoZoomFraming { $0 = AutoZoom.Framing() }; model.liveEditEnded() }
                     }
+                    PanelBreak()
                     EaseGrid(ease: z.ease, dir: z.easeDir ?? .both) { e, d in
                         var n = z
                         n.ease = e

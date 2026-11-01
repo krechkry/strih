@@ -496,8 +496,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         return (stabT, following(m, stabT: stabT, source: source, follow: follow, in: size))
     }
 
-    /// Tracking: shifts placement `m` so the subject stays centered or where it was picked (and, with no borders,
-    /// zooms so the picture always covers the canvas).
+    /// Tracking: shifts placement `m` so the subject stays centered or where it was picked (with no borders, zooms
+    /// so the picture always covers the canvas; with retain size, zooms so the subject keeps its size).
     private static func following(_ placed: CGAffineTransform, stabT: CGAffineTransform, source: CGSize,
                                   follow: Follow?,
                                   in size: CGSize) -> CGAffineTransform {
@@ -511,26 +511,29 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let target = f.mode == .center ? CGPoint(x: size.width / 2, y: size.height / 2) : onCanvas(f.start.x, f.start.y)
             m = m.concatenating(CGAffineTransform(translationX: target.x - now.x, y: target.y - now.y))
 
-            if f.fill {
+            if f.grow > 0 {
+                // retain size: the picture covers the canvas on the reference frame, then zooms around the subject
+                // exactly as much as it shrank or grew since (zooming out shows borders), so its size stays and it
+                // stays centered / where it was picked (no edge clamp: that would push it off its spot)
+                let r = CGRect(x: 0, y: 0, width: w, height: h).applying(m)
+                let cover = max(size.width / max(r.width, 1e-6), size.height / max(r.height, 1e-6))
+                let k = max(cover, 1) * CGFloat(f.grow)
+                if abs(k - 1) > 0.0001 {
+                    m = m.concatenating(CGAffineTransform(translationX: -target.x, y: -target.y))
+                        .concatenating(CGAffineTransform(scaleX: k, y: k))
+                        .concatenating(CGAffineTransform(translationX: target.x, y: target.y))
+                }
+            } else if f.fill {
                 // no borders: grow the picture until it covers the canvas, then keep its edges outside
-                var cx = size.width / 2, cy = size.height / 2
+                let cx = size.width / 2, cy = size.height / 2
                 var r = CGRect(x: 0, y: 0, width: w, height: h).applying(m)
                 let cover = max(size.width / max(r.width, 1e-6), size.height / max(r.height, 1e-6))
-                var k: CGFloat
-                if f.grow > 0 {
-                    // retain size: covering the canvas, then zoomed in on the subject as much as it got smaller than
-                    // on the reference frame (when it gets bigger the picture can't go smaller without borders)
-                    k = max(cover, 1) * max(CGFloat(f.grow), 1)
-                    cx = target.x
-                    cy = target.y
-                } else {
-                    // zoom enough that the subject can stay where it is held over the whole clip
-                    // without an edge showing (up to 3x; past that the edges stop it instead)
-                    let sx = min(f.span.x, 0.33), sy = min(f.span.y, 0.33)
-                    let need = max(size.width / max(r.width * (1 - 2 * sx), 1e-6),
-                                   size.height / max(r.height * (1 - 2 * sy), 1e-6))
-                    k = max(cover, need, 1)
-                }
+                // zoom enough that the subject can stay where it is held over the whole clip
+                // without an edge showing (up to 3x; past that the edges stop it instead)
+                let sx = min(f.span.x, 0.33), sy = min(f.span.y, 0.33)
+                let need = max(size.width / max(r.width * (1 - 2 * sx), 1e-6),
+                               size.height / max(r.height * (1 - 2 * sy), 1e-6))
+                let k: CGFloat = max(cover, need, 1)
                 if k > 1.0001 {
                     m = m.concatenating(CGAffineTransform(translationX: -cx, y: -cy))
                         .concatenating(CGAffineTransform(scaleX: k, y: k))

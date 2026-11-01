@@ -180,6 +180,7 @@ final class EditorModel: ObservableObject {
     init(project: Project, store: ProjectStore) {
         var project = project
         project.normalizeOverlays()   // older projects: every overlay gets its row
+        project.migratePins()         // older pins named a clip: now its footage
         self.project = project
         self.store = store
         player.actionAtItemEnd = .pause
@@ -486,6 +487,7 @@ final class EditorModel: ObservableObject {
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project)
         rebuild()
+        checkPinFootage()
     }
 
     /// Edits that only change how clips look (effects, keyframes, transform, fit/fill):
@@ -507,6 +509,7 @@ final class EditorModel: ObservableObject {
         publishLook()
         // motion blur switched on or off: the video needs (or no longer needs) the neighbouring frames
         if neighbourSet != builtNeighbours { rebuild() }
+        checkPinFootage()
     }
 
     /// Pushes the current looks to the compositor and redraws the paused frame.
@@ -1921,7 +1924,7 @@ final class EditorModel: ObservableObject {
                         }, isCancelled: { flag.isSet })
                     }.value
                     guard let j = project.overlays.firstIndex(where: { $0.id == oid }) else { return }
-                    var pin = OverlayPin(clip: c.id, ref: anchor, samples: samples)
+                    var pin = OverlayPin(media: c.mediaFile, ref: anchor, samples: samples, box: box.size)
                     if let keep { pin.position = keep.position; pin.rotation = keep.rotation; pin.scale = keep.scale }
                     // picked again: it stays where it showed on the new picked frame (its own placement is the truth there)
                     let o2 = project.overlays[j]
@@ -1940,6 +1943,96 @@ final class EditorModel: ObservableObject {
             analysis = nil
             analysisTask = nil
         }
+    }
+
+    /// Gaps already tracked (or tried) for pinned overlays, so an edit never asks twice for the same part.
+    private var pinGapsTried: Set<String> = []
+
+    /// After an edit: a pinned overlay now shows footage its point was never tracked in (it got longer, a clip
+    /// under it was slipped or trimmed outwards, it moved onto another part of the same footage). That part is
+    /// tracked on, joined onto what is known, with the usual Tracking popup; only when it is really missing.
+    private func checkPinFootage() {
+        guard analysis == nil, !trackPick, pinPickOverlay == nil else { return }
+        let missing = OverlayStore.shared.missingPins
+        guard !missing.isEmpty else { return }
+        for o in project.overlays {
+            guard let m = missing[o.id] else { continue }
+            let key = "\(o.id)/\(Int(((m.low ?? 0) * 10).rounded()))/\(Int(((m.high ?? 0) * 10).rounded()))"
+            if pinGapsTried.contains(key) { continue }
+            pinGapsTried.insert(key)
+            let id = o.id
+            DispatchQueue.main.async { [weak self] in self?.trackPinGap(id, m) }
+            return
+        }
+    }
+
+    /// Tracks the point on into the source seconds in `gap`, starting from the nearest tracked sample (its spot,
+    /// turn and size carry on, so the two parts join up), and adds that to every overlay following the same point.
+    private func trackPinGap(_ id: UUID, _ gap: PinMissing) {
+        guard analysis == nil, let oi = project.overlays.firstIndex(where: { $0.id == id }),
+              let pin = project.overlays[oi].pin, let media = project.pinMedia(pin),
+              let first = pin.samples.first, let last = pin.samples.last,
+              let footage = project.clips.first(where: { $0.mediaFile == media }) else { return }
+        pause()
+        let end = footage.sourceDuration
+        let size = CGSize(width: pin.box?.first ?? 0.15, height: pin.box?.last ?? 0.15)
+        // before the tracked part (backwards from its first sample), after it (forwards from its last)
+        var runs: [(from: Double, to: Double, seed: PinSample)] = []
+        if let lo = gap.low, lo < first.t { runs.append((max(0, lo - 0.5), first.t, first)) }
+        if let hi = gap.high, hi > last.t { runs.append((last.t, min(end, hi + 0.5), last)) }
+        guard !runs.isEmpty else { return }
+        let plan = runs
+        analysis = AnalysisState(title: "Tracking", progress: 0)
+        analysisTask = Task {
+            let flag = CancelFlag()
+            await withTaskCancellationHandler {
+                do {
+                    var added: [PinSample] = []
+                    for (k, run) in plan.enumerated() {
+                        let seed = run.seed
+                        let z = exp(seed.z)
+                        let w = min(size.width * z, 0.9), h = min(size.height * z, 0.9)
+                        let box = CGRect(x: min(max(seed.x - w / 2, 0), 1 - w), y: min(max(seed.y - h / 2, 0), 1 - h),
+                                         width: w, height: h)
+                        let part = Double(k), count = Double(plan.count)
+                        let got = try await Task.detached(priority: .userInitiated) {
+                            try await Analyzer.pin(file: media, from: run.from, to: run.to, anchor: seed.t, box: box,
+                                                   progress: { f in
+                                Task { @MainActor in self.analysis?.progress = (part + f) / count }
+                            }, isCancelled: { flag.isSet })
+                        }.value
+                        // the new part starts at the seed: its turn and size go on from there
+                        added += got.filter { $0.t < first.t - 1e-3 || $0.t > last.t + 1e-3 }.map {
+                            PinSample(t: $0.t, x: $0.x, y: $0.y, a: $0.a + seed.a, z: $0.z + seed.z)
+                        }
+                    }
+                    if !added.isEmpty { addPinSamples(media: media, ref: pin.ref, samples: pin.samples, added: added) }
+                } catch {
+                    if !(error is CancellationError) { showNote(error.localizedDescription) }
+                }
+            } onCancel: { flag.set() }
+            analysis = nil
+            analysisTask = nil
+        }
+    }
+
+    /// Joins newly tracked samples onto every pin that follows the same point (both halves of a split overlay,
+    /// copies), here and in the undo history, so undo / redo never need to track it again. Not an undo step:
+    /// it only fills in where the point is in the footage.
+    private func addPinSamples(media: String, ref: Double, samples: [PinSample], added: [PinSample]) {
+        let all = (samples + added).sorted { $0.t < $1.t }
+        func fill(_ p: inout Project) {
+            for i in p.overlays.indices {
+                guard let pin = p.overlays[i].pin, p.pinMedia(pin) == media, abs(pin.ref - ref) < 1e-6,
+                      pin.samples.count <= all.count else { continue }
+                p.overlays[i].pin?.samples = all
+                p.overlays[i].pin?.media = media
+            }
+        }
+        fill(&project)
+        for k in undoStack.indices { fill(&undoStack[k]) }
+        for k in redoStack.indices { fill(&redoStack[k]) }
+        commitLook()
     }
 
     /// Which of the point's moves the overlay follows (on the picked frame it sits where it was placed either way).
@@ -3670,6 +3763,61 @@ extension EditorModel {
     /// Previous / next keyframe of what is selected.
     func stepAnyKeyframe(_ dir: Int) {
         if selectedOverlayIndex != nil { stepOverlayKey(dir) } else { stepKeyframe(dir) }
+    }
+
+    // MARK: Keyframe bar above a panel
+
+    /// What is selected takes keyframes (a clip or an overlay; a Stack doesn't).
+    var keysSelection: Bool {
+        selectedStackIndex == nil && (selectedOverlayIndex != nil || selectedIndex != nil)
+    }
+
+    /// A keyframe of what is selected sits under the playhead.
+    var keyHere: Bool {
+        if selectedOverlayIndex != nil { return overlayKeyAtPlayhead != nil }
+        guard let i = selectedIndex else { return false }
+        return keyframeAtPlayhead(i) != nil
+    }
+
+    func toggleAnyKeyframe() {
+        if selectedOverlayIndex != nil { toggleOverlayKey() } else { toggleKeyframe() }
+    }
+
+    /// Timeline times of the selection's keyframes.
+    private var selectedKeyTimes: [Double] {
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            return o.keys.map { o.start + $0.t }
+        }
+        guard let i = selectedIndex else { return [] }
+        let c = project.clips[i]
+        let start = project.clipStarts[i]
+        return c.keyframes.map { start + c.retime.local(atSource: $0.t) }
+    }
+
+    /// There is a keyframe of the selection before (dir < 0) or after (dir > 0) the playhead.
+    func canStepKey(_ dir: Int) -> Bool {
+        let times = selectedKeyTimes
+        return dir > 0 ? times.contains { $0 > currentTime + 0.03 } : times.contains { $0 < currentTime - 0.03 }
+    }
+
+    /// The playhead is on a keyframe and `p` is animated by the keyframes: its value changes from one keyframe to
+    /// another (with a single keyframe, when that keyframe holds it away from neutral, ready for the next one).
+    /// Shown as a lime value and slider handle. Overlays key only their opacity (their effects are whole-layer).
+    func isKeyed(_ p: LookParam) -> Bool {
+        if selectedStackIndex != nil { return false }
+        if let oi = selectedOverlayIndex {
+            guard p == .opacity, let k = overlayKeyAtPlayhead else { return false }
+            return Self.varies(project.overlays[oi].keys.map(\.opacity), at: k, neutral: 1)
+        }
+        guard let i = selectedIndex, let k = keyframeAtPlayhead(i) else { return false }
+        return Self.varies(project.clips[i].keyframes.map { p.get($0.look) }, at: k, neutral: p.neutral)
+    }
+
+    private static func varies(_ values: [Double], at k: Int, neutral: Double) -> Bool {
+        guard values.indices.contains(k) else { return false }
+        if values.count == 1 { return abs(values[0] - neutral) > 0.0005 }
+        return values.contains { abs($0 - values[k]) > 0.0005 }
     }
 
     // MARK: AutoZoom

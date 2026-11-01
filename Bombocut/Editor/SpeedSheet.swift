@@ -53,6 +53,7 @@ struct SpeedSheet: View {
             }
 
             if tab == 0 { constantView } else { curveView }
+            PanelBreak()
 
             VStack(spacing: 0) {
                 HStack {

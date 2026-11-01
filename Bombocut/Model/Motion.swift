@@ -200,7 +200,7 @@ struct Tracking: Codable, Hashable {
     var anchor: Double? // source time where the subject was picked ("keep in place" holds it there)
     var noBorders: Bool? // zoom in so the picture always covers the canvas while following
     /// Retain size: source time of the frame whose subject size is kept through the clip (zooming in as it gets
-    /// smaller, no borders); nil when off.
+    /// smaller and out as it gets bigger, borders may show); nil when off.
     var retain: Double?
 
     /// Smoothed subject centers, ready for the compositor.
@@ -306,7 +306,7 @@ struct TrackCurve: Hashable {
             let now = sizeAt(s)
             grow = now > 0 ? min(max(refSize / now, 0.25), 4) : 1
         }
-        return (at(s), start, mode, noBorders || retain, span, grow)
+        return (at(s), start, mode, noBorders && !retain, span, grow)
     }
 }
 

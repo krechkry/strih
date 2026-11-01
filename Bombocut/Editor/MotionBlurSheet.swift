@@ -37,6 +37,7 @@ struct MotionBlurSheet: View {
                         .buttonStyle(.plain)
                     }
                 }
+                PanelBreak()
                 Text("Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
@@ -108,6 +109,7 @@ struct ClipAnimSheet: View {
                                    live: { a in model.editClip { $0.anim = a } },
                                    began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
                                    preview: { model.previewClipAnim() }, only: start)
+                        PanelBreak()
                         Text(start ? "The start of the video: the clip comes in from black." : "The end of the video: the clip goes out to black.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -190,6 +192,7 @@ struct ClipAnimSheet: View {
                 }
             }
         }
+        PanelBreak()
         if current != .none {
             HStack {
                 Text("Length").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
@@ -306,6 +309,7 @@ struct SpeechSheet: View {
                         OnOffRow(title: "Voice enhancer", subtitle: "Clearer, fuller voice at an even loudness.",
                                  isOn: fx.enhance) { on in var f = fx; f.enhance = on; model.setSpeech(f) }
                     }
+                    PanelBreak()
                     if spatial || fx.mix != nil {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Audio Mix").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)

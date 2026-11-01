@@ -222,6 +222,7 @@ struct ColorMenu: View {
                         }
                     }
                 }
+                PanelBreak()
                 slider("Hue", value: $h,
                        track: (0...12).map { Color(hue: min(Double($0) / 12, 0.999), saturation: 1, brightness: 1) })
                 slider("Saturation", value: $s, track: [RGBA.hsb(h, 0, b).color, RGBA.hsb(h, 1, b).color])
