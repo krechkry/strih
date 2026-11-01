@@ -15,9 +15,39 @@
     "%@ translates offline, on your iPhone.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ překládá offline, přímo v iPhonu."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ překládá offline, přímo v iPadu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ překládá offline, přímo v iPhonu."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ translates offline, on your iPad."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%@ translates offline, on your iPhone."
+                }
+              }
+            }
           }
         }
       }
@@ -330,6 +360,16 @@
         }
       }
     },
+    "Add or delete keyframe": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat nebo smazat keyframe"
+          }
+        }
+      }
+    },
     "Added as an overlay": {
       "localizations": {
         "cs": {
@@ -573,9 +613,39 @@
     "Apple's translator: quick, on your iPhone.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Překladač od Applu: rychlý, v iPhonu."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Překladač od Applu: rychlý, v iPadu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Překladač od Applu: rychlý, v iPhonu."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Apple's translator: quick, on your iPad."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Apple's translator: quick, on your iPhone."
+                }
+              }
+            }
           }
         }
       }
@@ -770,6 +840,16 @@
         }
       }
     },
+    "Back 1 second": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O sekundu zpět"
+          }
+        }
+      }
+    },
     "Back to settings": {
       "localizations": {
         "cs": {
@@ -833,9 +913,39 @@
     "Best quality, on your iPhone, offline.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nejlepší kvalita, v iPhonu, offline."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nejlepší kvalita, v iPadu, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Nejlepší kvalita, v iPhonu, offline."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Best quality, on your iPad, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Best quality, on your iPhone, offline."
+                }
+              }
+            }
           }
         }
       }
@@ -1053,9 +1163,39 @@
     "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPhonu a pořád je můžeš exportovat, jak jsou."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPadu a pořád je můžeš exportovat, jak jsou."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPhonu a pořád je můžeš exportovat, jak jsou."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPad, and you can still export them as they are."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are."
+                }
+              }
+            }
           }
         }
       }
@@ -2287,9 +2427,39 @@
     "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs offline on your iPad, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your iPad. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                }
+              }
+            }
           }
         }
       }
@@ -2297,9 +2467,39 @@
     "Everything runs offline, on your iPhone. No cloud, no account, no data collection.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží offline, přímo v iPadu. Žádný cloud, žádný účet, žádné sbírání dat."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs offline, on your iPad. No cloud, no account, no data collection."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs offline, on your iPhone. No cloud, no account, no data collection."
+                }
+              }
+            }
           }
         }
       }
@@ -2307,9 +2507,39 @@
     "Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Všechno běží v tvém iPhonu. Vyčištěný zvuk se udělá jednou a zůstane uložený, přehrávání i export ho hned použijí."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží v tvém iPadu. Vyčištěný zvuk se udělá jednou a zůstane uložený, přehrávání i export ho hned použijí."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Všechno běží v tvém iPhonu. Vyčištěný zvuk se udělá jednou a zůstane uložený, přehrávání i export ho hned použijí."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs on your iPad. The cleaned sound is made once and kept, so playback and export use it right away."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away."
+                }
+              }
+            }
           }
         }
       }
@@ -2537,9 +2767,39 @@
     "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Pak můžeš zbytek rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPadu. Pak můžeš zbytek rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Pak můžeš zbytek rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Finds people (fast) or any main subject in every frame, on your iPad. Then blur, darken or drain the color from everything else, or put text behind the subject."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject."
+                }
+              }
+            }
           }
         }
       }
@@ -2547,9 +2807,39 @@
     "Finds people (fast) or the main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPadu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Najde lidi (rychle) nebo hlavní objekt v každém snímku, přímo v iPhonu. Zbytek pak můžeš rozmazat, ztmavit nebo odbarvit, dát text za objekt, nebo si výřez uložit jako průhledné video."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Finds people (fast) or the main subject in every frame, on your iPad. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Finds people (fast) or the main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video."
+                }
+              }
+            }
           }
         }
       }
@@ -2587,9 +2877,39 @@
     "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "FluidInference. Spouští hlasový model v iPhonu. Licence: Apache 2.0."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "FluidInference. Spouští hlasový model v iPadu. Licence: Apache 2.0."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "FluidInference. Spouští hlasový model v iPhonu. Licence: Apache 2.0."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "FluidInference. Runs the speech model on the iPad. License: Apache 2.0."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "FluidInference. Runs the speech model on the iPhone. License: Apache 2.0."
+                }
+              }
+            }
           }
         }
       }
@@ -2660,6 +2980,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Popředu"
+          }
+        }
+      }
+    },
+    "Forward 1 second": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O sekundu dopředu"
           }
         }
       }
@@ -2808,6 +3138,16 @@
         }
       }
     },
+    "Full screen": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Celá obrazovka"
+          }
+        }
+      }
+    },
     "Generate again": {
       "localizations": {
         "cs": {
@@ -2854,6 +3194,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Získávám zvuk…"
+          }
+        }
+      }
+    },
+    "Go to end": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na konec"
+          }
+        }
+      }
+    },
+    "Go to start": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na začátek"
           }
         }
       }
@@ -3681,9 +4041,39 @@
     "Motion blur or smooth slow motion at this length and size needs more memory than your iPhone has free, so the export stopped before the app could crash. The lighter version blends frames in a simpler way and uses far less memory.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rozmazání pohybem nebo plynulé zpomalení v téhle délce a velikosti potřebuje víc paměti, než má tvůj iPhone volné, takže se export zastavil dřív, než by aplikace spadla. Lehčí verze prolíná snímky jednodušeji a potřebuje mnohem méně paměti."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rozmazání pohybem nebo plynulé zpomalení v téhle délce a velikosti potřebuje víc paměti, než má tvůj iPad volné, takže se export zastavil dřív, než by aplikace spadla. Lehčí verze prolíná snímky jednodušeji a potřebuje mnohem méně paměti."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rozmazání pohybem nebo plynulé zpomalení v téhle délce a velikosti potřebuje víc paměti, než má tvůj iPhone volné, takže se export zastavil dřív, než by aplikace spadla. Lehčí verze prolíná snímky jednodušeji a potřebuje mnohem méně paměti."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Motion blur or smooth slow motion at this length and size needs more memory than your iPad has free, so the export stopped before the app could crash. The lighter version blends frames in a simpler way and uses far less memory."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Motion blur or smooth slow motion at this length and size needs more memory than your iPhone has free, so the export stopped before the app could crash. The lighter version blends frames in a simpler way and uses far less memory."
+                }
+              }
+            }
           }
         }
       }
@@ -3794,6 +4184,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nový projekt"
+          }
+        }
+      }
+    },
+    "Next cut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další střih"
+          }
+        }
+      }
+    },
+    "Next frame": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Další snímek"
           }
         }
       }
@@ -3981,9 +4391,39 @@
     "On your iPhone": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Staženo v iPhonu"
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Staženo v iPadu"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Staženo v iPhonu"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "On your iPad"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "On your iPhone"
+                }
+              }
+            }
           }
         }
       }
@@ -4338,12 +4778,32 @@
         }
       }
     },
+    "Play / Pause": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrát / pozastavit"
+          }
+        }
+      }
+    },
     "Play the first line": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Přehrát první řádek"
+          }
+        }
+      }
+    },
+    "Playback": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrávání"
           }
         }
       }
@@ -4394,6 +4854,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Předvolby"
+          }
+        }
+      }
+    },
+    "Previous cut": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předchozí střih"
+          }
+        }
+      }
+    },
+    "Previous frame": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předchozí snímek"
           }
         }
       }
@@ -4544,6 +5024,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Červená"
+          }
+        }
+      }
+    },
+    "Redo": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znovu"
           }
         }
       }
@@ -4801,9 +5291,39 @@
     "Runs on your iPhone, offline.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Běží přímo v iPhonu, offline."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Běží přímo v iPadu, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Běží přímo v iPhonu, offline."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Runs on your iPad, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Runs on your iPhone, offline."
+                }
+              }
+            }
           }
         }
       }
@@ -5231,9 +5751,39 @@
     "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rozmaže všechno, co se hýbe, jako dlouhý čas závěrky. Počítá ho přímo iPhone. V editoru se přehrává odlehčená verze, aby stíhala, export ho vykreslí v plné kvalitě."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rozmaže všechno, co se hýbe, jako dlouhý čas závěrky. Počítá ho přímo iPad. V editoru se přehrává odlehčená verze, aby stíhala, export ho vykreslí v plné kvalitě."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Rozmaže všechno, co se hýbe, jako dlouhý čas závěrky. Počítá ho přímo iPhone. V editoru se přehrává odlehčená verze, aby stíhala, export ho vykreslí v plné kvalitě."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Smears whatever moves, like a slow camera shutter. Made on your iPad by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality."
+                }
+              }
+            }
           }
         }
       }
@@ -6071,9 +6621,39 @@
     "This export needs more memory than your iPhone has free, so it stopped before the app could crash. A lower resolution or frame rate uses less.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tenhle export potřebuje víc paměti, než má tvůj iPhone volné, takže se zastavil dřív, než by aplikace spadla. Nižší rozlišení nebo snímková frekvence potřebují méně."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tenhle export potřebuje víc paměti, než má tvůj iPad volné, takže se zastavil dřív, než by aplikace spadla. Nižší rozlišení nebo snímková frekvence potřebují méně."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Tenhle export potřebuje víc paměti, než má tvůj iPhone volné, takže se zastavil dřív, než by aplikace spadla. Nižší rozlišení nebo snímková frekvence potřebují méně."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This export needs more memory than your iPad has free, so it stopped before the app could crash. A lower resolution or frame rate uses less."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This export needs more memory than your iPhone has free, so it stopped before the app could crash. A lower resolution or frame rate uses less."
+                }
+              }
+            }
           }
         }
       }
@@ -6111,9 +6691,39 @@
     "This video is too heavy for your iPhone's memory with these settings, so the export was stopped before the app could crash.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S tímhle nastavením je video na paměť tvého iPhonu moc těžké, takže se export zastavil dřív, než by aplikace spadla."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "S tímhle nastavením je video na paměť tvého iPadu moc těžké, takže se export zastavil dřív, než by aplikace spadla."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "S tímhle nastavením je video na paměť tvého iPhonu moc těžké, takže se export zastavil dřív, než by aplikace spadla."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This video is too heavy for your iPad's memory with these settings, so the export was stopped before the app could crash."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "This video is too heavy for your iPhone's memory with these settings, so the export was stopped before the app could crash."
+                }
+              }
+            }
           }
         }
       }
@@ -6161,9 +6771,39 @@
     "Too heavy for this iPhone": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Na tenhle iPhone je to moc těžké"
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Na tenhle iPad je to moc těžké"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Na tenhle iPhone je to moc těžké"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too heavy for this iPad"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too heavy for this iPhone"
+                }
+              }
+            }
           }
         }
       }
@@ -6551,9 +7191,39 @@
     "Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPhone, offline.": {
       "localizations": {
         "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jakými jazyky ve videích mluvíš? Jeden hlasový model zvládne všech 25. Titulky pak běží v iPhonu, offline."
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jakými jazyky ve videích mluvíš? Jeden hlasový model zvládne všech 25. Titulky pak běží v iPadu, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Jakými jazyky ve videích mluvíš? Jeden hlasový model zvládne všech 25. Titulky pak běží v iPhonu, offline."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPad, offline."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPhone, offline."
+                }
+              }
+            }
           }
         }
       }
@@ -6744,6 +7414,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oddálení"
+          }
+        }
+      }
+    },
+    "Zoom timeline in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiblížit časovou osu"
+          }
+        }
+      }
+    },
+    "Zoom timeline out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oddálit časovou osu"
           }
         }
       }

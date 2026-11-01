@@ -126,6 +126,7 @@ struct OnboardingView: View {
             .buttonStyle(.plain)
         }
         .padding(22)
+        .readableWidth(560)
         .onAppear { if UserDefaults.standard.string(forKey: "appLanguage") == nil { AppLanguage.set(language) } }
     }
 }
@@ -214,6 +215,7 @@ struct PaywallView: View {
                 .buttonStyle(.plain)
             }
             .padding(22)
+            .readableWidth(560)
         }
         .scrollIndicators(.hidden)
         .background(Theme.bg.ignoresSafeArea())

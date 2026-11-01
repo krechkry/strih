@@ -83,6 +83,7 @@ struct HomeView: View {
                 }
                 .padding(16)
                 .padding(.bottom, selecting ? 80 : 0)
+                .readableWidth()
             }
             .scrollDisabled(painting)
             .background(Theme.bg)

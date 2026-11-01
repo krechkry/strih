@@ -26,6 +26,16 @@ struct TouchSurface: UIViewRepresentable {
             $0.delaysTouchesEnded = false
             v.addGestureRecognizer($0)
         }
+        // trackpad (iPad): pinch and rotate with two fingers on the pad (fingers on the glass use the touches above)
+        let pad = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
+        let pinch = UIPinchGestureRecognizer(target: v, action: #selector(SurfaceView.padGesture(_:)))
+        let rotate = UIRotationGestureRecognizer(target: v, action: #selector(SurfaceView.padGesture(_:)))
+        [pinch as UIGestureRecognizer, rotate].forEach {
+            $0.allowedTouchTypes = pad
+            $0.cancelsTouchesInView = false
+            $0.delegate = v
+            v.addGestureRecognizer($0)
+        }
         return v
     }
 
@@ -38,7 +48,7 @@ struct TouchSurface: UIViewRepresentable {
         v.onHold = onHold
     }
 
-    final class SurfaceView: UIView {
+    final class SurfaceView: UIView, UIGestureRecognizerDelegate {
         var onTap: ((CGPoint) -> Void)?
         var onDoubleTap: (() -> Void)?
         var onBegan: ((CGPoint) -> Void)?
@@ -57,6 +67,49 @@ struct TouchSurface: UIViewRepresentable {
         private var refAngle: CGFloat = 0
         private var current = CGAffineTransform.identity
         private var active = false
+
+        // trackpad pinch / rotate: one transform around where the pointer was when it started
+        private var padLive = 0
+        private var padScale: CGFloat = 1
+        private var padAngle: CGFloat = 0
+        private var padAt = CGPoint.zero
+        private var padOn = false
+
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
+        @objc func padGesture(_ g: UIGestureRecognizer) {
+            switch g.state {
+            case .began:
+                padLive += 1
+                guard !active || padOn else { return }      // fingers on the glass are already moving it
+                if !padOn {
+                    padOn = true
+                    active = true
+                    padScale = 1
+                    padAngle = 0
+                    padAt = g.location(in: self)
+                    onBegan?(padAt)
+                }
+            case .changed:
+                guard padOn else { return }
+                if let p = g as? UIPinchGestureRecognizer { padScale = max(p.scale, 0.01) }
+                if let r = g as? UIRotationGestureRecognizer { padAngle = r.rotation }
+                onChanged?(padTransform())
+            default:
+                padLive = max(0, padLive - 1)
+                guard padOn, padLive == 0 else { return }
+                padOn = false
+                active = false
+                onEnded?()
+            }
+        }
+
+        private func padTransform() -> CGAffineTransform {
+            CGAffineTransform(translationX: -padAt.x, y: -padAt.y)
+                .concatenating(CGAffineTransform(scaleX: padScale, y: padScale))
+                .concatenating(CGAffineTransform(rotationAngle: padAngle))
+                .concatenating(CGAffineTransform(translationX: padAt.x, y: padAt.y))
+        }
 
         @objc func tapped(_ g: UITapGestureRecognizer) { if !active && !held { onTap?(g.location(in: self)) } }
         @objc func doubleTapped() { if !active && !held { onDoubleTap?() } }

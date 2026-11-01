@@ -39,7 +39,8 @@ struct MediaPicker: View {
     @State private var paintTarget = true
     @State private var paintBase: [String] = []
 
-    private static let columns = 4
+    /// Four across on iPhone; a wide iPad window fits more, so the thumbnails stay about the same size.
+    private static func columns(_ width: CGFloat) -> Int { max(4, Int(width / 150)) }
     private static let spacing: CGFloat = 2
 
     var body: some View {
@@ -139,7 +140,7 @@ struct MediaPicker: View {
     private var grid: some View {
         if let fetch {
             GeometryReader { g in
-                let n = Self.columns
+                let n = Self.columns(g.size.width)
                 let side = (g.size.width - Self.spacing * CGFloat(n - 1)) / CGFloat(n)
                 ScrollView {
                     LazyVGrid(columns: Array(repeating: GridItem(.fixed(side), spacing: Self.spacing), count: n),
@@ -149,7 +150,7 @@ struct MediaPicker: View {
                         }
                     }
                     .gesture(SidewaysPan { start, now in
-                        paint(from: cellIndex(start, side: side, count: fetch.count), to: cellIndex(now, side: side, count: fetch.count))
+                        paint(from: cellIndex(start, side: side, n: n, count: fetch.count), to: cellIndex(now, side: side, n: n, count: fetch.count))
                     } ended: {
                         paintEnded()
                     })
@@ -224,8 +225,7 @@ struct MediaPicker: View {
 
     // MARK: Selection
 
-    private func cellIndex(_ p: CGPoint, side: CGFloat, count: Int) -> Int? {
-        let n = Self.columns
+    private func cellIndex(_ p: CGPoint, side: CGFloat, n: Int, count: Int) -> Int? {
         guard p.x >= 0, p.y >= 0 else { return nil }
         let col = min(Int(p.x / (side + Self.spacing)), n - 1), row = Int(p.y / (side + Self.spacing))
         let k = row * n + col

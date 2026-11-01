@@ -27,6 +27,10 @@ struct EditorView: View {
     @State private var renameText = ""
     @State private var bottomHeight: CGFloat = 0
     @State private var keyboard: CGFloat = 0
+    /// The app window's height (on iPad windows resize: panels follow).
+    @State private var windowHeight: CGFloat = 0
+    /// Typing in any text field: single-key shortcuts (space, arrows, delete) go to the text instead.
+    @State private var textEditing = false
     /// Typing in a panel: it shrinks to the text field above the keyboard so the preview stays visible.
     private var typing: Bool { keyboard > 60 && sheet != nil && sheet != .export }
     private let compactPanel: CGFloat = 150
@@ -35,7 +39,8 @@ struct EditorView: View {
     /// Half and half: a panel never takes more than about half the screen, so the video stays big
     /// while you edit (taller panels scroll).
     private var maxPanel: CGFloat {
-        let h = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds.height ?? 852
+        // the app window, not the screen: on iPad it can be smaller (Split View, Stage Manager)
+        let h = windowHeight > 0 ? windowHeight : Device.window.height
         return (h * 0.47).rounded()
     }
 
@@ -178,7 +183,7 @@ struct EditorView: View {
     }
 
     var body: some View {
-        audioHandlers(editor)
+        keyHandlers(audioHandlers(editor))
     }
 
     /// Picking, importing and editing sound (kept apart so the compiler can check the body quickly).
@@ -316,8 +321,8 @@ struct EditorView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { n in
             guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds.height ?? f.maxY
-            withAnimation(.easeOut(duration: 0.25)) { keyboard = max(0, screen - f.minY) }
+            let covered = Device.keyboardOverlap(f)
+            withAnimation(.easeOut(duration: 0.25)) { keyboard = covered }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeOut(duration: 0.25)) { keyboard = 0 }
@@ -1239,6 +1244,8 @@ struct ToolButton: View {
     var body: some View {
         Button(action: action) { ToolLabel(icon: icon, label: label, tint: tint) }
             .buttonStyle(.plain)
+            // iPad pointer: the tool lights up under it
+            .hoverEffect(.highlight)
     }
 }
 
@@ -1279,6 +1286,7 @@ struct DoneCheck: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
+        .hoverEffect(.lift)
         .accessibilityLabel(loc(label))
     }
 }
@@ -1289,6 +1297,7 @@ private struct Panel<Content: View>: View {
     /// Handle row with the check on the right (14 pt taller than the old handle row; panels add that).
     static var header: CGFloat { 44 }
     static var extra: CGFloat { 14 }
+    static var widest: CGFloat { 720 }
     let height: CGFloat
     /// Off while typing: the panel's own check (stop typing) takes that spot.
     var check = true
@@ -1325,6 +1334,8 @@ private struct Panel<Content: View>: View {
                 }
             content()
                 .environment(\.closePanel, close)
+                // iPad: the panel spans the screen, its controls keep a comfortable width
+                .frame(maxWidth: Self.widest)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity)
@@ -1458,5 +1469,122 @@ private struct PanelUndoBar: View {
         .buttonStyle(.plain)
         .disabled(!on)
         .accessibilityLabel(loc(label))
+    }
+}
+
+// MARK: Keyboard and window (iPad)
+
+extension EditorView {
+    /// Hardware keyboard shortcuts (handed to the app's menus), typing, and the window's size.
+    fileprivate func keyHandlers<V: View>(_ v: V) -> some View {
+        v
+        .focusedSceneValue(\.editorKeys, editorKeys)
+        .onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { _ in textEditing = true }
+        .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { _ in textEditing = true }
+        .onReceive(NotificationCenter.default.publisher(for: UITextField.textDidEndEditingNotification)) { _ in textEditing = false }
+        .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidEndEditingNotification)) { _ in textEditing = false }
+        .onGeometryChange(for: CGSize.self, of: { $0.size }) { _ in windowHeight = Device.window.height }
+    }
+
+    private var editorKeys: EditorKeys {
+        let covered = sheet == .export || showAddClips || pickOverlay || renaming || adding || systemAddClips || systemOverlay
+        let editing = model.pick == nil && model.slip == nil
+        let clip = model.selectedIndex != nil
+        let overlay = model.selectedOverlayIndex != nil
+        let nothing = !clip && !overlay && model.selectedAudioIndex == nil && model.selectedStackIndex == nil
+            && !(model.captionsSelected && model.project.captions != nil)
+        return EditorKeys(
+            enabled: !textEditing && !covered,
+            hasClips: !model.project.clips.isEmpty,
+            canUndo: model.canUndo,
+            canRedo: model.canRedo,
+            canSplit: editing && (clip || overlay || nothing) && !model.project.clips.isEmpty,
+            canDuplicate: editing && (clip || overlay || model.selectedAudioIndex != nil),
+            canDelete: pinnedDelete != nil,
+            canKeyframe: pro && (clip || overlay),
+            run: runKey)
+    }
+
+    private func runKey(_ k: EditorKey) {
+        switch k {
+        case .play: model.togglePlay()
+        case .frame(let d): stepTime(Double(d) / EditorModel.fps)
+        case .second(let d): stepTime(Double(d))
+        case .cut(let d): jumpToCut(d)
+        case .start: model.pause(); model.scrub(to: 0)
+        case .end: model.pause(); model.scrub(to: model.lastFrameTime)
+        case .undo: model.undo()
+        case .redo: model.redo()
+        case .split: splitKey()
+        case .duplicate: duplicateKey()
+        case .delete: pinnedDelete?()
+        case .keyframe: keyframeKey()
+        case .done: doneKey()
+        case .close: closeKey()
+        case .zoom(let d): zoomKey(d)
+        case .export: model.pause(); sheet = .export
+        case .fullscreen: withAnimation(.easeOut(duration: 0.2)) { model.fullscreen.toggle() }
+        }
+    }
+
+    private func stepTime(_ dt: Double) {
+        model.pause()
+        model.scrub(to: model.frameTime(model.currentTime + dt))
+    }
+
+    /// Up / down: the playhead to the cut before or after it (and the very start or end).
+    private func jumpToCut(_ dir: Int) {
+        model.pause()
+        let t = model.currentTime
+        let cuts = model.project.clipStarts + [model.lastFrameTime]
+        let half = 0.5 / EditorModel.fps
+        let to = dir < 0 ? cuts.filter { $0 < t - half }.max() ?? 0 : cuts.filter { $0 > t + half }.min()
+        if let to { model.scrub(to: model.frameTime(to)) }
+    }
+
+    /// ⌘B: the same as the Split button for what is selected (nothing selected: everything under the playhead).
+    private func splitKey() {
+        if model.selectedOverlayIndex != nil { model.splitOverlay() }
+        else if model.selectedIndex != nil { model.split() }
+        else { model.splitAll() }
+    }
+
+    private func duplicateKey() {
+        if model.selectedOverlayIndex != nil { model.duplicateOverlay() }
+        else if model.selectedAudioIndex != nil { model.duplicateAudio() }
+        else if model.selectedIndex != nil { model.duplicateSelected() }
+    }
+
+    private func keyframeKey() {
+        if model.selectedOverlayIndex != nil { model.toggleOverlayKey() }
+        else if model.selectedIndex != nil { model.toggleKeyframe() }
+    }
+
+    /// Return: keep what is open (slipping, picking), close the panel, or finish the selection.
+    private func doneKey() {
+        if model.slip != nil { model.finishSlip(apply: true); return }
+        if let pk = model.pick {
+            if pk.picked.count >= (pk.kind == .stack ? 2 : 1) { model.finishPick(apply: true) }
+            return
+        }
+        if model.fullscreen { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }; return }
+        if sheet != nil { sheet = nil; return }
+        finishSelection?()
+    }
+
+    /// Escape: back out of what is open, one step at a time.
+    private func closeKey() {
+        if model.slip != nil { model.finishSlip(apply: false); return }
+        if model.pick != nil { model.finishPick(apply: false); return }
+        if model.fullscreen { withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = false }; return }
+        if sheet != nil { sheet = nil; return }
+        finishSelection?()
+    }
+
+    /// ⌘= / ⌘-: zoom the timeline around the playhead (the same range as pinching).
+    private func zoomKey(_ dir: Int) {
+        let k: CGFloat = dir > 0 ? 1.5 : 1 / 1.5
+        let px: CGFloat = model.pxPerSec * k
+        model.pxPerSec = min(max(px, 6), 800)
     }
 }

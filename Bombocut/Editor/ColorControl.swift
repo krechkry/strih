@@ -118,13 +118,8 @@ struct ColorControl: View {
                 .padding(.leading, 4)
             }
         }
-        .sheet(isPresented: $menu) {
+        .panelMenu(isPresented: $menu, height: panelHeight) {
             ColorMenu(current: current, set: set, began: began, live: live, ended: ended, eyedropper: eyedropperAction)
-                .presentationDetents([.height(panelHeight)])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(panelHeight)))
-                .presentationBackground(Theme.panel)
-                .presentationCornerRadius(24)
-                .presentationDragIndicator(.visible)
         }
     }
 

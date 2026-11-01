@@ -115,13 +115,8 @@ struct FontMenu: View {
                 }
             }
         }
-        .sheet(isPresented: $browsing) {
+        .panelMenu(isPresented: $browsing, height: panelHeight) {
             FontBrowser(style: style, sample: sample, pick: pick)
-                .presentationDetents([.height(panelHeight)])
-                .presentationBackgroundInteraction(.enabled(upThrough: .height(panelHeight)))
-                .presentationBackground(Theme.panel)
-                .presentationCornerRadius(24)
-                .presentationDragIndicator(.visible)
         }
     }
 

@@ -292,6 +292,8 @@ struct TimelineView: View {
                         zoomAnchor = nil
                     }
             )
+            // mouse wheel / trackpad (iPad): scrolling up and down scrubs, with ⌘ it zooms
+            .gesture(WheelScrub(enabled: reorder == nil && !model.edgeEditing && model.slip == nil) { dy, zoom in wheel(dy, zoom: zoom) })
             .onAppear { screenW = geo.size.width }
             .onChange(of: geo.size.width) { _, w in screenW = w }
         }
@@ -394,6 +396,20 @@ struct TimelineView: View {
         DragGesture(minimumDistance: 0)
             .onChanged { v in model.slipDrag(v.translation.width, done: false) }
             .onEnded { v in model.slipDrag(v.translation.width, done: true) }
+    }
+
+    /// A mouse wheel or trackpad scroll over the timeline: down moves forward in time, ⌘ zooms around the playhead.
+    private func wheel(_ dy: CGFloat, zoom: Bool) {
+        if zoom {
+            let k: CGFloat = exp(-dy / 200)
+            let px: CGFloat = model.pxPerSec * k
+            model.pxPerSec = min(max(px, 6), 800)
+            zoomBase = model.pxPerSec
+            return
+        }
+        if model.isPlaying { model.pause() }
+        let dt = Double(-dy / max(model.pxPerSec, 1))
+        model.scrubFrame(to: min(max(0, model.currentTime + dt), model.duration))
     }
 
     /// Keeps the strip under the playhead when time changes from playback, edits or undo.
@@ -1732,6 +1748,50 @@ struct QuickMenu: View {
             p.addLine(to: CGPoint(x: r.midX, y: r.maxY))
             p.closeSubpath()
             return p
+        }
+    }
+}
+
+
+/// Scroll events from a mouse wheel or trackpad over the timeline (no touches). Reports the vertical
+/// movement since the last event, and whether ⌘ is held. Sideways trackpad scrolling stays with the strip itself.
+struct WheelScrub: UIGestureRecognizerRepresentable {
+    var enabled = true
+    let changed: (CGFloat, Bool) -> Void
+
+    final class Coordinator {
+        var last: CGFloat = 0
+        var vertical: Bool?          // decided by the first movement of each scroll
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let g = UIPanGestureRecognizer()
+        g.allowedScrollTypesMask = .all
+        g.allowedTouchTypes = []          // fingers keep the strip's own scrolling
+        g.cancelsTouchesInView = false
+        return g
+    }
+
+    func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
+        g.isEnabled = enabled
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
+        let c = context.coordinator
+        let t = g.translation(in: g.view)
+        switch g.state {
+        case .began, .changed:
+            if g.state == .began { c.last = 0; c.vertical = nil }
+            if c.vertical == nil && (t.x != 0 || t.y != 0) { c.vertical = abs(t.y) >= abs(t.x) }
+            guard c.vertical == true else { return }
+            let dy: CGFloat = t.y - c.last
+            c.last = t.y
+            if dy != 0 { changed(dy, g.modifierFlags.contains(.command)) }
+        default:
+            c.last = 0
+            c.vertical = nil
         }
     }
 }

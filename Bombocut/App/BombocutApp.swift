@@ -31,6 +31,8 @@ struct BombocutApp: App {
                     ModelDownload.shared.resumeIfWanted()
                 }
         }
+        // keyboard shortcuts in the editor (iPad menu bar, ⌘ held shows them)
+        .commands { EditorCommands() }
     }
 }
 
