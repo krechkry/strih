@@ -47,10 +47,13 @@ targets:
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "BOMBOCUT saves exported videos to your library."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "BOMBOCUT imports videos you pick to edit them."
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        # one window only (Config/Info.plist): two editors on the same projects would overwrite each other
+        INFOPLIST_FILE: Config/Info.plist
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
-        TARGETED_DEVICE_FAMILY: "1"
+        # iPad: every orientation (iPad windows can be any shape); the layout is made for portrait first
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: "1.0"
         ENABLE_USER_SCRIPT_SANDBOXING: NO

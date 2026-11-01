@@ -50,7 +50,10 @@ jobs:
           ENC=$(/usr/libexec/PlistBuddy -c "Print :ITSAppUsesNonExemptEncryption" $APP/Info.plist 2>/dev/null || echo missing)
           PRIV=$([ -f $APP/PrivacyInfo.xcprivacy ] && echo yes || echo NO)
           LOC=$(ls -d $APP/*.lproj | xargs -n1 basename | tr '\n' ' ')
-          echo "::notice title=Release checks::version $V build $B · encryption flag $ENC · privacy manifest $PRIV · $LOC"
+          FAM=$(/usr/libexec/PlistBuddy -c "Print :UIDeviceFamily" $APP/Info.plist 2>/dev/null | tr -d ' \n{}' | sed 's/Array//')
+          SCENES=$(/usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes" $APP/Info.plist 2>/dev/null || echo missing)
+          IPADOR=$(/usr/libexec/PlistBuddy -c "Print :UISupportedInterfaceOrientations~ipad" $APP/Info.plist 2>/dev/null | grep -c Orientation)
+          echo "::notice title=Release checks::version $V build $B · encryption flag $ENC · privacy manifest $PRIV · $LOC · devices $FAM · multiple windows $SCENES · iPad orientations $IPADOR"
 
       - name: Package .ipa
         run: |
