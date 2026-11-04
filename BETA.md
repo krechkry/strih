@@ -44,13 +44,13 @@ Every run of `update.sh` sets a new build number (date and time), so run it befo
 
 ### If the upload fails with "Invalid Signature (90035)"
 
-That is an Apple bug with team names that have letters like Š (Apple reproduced it, FB24633162). Until Apple renames the team to plain letters, upload this way:
+That was an Apple bug with team names that have letters like Š (Apple reproduced it, FB24633162). The team is renamed to "KRYSTOF KRECHLER" now (2026-11-04): delete the old Apple Distribution certificate once (Xcode → Settings → Accounts → your team → Manage Certificates → right click → Delete Certificate) and Xcode makes a new one with the new name, so the normal upload above works. Only if it still fails, upload this way:
 
 1. Organizer: select the archive → **Distribute App → Custom → App Store Connect → Export** → save it (Desktop is fine).
 2. Terminal: `~/strih/fix-upload.sh` and drag the exported `Bombocut.ipa` into the Terminal window before pressing Enter. It signs the app again, naming the team by its ID instead of by name, and writes `Bombocut-fixed.ipa` next to it.
 3. **Transporter** app (free on the Mac App Store): sign in with your Apple ID, drag `Bombocut-fixed.ipa` in, press **Deliver**.
 
-Lasting fix: ask Apple (developer.apple.com/contact → Membership and Account) to change the team name to "KRYSTOF KRECHLER", then delete the old Apple Distribution certificate in Xcode → Settings → Accounts → Manage Certificates so Xcode makes a new one with the new name. After that the normal Distribute App upload works.
+(Apple renamed the team to "KRYSTOF KRECHLER" on 2026-11-04, so this should no longer be needed.)
 
 ## 4. TestFlight: test information (once)
 
