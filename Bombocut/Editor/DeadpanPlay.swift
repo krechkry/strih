@@ -713,7 +713,7 @@ final class DeadpanRagdoll {
         let t = blink ? Date().timeIntervalSince(started) : 0
         let shut = layer.state(at: t).blink
         let mood = self.mood
-        var g = context
+        let g = context
         g.drawLayer { lc in
             var c = lc
             c.translateBy(x: bodyT.x, y: bodyT.y)
