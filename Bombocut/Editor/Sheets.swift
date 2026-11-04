@@ -139,6 +139,8 @@ struct ExportSheet: View {
     @State private var doneMeme = Meme.absoluteCinema
     @State private var exporter = Exporter()
     @State private var task: Task<Void, Never>?
+    /// Where the Deadpan, the percent and the bar sit while exporting (he plays on them).
+    @State private var stage = DeadpanStage()
 
     enum Phase: Equatable {
         case setup
@@ -476,27 +478,22 @@ struct ExportSheet: View {
         return pow(u, 2.5)
     }
 
+    private static let play = "deadpanPlay"
+
     private func progressView(_ p: Double) -> some View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
+            // The Deadpan stands here until he is knocked loose (DeadpanPlayground draws him).
             // Stays deadpan until 30 %, then cheers up slowly, most of the smile coming in the last 30 %
-            MemeView(meme: .deadpan, mood: Self.smile(p))
+            Color.clear
                 .frame(width: 230, height: 230)
-                .animation(.easeOut(duration: 0.6), value: p)
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.play)) }) { stage.home = $0 }
             Text(verbatim: "\(Int(p * 100)) %")
                 .font(.system(size: 40, weight: .heavy).monospacedDigit())
                 .contentTransition(.numericText())
                 .animation(.snappy, value: Int(p * 100))
-            Capsule().fill(Theme.panel2)
-                .frame(height: 8)
-                .overlay(alignment: .leading) {
-                    GeometryReader { g in
-                        Capsule().fill(Theme.accent)
-                            .frame(width: max(8, g.size.width * min(max(p, 0), 1)))
-                            .animation(.linear(duration: 0.2), value: p)
-                    }
-                }
-                .frame(maxWidth: 260)
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.play)) }) { stage.percent = $0 }
+            progressBar(p)
             Text("Keep the app open while exporting.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
@@ -513,6 +510,22 @@ struct ExportSheet: View {
         }
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
+        .coordinateSpace(.named(Self.play))
+        .overlay { DeadpanPlayground(progress: p, stage: stage) }
+    }
+
+    private func progressBar(_ p: Double) -> some View {
+        Capsule().fill(Theme.panel2)
+            .frame(height: 8)
+            .overlay(alignment: .leading) {
+                GeometryReader { g in
+                    Capsule().fill(Theme.accent)
+                        .frame(width: max(8, g.size.width * min(max(p, 0), 1)))
+                        .animation(.linear(duration: 0.2), value: p)
+                }
+            }
+            .frame(maxWidth: 260)
+            .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.play)) }) { stage.bar = $0 }
     }
 
     private func saveName() {

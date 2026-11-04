@@ -275,7 +275,7 @@ struct MemeLayer {
 }
 
 /// Parsed layers, made once per meme the first time it shows.
-private final class MemeCache: @unchecked Sendable {
+final class MemeCache: @unchecked Sendable {
     static let shared = MemeCache()
     private var parsed: [Meme: [MemeLayer]] = [:]
     private let lock = NSLock()

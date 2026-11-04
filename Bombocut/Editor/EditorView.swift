@@ -11,6 +11,8 @@ struct EditorView: View {
     @State private var addItems: [PhotosPickerItem] = []
     @State private var overlayItems: [PhotosPickerItem] = []
     @State private var showAudioFiles = false
+    /// The Files picker is shared (two `fileImporter`s on one view clash): true while it picks clips.
+    @State private var filesForClips = false
     @State private var showAddClips = false          // our gallery
     @State private var systemAddClips = false        // the system picker (no library access)
     @State private var pickOverlay = false
@@ -216,9 +218,9 @@ struct EditorView: View {
         .onChange(of: model.selectedAudioID) { _, id in
             if id == nil && sheet == .audio { sheet = nil }
         }
-        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: [.audio, .movie]) { result in
-            guard case .success(let url) = result else { return }
-            Task { await model.addAudioFile(url) }
+        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: filesForClips ? [.movie, .image] : [.audio, .movie],
+                      allowsMultipleSelection: filesForClips) { result in
+            filesPicked(result)
         }
         .photosPicker(isPresented: $showAudioVideo, selection: $audioVideoItem, matching: .videos, preferredItemEncoding: .current)
         .onChange(of: audioVideoItem) { _, item in
@@ -803,7 +805,7 @@ struct EditorView: View {
                         ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     }
                 } else {
-                    ToolButton(icon: "plus", label: "Add") { model.requestAddClips() }
+                    Menu { addMenuItems } label: { ToolLabel(icon: "plus", label: "Add") }
                     // nothing selected: everything under the playhead (not the captions)
                     ToolButton(icon: "scissors", label: "Split") { model.splitAll() }
                     if pro && model.project.clips.count > 1 {
@@ -814,7 +816,7 @@ struct EditorView: View {
                         ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
                     }
                     Menu {
-                        Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
+                        Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; showAudioFiles = true }
                         Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
                     } label: {
                         ToolLabel(icon: "music.note", label: "Audio")
@@ -872,9 +874,11 @@ struct EditorView: View {
                 }
             }
             .frame(height: lanes.layers, alignment: .bottom)
-            islandButton(height: LaneLayout.strip, icon: nil, label: "Add") { model.requestAddClips() }
+            Menu { addMenuItems } label: { islandTile(height: LaneLayout.strip, icon: nil) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Add"))
             Menu {
-                Button("From Files", systemImage: "folder") { model.pause(); showAudioFiles = true }
+                Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; showAudioFiles = true }
                 Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
             } label: {
                 islandTile(height: lanes.music, icon: "music.note")
@@ -895,6 +899,12 @@ struct EditorView: View {
         .padding(.top, LaneLayout.top)
         .opacity(model.pick == nil ? 1 : 0.3)
         .allowsHitTesting(model.pick == nil && !model.edgeEditing)
+    }
+
+    /// Add clips: our gallery or the Files app.
+    @ViewBuilder private var addMenuItems: some View {
+        Button("Photos", systemImage: "photo.on.rectangle") { model.requestAddClips() }
+        Button("Files", systemImage: "folder") { model.pause(); filesForClips = true; showAudioFiles = true }
     }
 
     private func islandButton(height: CGFloat, icon: String?, label: String, action: @escaping () -> Void) -> some View {
@@ -1011,6 +1021,29 @@ struct EditorView: View {
         defer { adding = false }
         guard let url = await Media.load(a) else { return }
         await model.addMediaOverlay(url: url, isVideo: a.mediaType == .video)
+    }
+
+    /// Files: clips (copied in, like a new project from Files) or a sound.
+    private func filesPicked(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, !urls.isEmpty else { return }
+        if filesForClips {
+            Task { await addFiles(urls) }
+        } else if let url = urls.first {
+            Task { await model.addAudioFile(url) }
+        }
+    }
+
+    private func addFiles(_ picked: [URL]) async {
+        adding = true
+        defer { adding = false }
+        var urls: [URL] = []
+        for u in picked {
+            let ok = u.startAccessingSecurityScopedResource()
+            defer { if ok { u.stopAccessingSecurityScopedResource() } }
+            if let copy = try? Media.copyIn(u) { urls.append(copy) }
+        }
+        let (clips, _) = await Media.makeClips(from: urls)
+        model.addClips(clips)
     }
 
     private func add(_ items: [PhotosPickerItem]) async {
