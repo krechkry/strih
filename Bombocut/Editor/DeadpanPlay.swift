@@ -166,7 +166,8 @@ final class DeadpanRagdoll {
     private static let iterations = 6
     /// Tangential speed lost per substep in contact: he grips (90 % sticky), so he rolls instead of sliding.
     private static let friction: CGFloat = 0.9
-    private static let bounce: CGFloat = 0.3
+    /// Speed kept off a hard knock: 0.55 sends him back up to about 30 % of the height he fell from.
+    private static let bounce: CGFloat = 0.55
     private static let maxThrow: CGFloat = 2800           // pt / s
     /// How far the grabbed point may follow the finger per substep (1440 pt / s): always less than half of
     /// anything he collides with, so a drag can't pull him through it.
@@ -586,6 +587,8 @@ final class DeadpanRagdoll {
     /// Contacts: friction along the surface, a small bounce off hard knocks, and a tap on the phone.
     private func respond(_ h: CGFloat) {
         var hardest: CGFloat = 0
+        var knock: CGFloat = 0
+        var knockNormal = CGVector.zero
         for i in 0..<Self.count where inv(i) > 0 {
             guard let n = contact[i] else { continue }
             let vx: CGFloat = pos[i].x - old[i].x
@@ -598,10 +601,26 @@ final class DeadpanRagdoll {
             let outSpeed: CGFloat = hit < -300 * h ? -hit * Self.bounce : min(max(vn, 0), max(hit, 0))
             old[i] = CGPoint(x: pos[i].x - (tx + n.dx * outSpeed), y: pos[i].y - (ty + n.dy * outSpeed))
             hardest = max(hardest, -hit / h)
+            if i < Self.bodyCount, hit < knock { knock = hit; knockNormal = n }
         }
+        bounceBody(knock, knockNormal, h)
         if hardest > 900, Date().timeIntervalSince(lastBump) > 0.15 {
             lastBump = Date()
             bump.impactOccurred(intensity: min(hardest / 2600, 1))
+        }
+    }
+
+    /// A hard knock on the body bounces the whole body (back up to about 30 % of the drop). Per particle the
+    /// bounce got lost: only the few touching ones had it, and the shape match averaged it away.
+    private func bounceBody(_ hit: CGFloat, _ n: CGVector, _ h: CGFloat) {
+        guard hit < -300 * h else { return }
+        let target: CGFloat = -hit * Self.bounce
+        for k in 0..<Self.bodyCount where k != pinned {
+            let vn: CGFloat = (pos[k].x - old[k].x) * n.dx + (pos[k].y - old[k].y) * n.dy
+            // exactly the bounce: the push out of the surface adds no speed of its own
+            let d: CGFloat = target - vn
+            old[k].x -= n.dx * d
+            old[k].y -= n.dy * d
         }
     }
 
