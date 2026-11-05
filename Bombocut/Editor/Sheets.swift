@@ -107,6 +107,26 @@ struct VolumeSheet: View {
 
 // MARK: Export
 
+/// One-tap exports for socials, H.264 in an .mp4. The bitrates are on the generous side of what YouTube
+/// recommends (1080p 8 / 12 Mbps, 4K 35-45 / 53-68 Mbps at 30 / 60 fps) and above Instagram's usual
+/// 8-15 Mbps, so the upload is clean and the platforms' own re-encode has the least to throw away.
+struct ExportPreset: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let shortSide: Int
+    let fps: Double
+    let mbps: Double
+
+    var detail: String { "\(shortSide == 2160 ? "2160p" : "\(shortSide)p") · \(String(format: "%g", mbps)) Mbps" }
+
+    static let all: [ExportPreset] = [
+        ExportPreset(id: "fhd30", title: "Full HD · 30 fps", shortSide: 1080, fps: 30, mbps: 16),
+        ExportPreset(id: "fhd60", title: "Full HD · 60 fps", shortSide: 1080, fps: 60, mbps: 24),
+        ExportPreset(id: "uhd30", title: "4K · 30 fps", shortSide: 2160, fps: 30, mbps: 45),
+        ExportPreset(id: "uhd60", title: "4K · 60 fps", shortSide: 2160, fps: 60, mbps: 68),
+    ]
+}
+
 struct ExportSheet: View {
     let project: Project
     /// Name the project once it is done (nobody names it while editing).
@@ -126,6 +146,11 @@ struct ExportSheet: View {
     @AppStorage("export.autoBitrate") private var autoBitrate = true
     @AppStorage("export.bitrate") private var bitrate = 12.0
     @AppStorage("export.endCard") private var endCard = true
+    /// Basic shows only the presets (always H.264 in an .mp4, it plays everywhere).
+    @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
+    private var pro: Bool { uiMode == UIMode.pro.rawValue }
+    /// A social preset while nothing was changed by hand (it sets its own bitrate).
+    @State private var preset: ExportPreset.ID?
     @ObservedObject private var purchases = Purchases.shared
     /// Trial and after-trial exports always end with the card; only the full version can switch it off.
     private var cardLocked: Bool { !purchases.fullVersion }
@@ -163,10 +188,11 @@ struct ExportSheet: View {
     }
 
     private var tooBigForH264: Bool { max(outSize.w, outSize.h) > 4096 }
-    private var effectiveHEVC: Bool { hevc || tooBigForH264 }
+    private var effectiveHEVC: Bool { (hevc && pro && preset == nil) || tooBigForH264 }
 
     private var mbps: Double {
-        autoBitrate ? Exporter.autoBitrate(width: outSize.w, height: outSize.h, fps: fps, hevc: effectiveHEVC) : bitrate
+        if let p = ExportPreset.all.first(where: { $0.id == preset }) { return p.mbps }
+        return autoBitrate ? Exporter.autoBitrate(width: outSize.w, height: outSize.h, fps: fps, hevc: effectiveHEVC) : bitrate
     }
 
     private var estimatedMB: Double {
@@ -195,7 +221,11 @@ struct ExportSheet: View {
         .interactiveDismissDisabled(isExporting)
         .presentationBackground(Theme.panel)
         .onDisappear { if isExporting { exporter.cancel() } }
-        .task { await matchFirstClip() }
+        .task {
+            await matchFirstClip()
+            // Basic with nothing to match (only photos): Full HD 30 for socials
+            if !pro && matched == nil && preset == nil { apply(ExportPreset.all[0]) }
+        }
         .onAppear {
             if Demo.mode == "done" {
                 doneMeme = EditEffort.doneMeme(for: project)
@@ -242,77 +272,11 @@ struct ExportSheet: View {
     private var setupForm: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
-                if isMatched {
-                    Label(loc("Same as your first clip"), systemImage: "film")
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 12).frame(height: 30)
-                        .background(Theme.accent.opacity(0.12), in: Capsule())
+                group("Presets", footer: pro ? nil : String.localizedStringWithFormat(loc("About %.0f MB for %@."), estimatedMB, Fmt.duration(project.duration))) {
+                    presetGrid
                 }
-
-                group("Resolution") {
-                    ChipRow(items: Self.sizes + [(loc("Custom"), 0)], selected: shortSide) { shortSide = $0 }
-                    if shortSide == 0 { customSize }
-                }
-
-                group("Frame rate") {
-                    ChipRow(items: Self.rates.map { (String(format: "%g", $0), $0) }, selected: fps) { fps = $0; customFPS = "" }
-                    card {
-                        HStack {
-                            Text("Custom fps").font(.body.weight(.semibold))
-                            Spacer()
-                            TextField("e.g. 18", text: $customFPS)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .font(.body.weight(.semibold).monospacedDigit())
-                                .focused($typing)
-                                .frame(width: 90)
-                                .onChange(of: customFPS) { applyCustomFPS() }
-                        }
-                    }
-                }
-
-                group("Bitrate", footer: String.localizedStringWithFormat(loc("About %.0f MB for %@."), estimatedMB, Fmt.duration(project.duration))) {
-                    card {
-                        VStack(spacing: 12) {
-                            OnOffRow(title: "Automatic", isOn: autoBitrate) { autoBitrate = $0 }
-                            HStack(spacing: 12) {
-                                BSlider(value: Binding(
-                                    get: { log(max(mbps, 0.1) / 0.1) / log(2000) },
-                                    set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false }
-                                ), in: 0...1)
-                                .tint(Theme.accent)
-                                .doubleTapReset { autoBitrate = true }
-                                TextField("Mbps", value: Binding(get: { (mbps * 10).rounded() / 10 },
-                                                                 set: { bitrate = min(max($0, 0.1), 200); autoBitrate = false }),
-                                          format: .number.precision(.fractionLength(0...1)))
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .font(.body.weight(.semibold).monospacedDigit())
-                                    .focused($typing)
-                                    .frame(width: 56)
-                                Text(verbatim: "Mbps").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                            }
-                        }
-                    }
-                }
-
-                group("Codec", footer: loc(tooBigForH264 ? "Above 4096 px only HEVC works." :
-                                           "H.264 plays everywhere. HEVC is about 40% smaller at the same quality.")) {
-                    ChipRow(items: [("H.264", false), ("HEVC", true)], selected: effectiveHEVC) { hevc = $0 }
-                        .disabled(tooBigForH264)
-                }
-
-                group("End card", footer: cardLocked
-                      ? loc("You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!")
-                      : nil) {
-                    card {
-                        OnOffRow(title: "BOMBOCUT end card",
-                                 subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
-                                 isOn: withEndCard) { endCard = $0 }
-                            .disabled(cardLocked)
-                    }
-                }
+                if pro { proSettings }
+                endCardGroup
             }
             .padding(.horizontal, 20)
             .padding(.top, 4)
@@ -321,6 +285,138 @@ struct ExportSheet: View {
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.immediately)
         .safeAreaInset(edge: .bottom) { exportButton }
+    }
+
+    /// Always there (it never pops in or out, so the page doesn't jump): the first clip's settings on top,
+    /// then the social presets. The one in use is lime.
+    private var presetGrid: some View {
+        VStack(spacing: 8) {
+            presetTile(title: loc("Same as your first clip"), detail: firstClipDetail,
+                       on: preset == nil && isMatched, icon: "film") { useFirstClip() }
+                .disabled(matched == nil)
+                .opacity(matched == nil ? 0.45 : 1)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(ExportPreset.all) { p in
+                    presetTile(title: p.title, detail: p.detail, on: preset == p.id, icon: nil) { apply(p) }
+                }
+            }
+        }
+    }
+
+    private var firstClipDetail: String {
+        guard let m = matched else { return " " }
+        let size = Self.sizes.first { $0.1 == m.short }?.0 ?? "\(m.short)p"
+        return "\(size) · \(String(format: "%g", m.fps)) fps"
+    }
+
+    private func presetTile(title: String, detail: String, on: Bool, icon: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    if let icon { Image(systemName: icon).font(.footnote.weight(.bold)) }
+                    Text(verbatim: title).font(.subheadline.weight(.bold))
+                }
+                .lineLimit(1).minimumScaleFactor(0.7)
+                Text(verbatim: detail)
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .opacity(0.65)
+            }
+            .foregroundStyle(on ? .black : .white)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func apply(_ p: ExportPreset) {
+        typing = false
+        preset = p.id
+        shortSide = p.shortSide
+        fps = p.fps
+        customFPS = ""
+        hevc = false
+    }
+
+    private func useFirstClip() {
+        guard let m = matched else { return }
+        typing = false
+        preset = nil
+        shortSide = m.short
+        fps = m.fps
+        customFPS = ""
+        hevc = m.hevc
+        autoBitrate = true
+    }
+
+    @ViewBuilder
+    private var proSettings: some View {
+        group("Resolution") {
+            ChipRow(items: Self.sizes + [(loc("Custom"), 0)], selected: shortSide) { shortSide = $0; preset = nil }
+            if shortSide == 0 { customSize }
+        }
+
+        group("Frame rate") {
+            ChipRow(items: Self.rates.map { (String(format: "%g", $0), $0) }, selected: fps) { fps = $0; customFPS = ""; preset = nil }
+            card {
+                HStack {
+                    Text("Custom fps").font(.body.weight(.semibold))
+                    Spacer()
+                    TextField("e.g. 18", text: $customFPS)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.body.weight(.semibold).monospacedDigit())
+                        .focused($typing)
+                        .frame(width: 90)
+                        .onChange(of: customFPS) { applyCustomFPS() }
+                }
+            }
+        }
+
+        group("Bitrate", footer: String.localizedStringWithFormat(loc("About %.0f MB for %@."), estimatedMB, Fmt.duration(project.duration))) {
+            card {
+                VStack(spacing: 12) {
+                    OnOffRow(title: "Automatic", isOn: autoBitrate && preset == nil) { autoBitrate = $0; preset = nil }
+                    HStack(spacing: 12) {
+                        BSlider(value: Binding(
+                            get: { log(max(mbps, 0.1) / 0.1) / log(2000) },
+                            set: { bitrate = ((0.1 * pow(2000, $0)) * 10).rounded() / 10; autoBitrate = false; preset = nil }
+                        ), in: 0...1)
+                        .tint(Theme.accent)
+                        .doubleTapReset { autoBitrate = true; preset = nil }
+                        TextField("Mbps", value: Binding(get: { (mbps * 10).rounded() / 10 },
+                                                         set: { bitrate = min(max($0, 0.1), 200); autoBitrate = false; preset = nil }),
+                                  format: .number.precision(.fractionLength(0...1)))
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .font(.body.weight(.semibold).monospacedDigit())
+                            .focused($typing)
+                            .frame(width: 56)
+                        Text(verbatim: "Mbps").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
+                }
+            }
+        }
+
+        group("Codec", footer: loc(tooBigForH264 ? "Above 4096 px only HEVC works." :
+                                   "H.264 plays everywhere. HEVC is about 40% smaller at the same quality.")) {
+            ChipRow(items: [("H.264", false), ("HEVC", true)], selected: effectiveHEVC) { hevc = $0; preset = nil }
+                .disabled(tooBigForH264)
+        }
+    }
+
+    private var endCardGroup: some View {
+        group("End card", footer: cardLocked
+              ? loc("You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!")
+              : nil) {
+            card {
+                OnOffRow(title: "BOMBOCUT end card",
+                         subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
+                         isOn: withEndCard) { endCard = $0 }
+                    .disabled(cardLocked)
+            }
+        }
     }
 
     private var customSize: some View {
@@ -393,7 +489,7 @@ struct ExportSheet: View {
     }
 
     private func applyCustomFPS() {
-        if let v = Double(customFPS.replacingOccurrences(of: ",", with: ".")), v >= 1, v <= 240 { fps = v }
+        if let v = Double(customFPS.replacingOccurrences(of: ",", with: ".")), v >= 1, v <= 240 { fps = v; preset = nil }
     }
 
     /// Start from the first clip: its size (as the short side of the canvas), frame rate and codec.
@@ -417,6 +513,7 @@ struct ExportSheet: View {
         fps = fr
         hevc = isHEVC
         customFPS = ""
+        preset = nil
         matched = (side, fr, effectiveHEVC)
     }
 

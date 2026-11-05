@@ -28,8 +28,6 @@ struct HomeView: View {
     @ObservedObject private var speech = SpeechModels.shared
     @State private var selecting = false
     @State private var selected: Set<UUID> = []
-    @State private var painting = false
-    @State private var rowFrames: [UUID: CGRect] = [:]
     @State private var confirmDeleteSelected = false
 
     var body: some View {
@@ -54,7 +52,6 @@ struct HomeView: View {
                         LazyVStack(spacing: 10) {
                             ForEach(store.projects) { p in
                                 ProjectRow(project: p, selecting: selecting, selected: selected.contains(p.id))
-                                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named("paint")) }) { rowFrames[p.id] = $0 }
                                     .onTapGesture {
                                         if selecting {
                                             if selected.contains(p.id) { selected.remove(p.id) } else { selected.insert(p.id) }
@@ -75,17 +72,12 @@ struct HomeView: View {
                                     }
                             }
                         }
-                        .paintSelect(enabled: selecting, ids: store.projects.map(\.id), selection: $selected, painting: $painting, axis: .vertical,
-                                     canSelect: { _ in selecting }) { pt in
-                            store.projects.firstIndex { rowFrames[$0.id].map { pt.y >= $0.minY - 5 && pt.y <= $0.maxY + 5 } ?? false }
-                        }
                     }
                 }
                 .padding(16)
                 .padding(.bottom, selecting ? 80 : 0)
                 .readableWidth()
             }
-            .scrollDisabled(painting)
             .background(Theme.bg)
             .navigationTitle(selecting ? String.localizedStringWithFormat(loc("%lld selected"), selected.count) : "BOMBOCUT")
             .navigationBarTitleDisplayMode(selecting ? .inline : .automatic)

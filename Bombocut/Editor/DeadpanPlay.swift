@@ -52,8 +52,8 @@ private struct DeadpanHitArea: Shape {
     func path(in _: CGRect) -> Path { Path(rect) }
 }
 
-/// A small 2D physics world for the Deadpan (Verlet particles). The body is rigid: 17 particles
-/// (outline, middle, shoulders, hips) pulled back into their drawn shape after every solver pass
+/// A small 2D physics world for the Deadpan (Verlet particles). The body is rigid: 29 particles
+/// (24 on the outline, middle, shoulders, hips) pulled back into their drawn shape after every solver pass
 /// (shape matching), so knocks and friction on the outline turn him. Each arm and leg is two bones
 /// (shoulder / elbow / hand, hip / knee / foot) on free joints that can't fold flat, with a weak pull
 /// toward the drawn pose so the limbs keep some shape but still flop.
@@ -61,14 +61,15 @@ private struct DeadpanHitArea: Shape {
 final class DeadpanRagdoll {
     // MARK: Rig (in the meme's 480 x 480 artboard, see art/memes/layers.py "11 deadpan")
 
-    private static let hull = 12
-    private static let center = 12
-    private static let shoulderL = 13, shoulderR = 14, hipL = 15, hipR = 16
-    private static let elbowL = 17, handL = 18, elbowR = 19, handR = 20
-    private static let kneeL = 21, footL = 22, kneeR = 23, footR = 24
+    /// Outline particles: close enough together (about 15 pt) that the percent text can't slip between two.
+    private static let hull = 24
+    private static let center = hull
+    private static let shoulderL = hull + 1, shoulderR = hull + 2, hipL = hull + 3, hipR = hull + 4
+    private static let elbowL = hull + 5, handL = hull + 6, elbowR = hull + 7, handR = hull + 8
+    private static let kneeL = hull + 9, footL = hull + 10, kneeR = hull + 11, footR = hull + 12
     /// Particles 0 ..< bodyCount are the rigid body.
-    private static let bodyCount = 17
-    private static let count = 25
+    private static let bodyCount = hull + 5
+    private static let count = hull + 13
 
     private static let rest: [CGPoint] = {
         var pts: [CGPoint] = []
@@ -122,6 +123,9 @@ final class DeadpanRagdoll {
     /// Velocity per substep before collisions (for bounces and knocks).
     private var vel = [CGVector](repeating: .zero, count: count)
     private var contact = [CGVector?](repeating: nil, count: count)
+    /// Where each particle was when the substep began: collisions push it out the side it came in from,
+    /// so nothing is ever pushed (or dragged) through to the far side.
+    private var start = [CGPoint](repeating: .zero, count: count)
     private var ready = false
 
     /// Points per artboard unit.
@@ -137,7 +141,10 @@ final class DeadpanRagdoll {
     private var fingerFrom = CGPoint.zero
 
     private var worldSize = CGSize.zero
+    /// What the body collides with, and what the arms and legs do (only the real bar and text: they can
+    /// dangle and reach under the bar).
     private var rects: [Block] = []
+    private var limbRects: [Block] = []
     private var home = CGRect.zero
 
     private var last: Date?
@@ -157,9 +164,13 @@ final class DeadpanRagdoll {
     private static let h: Double = 1.0 / 240
     private static let gravity: CGFloat = 2400            // pt / s²
     private static let iterations = 6
-    private static let friction: CGFloat = 0.05           // tangential speed lost per substep in contact
+    /// Tangential speed lost per substep in contact: he grips (90 % sticky), so he rolls instead of sliding.
+    private static let friction: CGFloat = 0.9
     private static let bounce: CGFloat = 0.3
     private static let maxThrow: CGFloat = 2800           // pt / s
+    /// How far the grabbed point may follow the finger per substep (1440 pt / s): always less than half of
+    /// anything he collides with, so a drag can't pull him through it.
+    private static let maxPinStep: CGFloat = 6
 
     // MARK: Frame
 
@@ -170,8 +181,10 @@ final class DeadpanRagdoll {
         if !ready { mood = target }
 
         let newRects = obstacles(stage, size)
-        if newRects != rects || size != worldSize { asleep = false }
+        let newLimbRects = limbObstacles(stage)
+        if newRects != rects || newLimbRects != limbRects || size != worldSize { asleep = false }
         rects = newRects
+        limbRects = newLimbRects
         worldSize = size
         home = stage.home
 
@@ -222,6 +235,19 @@ final class DeadpanRagdoll {
         }
         return out
     }
+
+    /// The arms and legs hit the percent text and the bar as it is drawn (a thin capsule), nothing more.
+    private func limbObstacles(_ st: DeadpanStage) -> [Block] {
+        var out: [Block] = []
+        if st.percent.width > 0 {
+            let p = st.percent
+            out.append(Block(rect: CGRect(x: p.minX + 2, y: p.minY + 9, width: max(p.width - 4, 1), height: max(p.height - 18, 1))))
+        }
+        if st.bar.width > 0 { out.append(Block(rect: st.bar)) }
+        return out
+    }
+
+    private func blocks(_ i: Int) -> [Block] { i < Self.bodyCount ? rects : limbRects }
 
     // MARK: Placement
 
@@ -307,11 +333,9 @@ final class DeadpanRagdoll {
             return
         }
         if asleep && pinned == nil { return }
+        start = pos
         integrate(h, gravity: Self.gravity, damping: 0.9995)
-        if case .holding(let i, let off) = touchState {
-            old[i] = pos[i]
-            pos[i] = CGPoint(x: target.x + off.dx, y: target.y + off.dy)
-        }
+        if case .holding(let i, let off) = touchState { follow(i, CGPoint(x: target.x + off.dx, y: target.y + off.dy)) }
         for i in 0..<Self.count { contact[i] = nil }
         for _ in 0..<Self.iterations {
             solveLimbs()
@@ -323,6 +347,17 @@ final class DeadpanRagdoll {
         respond(h)
         brake(h)
         settle()
+    }
+
+    /// The grabbed point chases the finger, a few points per substep at most; collisions can stop it, so
+    /// he gets held against the percent text or the bar instead of pulled through.
+    private func follow(_ i: Int, _ target: CGPoint) {
+        old[i] = pos[i]
+        let dx: CGFloat = target.x - pos[i].x
+        let dy: CGFloat = target.y - pos[i].y
+        let d = (dx * dx + dy * dy).squareRoot()
+        let k: CGFloat = d > Self.maxPinStep ? Self.maxPinStep / d : 1
+        pos[i] = CGPoint(x: pos[i].x + dx * k, y: pos[i].y + dy * k)
     }
 
     /// The lean and the little stumble: underdamped springs, so he wobbles back.
@@ -437,8 +472,8 @@ final class DeadpanRagdoll {
             if p.x > worldSize.width - r { p.x = worldSize.width - r; contact[i] = CGVector(dx: -1, dy: 0) }
             if p.y < r { p.y = r; contact[i] = CGVector(dx: 0, dy: 1) }
             if p.y > worldSize.height - r { p.y = worldSize.height - r; contact[i] = CGVector(dx: 0, dy: -1) }
-            for block in rects {
-                if let hit = push(p, r, out: block) { p = hit.0; contact[i] = hit.1 }
+            for block in blocks(i) {
+                if let hit = push(p, r, out: block, from: start[i]) { p = hit.0; contact[i] = hit.1 }
             }
             pos[i] = p
         }
@@ -456,7 +491,7 @@ final class DeadpanRagdoll {
                 q.x = min(max(q.x, r), worldSize.width - r)
                 q.y = min(max(q.y, r), worldSize.height - r)
                 for block in rects {
-                    if let hit = push(q, r, out: block) { q = hit.0; contact[i] = hit.1 }
+                    if let hit = push(q, r, out: block, from: start[i]) { q = hit.0; contact[i] = hit.1 }
                 }
                 let dx: CGFloat = q.x - pos[i].x
                 let dy: CGFloat = q.y - pos[i].y
@@ -476,8 +511,10 @@ final class DeadpanRagdoll {
         }
     }
 
-    /// A circle pushed out of a block: its new middle and the surface normal, if it touched.
-    private func push(_ p: CGPoint, _ r: CGFloat, out block: Block) -> (CGPoint, CGVector)? {
+    /// A circle pushed out of a block: its new middle and the surface normal, if it touched. `from` is
+    /// where it was when the substep began: once it is in deep (or went right across), it goes back out
+    /// the side it came in through, never the nearest one (that let a drag pull him through the text).
+    private func push(_ p: CGPoint, _ r: CGFloat, out block: Block, from a: CGPoint) -> (CGPoint, CGVector)? {
         let rect = block.rect
         let cx = min(max(p.x, rect.minX), rect.maxX)
         let cy = min(max(p.y, rect.minY), rect.maxY)
@@ -485,20 +522,65 @@ final class DeadpanRagdoll {
         let dy: CGFloat = p.y - cy
         let d2: CGFloat = dx * dx + dy * dy
         if d2 > 0.000001 {
-            guard d2 < r * r else { return nil }
-            let d = d2.squareRoot()
-            let n = CGVector(dx: dx / d, dy: dy / d)
-            return (CGPoint(x: cx + n.dx * r, y: cy + n.dy * r), n)
+            if d2 < r * r {
+                let d = d2.squareRoot()
+                let n = CGVector(dx: dx / d, dy: dy / d)
+                return (CGPoint(x: cx + n.dx * r, y: cy + n.dy * r), n)
+            }
+            // outside now: only a hit if it went right across during the substep
+            guard let side = entry(a, p, rect.insetBy(dx: -r, dy: -r)) else { return nil }
+            return out(p, r, rect, side: block.floor ? 2 : side)
         }
-        // the middle is inside: out through the nearest side (a floor: always up)
-        if block.floor { return (CGPoint(x: p.x, y: rect.minY - r), CGVector(dx: 0, dy: -1)) }
+        // the middle is inside: a floor always lets out upward; anything else the way it came in
+        if block.floor { return out(p, r, rect, side: 2) }
+        if let side = entry(a, p, rect.insetBy(dx: -r, dy: -r)) { return out(p, r, rect, side: side) }
         let left: CGFloat = p.x - rect.minX, right: CGFloat = rect.maxX - p.x
         let top: CGFloat = p.y - rect.minY, bottom: CGFloat = rect.maxY - p.y
         let m = min(left, right, top, bottom)
-        if m == top { return (CGPoint(x: p.x, y: rect.minY - r), CGVector(dx: 0, dy: -1)) }
-        if m == left { return (CGPoint(x: rect.minX - r, y: p.y), CGVector(dx: -1, dy: 0)) }
-        if m == right { return (CGPoint(x: rect.maxX + r, y: p.y), CGVector(dx: 1, dy: 0)) }
-        return (CGPoint(x: p.x, y: rect.maxY + r), CGVector(dx: 0, dy: 1))
+        if m == top { return out(p, r, rect, side: 2) }
+        if m == left { return out(p, r, rect, side: 0) }
+        if m == right { return out(p, r, rect, side: 1) }
+        return out(p, r, rect, side: 3)
+    }
+
+    /// Pushed out through one side (0 left, 1 right, 2 top, 3 bottom), keeping its place along it.
+    private func out(_ p: CGPoint, _ r: CGFloat, _ rect: CGRect, side: Int) -> (CGPoint, CGVector) {
+        switch side {
+        case 0: return (CGPoint(x: rect.minX - r, y: p.y), CGVector(dx: -1, dy: 0))
+        case 1: return (CGPoint(x: rect.maxX + r, y: p.y), CGVector(dx: 1, dy: 0))
+        case 2: return (CGPoint(x: p.x, y: rect.minY - r), CGVector(dx: 0, dy: -1))
+        default: return (CGPoint(x: p.x, y: rect.maxY + r), CGVector(dx: 0, dy: 1))
+        }
+    }
+
+    /// The side through which the path from `a` to `b` enters `rect` (0 left, 1 right, 2 top, 3 bottom),
+    /// or nil when it starts inside or misses it.
+    private func entry(_ a: CGPoint, _ b: CGPoint, _ rect: CGRect) -> Int? {
+        guard !rect.contains(a) else { return nil }
+        let dx: CGFloat = b.x - a.x
+        let dy: CGFloat = b.y - a.y
+        var t0: CGFloat = 0, t1: CGFloat = 1
+        var side = -1
+        if abs(dx) < 0.000001 {
+            guard a.x >= rect.minX, a.x <= rect.maxX else { return nil }
+        } else {
+            let ta: CGFloat = (rect.minX - a.x) / dx
+            let tb: CGFloat = (rect.maxX - a.x) / dx
+            let near = min(ta, tb), far = max(ta, tb)
+            if near > t0 { t0 = near; side = dx > 0 ? 0 : 1 }
+            t1 = min(t1, far)
+        }
+        if abs(dy) < 0.000001 {
+            guard a.y >= rect.minY, a.y <= rect.maxY else { return nil }
+        } else {
+            let ta: CGFloat = (rect.minY - a.y) / dy
+            let tb: CGFloat = (rect.maxY - a.y) / dy
+            let near = min(ta, tb), far = max(ta, tb)
+            if near > t0 { t0 = near; side = dy > 0 ? 2 : 3 }
+            t1 = min(t1, far)
+        }
+        guard t0 <= t1, side >= 0 else { return nil }
+        return side
     }
 
     /// Contacts: friction along the surface, a small bounce off hard knocks, and a tap on the phone.
