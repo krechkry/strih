@@ -182,6 +182,15 @@ struct MediaPicker: View {
         }
         .frame(width: side, height: side)
         .clipped()
+        .overlay(alignment: .bottomLeading) {
+            // a favorite in Photos: a little heart, like in Photos
+            if a.isFavorite {
+                Image(systemName: "heart.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.7), radius: 2)
+                    .padding(5)
+                    .accessibilityLabel(loc("Favorites"))
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             if a.mediaType == .video {
                 Text(Self.time(a.duration)).font(.caption2.weight(.heavy).monospacedDigit()).foregroundStyle(.white)

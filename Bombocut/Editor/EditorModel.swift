@@ -4127,12 +4127,43 @@ extension EditorModel {
     /// where it sits, with what an overlay can carry: placement and opacity (with their keyframes), the Adjust
     /// effects, speed (a curve becomes its average), volume, in / out animation and the subject mask (as a cut-out).
     func copyClipAsOverlay() {
-        guard let i = selectedIndex else { return }
+        guard let i = selectedIndex, let o = overlay(from: project.clips[i], at: onFrame(project.clipStarts[i])) else { return }
+        mutate { p in
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
+        selectOverlay(o.id)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// A clip pulled up off the clip track (hold, slide up, let go): it becomes a video overlay starting at
+    /// `start` (time on the shortened timeline) and the clips after it close the gap. One undo step.
+    func liftClipToOverlay(_ id: UUID, at start: Double) {
+        guard project.clips.count > 1, let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
         let c = project.clips[i]
+        let after = duration - c.duration
+        let t = onFrame(min(max(0, start), max(0, after - 0.2)))
+        guard let o = overlay(from: c, at: t) else { return }
+        mutate { p in
+            p.clips.removeAll { $0.id == id }
+            for k in p.stacks.indices { p.stacks[k].clipIDs.removeAll { $0 == id } }
+            p.cleanStacks()
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
+        selectedClipID = nil
+        selectOverlay(o.id)
+        scrub(to: t)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// The clip as a video overlay: same file and part (not rendered), placement, look, speed, sound, mask.
+    private func overlay(from c: Clip, at start: Double) -> Overlay? {
         let A = project.canvas.aspect
-        let start = onFrame(project.clipStarts[i])
         let len = c.duration
-        guard len > 0.05 else { return }
+        guard len > 0.05 else { return nil }
         var o = Overlay(kind: .video(file: c.mediaFile, sourceDuration: c.sourceDuration, inPoint: c.inPoint),
                         start: start, duration: len)
         o.aspect = c.aspect ?? A
@@ -4170,13 +4201,7 @@ extension EditorModel {
         o.tracking = c.tracking
         o.crop = c.crop
         o.autoZoom = c.autoZoom
-        mutate { p in
-            var n = o
-            p.placeNewOverlay(&n)
-            p.overlays.append(n)
-        }
-        selectOverlay(o.id)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        return o
     }
 }
 

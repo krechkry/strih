@@ -34,7 +34,14 @@ struct TimelineView: View {
         var scrolled: CGFloat = 0     // auto-scroll since the drag began
         var fingerX: CGFloat = 0      // finger position on screen
         var scrollX: CGFloat = 0      // programmatic scroll target
+        var dy: CGFloat = 0           // finger movement up (< 0) / down
+        /// Pulled up off the clip track: let go there and it becomes an overlay (the others close the gap).
+        var lifted = false
     }
+
+    /// How far up a held clip has to go to come off the clip track (and back down to go back in).
+    private static let liftAt: CGFloat = -34
+    private static let dropAt: CGFloat = -24
 
     /// While trimming a head, everything left of the cut slides with your finger so the clip's
     /// right side stays put and nothing ever detaches (DaVinci-style ripple trim).
@@ -50,7 +57,8 @@ struct TimelineView: View {
         let block = cs.filter { r.ids.contains($0.id) }
         guard !block.isEmpty else { return cs }
         cs.removeAll { r.ids.contains($0.id) }
-        cs.insert(contentsOf: block, at: min(r.to, cs.count))
+        // lifted: the others close up, the held clip floats after them (drawn where the finger is)
+        cs.insert(contentsOf: block, at: r.lifted ? cs.count : min(r.to, cs.count))
         return cs
     }
 
@@ -135,7 +143,8 @@ struct TimelineView: View {
                                      rollAtLimit: model.roll?.atLimit == true,
                                      rollDelta: model.roll?.delta ?? 0,
                                      onRoll: { leading, phase, delta, x in roll(clip.id, leading, phase, delta, x) },
-                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
+                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) },
+                                     onLift: { dy in reorderLift(clip.id, dy) })
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
                                     // a Stack: several clips in one
@@ -155,9 +164,18 @@ struct TimelineView: View {
                                             .allowsHitTesting(false)
                                     }
                                 }
-                                .offset(x: dragged ? draggedOffset(shown) : 0)
+                                .overlay {
+                                    // pulled up: a dashed outline until it lands as an overlay
+                                    if dragged && reorder?.lifted == true {
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 2.5, dash: [7, 5]))
+                                            .padding(.trailing, gap)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                .offset(x: dragged ? draggedOffset(shown) : 0, y: dragged ? liftedOffset() : 0)
                                 .zIndex(dragged || slipping ? 3 : (clip.id == model.selectedClipID || edges != nil ? 1 : 0))
-                                .opacity(reorder != nil && !dragged ? 0.6 : (model.slip != nil && !slipping ? 0.35 : 1))
+                                .opacity(reorder != nil && !dragged ? 0.6 : (model.slip != nil && !slipping ? 0.35 : (dragged && reorder?.lifted == true ? 0.85 : 1)))
                                 // a transition: this clip slides over the end of the one before
                                 .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -overlaps[k] : 0)
                         }
@@ -189,6 +207,7 @@ struct TimelineView: View {
                         if reorder == nil && model.pick == nil && model.slip == nil { stackFrames(shown) }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
+                    .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.lifted)
                     .paintSelect(enabled: model.pick != nil && model.pick?.kind.forOverlays == false, ids: shown.map(\.id),
                                  selection: Binding(get: { model.pick?.picked ?? [] }, set: { model.setPicked($0) }),
                                  painting: $paintingPick, axis: .horizontal,
@@ -470,7 +489,27 @@ struct TimelineView: View {
     private func draggedOffset(_ shown: [Clip]) -> CGFloat {
         guard let r = reorder else { return 0 }
         let original = model.project.clips
-        return slotX(original, r.from) + r.dragX + r.scrolled - slotX(shown, r.to)
+        let slot = r.lifted ? shown.count - r.ids.count : r.to
+        return slotX(original, r.from) + r.dragX + r.scrolled - slotX(shown, slot)
+    }
+
+    /// Lifted: up with the finger, but not past the top of the timeline.
+    private func liftedOffset() -> CGFloat {
+        guard let r = reorder, r.lifted else { return 0 }
+        let room: CGFloat = LaneLayout(model.project, pro: UIMode.isPro).aboveStrip + LaneLayout.top - 4
+        return max(min(r.dy, 0), -room)
+    }
+
+    /// The finger moved up or down while holding a clip: far enough up, it comes off the clip track.
+    private func reorderLift(_ id: UUID, _ dy: CGFloat) {
+        guard var r = reorder, r.id == id else { return }
+        r.dy = dy
+        // one clip at a time, and never the last one
+        let can = r.ids.count == 1 && model.project.clips.count > 1
+        let lifted = can && (r.lifted ? dy < Self.dropAt : dy < Self.liftAt)
+        if lifted != r.lifted { UIImpactFeedbackGenerator(style: lifted ? .medium : .light).impactOccurred() }
+        r.lifted = lifted
+        reorder = r
     }
 
     private func reorderEvent(_ id: UUID, _ phase: ClipTile.TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) {
@@ -517,6 +556,22 @@ struct TimelineView: View {
             reorder = r
         case .ended:
             guard let r = reorder, r.id == id else { return }
+            if r.lifted {
+                // let go above the clip track: an overlay where the tile's left edge was
+                let x: CGFloat = slotX(clips, r.from) + r.dragX + r.scrolled
+                let start = Double(x / max(model.pxPerSec, 0.001))
+                reorder = nil
+                model.pxPerSec = r.savedPx
+                zoomBase = r.savedPx
+                model.liftClipToOverlay(id, at: start)
+                let land = model.currentTime
+                scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(60))
+                    scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
+                }
+                return
+            }
             reorder = nil
             model.pxPerSec = r.savedPx
             zoomBase = r.savedPx
@@ -729,6 +784,8 @@ struct ClipTile: View {
     var rollDelta: Double = 0
     var onRoll: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void = { _, _, _, _ in }
     var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
+    /// Finger moved up / down while held (pulled up far enough, the clip comes off the track).
+    var onLift: (_ dy: CGFloat) -> Void = { _ in }
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
     @State private var dragging: Bool? = nil   // which edge is being dragged (true = leading)
@@ -903,7 +960,8 @@ struct ClipTile: View {
                     holding = false
                     onReorder(.ended, 0, 0)
                 }
-            })
+            },
+            onVertical: { dy in if holding { onLift(dy) } })
     }
 
     private var edgeAtLimit: Bool { rollEdge != nil ? rollAtLimit : trim?.atLimit == true }
