@@ -2457,7 +2457,13 @@ final class EditorModel: ObservableObject {
         audioBusy = true
         defer { audioBusy = false }
         do {
-            let (file, d) = try await AudioExtract.extract(from: Paths.mediaURL(c.mediaFile), range: c.inPoint...c.outPoint)
+            // a speed curve: the sound comes out already retimed along it (a sound item plays at one speed)
+            let file: String, d: Double
+            if c.hasCurve {
+                (file, d) = try await AudioExtract.extractRetimed(c)
+            } else {
+                (file, d) = try await AudioExtract.extract(from: Paths.mediaURL(c.mediaFile), range: c.inPoint...c.outPoint)
+            }
             var a = AudioItem(file: file, name: loc("Clip sound"), sourceDuration: d, start: start, duration: c.duration)
             a.speed = c.hasCurve ? 1 : c.speed
             a.duration = c.hasCurve ? min(d, c.duration) : c.duration

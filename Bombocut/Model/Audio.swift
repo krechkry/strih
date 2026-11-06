@@ -48,6 +48,48 @@ enum AudioExtract {
         return (name, d)
     }
 
+    /// The sound of a clip with a speed curve, retimed along the curve (pitch kept unless the clip turns
+    /// that off), so it lines up with the clip as it plays. A sound item can only play at one speed.
+    static func extractRetimed(_ c: Clip) async throws -> (file: String, duration: Double) {
+        let url = SpeechCleanup.readyURL(c) ?? Paths.mediaURL(c.mediaFile)
+        let asset = AVURLAsset(url: url)
+        guard let src = try await asset.loadTracks(withMediaType: .audio).first else { throw err("This video has no sound.") }
+        let range = try await src.load(.timeRange)
+        let comp = AVMutableComposition()
+        guard let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw err("Could not read the audio.")
+        }
+        func time(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: 60000) }
+        var end = CMTime.zero
+        for seg in c.retime.segs {
+            let r = CMTimeRange(start: time(seg.src0), duration: time(seg.srcLen)).intersection(range)
+            guard r.duration.seconds > 0.0005 else { continue }
+            let ratio = seg.outLen / max(seg.srcLen, 1e-9)
+            let at = max(end, time(seg.out0 + (r.start.seconds - seg.src0) * ratio))
+            if end < at { track.insertEmptyTimeRange(CMTimeRange(start: end, end: at)) }
+            guard (try? track.insertTimeRange(r, of: src, at: at)) != nil else { continue }
+            let out = time(r.duration.seconds * ratio)
+            if out != r.duration { track.scaleTimeRange(CMTimeRange(start: at, duration: r.duration), toDuration: out) }
+            end = at + out
+        }
+        guard end > .zero, let session = AVAssetExportSession(asset: comp, presetName: AVAssetExportPresetAppleM4A) else {
+            throw err("Could not read the audio.")
+        }
+        let algorithm: AVAudioTimePitchAlgorithm = c.pitchCorrect ? .spectral : .varispeed
+        let params = AVMutableAudioMixInputParameters(track: track)
+        params.audioTimePitchAlgorithm = algorithm
+        let mix = AVMutableAudioMix()
+        mix.inputParameters = [params]
+        session.audioMix = mix
+        session.audioTimePitchAlgorithm = algorithm
+        Paths.ensure()
+        let name = UUID().uuidString + ".m4a"
+        let out = Paths.mediaURL(name)
+        try await session.export(to: out, as: .m4a)
+        let d = try await AVURLAsset(url: out).load(.duration).seconds
+        return (name, d)
+    }
+
     /// Copies an audio file in (or takes the sound out of a video file).
     static func importFile(_ url: URL) async throws -> (file: String, duration: Double) {
         let asset = AVURLAsset(url: url)

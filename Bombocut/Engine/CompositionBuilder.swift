@@ -95,8 +95,14 @@ enum CompositionBuilder {
         var video: AVMutableCompositionTrack?
         var prev: AVMutableCompositionTrack?
         var next: AVMutableCompositionTrack?
-        var keep: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?
-        var vari: (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)?
+        /// Clip sound: two tracks per pitch mode, used in turn, so the next clip's sound never goes on the
+        /// track that holds this clip's (retimed) sound. Sharing one track let a slowed clip's stretch get
+        /// lost, pulling every later clip's sound early as if the clip played at 1x.
+        var keep: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)] = []
+        var vari: [(AVMutableCompositionTrack, AVMutableAudioMixInputParameters)] = []
+        private var turn: [Bool: Int] = [:]
+        /// Where each audio track's sound ends, kept here (not read back from the track after a retime).
+        var audioEnd: [CMPersistentTrackID: CMTime] = [:]
 
         init(_ comp: AVMutableComposition) { self.comp = comp }
 
@@ -116,15 +122,27 @@ enum CompositionBuilder {
             return (prev, next)
         }
 
-        /// One audio track keeps pitch when retimed, the other shifts it like tape (varispeed).
+        /// The audio track for the next clip: keeps pitch when retimed, or shifts it like tape (varispeed).
+        /// Alternates between two tracks per mode (see `keep`).
         func audio(keepPitch: Bool) -> (AVMutableCompositionTrack, AVMutableAudioMixInputParameters)? {
-            if keepPitch, let k = keep { return k }
-            if !keepPitch, let v = vari { return v }
-            guard let t = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { return nil }
+            let k = (turn[keepPitch] ?? -1) + 1
+            turn[keepPitch] = k
+            let slot = k % 2
+            let have = keepPitch ? keep : vari
+            if slot < have.count { return have[slot] }
+            guard let t = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                return have.first
+            }
             let p = AVMutableAudioMixInputParameters(track: t)
             p.audioTimePitchAlgorithm = keepPitch ? .spectral : .varispeed
-            if keepPitch { keep = (t, p) } else { vari = (t, p) }
+            if keepPitch { keep.append((t, p)) } else { vari.append((t, p)) }
             return (t, p)
+        }
+
+        /// Silence up to `t` on an audio track (from the end this lane put there, not the track's own report).
+        func padAudio(_ track: AVMutableCompositionTrack, to t: CMTime) {
+            let end = audioEnd[track.trackID] ?? .zero
+            if end < t { track.insertEmptyTimeRange(CMTimeRange(start: end, end: t)) }
         }
     }
 
@@ -193,13 +211,16 @@ enum CompositionBuilder {
                 if let srcAudio, let audioRange, let aTrack = audioOut?.0 {
                     let ar = r.intersection(audioRange)
                     if ar.duration.seconds > 0.0005 {
-                        let at = cursor + time((ar.start - r.start).seconds * ratio)
-                        pad(aTrack, to: at)
+                        // never before what is already there (an insert inside earlier sound would push it on)
+                        let want = cursor + time((ar.start - r.start).seconds * ratio)
+                        let at = max(want, ln.audioEnd[aTrack.trackID] ?? .zero)
+                        ln.padAudio(aTrack, to: at)
                         if (try? aTrack.insertTimeRange(ar, of: srcAudio, at: at)) != nil {
                             let aOut = time(ar.duration.seconds * ratio)
                             if aOut != ar.duration {
                                 aTrack.scaleTimeRange(CMTimeRange(start: at, duration: ar.duration), toDuration: aOut)
                             }
+                            ln.audioEnd[aTrack.trackID] = at + aOut
                             hadAudio = true
                         }
                     }
@@ -395,8 +416,8 @@ enum CompositionBuilder {
 
         var mixParams: [AVAudioMixInputParameters] = []
         for l in lanes {
-            for pair in [l.keep, l.vari] {
-                guard case let (track, p)? = pair else { continue }
+            for pair in l.keep + l.vari {
+                let (track, p) = pair
                 if track.segments.contains(where: { !$0.isEmpty }) { mixParams.append(p) } else { comp.removeTrack(track) }
             }
         }
