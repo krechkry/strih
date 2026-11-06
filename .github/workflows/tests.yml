@@ -24,6 +24,8 @@ jobs:
           mkdir -p testmedia
           ffmpeg -loglevel error -f lavfi -i "color=c=red:s=180x320:r=30:d=2" -f lavfi -i "sine=frequency=440:duration=2" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest testmedia/test-red.mp4
           ffmpeg -loglevel error -f lavfi -i "color=c=blue:s=180x320:r=30:d=2" -f lavfi -i "sine=frequency=660:duration=2" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest testmedia/test-blue.mp4
+          # 4 s that beeps at 1.0 s and 3.0 s (sound timing around slowed clips)
+          ffmpeg -loglevel error -f lavfi -i "color=c=gray:s=180x320:r=30:d=4" -f lavfi -i "sine=frequency=1000:duration=4" -af "volume='if(between(t,1,1.1)+between(t,3,3.1),0.8,0)':eval=frame" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest testmedia/test-beeps.mp4
 
       - name: Run tests on the simulator
         run: |
