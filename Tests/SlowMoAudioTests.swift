@@ -65,9 +65,12 @@ final class SlowMoAudioTests: XCTestCase {
             }
         }
         let windows = loud.keys.sorted()
+        // ffmpeg's sine is quiet (1/8): beeps are whatever stands well above the silence around them
+        let peak = loud.values.max() ?? 0
+        XCTAssertGreaterThan(peak, 0.01, "there is sound")
         var starts: [Double] = []
         var last = -100
-        for w in windows where (loud[w] ?? 0) > 0.2 {
+        for w in windows where (loud[w] ?? 0) > peak * 0.4 {
             if w - last > 20 { starts.append(Double(w) / 100) }
             last = w
         }
