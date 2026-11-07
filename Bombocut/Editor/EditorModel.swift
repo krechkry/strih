@@ -71,6 +71,8 @@ struct LiveTransform {
 @MainActor
 final class EditorModel: ObservableObject {
     @Published var project: Project
+    /// A selected clip being swiped up into an overlay (see `liftBegin`).
+    @Published var clipLift: ClipLift?
     @Published var currentTime: Double = 0
     @Published private(set) var isPlaying = false { didSet { if isPlaying != oldValue { updateFraming() } } }
     @Published var selectedClipID: UUID? {
@@ -4137,26 +4139,67 @@ extension EditorModel {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    /// A clip pulled up off the clip track (hold, slide up, let go): it becomes a video overlay starting at
-    /// `start` (time on the shortened timeline) and the clips after it close the gap. One undo step.
-    func liftClipToOverlay(_ id: UUID, at start: Double) {
-        guard project.clips.count > 1, let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
-        let c = project.clips[i]
-        let after = duration - c.duration
-        let t = onFrame(min(max(0, start), max(0, after - 0.2)))
-        guard let o = overlay(from: c, at: t) else { return }
-        mutate { p in
-            p.clips.removeAll { $0.id == id }
-            for k in p.stacks.indices { p.stacks[k].clipIDs.removeAll { $0 == id } }
-            p.cleanStacks()
-            var n = o
-            p.placeNewOverlay(&n)
-            p.overlays.append(n)
-        }
+    /// A selected clip swiped up: while the finger is up, the clip is out of the clip track (the others
+    /// close the gap) and sits in the layers as the overlay it would become, sliding with the finger, snapping
+    /// and taking a row next to the other overlays. Let go: it stays (one undo step). Back down: undone.
+    struct ClipLift {
+        let clipID: UUID
+        let overlay: Overlay
+        let base: Project        // before: the clip in the track
+        let shortened: Project   // the clip out, no overlay yet
+        var overlayID: UUID { overlay.id }
+    }
+
+    @discardableResult
+    func liftBegin(_ clipID: UUID) -> Bool {
+        guard clipLift == nil, project.clips.count > 1,
+              let i = project.clips.firstIndex(where: { $0.id == clipID }),
+              let o = overlay(from: project.clips[i], at: onFrame(project.clipStarts[i])) else { return false }
+        pause()
+        let base = project
+        project.clips.remove(at: i)
+        for k in project.stacks.indices { project.stacks[k].clipIDs.removeAll { $0 == clipID } }
+        project.cleanStacks()
+        followFootage(from: base)
+        clipLift = ClipLift(clipID: clipID, overlay: o, base: base, shortened: project)
         selectedClipID = nil
-        selectOverlay(o.id)
-        scrub(to: t)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        placeLift(at: o.start)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        return true
+    }
+
+    /// The finger moved `dt` seconds sideways since the swipe began: the overlay's start, snapped.
+    func liftMove(by dt: Double) {
+        guard let l = clipLift else { return }
+        let s = snapMove(start: l.overlay.start + dt, length: l.overlay.duration, .overlay, id: l.overlayID)
+        placeLift(at: s)
+    }
+
+    /// Let go (`keep`) or back down.
+    func liftEnd(keep: Bool) {
+        guard let l = clipLift else { return }
+        clipLift = nil
+        snapTime = nil
+        if keep {
+            pushUndo(l.base)
+            commit()
+            selectOverlay(l.overlayID)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            project = l.base
+            selectedClipID = l.clipID
+        }
+    }
+
+    /// Recomputed from the shortened timeline every time, so the other overlays' rows follow it live.
+    private func placeLift(at start: Double) {
+        guard let l = clipLift else { return }
+        var p = l.shortened
+        var n = l.overlay
+        n.start = onFrame(min(max(0, start), max(0, p.duration - 0.2)))
+        p.placeNewOverlay(&n)
+        p.overlays.append(n)
+        project = p
     }
 
     /// The clip as a video overlay: same file and part (not rendered), placement, look, speed, sound, mask.
