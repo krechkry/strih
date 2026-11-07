@@ -24,6 +24,31 @@ struct AudioItem: Codable, Hashable, Identifiable {
     }
 }
 
+/// Which of a file's sound tracks to play. iPhone videos with spatial audio carry a stereo track and a
+/// spatial (APAC) one; the spatial one can't be retimed like plain sound (a slowed clip's sound then runs
+/// at 1x and drags the next clips' sound early), so the plain stereo / mono track wins when there is one.
+enum AudioPick {
+    nonisolated static func track(_ asset: AVAsset) async -> AVAssetTrack? {
+        guard let all = try? await asset.loadTracks(withMediaType: .audio), let first = all.first else { return nil }
+        guard all.count > 1 else { return first }
+        var best: (AVAssetTrack, Int)?
+        for t in all {
+            let enabled = (try? await t.load(.isEnabled)) ?? true
+            let formats = (try? await t.load(.formatDescriptions)) ?? []
+            let asbd = formats.first.flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+            let id = asbd?.mFormatID ?? 0
+            let channels = Int(asbd?.mChannelsPerFrame ?? 2)
+            let spatial = id == 0x6170_6163            // 'apac'
+            var score = 0
+            if !spatial { score += 4 }
+            if channels <= 2 { score += 2 }
+            if enabled { score += 1 }
+            if best == nil || score > best!.1 { best = (t, score) }
+        }
+        return best?.0 ?? first
+    }
+}
+
 enum AudioExtract {
     static func err(_ s: String) -> NSError {
         NSError(domain: "Bombocut", code: 5, userInfo: [NSLocalizedDescriptionKey: loc(s)])
@@ -53,7 +78,7 @@ enum AudioExtract {
     static func extractRetimed(_ c: Clip) async throws -> (file: String, duration: Double) {
         let url = SpeechCleanup.readyURL(c) ?? Paths.mediaURL(c.mediaFile)
         let asset = AVURLAsset(url: url)
-        guard let src = try await asset.loadTracks(withMediaType: .audio).first else { throw err("This video has no sound.") }
+        guard let src = await AudioPick.track(asset) else { throw err("This video has no sound.") }
         let range = try await src.load(.timeRange)
         let comp = AVMutableComposition()
         guard let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {

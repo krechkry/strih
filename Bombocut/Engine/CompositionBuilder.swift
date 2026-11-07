@@ -177,7 +177,7 @@ enum CompositionBuilder {
                 aux ? ln.neighbourTracks() : (nil, nil)
             // cleaned-up speech, once made, plays instead of the video's own sound (same timing)
             let soundAsset: AVAsset = SpeechCleanup.readyURL(clip).map { AVURLAsset(url: $0) } ?? asset
-            let srcAudio = try await soundAsset.loadTracks(withMediaType: .audio).first
+            let srcAudio = await AudioPick.track(soundAsset)
             let audioRange = try await srcAudio?.load(.timeRange)
             let audioOut = srcAudio != nil ? ln.audio(keepPitch: clip.pitchCorrect) : nil
             var cursor = start
@@ -305,7 +305,7 @@ enum CompositionBuilder {
                 // a speed curve (copied from a clip): the same segments as the clip, from the overlay's in point
                 var audioSrc: AVAssetTrack?
                 var audioRange: CMTimeRange?
-                if o.volume > 0.001, let a = try? await asset.loadTracks(withMediaType: .audio).first {
+                if o.volume > 0.001, let a = await AudioPick.track(asset) {
                     audioSrc = a
                     audioRange = try? await a.load(.timeRange)
                 }
@@ -373,7 +373,7 @@ enum CompositionBuilder {
                 continue
             }
             // its sound, on its own track so its volume is separate (pitch kept when sped up or slowed down)
-            if o.volume > 0.001, let a = try? await asset.loadTracks(withMediaType: .audio).first,
+            if o.volume > 0.001, let a = await AudioPick.track(asset),
                let ar = try? await a.load(.timeRange),
                let at = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
                 let rr = r.intersection(ar)
@@ -395,7 +395,7 @@ enum CompositionBuilder {
         // Sound on the audio lane: one track each (own volume), cut at the end of the video.
         for a in project.audio where a.start < contentEnd.seconds - 0.02 && a.volume > 0.001 {
             let asset = AVURLAsset(url: Paths.mediaURL(a.file))
-            guard let src = try? await asset.loadTracks(withMediaType: .audio).first,
+            guard let src = await AudioPick.track(asset),
                   let range = try? await src.load(.timeRange),
                   let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
