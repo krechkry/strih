@@ -341,6 +341,7 @@ final class DeadpanRagdoll {
         for _ in 0..<Self.iterations {
             solveLimbs()
             matchBody()
+            keepLimbsOut()
             collide()
         }
         matchBody()
@@ -348,6 +349,38 @@ final class DeadpanRagdoll {
         respond(h)
         brake(h)
         settle()
+    }
+
+    /// Let go, his elbows, hands, knees and feet ease back out of his body, so they settle around it, not
+    /// through it (while he's held they may cross: there it doesn't matter). A gentle push toward the
+    /// nearest point of his outline each pass, moving the point without giving it speed.
+    private func keepLimbsOut() {
+        guard pinned == nil else { return }
+        let c = cos(bodyAngle), sn = sin(bodyAngle)
+        for limb in Self.limbs {
+            for i in [limb.mid, limb.end] {
+                let pad: CGFloat = i == limb.mid ? 6 : 12
+                let rx: CGFloat = 122 + pad
+                let ry: CGFloat = 125 + pad
+                let dx: CGFloat = pos[i].x - bodyT.x
+                let dy: CGFloat = pos[i].y - bodyT.y
+                let ax: CGFloat = (dx * c + dy * sn) / s - 240
+                let ay: CGFloat = (-dx * sn + dy * c) / s - 195
+                let ex: CGFloat = ax / rx
+                let ey: CGFloat = ay / ry
+                let r2: CGFloat = ex * ex + ey * ey
+                guard r2 < 1, r2 > 1e-6 else { continue }
+                let k: CGFloat = 1 / r2.squareRoot()
+                let tx: CGFloat = (240 + ax * k) * s
+                let ty: CGFloat = (195 + ay * k) * s
+                let wx: CGFloat = bodyT.x + tx * c - ty * sn
+                let wy: CGFloat = bodyT.y + tx * sn + ty * c
+                let mx: CGFloat = (wx - pos[i].x) * 0.06
+                let my: CGFloat = (wy - pos[i].y) * 0.06
+                pos[i].x += mx; pos[i].y += my
+                old[i].x += mx; old[i].y += my
+            }
+        }
     }
 
     /// The grabbed point chases the finger, a few points per substep at most; collisions can stop it, so
