@@ -168,23 +168,35 @@ struct CubeLUT {
                 return CubeLUT(size: n, data: d)
             }
             // another input domain: sample it over 0...1
-            return make(33) { c in
-                let u = (0..<3).map { k in min(max((c[k] - lo[k]) / max(hi[k] - lo[k], 1e-9), 0), 1) * Double(n - 1) }
+            let top: Double = Double(n - 1)
+            return make(33) { (c: [Double]) -> (Double, Double, Double) in
+                let u: [Double] = [unit(c[0], lo[0], hi[0]) * top, unit(c[1], lo[1], hi[1]) * top, unit(c[2], lo[2], hi[2]) * top]
                 return trilinear(u, n, at)
             }
         }
         if size1 >= 2, rows.count >= size1 {
             let n = size1
+            func channel(_ row: (Double, Double, Double), _ k: Int) -> Double { k == 0 ? row.0 : (k == 1 ? row.1 : row.2) }
             func curve(_ v: Double, _ k: Int) -> Double {
-                let x = min(max((v - lo[k]) / max(hi[k] - lo[k], 1e-9), 0), 1) * Double(n - 1)
-                let i = min(Int(x), n - 2), f = x - Double(i)
-                let a = [rows[i].0, rows[i].1, rows[i].2][k], b = [rows[i + 1].0, rows[i + 1].1, rows[i + 1].2][k]
+                let x: Double = unit(v, lo[k], hi[k]) * Double(n - 1)
+                let i: Int = min(Int(x), n - 2)
+                let f: Double = x - Double(i)
+                let a: Double = channel(rows[i], k)
+                let b: Double = channel(rows[i + 1], k)
                 return a + (b - a) * f
             }
-            return make(33) { c in (curve(c[0], 0), curve(c[1], 1), curve(c[2], 2)) }
+            return make(33) { (c: [Double]) -> (Double, Double, Double) in (curve(c[0], 0), curve(c[1], 1), curve(c[2], 2)) }
         }
         return nil
     }
+
+    /// Where v sits between lo and hi, as 0...1.
+    private static func unit(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
+        let span: Double = max(hi - lo, 1e-9)
+        return min(max((v - lo) / span, 0), 1)
+    }
+
+    private static func clamp01(_ v: Double) -> Float { Float(min(max(v, 0), 1)) }
 
     /// A cube of `n` points from a formula on 0...1 values.
     static func make(_ n: Int, _ f: ([Double]) -> (Double, Double, Double)) -> CubeLUT {
@@ -195,7 +207,9 @@ struct CubeLUT {
             for g in 0..<n {
                 for r in 0..<n {
                     let o = f([Double(r) * s, Double(g) * s, Double(b) * s])
-                    d[i] = Float(min(max(o.0, 0), 1)); d[i + 1] = Float(min(max(o.1, 0), 1)); d[i + 2] = Float(min(max(o.2, 0), 1))
+                    d[i] = clamp01(o.0)
+                    d[i + 1] = clamp01(o.1)
+                    d[i + 2] = clamp01(o.2)
                     i += 4
                 }
             }
@@ -204,16 +218,23 @@ struct CubeLUT {
     }
 
     private static func trilinear(_ u: [Double], _ n: Int, _ at: (Int, Int, Int) -> (Double, Double, Double)) -> (Double, Double, Double) {
-        let i0 = u.map { min(Int($0), n - 2) }
-        let f = zip(u, i0).map { $0 - Double($1) }
-        var out = (0.0, 0.0, 0.0)
+        let i0: [Int] = u.map { min(Int($0), n - 2) }
+        let f: [Double] = [u[0] - Double(i0[0]), u[1] - Double(i0[1]), u[2] - Double(i0[2])]
+        var r = 0.0, g = 0.0, b = 0.0
         for corner in 0..<8 {
-            let dr = corner & 1, dg = (corner >> 1) & 1, db = (corner >> 2) & 1
-            let w = (dr == 1 ? f[0] : 1 - f[0]) * (dg == 1 ? f[1] : 1 - f[1]) * (db == 1 ? f[2] : 1 - f[2])
+            let dr: Int = corner & 1
+            let dg: Int = (corner >> 1) & 1
+            let db: Int = (corner >> 2) & 1
+            let wr: Double = dr == 1 ? f[0] : 1 - f[0]
+            let wg: Double = dg == 1 ? f[1] : 1 - f[1]
+            let wb: Double = db == 1 ? f[2] : 1 - f[2]
+            let w: Double = wr * wg * wb
             let v = at(i0[0] + dr, i0[1] + dg, i0[2] + db)
-            out.0 += v.0 * w; out.1 += v.1 * w; out.2 += v.2 * w
+            r += v.0 * w
+            g += v.1 * w
+            b += v.2 * w
         }
-        return out
+        return (r, g, b)
     }
 }
 
@@ -231,86 +252,111 @@ enum FilterLooks {
     static func apply(_ name: String, _ c: RGB) -> RGB {
         switch name {
         case "bw":
-            let l = s(luma(c), 1.5)
+            let l: Double = s(luma(c), 1.5)
             return (l, l, l)
         case "bwPunch":
             // crushed blacks, blown whites, hard contrast
-            let l = s(clamp((luma(c) - 0.07) / 0.83), 7)
+            let x: Double = (luma(c) - 0.07) / 0.83
+            let l: Double = s(clamp(x), 7)
             return (l, l, l)
         case "bwVintage":
-            let l = 0.09 + s(luma(c), 3.5) * 0.83
-            return (l + 0.012, l, l - 0.018)
+            let l: Double = 0.09 + s(luma(c), 3.5) * 0.83
+            return add((l, l, l), 0.012, 0, -0.018)
         case "orangeTeal":
-            var o = map(c) { s($0, 4.5) }
-            let l = luma(o)
-            let ws = (1 - l) * (1 - l), wh = l * l
-            o = (o.0 - 0.05 * ws + 0.07 * wh, o.1 + 0.015 * ws + 0.02 * wh, o.2 + 0.07 * ws - 0.06 * wh)
-            return saturate(o, 1.12)
+            let o: RGB = map(c) { s($0, 4.5) }
+            let l: Double = luma(o)
+            let ws: Double = (1 - l) * (1 - l)
+            let wh: Double = l * l
+            let r: Double = -0.05 * ws + 0.07 * wh
+            let g: Double = 0.015 * ws + 0.02 * wh
+            let b: Double = 0.07 * ws - 0.06 * wh
+            return saturate(add(o, r, g, b), 1.12)
         case "retro":
-            var o = map(c) { 0.08 + s($0, 2.5) * 0.86 }
-            o = saturate(o, 1.3)
-            return (o.0 + 0.02, o.1 + 0.005, o.2 - 0.02)
+            let o: RGB = saturate(map(c) { lifted($0, 0.08, 0.86, 2.5) }, 1.3)
+            return add(o, 0.02, 0.005, -0.02)
         case "warmFilm":
-            var o = map(c) { 0.04 + s($0, 3.5) * 0.92 }
+            let o: RGB = map(c) { lifted($0, 0.04, 0.92, 3.5) }
             // greens a touch quieter, everything slightly warm
-            let green = max(0, o.1 - max(o.0, o.2))
-            o = (o.0 + 0.03, o.1 + 0.008 - green * 0.25, o.2 - 0.03)
-            return saturate(o, 0.94)
+            let green: Double = max(0, o.1 - max(o.0, o.2))
+            return saturate(add(o, 0.03, 0.008 - green * 0.25, -0.03), 0.94)
         case "coolNight":
-            let base = map(c) { s($0 * 0.93, 3.5) }
-            let l = luma(base)
-            let ws = (1 - l) * (1 - l)
+            let base: RGB = map(c) { s($0 * 0.93, 3.5) }
+            let l: Double = luma(base)
+            let ws: Double = (1 - l) * (1 - l)
             // skin (warm, moderately saturated) keeps its color
-            let skin = skinWeight(c)
-            let k = 1 - skin * 0.8
-            let o = (base.0 - (0.03 + 0.03 * ws) * k, base.1 - 0.005 * k, base.2 + (0.04 + 0.07 * ws) * k)
-            return saturate(o, 0.9)
+            let k: Double = 1 - skinWeight(c) * 0.8
+            let r: Double = -(0.03 + 0.03 * ws) * k
+            let b: Double = (0.04 + 0.07 * ws) * k
+            return saturate(add(base, r, -0.005 * k, b), 0.9)
         case "bleach":
-            let l = luma(c)
-            var o = saturate(c, 0.45)
-            o = map(o) { s($0, 7.5) }
-            return (o.0 * 0.85 + s(l, 7.5) * 0.15, o.1 * 0.85 + s(l, 7.5) * 0.15, o.2 * 0.85 + s(l, 7.5) * 0.15)
+            let gray: Double = s(luma(c), 7.5) * 0.15
+            let o: RGB = map(saturate(c, 0.45)) { s($0, 7.5) * 0.85 + gray }
+            return o
         case "matte":
-            let o = map(c) { 0.12 + s($0, 2) * 0.8 }
-            return saturate(o, 0.85)
+            return saturate(map(c) { lifted($0, 0.12, 0.8, 2) }, 0.85)
         case "vivid":
             // more color where there is little, contrast
-            let o = map(c) { s($0, 5) }
-            let sat = chroma(o)
-            return saturate(o, 1.15 + 0.35 * (1 - sat))
+            let o: RGB = map(c) { s($0, 5) }
+            let more: Double = 1.15 + 0.35 * (1 - chroma(o))
+            return saturate(o, more)
         default:
             return c
         }
     }
 
+    /// Contrast k, then the range squeezed into black...black + span (lifted shadows, softer whites).
+    private static func lifted(_ x: Double, _ black: Double, _ span: Double, _ k: Double) -> Double {
+        black + s(x, k) * span
+    }
+
+    private static func add(_ c: RGB, _ r: Double, _ g: Double, _ b: Double) -> RGB { (c.0 + r, c.1 + g, c.2 + b) }
+
     private static func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
-    private static func luma(_ c: RGB) -> Double { 0.2126 * c.0 + 0.7152 * c.1 + 0.0722 * c.2 }
+    private static func luma(_ c: RGB) -> Double {
+        let r: Double = 0.2126 * c.0
+        let g: Double = 0.7152 * c.1
+        let b: Double = 0.0722 * c.2
+        return r + g + b
+    }
     private static func map(_ c: RGB, _ f: (Double) -> Double) -> RGB { (f(c.0), f(c.1), f(c.2)) }
 
     private static func saturate(_ c: RGB, _ k: Double) -> RGB {
-        let l = luma(c)
-        return (l + (c.0 - l) * k, l + (c.1 - l) * k, l + (c.2 - l) * k)
+        let l: Double = luma(c)
+        let r: Double = l + (c.0 - l) * k
+        let g: Double = l + (c.1 - l) * k
+        let b: Double = l + (c.2 - l) * k
+        return (r, g, b)
     }
 
-    private static func chroma(_ c: RGB) -> Double { max(c.0, c.1, c.2) - min(c.0, c.1, c.2) }
+    private static func chroma(_ c: RGB) -> Double {
+        let hi: Double = max(c.0, c.1, c.2)
+        let lo: Double = min(c.0, c.1, c.2)
+        return hi - lo
+    }
 
     /// S-curve contrast around the middle (k ≈ 0 flat, bigger is harder), ends kept at 0 and 1.
-    private static func s(_ x: Double, _ k: Double) -> Double {
-        let x = clamp(x)
+    private static func s(_ value: Double, _ k: Double) -> Double {
+        let x: Double = clamp(value)
         guard k > 0.01 else { return x }
-        func f(_ v: Double) -> Double { 1 / (1 + exp(-k * (v - 0.5))) }
-        let a = f(0), b = f(1)
+        func f(_ v: Double) -> Double {
+            let e: Double = exp(-k * (v - 0.5))
+            return 1 / (1 + e)
+        }
+        let a: Double = f(0)
+        let b: Double = f(1)
         return (f(x) - a) / (b - a)
     }
 
     /// How much a color looks like skin: warm hue (red to orange) with some but not much saturation.
     private static func skinWeight(_ c: RGB) -> Double {
-        let mx = max(c.0, c.1, c.2), mn = min(c.0, c.1, c.2)
-        guard mx > 0.08, mx - mn > 0.04, c.0 >= c.1, c.1 >= c.2 else { return 0 }
-        let sat = (mx - mn) / mx
-        let hue = (c.1 - c.2) / max(mx - mn, 1e-6) * 60       // 0 (red) ... 60 (yellow)
-        let h = max(0, 1 - abs(hue - 25) / 25)
-        let s = max(0, 1 - abs(sat - 0.4) / 0.35)
-        return h * s
+        let mx: Double = max(c.0, c.1, c.2)
+        let mn: Double = min(c.0, c.1, c.2)
+        let range: Double = mx - mn
+        guard mx > 0.08, range > 0.04, c.0 >= c.1, c.1 >= c.2 else { return 0 }
+        let sat: Double = range / mx
+        let hue: Double = (c.1 - c.2) / max(range, 1e-6) * 60       // 0 (red) ... 60 (yellow)
+        let h: Double = max(0, 1 - abs(hue - 25) / 25)
+        let w: Double = max(0, 1 - abs(sat - 0.4) / 0.35)
+        return h * w
     }
 }
