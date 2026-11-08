@@ -426,6 +426,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// The crop on the upright picture: outside the kept rectangle see-through, with a soft edge and rounded corners.
     static func cropped(_ img: CIImage, _ c: CropRect, _ size: CGSize) -> CIImage {
         let full = CGRect(origin: .zero, size: size)
+        if c.kind != .rect {
+            // an ellipse or a drawn curve (with its soft edge, maybe inverted)
+            guard let mask = CropShapeMask.mask(c, size) else { return img }
+            return img.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: full),
+                                                                    kCIInputMaskImageKey: mask]).cropped(to: full)
+        }
         let r = c.rect
         let keep = CGRect(x: r.minX * size.width, y: (1 - r.maxY) * size.height, width: r.width * size.width, height: r.height * size.height)
         let short = min(keep.width, keep.height)
@@ -557,5 +563,73 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         case 135...180, -180 ..< -135: return .down
         default: return .up
         }
+    }
+}
+
+/// The masks of the ellipse and curve crops, on a picture of `size` pixels (Core Image, y-up). White keeps.
+enum CropShapeMask {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var curves: [String: CIImage] = [:]
+
+    static func mask(_ c: CropRect, _ size: CGSize) -> CIImage? {
+        let full = CGRect(origin: .zero, size: size)
+        guard size.width > 1, size.height > 1 else { return nil }
+        var m: CIImage?
+        switch c.kind {
+        case .rect: return nil
+        case .ellipse: m = ellipse(c.ellipse(aspect: Double(size.width / size.height)), feather: c.feather, size)
+        case .curve: m = curve(c.points, feather: c.feather, size)
+        }
+        guard var mask = m else { return nil }
+        mask = mask.composited(over: CIImage(color: .black)).cropped(to: full)
+        if c.invert { mask = mask.applyingFilter("CIColorInvert").cropped(to: full) }
+        return mask
+    }
+
+    /// A radial gradient (soft band inside the edge), stretched into the ellipse.
+    private static func ellipse(_ e: CropEllipse, feather: Double, _ size: CGSize) -> CIImage? {
+        guard let g = CIFilter(name: "CIRadialGradient") else { return nil }
+        let band = max(0.006, min(feather, 1) * 0.7)
+        g.setValue(CIVector(x: 0, y: 0), forKey: "inputCenter")
+        g.setValue(100 * (1 - band), forKey: "inputRadius0")
+        g.setValue(100, forKey: "inputRadius1")
+        g.setValue(CIColor.white, forKey: "inputColor0")
+        g.setValue(CIColor.black, forKey: "inputColor1")
+        guard let out = g.outputImage else { return nil }
+        let rx = max(0.001, e.rx) * size.width / 100, ry = max(0.001, e.ry) * size.height / 100
+        return out.transformed(by: CGAffineTransform(scaleX: rx, y: ry)
+            .concatenating(CGAffineTransform(translationX: e.cx * size.width, y: (1 - e.cy) * size.height)))
+    }
+
+    /// The curve filled white on black (drawn once at up to 1024 px and kept), blurred for a soft edge.
+    private static func curve(_ pts: [CropPoint], feather: Double, _ size: CGSize) -> CIImage? {
+        guard pts.count >= 3 else { return nil }
+        let key = "\(pts.hashValue)|\(Int(size.width))x\(Int(size.height))|\(Int(feather * 1000))"
+        lock.lock()
+        if let hit = curves[key] { lock.unlock(); return hit }
+        lock.unlock()
+        let s: CGFloat = min(1, 1024 / max(size.width, size.height))
+        let w = max(2, Int(size.width * s)), h = max(2, Int(size.height * s))
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        ctx.setFillColor(gray: 0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        // the context is y-up: a point's y from the top becomes (1 - y) from the bottom
+        let line = pts.map { CGPoint(x: $0.x * Double(w), y: (1 - $0.y) * Double(h)) }
+        ctx.addPath(CropCurve.path(line))
+        ctx.setFillColor(gray: 1, alpha: 1)
+        ctx.fillPath()
+        guard let cg = ctx.makeImage() else { return nil }
+        let full = CGRect(origin: .zero, size: size)
+        var img = CIImage(cgImage: cg).transformed(by: CGAffineTransform(scaleX: size.width / CGFloat(w), y: size.height / CGFloat(h)))
+        if feather > 0.001 {
+            let sigma = feather * Double(min(size.width, size.height)) * 0.05
+            img = img.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: full)
+        }
+        lock.lock()
+        if curves.count > 8 { curves.removeAll() }
+        curves[key] = img
+        lock.unlock()
+        return img
     }
 }

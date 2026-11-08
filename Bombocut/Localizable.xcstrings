@@ -2274,6 +2274,16 @@
         }
       }
     },
+    "Drag the ellipse to move it, its lime handles or two fingers to size it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhnutím elipsu posuneš, limetkovými úchyty nebo dvěma prsty změníš její velikost."
+          }
+        }
+      }
+    },
     "Drag the lime edges on the preview, or inside the frame to move it.": {
       "localizations": {
         "cs": {
@@ -2410,6 +2420,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elegantní"
+          }
+        }
+      }
+    },
+    "Ellipse": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elipsa"
           }
         }
       }
@@ -2740,6 +2760,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oblíbené"
+          }
+        }
+      }
+    },
+    "Feather": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Měkký okraj"
           }
         }
       }
@@ -3528,6 +3558,16 @@
         }
       }
     },
+    "Invert": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obrátit"
+          }
+        }
+      }
+    },
     "Invert (swap subject and background)": {
       "localizations": {
         "cs": {
@@ -3654,6 +3694,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nech aplikaci otevřenou. Doporučujeme Wi-Fi."
+          }
+        }
+      }
+    },
+    "Keep the outside instead.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zůstane to, co je kolem."
           }
         }
       }
@@ -5088,6 +5138,16 @@
         }
       }
     },
+    "Rectangle": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obdélník"
+          }
+        }
+      }
+    },
     "Red": {
       "localizations": {
         "cs": {
@@ -6404,6 +6464,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klepni na překrytí, kterým to chceš dát"
+          }
+        }
+      }
+    },
+    "Tap the video to add points around what you want to keep.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepáním do videa přidávej body kolem toho, co chceš nechat."
+          }
+        }
+      }
+    },
+    "Tap to add points, drag them to adjust, double tap one to remove it. Drag inside to move it all.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepnutím přidáš bod, tažením ho posuneš, dvojitým klepnutím ho odebereš. Tažením uvnitř posuneš celý tvar."
           }
         }
       }

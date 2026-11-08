@@ -3948,20 +3948,27 @@ extension EditorModel {
     // MARK: Crop
 
     func setCrop(_ c: CropRect?) {
+        storeCrop((c?.isEmpty ?? true) ? nil : c)
+    }
+
+    /// A shape change in the Crop panel (tab, invert, reset of one shape): kept as it is, so a curve with no
+    /// points yet stays a curve and the other shapes keep their settings. One undo step.
+    func setCropShape(_ c: CropRect) {
+        storeCrop(c == CropRect() ? nil : c)
+    }
+
+    private func storeCrop(_ v: CropRect?) {
         if let oi = selectedOverlayIndex {
-            let v = (c?.isEmpty ?? true) ? nil : c
             guard project.overlays[oi].isMedia, project.overlays[oi].crop != v else { return }
             mutateLook { $0.overlays[oi].crop = v }
             return
         }
         if let k = selectedStackIndex {
-            let v = (c?.isEmpty ?? true) ? nil : c
             guard project.stacks[k].crop != v else { return }
             mutateLook { $0.stacks[k].crop = v }
             return
         }
         guard let i = selectedIndex else { return }
-        let v = (c?.isEmpty ?? true) ? nil : c
         guard project.clips[i].crop != v else { return }
         mutateLook { $0.clips[i].crop = v }
     }

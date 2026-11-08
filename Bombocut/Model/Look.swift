@@ -581,15 +581,36 @@ struct CropRect: Codable, Hashable {
     var bottom = 0.0
     var softness = 0.0          // 0...1 feathered edge
     var radius = 0.0            // 0...1 rounded corners (1 = as round as the short side allows)
+    /// Which shape keeps the picture: the rectangle above, an ellipse, or a drawn curve. Each keeps its own
+    /// settings, so switching back finds them as they were.
+    var kind = CropKind.rect
+    var ellipse: CropEllipse?   // nil: a circle in the middle
+    var points: [CropPoint] = []
+    var feather = 0.0           // 0...1 soft edge of the ellipse / curve
+    var invert = false          // ellipse / curve: keep the outside instead
 
-    var isEmpty: Bool { left < 0.0005 && top < 0.0005 && right < 0.0005 && bottom < 0.0005 && softness < 0.001 && radius < 0.001 }
+    var isEmpty: Bool {
+        switch kind {
+        case .rect: return left < 0.0005 && top < 0.0005 && right < 0.0005 && bottom < 0.0005 && softness < 0.001 && radius < 0.001
+        case .ellipse: return false
+        case .curve: return points.count < 3
+        }
+    }
 
     /// The kept part, normalized, top-left origin.
     var rect: CGRect { CGRect(x: left, y: top, width: max(0.01, 1 - left - right), height: max(0.01, 1 - top - bottom)) }
 
+    /// The ellipse on a picture of this width / height ratio (the default is a circle).
+    func ellipse(aspect: Double) -> CropEllipse {
+        if let e = ellipse { return e }
+        let a = max(aspect, 0.01)
+        // a circle 60 % of the short side across
+        return a >= 1 ? CropEllipse(rx: 0.3 / a, ry: 0.3) : CropEllipse(rx: 0.3, ry: 0.3 * a)
+    }
+
     init() {}
 
-    enum CodingKeys: String, CodingKey { case left, top, right, bottom, softness, radius }
+    enum CodingKeys: String, CodingKey { case left, top, right, bottom, softness, radius, kind, ellipse, points, feather, invert }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -599,5 +620,47 @@ struct CropRect: Codable, Hashable {
         bottom = try c.decodeIfPresent(Double.self, forKey: .bottom) ?? 0
         softness = try c.decodeIfPresent(Double.self, forKey: .softness) ?? 0
         radius = try c.decodeIfPresent(Double.self, forKey: .radius) ?? 0
+        kind = (try? c.decodeIfPresent(CropKind.self, forKey: .kind)) ?? .rect
+        ellipse = try? c.decodeIfPresent(CropEllipse.self, forKey: .ellipse)
+        points = (try? c.decodeIfPresent([CropPoint].self, forKey: .points)) ?? []
+        feather = (try? c.decodeIfPresent(Double.self, forKey: .feather)) ?? 0
+        invert = (try? c.decodeIfPresent(Bool.self, forKey: .invert)) ?? false
+    }
+}
+
+enum CropKind: String, Codable, CaseIterable {
+    case rect, ellipse, curve
+}
+
+/// An ellipse on the picture: its middle and its radii, as parts of the picture's width and height (top-left origin).
+struct CropEllipse: Codable, Hashable {
+    var cx = 0.5
+    var cy = 0.5
+    var rx = 0.3
+    var ry = 0.3
+}
+
+/// A point of a drawn curve, as parts of the picture's width and height (top-left origin).
+struct CropPoint: Codable, Hashable {
+    var x: Double
+    var y: Double
+}
+
+/// The smooth closed line through a curve's points (Catmull-Rom as cubic Béziers), in any coordinates.
+enum CropCurve {
+    static func path(_ pts: [CGPoint]) -> CGPath {
+        let p = CGMutablePath()
+        let n = pts.count
+        guard n >= 2 else { return p }
+        p.move(to: pts[0])
+        guard n >= 3 else { p.addLine(to: pts[1]); return p }
+        for i in 0..<n {
+            let p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n]
+            let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
+            let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+            p.addCurve(to: p2, control1: c1, control2: c2)
+        }
+        p.closeSubpath()
+        return p
     }
 }

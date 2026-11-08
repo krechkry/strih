@@ -193,11 +193,13 @@ final class OverlayRenderer: @unchecked Sendable {
         let editingCrop = preview && o.isMedia && LookStore.shared.cropEditClip == o.id
         if o.isMedia, let c = o.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
             let kept = FrameCompositor.cropped(img, c, src)
+            // the rest of the picture faint and see-through, so the video and layers under it show to line it up
             img = editingCrop
                 ? kept.composited(over: img.applyingFilter("CIColorMatrix", parameters: [
-                    "inputRVector": CIVector(x: 0.3, y: 0, z: 0, w: 0),
-                    "inputGVector": CIVector(x: 0, y: 0.3, z: 0, w: 0),
-                    "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
+                    "inputRVector": CIVector(x: 0.6, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: 0.6, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: 0.6, w: 0),
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0.3)]))
                 : kept
         }
         img = finished(o, img, at: t, outline: preview && OverlayStore.shared.outlineOverlay == o.id)

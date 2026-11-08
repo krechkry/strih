@@ -80,7 +80,7 @@ struct EditorView: View {
         case .speech: return 470
         case .easing: return 330
         case .autoZoom: return 470
-        case .crop: return 330
+        case .crop: return 430
         case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         case .trackPick:

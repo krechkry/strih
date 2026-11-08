@@ -123,7 +123,9 @@ struct PreviewArea: View {
 
     /// Two-finger zoom of the view: everywhere, except while painting a mask, picking a track box or analysing.
     private var pinchMask: GestureMask {
-        let free = model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil
+        // (an ellipse crop takes two fingers to size it)
+        let shapeCrop = model.cropPanelOpen && model.editedCrop?.kind == .ellipse
+        let free = model.previewScrubs && !model.maskPaint && !model.trackPick && model.analysis == nil && !shapeCrop
         return free ? .all : .subviews
     }
 
@@ -158,12 +160,22 @@ struct PreviewArea: View {
     @ViewBuilder
     private func cropLayer(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, model.playheadInSelectedStack {
-            layer(canvas) { cropFrame(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
+            layer(canvas) { cropEditor(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
         } else if let i = model.selectedIndex, model.playheadInSelected {
-            layer(canvas) { cropFrame(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
-                                      crop: model.project.clips[i].crop ?? CropRect()) }
+            layer(canvas) { cropEditor(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
+                                       crop: model.project.clips[i].crop ?? CropRect()) }
         } else if let o = croppedOverlay {
-            layer(canvas) { cropFrame(canvas, toCanvas: overlayMap(o, canvas), crop: o.crop ?? CropRect()) }
+            layer(canvas) { cropEditor(canvas, toCanvas: overlayMap(o, canvas), crop: o.crop ?? CropRect()) }
+        }
+    }
+
+    /// The Crop panel's tab decides what is drawn over the picture: the rectangle, the ellipse or the curve.
+    @ViewBuilder
+    private func cropEditor(_ canvas: CGSize, toCanvas: CGAffineTransform, crop c: CropRect) -> some View {
+        switch c.kind {
+        case .rect: cropFrame(canvas, toCanvas: toCanvas, crop: c)
+        case .ellipse: ellipseFrame(canvas, toCanvas: toCanvas, crop: c)
+        case .curve: curveFrame(canvas, toCanvas: toCanvas, crop: c)
         }
     }
 
@@ -726,6 +738,204 @@ struct PreviewArea: View {
             }
         }
         .frame(width: W, height: H, alignment: .topLeading)
+    }
+
+    // MARK: Ellipse and curve crops
+
+    /// Normalized picture points to screen points (the view's own zoom included).
+    private func cropScreen(_ toCanvas: CGAffineTransform, _ canvas: CGSize) -> CGAffineTransform {
+        let W = canvas.width, H = canvas.height
+        return toCanvas.concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
+            .concatenating(CGAffineTransform(scaleX: viewZoom, y: viewZoom))
+            .concatenating(CGAffineTransform(translationX: W / 2 + viewOffset.width, y: H / 2 + viewOffset.height))
+    }
+
+    /// The picture's width / height, from how it sits on the canvas.
+    private static func pictureAspect(_ toCanvas: CGAffineTransform) -> Double {
+        let o = CGPoint.zero.applying(toCanvas)
+        let x = CGPoint(x: 1, y: 0).applying(toCanvas), y = CGPoint(x: 0, y: 1).applying(toCanvas)
+        let w: CGFloat = hypot(x.x - o.x, x.y - o.y)
+        let h: CGFloat = hypot(y.x - o.x, y.y - o.y)
+        return Double(w / max(h, 0.001))
+    }
+
+    /// The ellipse crop: drag inside to move it, a handle to stretch it from the middle, two fingers to size it.
+    private func ellipseFrame(_ canvas: CGSize, toCanvas: CGAffineTransform, crop c: CropRect) -> some View {
+        let toScreen = cropScreen(toCanvas, canvas)
+        let toSource = toCanvas.inverted()
+        let e = c.ellipse(aspect: Self.pictureAspect(toCanvas))
+        func pt(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x, y: y).applying(toScreen) }
+        let ring: [CGPoint] = (0..<72).map { k in
+            let a = Double(k) / 72 * 2 * Double.pi
+            return pt(e.cx + e.rx * cos(a), e.cy + e.ry * sin(a))
+        }
+        let handles: [(Int, CGPoint)] = [(0, pt(e.cx + e.rx, e.cy)), (1, pt(e.cx, e.cy + e.ry)),
+                                         (2, pt(e.cx - e.rx, e.cy)), (3, pt(e.cx, e.cy - e.ry))]
+        func source(_ p: CGPoint) -> CGPoint { contentPoint(p, canvas).applying(toSource) }
+        func begin() -> CropEllipse {
+            if let g = cropGrab { return g.ellipse(aspect: Self.pictureAspect(toCanvas)) }
+            cropGrab = c
+            model.liveEditBegan()
+            return e
+        }
+        func end() { cropGrab = nil; model.liveEditEnded() }
+
+        let move = DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                let g = begin()
+                let q = source(v.location), a = source(v.startLocation)
+                var n = g
+                n.cx = min(max(g.cx + Double(q.x - a.x), 0), 1)
+                n.cy = min(max(g.cy + Double(q.y - a.y), 0), 1)
+                model.editCrop { $0.ellipse = n }
+            }
+            .onEnded { _ in end() }
+        let pinch = MagnifyGesture()
+            .onChanged { v in
+                let g = begin()
+                let k = Double(v.magnification)
+                var n = g
+                n.rx = min(max(g.rx * k, 0.02), 2)
+                n.ry = min(max(g.ry * k, 0.02), 2)
+                model.editCrop { $0.ellipse = n }
+            }
+            .onEnded { _ in end() }
+        func stretch(_ k: Int) -> _EndedGesture<_ChangedGesture<DragGesture>> {
+            DragGesture(minimumDistance: 0)
+                .onChanged { v in
+                    let g = begin()
+                    let q = source(v.location), a = source(v.startLocation)
+                    let dx = Double(q.x - a.x), dy = Double(q.y - a.y)
+                    var n = g
+                    switch k {
+                    case 0: n.rx = max(0.02, g.rx + dx)
+                    case 2: n.rx = max(0.02, g.rx - dx)
+                    case 1: n.ry = max(0.02, g.ry + dy)
+                    default: n.ry = max(0.02, g.ry - dy)
+                    }
+                    model.editCrop { $0.ellipse = n }
+                }
+                .onEnded { _ in end() }
+        }
+
+        return ZStack(alignment: .topLeading) {
+            Path { q in q.addLines(ring); q.closeSubpath() }
+                .fill(Color.white.opacity(0.001))
+                .gesture(move)
+                .simultaneousGesture(pinch)
+            Path { q in q.addLines(ring); q.closeSubpath() }
+                .stroke(Theme.accent, lineWidth: 2.5)
+                .allowsHitTesting(false)
+            ForEach(handles, id: \.0) { k, p in
+                Circle().fill(Theme.accent).frame(width: 18, height: 18)
+                    .overlay(Circle().strokeBorder(.black.opacity(0.4), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.4), radius: 3)
+                    .contentShape(Rectangle().inset(by: -14))
+                    .position(p)
+                    .gesture(stretch(k))
+            }
+        }
+        .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
+    }
+
+    /// The curve crop: tap the video to add a point (between the two nearest ones), drag a point to move it,
+    /// double tap one to remove it, drag inside the shape to move it all.
+    private func curveFrame(_ canvas: CGSize, toCanvas: CGAffineTransform, crop c: CropRect) -> some View {
+        let toScreen = cropScreen(toCanvas, canvas)
+        let toSource = toCanvas.inverted()
+        let pts: [CGPoint] = c.points.map { CGPoint(x: $0.x, y: $0.y).applying(toScreen) }
+        let line = CropCurve.path(pts)
+        func source(_ p: CGPoint) -> CropPoint {
+            let q = contentPoint(p, canvas).applying(toSource)
+            return CropPoint(x: min(max(Double(q.x), -0.5), 1.5), y: min(max(Double(q.y), -0.5), 1.5))
+        }
+        func edit(_ change: @escaping (inout [CropPoint]) -> Void) {
+            model.editCrop { change(&$0.points) }
+        }
+        let add = SpatialTapGesture()
+            .onEnded { v in
+                let at = Self.insertIndex(pts, v.location)
+                model.liveEditBegan()
+                edit { $0.insert(source(v.location), at: min(at, $0.count)) }
+                model.liveEditEnded()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        let moveAll = DragGesture(minimumDistance: 8)
+            .onChanged { v in
+                if cropGrab == nil {
+                    guard pts.count >= 3, line.contains(v.startLocation) else { return }
+                    cropGrab = c
+                    model.liveEditBegan()
+                }
+                guard let g = cropGrab else { return }
+                let q = source(v.location), a = source(v.startLocation)
+                let dx = q.x - a.x, dy = q.y - a.y
+                model.editCrop { n in n.points = g.points.map { CropPoint(x: $0.x + dx, y: $0.y + dy) } }
+            }
+            .onEnded { _ in
+                if cropGrab != nil { cropGrab = nil; model.liveEditEnded() }
+            }
+        func movePoint(_ k: Int) -> _EndedGesture<_ChangedGesture<DragGesture>> {
+            DragGesture(minimumDistance: 2)
+                .onChanged { v in
+                    if cropGrab == nil { cropGrab = c; model.liveEditBegan() }
+                    guard let g = cropGrab, k < g.points.count else { return }
+                    let q = source(v.location), a = source(v.startLocation)
+                    let p0 = g.points[k]
+                    edit { if k < $0.count { $0[k] = CropPoint(x: p0.x + q.x - a.x, y: p0.y + q.y - a.y) } }
+                }
+                .onEnded { _ in cropGrab = nil; model.liveEditEnded() }
+        }
+
+        return ZStack(alignment: .topLeading) {
+            Rectangle().fill(Color.white.opacity(0.001))
+                .gesture(moveAll)
+                .simultaneousGesture(add)
+            if pts.count >= 2 {
+                Path(line)
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, dash: pts.count < 3 ? [6, 4] : []))
+                    .allowsHitTesting(false)
+            }
+            ForEach(Array(pts.enumerated()), id: \.offset) { k, p in
+                Circle().fill(k == 0 ? Theme.accent : Color.white).frame(width: 16, height: 16)
+                    .overlay(Circle().strokeBorder(.black.opacity(0.45), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.4), radius: 3)
+                    .contentShape(Rectangle().inset(by: -12))
+                    .position(p)
+                    .gesture(movePoint(k))
+                    .onTapGesture(count: 2) {
+                        model.liveEditBegan()
+                        edit { if k < $0.count { $0.remove(at: k) } }
+                        model.liveEditEnded()
+                    }
+            }
+        }
+        .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
+    }
+
+    /// Where a new curve point goes: after the others while there are fewer than three, otherwise into the side
+    /// of the shape nearest to the finger.
+    private static func insertIndex(_ pts: [CGPoint], _ p: CGPoint) -> Int {
+        guard pts.count >= 3 else { return pts.count }
+        var best = pts.count
+        var dist = CGFloat.infinity
+        for i in 0..<pts.count {
+            let a = pts[i], b = pts[(i + 1) % pts.count]
+            let d = segmentDistance(p, a, b)
+            if d < dist { dist = d; best = i + 1 }
+        }
+        return best
+    }
+
+    private static func segmentDistance(_ p: CGPoint, _ a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let dx: CGFloat = b.x - a.x
+        let dy: CGFloat = b.y - a.y
+        let len2: CGFloat = dx * dx + dy * dy
+        var t: CGFloat = len2 > 0 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 : 0
+        t = min(max(t, 0), 1)
+        let x: CGFloat = a.x + t * dx - p.x
+        let y: CGFloat = a.y + t * dy - p.y
+        return (x * x + y * y).squareRoot()
     }
 
     // MARK: AutoZoom framing
