@@ -55,7 +55,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .export: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .export: return true
         default: return false
         }
     }
@@ -65,7 +65,7 @@ struct EditorView: View {
         case .export: return 0
         case .canvas: return 124
         case .background: return 380
-        case .volume: return 260
+        case .volume: return 400
         case .speed: return 620
         case .adjust: return 470
         case .captions: return 420
@@ -76,7 +76,7 @@ struct EditorView: View {
         case .motionBlur: return 350
         case .animation: return 400
         case .layout: return 250
-        case .audio: return 220
+        case .audio: return 450
         case .speech: return 470
         case .easing: return 330
         case .autoZoom: return 470
@@ -708,7 +708,9 @@ struct EditorView: View {
                 } else if let pk = model.pick {
                     pickBar(pk)
                 } else if model.selectedAudioIndex != nil {
+                    ToolButton(icon: "scissors", label: "Split") { model.splitAudio() }
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
+                    ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
                 } else if let oi = model.selectedOverlayIndex {
                     let o = model.project.overlays[oi]
@@ -1622,7 +1624,7 @@ extension EditorView {
             hasClips: !model.project.clips.isEmpty,
             canUndo: model.canUndo,
             canRedo: model.canRedo,
-            canSplit: editing && (clip || overlay || nothing) && !model.project.clips.isEmpty,
+            canSplit: editing && (clip || overlay || nothing || model.selectedAudioIndex != nil) && !model.project.clips.isEmpty,
             canDuplicate: editing && (clip || overlay || model.selectedAudioIndex != nil),
             canDelete: pinnedDelete != nil,
             canKeyframe: pro && (clip || overlay),
@@ -1669,6 +1671,7 @@ extension EditorView {
     /// ⌘B: the same as the Split button for what is selected (nothing selected: everything under the playhead).
     private func splitKey() {
         if model.selectedOverlayIndex != nil { model.splitOverlay() }
+        else if model.selectedAudioIndex != nil { model.splitAudio() }
         else if model.selectedIndex != nil { model.split() }
         else { model.splitAll() }
     }

@@ -12,8 +12,13 @@ struct AudioItem: Codable, Hashable, Identifiable {
     var duration: Double           // timeline seconds
     var speed = 1.0                // > 1 plays faster (taken from a sped-up clip); pitch is kept
     var volume = 1.0
+    /// Seconds the sound rises from silence at its start / sinks to silence at its end (nil: none).
+    var fadeIn: Double?
+    var fadeOut: Double?
 
     var end: Double { start + duration }
+    /// The fades as they play: never longer than the sound, and the two never overlap.
+    var fades: (in: Double, out: Double) { Fade.fit(fadeIn ?? 0, fadeOut ?? 0, length: duration) }
 
     init(file: String, name: String, sourceDuration: Double, start: Double, duration: Double) {
         self.file = file
@@ -21,6 +26,24 @@ struct AudioItem: Codable, Hashable, Identifiable {
         self.sourceDuration = sourceDuration
         self.start = start
         self.duration = duration
+    }
+}
+
+/// Fade in / out lengths that fit a stretch of `length` seconds (each at most half of it).
+enum Fade {
+    static let most = 5.0
+
+    static func fit(_ fin: Double, _ fout: Double, length: Double) -> (in: Double, out: Double) {
+        let half = max(0, length / 2)
+        return (min(max(fin, 0), half), min(max(fout, 0), half))
+    }
+
+    /// The gain at local time `t` of a stretch with these fades (0...1), for drawing the shape.
+    static func gain(_ t: Double, length: Double, fades f: (in: Double, out: Double)) -> Double {
+        var g = 1.0
+        if f.in > 0.001, t < f.in { g = min(g, max(0, t / f.in)) }
+        if f.out > 0.001, t > length - f.out { g = min(g, max(0, (length - t) / f.out)) }
+        return g
     }
 }
 

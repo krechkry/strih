@@ -187,6 +187,10 @@ struct Clip: Identifiable, Codable, Hashable {
     var autoZoom: AutoZoom?        // a slow zoom from the first frame to the last
     var crop: CropRect?            // crop of its own picture (soft edge, rounded corners)
     var stack: [Clip]?             // a Stack: the clips it was made of (rendered into `mediaFile`), back on Unstack
+    var fadeIn = 0.0               // seconds its sound rises from silence at the start
+    var fadeOut = 0.0              // seconds its sound sinks to silence at the end
+    /// The sound fades as they play (each at most half the clip).
+    var fades: (in: Double, out: Double) { Fade.fit(fadeIn, fadeOut, length: duration) }
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -249,6 +253,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
+        case fadeIn, fadeOut
     }
 
     init(from d: Decoder) throws {
@@ -284,6 +289,8 @@ struct Clip: Identifiable, Codable, Hashable {
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         stack = try? c.decodeIfPresent([Clip].self, forKey: .stack)
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
+        fadeIn = (try? c.decodeIfPresent(Double.self, forKey: .fadeIn)) ?? 0
+        fadeOut = (try? c.decodeIfPresent(Double.self, forKey: .fadeOut)) ?? 0
         // older projects kept motion blur among the Adjust effects
         if motionBlur == 0 {
             motionBlur = max(effects.motionBlur, keyframes.map(\.look.effects.motionBlur).max() ?? 0)

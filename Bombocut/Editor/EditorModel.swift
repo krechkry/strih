@@ -630,6 +630,9 @@ final class EditorModel: ObservableObject {
         b.cut = nil
         a.anim.outAnim = .none
         b.anim.inAnim = .none
+        // the sound fades stay at the outer ends
+        a.fadeOut = 0
+        b.fadeIn = 0
         if c.hasCurve {
             let u = (src - c.inPoint) / (c.outPoint - c.inPoint)
             a.speedCurve = c.subCurve(0, u)
@@ -662,14 +665,7 @@ final class EditorModel: ObservableObject {
             }
         }
         for i in p.audio.indices.reversed() {
-            let x = p.audio[i]
-            guard cut > x.start + 0.1, cut < x.end - 0.1 else { continue }
-            var a = x, b = x
-            b.id = UUID()
-            a.duration = cut - x.start
-            b.start = cut
-            b.duration = x.end - cut
-            b.inPoint = x.inPoint + (cut - x.start) * x.speed
+            guard let (a, b) = Self.audioHalves(p.audio[i], at: cut) else { continue }
             p.audio[i] = a
             p.audio.insert(b, at: i + 1)
             did = true
@@ -2517,6 +2513,71 @@ final class EditorModel: ObservableObject {
             audioSnapshot = nil
             commit()
         }
+    }
+
+    /// A sound cut in two at timeline time `t` (nil when either piece would be too short). The fades stay at
+    /// the outer ends.
+    static func audioHalves(_ x: AudioItem, at t: Double) -> (AudioItem, AudioItem)? {
+        guard t > x.start + 0.1, t < x.end - 0.1 else { return nil }
+        var a = x, b = x
+        b.id = UUID()
+        a.duration = t - x.start
+        b.start = t
+        b.duration = x.end - t
+        b.inPoint = x.inPoint + (t - x.start) * x.speed
+        a.fadeOut = nil
+        b.fadeIn = nil
+        return (a, b)
+    }
+
+    /// Splits the selected sound at the playhead; the second piece is selected.
+    func splitAudio() {
+        guard let i = selectedAudioIndex else { return }
+        guard let (a, b) = Self.audioHalves(project.audio[i], at: onFrame(currentTime)) else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
+        mutate { p in
+            p.audio[i] = a
+            p.audio.insert(b, at: i + 1)
+        }
+        selectedAudioID = b.id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Fade in / out of the selected sound, in seconds (live while a slider moves; done = one undo step).
+    func setAudioFade(in fin: Double? = nil, out fout: Double? = nil, done: Bool) {
+        guard let i = selectedAudioIndex else { return }
+        if audioSnapshot == nil { audioSnapshot = project }
+        if let fin { project.audio[i].fadeIn = fin < 0.05 ? nil : fin }
+        if let fout { project.audio[i].fadeOut = fout < 0.05 ? nil : fout }
+        if done {
+            if let s = audioSnapshot, s != project { pushUndo(s) }
+            audioSnapshot = nil
+            commit()
+        }
+    }
+
+    /// Plays the selected sound faster or slower (pitch kept): the same stretch of the file, so it gets
+    /// shorter or longer (never past the video's end or the file's end).
+    func setAudioSpeed(_ v: Double) {
+        guard let i = selectedAudioIndex else { return }
+        let a = project.audio[i]
+        guard abs(a.speed - v) > 0.001 else { return }
+        let span = a.duration * a.speed
+        let fileLeft = (a.sourceDuration - a.inPoint) / v
+        let room = max(0.2, duration - a.start)
+        mutate { p in
+            p.audio[i].speed = v
+            p.audio[i].duration = min(span / v, fileLeft, room)
+        }
+    }
+
+    /// Fade in / out of the selected clip's sound (live while a slider moves; pair with volumeEditing).
+    func setClipFade(in fin: Double? = nil, out fout: Double? = nil) {
+        guard let i = selectedIndex else { return }
+        if let fin { project.clips[i].fadeIn = fin < 0.05 ? 0 : fin }
+        if let fout { project.clips[i].fadeOut = fout < 0.05 ? 0 : fout }
     }
 
     func deleteAudio() {

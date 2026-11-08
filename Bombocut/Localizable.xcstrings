@@ -2704,6 +2704,26 @@
         }
       }
     },
+    "Fade in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nástup"
+          }
+        }
+      }
+    },
+    "Fade out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doznění"
+          }
+        }
+      }
+    },
     "Fat": {
       "localizations": {
         "cs": {

@@ -91,25 +91,92 @@ final class WaveformCache: ObservableObject {
     }
 }
 
-/// The real waveform of a stretch of a file: bars every 3 points, mirrored around the middle.
+/// The real waveform of a stretch of a file as one solid shape rising from the bottom edge (the loudest point
+/// of the stretch reaches about two thirds of the height, so quiet sounds still show their shape). Fades
+/// (as parts of the width) bend it down to nothing at the ends, as they sound.
 struct WaveformShape: Shape {
     let peaks: [Float]
     let from: Double        // seconds into the file
     let length: Double      // seconds of the file shown across the width
+    var fadeIn: Double = 0  // part of the width
+    var fadeOut: Double = 0
+
+    /// Points per column: dense, like an editor draws it.
+    private static let step: CGFloat = 1.5
 
     func path(in r: CGRect) -> Path {
         var p = Path()
         guard !peaks.isEmpty, length > 0, r.width > 1 else { return p }
-        let bars = max(1, Int(r.width / 3))
-        let per = length / Double(bars)
-        for b in 0..<bars {
-            let a = Int(((from + Double(b) * per) * WaveformCache.rate).rounded(.down))
-            let z = max(a + 1, Int(((from + Double(b + 1) * per) * WaveformCache.rate).rounded(.up)))
-            guard a < peaks.count, z > 0 else { continue }
-            let v = peaks[max(0, a)..<min(peaks.count, z)].max() ?? 0
-            let h = max(1, r.height * 0.86 * CGFloat(v))
-            p.addRect(CGRect(x: CGFloat(b) * 3, y: r.midY - h / 2, width: 2, height: h))
+        let n = max(1, Int(r.width / Self.step))
+        let per = length / Double(n)
+        // the cache keeps sqrt(level / file's loudest): back to the level, then scaled to this stretch's loudest
+        var cols = [Double](repeating: 0, count: n)
+        var top = 0.0
+        for k in 0..<n {
+            let a = max(0, Int(((from + Double(k) * per) * WaveformCache.rate).rounded(.down)))
+            let z = min(peaks.count, max(a + 1, Int(((from + Double(k + 1) * per) * WaveformCache.rate).rounded(.up))))
+            guard a < z else { continue }
+            let m = Double(peaks[a..<z].max() ?? 0)
+            let level = m * m
+            cols[k] = level
+            top = max(top, level)
         }
+        guard top > 0.0001 else { return p }
+        let h: CGFloat = r.height * 0.66
+        p.move(to: CGPoint(x: r.minX, y: r.maxY))
+        for k in 0..<n {
+            let u = (Double(k) + 0.5) / Double(n)
+            let v = pow(cols[k] / top, 0.7) * gain(u)
+            let x: CGFloat = r.minX + (CGFloat(k) + 0.5) * Self.step
+            let y: CGFloat = r.maxY - max(0.5, h * CGFloat(v))
+            p.addLine(to: CGPoint(x: x, y: y))
+        }
+        p.addLine(to: CGPoint(x: r.minX + CGFloat(n) * Self.step, y: r.maxY))
+        p.closeSubpath()
         return p
+    }
+
+    private func gain(_ u: Double) -> Double {
+        var g = 1.0
+        if fadeIn > 0.0001, u < fadeIn { g = min(g, u / fadeIn) }
+        if fadeOut > 0.0001, u > 1 - fadeOut { g = min(g, (1 - u) / fadeOut) }
+        return max(0, g)
+    }
+}
+
+/// A fade drawn on a block: the corner above the ramp is shaded, with the ramp as a line (in at the left,
+/// out at the right; widths in points).
+struct FadeRamp: View {
+    let fadeIn: CGFloat
+    let fadeOut: CGFloat
+
+    var body: some View {
+        GeometryReader { g in
+            let w: CGFloat = g.size.width
+            let h: CGFloat = g.size.height
+            ZStack {
+                if fadeIn > 1 { corner(w: w, h: h, leading: true, width: min(fadeIn, w)) }
+                if fadeOut > 1 { corner(w: w, h: h, leading: false, width: min(fadeOut, w)) }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func corner(w: CGFloat, h: CGFloat, leading: Bool, width f: CGFloat) -> some View {
+        let x0: CGFloat = leading ? 0 : w
+        let x1: CGFloat = leading ? f : w - f
+        Path { p in
+            p.move(to: CGPoint(x: x0, y: 0))
+            p.addLine(to: CGPoint(x: x1, y: 0))
+            p.addLine(to: CGPoint(x: x0, y: h))
+            p.closeSubpath()
+        }
+        .fill(.black.opacity(0.32))
+        Path { p in
+            p.move(to: CGPoint(x: x0, y: h))
+            p.addLine(to: CGPoint(x: x1, y: 0))
+        }
+        .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
     }
 }

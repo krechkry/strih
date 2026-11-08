@@ -153,6 +153,17 @@ enum CompositionBuilder {
         let layer: ClipLayer
         let cut: CutTransition?                 // how it comes in over the clip before
         let audio: (AVMutableAudioMixInputParameters, Float)?
+        /// The clip's sound fades (seconds), and where a ramp at its start ends (a later ramp starts after it).
+        var fade: (in: Double, out: Double) = (0, 0)
+        var rampedUntil: CMTime = .zero
+    }
+
+    /// The sound of a clip whose next clip doesn't come in over it sinks to silence at its end.
+    private static func fadeOut(_ q: Placed) {
+        guard q.fade.out > 0.01, case let (params, vol)? = q.audio else { return }
+        let from = max(q.end - time(q.fade.out), q.rampedUntil, q.start)
+        guard q.end > from else { return }
+        params.setVolumeRamp(fromStartVolume: vol, toEndVolume: 0, timeRange: CMTimeRange(start: from, end: q.end))
     }
 
     static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false,
@@ -257,16 +268,25 @@ enum CompositionBuilder {
                 lane = 1 - lane
             }
             let tail = project.cutShape(k + 1).tail
-            guard let p = try await place(clip.withHandles(head: head, tail: tail), asset: asset, at: start, lane: lane, cut: cut,
+            guard var p = try await place(clip.withHandles(head: head, tail: tail), asset: asset, at: start, lane: lane, cut: cut,
                                           lead: head, trail: tail) else {
                 if cut != nil { lane = 1 - lane }
                 continue
             }
-            // sound: the clip coming in fades up while the one before fades down
+            p.fade = clip.fades
+            p.rampedUntil = p.start
+            // nothing comes in over the clip before: its own fade out plays to its end
+            if cut == nil, let before = placed.last { fadeOut(before) }
+            // sound: the clip coming in fades up while the one before fades down (or its own fade in)
             if case let (params, vol)? = p.audio {
                 if cut != nil, p.start < (placed.last?.end ?? .zero) {
                     params.setVolumeRamp(fromStartVolume: 0, toEndVolume: vol,
                                          timeRange: CMTimeRange(start: p.start, end: placed.last!.end))
+                    p.rampedUntil = placed.last!.end
+                } else if p.fade.in > 0.01 {
+                    let until = min(p.start + time(p.fade.in), p.end)
+                    params.setVolumeRamp(fromStartVolume: 0, toEndVolume: vol, timeRange: CMTimeRange(start: p.start, end: until))
+                    p.rampedUntil = until
                 } else {
                     params.setVolume(vol, at: p.start)
                 }
@@ -276,6 +296,7 @@ enum CompositionBuilder {
             }
             placed.append(p)
         }
+        if let last = placed.last { fadeOut(last) }
         let contentEnd = placed.last?.end ?? .zero
 
         // the Bombocut end card after the last clip (switch on the export page)
@@ -410,7 +431,23 @@ enum CompositionBuilder {
             }
             let p = AVMutableAudioMixInputParameters(track: track)
             p.audioTimePitchAlgorithm = .spectral
-            p.setVolume(Float(a.volume), at: .zero)
+            // fades: in from its start, out to its end (or where the video ends, if that comes first)
+            let vol = Float(a.volume)
+            let f = a.fades
+            let s0 = time(a.start)
+            let e0 = time(a.start + min(a.duration, r.duration.seconds / max(a.speed, 0.01), len))
+            var rampEnd = s0
+            if f.in > 0.01 {
+                rampEnd = min(s0 + time(f.in), e0)
+                p.setVolume(0, at: .zero)
+                p.setVolumeRamp(fromStartVolume: 0, toEndVolume: vol, timeRange: CMTimeRange(start: s0, end: rampEnd))
+            } else {
+                p.setVolume(vol, at: .zero)
+            }
+            if f.out > 0.01 {
+                let from = max(e0 - time(f.out), rampEnd)
+                if e0 > from { p.setVolumeRamp(fromStartVolume: vol, toEndVolume: 0, timeRange: CMTimeRange(start: from, end: e0)) }
+            }
             overlayAudio.append(p)
         }
 

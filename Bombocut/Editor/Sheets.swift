@@ -104,6 +104,13 @@ struct VolumeSheet: View {
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                         .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
+                if let i = model.selectedIndex, model.selectedStackIndex == nil {
+                    let c = model.project.clips[i]
+                    FadeSliders(fadeIn: c.fadeIn, fadeOut: c.fadeOut, length: c.duration,
+                                set: { fin, fout in model.setClipFade(in: fin, out: fout) },
+                                done: { model.volumeEditing(false) },
+                                began: { model.volumeEditing(true) })
+                }
                 if UIMode.isPro && model.selectedStackIndex == nil { ApplyRow(model: model, kind: .volume) }
             } else {
                 Text("Select a clip first.").foregroundStyle(Theme.muted)

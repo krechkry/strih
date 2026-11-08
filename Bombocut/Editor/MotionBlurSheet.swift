@@ -235,32 +235,103 @@ struct ClipAnimSheet: View {
 struct AudioSheet: View {
     @ObservedObject var model: EditorModel
 
+    private static let speeds: [Double] = [0.5, 0.75, 1, 1.25, 1.5, 2]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let i = model.selectedAudioIndex {
-                let a = model.project.audio[i]
-                HStack {
-                    Label(a.name, systemImage: "waveform").font(.title3.weight(.heavy)).lineLimit(1)
-                    Spacer()
-                    Text(Fmt.duration(a.duration)).font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
-                }
-                HStack(spacing: 14) {
-                    Button { model.setAudioVolume(a.volume < 0.01 ? 1 : 0, done: true) } label: {
-                        Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
+        ScrollView {
+            PanelStack(spacing: 16, span: 1) {
+                if let i = model.selectedAudioIndex {
+                    let a = model.project.audio[i]
+                    HStack {
+                        Label(a.name, systemImage: "waveform").font(.title3.weight(.heavy)).lineLimit(1)
+                        Spacer()
+                        Text(Fmt.duration(a.duration)).font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
                     }
-                    .tint(.white)
-                    BSlider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
-                           onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
-                        .doubleTapReset { model.setAudioVolume(1, done: true) }
-                    Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
-                        .frame(width: 52, alignment: .trailing)
+                    volumeRow(a)
+                    FadeSliders(fadeIn: a.fadeIn ?? 0, fadeOut: a.fadeOut ?? 0, length: a.duration,
+                                set: { fin, fout in model.setAudioFade(in: fin, out: fout, done: false) },
+                                done: { model.setAudioFade(done: true) })
+                    PanelBreak()
+                    speedRow(a)
+                    Text("Hold and slide the sound on the timeline to move it; drag its edges to trim.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Hold and slide the sound on the timeline to move it; drag its edges to trim.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            }
+            .padding(20)
+        }
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    private func volumeRow(_ a: AudioItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Volume").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            HStack(spacing: 14) {
+                Button { model.setAudioVolume(a.volume < 0.01 ? 1 : 0, done: true) } label: {
+                    Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
+                }
+                .tint(.white)
+                BSlider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
+                        onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
+                    .doubleTapReset { model.setAudioVolume(1, done: true) }
+                Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
+                    .frame(width: 52, alignment: .trailing)
             }
         }
-        .padding(20)
-        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Faster or slower, pitch kept.
+    private func speedRow(_ a: AudioItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Speed").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            HStack(spacing: 6) {
+                ForEach(Self.speeds, id: \.self) { v in
+                    let on = abs(a.speed - v) < 0.001
+                    Button { model.setAudioSpeed(v) } label: {
+                        Text(verbatim: Fmt.speed(v)).font(.subheadline.weight(.bold).monospacedDigit())
+                            .foregroundStyle(on ? .black : .white)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+/// Fade in and fade out of a sound or a clip's sound, in seconds (each at most half its length, 5 s at most).
+struct FadeSliders: View {
+    let fadeIn: Double
+    let fadeOut: Double
+    let length: Double
+    /// Live while a slider moves (nil: that one is unchanged).
+    let set: (_ fadeIn: Double?, _ fadeOut: Double?) -> Void
+    /// A slider let go: one undo step.
+    let done: () -> Void
+    var began: () -> Void = {}
+
+    private var most: Double { max(0.1, min(Fade.most, length / 2)) }
+
+    var body: some View {
+        row("Fade in", fadeIn) { v in set(v, nil) }
+        row("Fade out", fadeOut) { v in set(nil, v) }
+    }
+
+    private func row(_ title: String, _ value: Double, _ change: @escaping (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(verbatim: value < 0.05 ? loc("Off") : String(format: "%.1f s", min(value, most)))
+                    .font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            BSlider(value: Binding(get: { min(value, most) }, set: { change($0) }), in: 0...most,
+                    onEditingChanged: { e in if e { began() } else { done() } })
+                .doubleTapReset { began(); change(0); done() }
+        }
     }
 }
 

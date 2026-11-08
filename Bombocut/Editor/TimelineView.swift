@@ -871,6 +871,7 @@ struct ClipTile: View {
                     .padding(4)
             }
         }
+        .overlay { clipFades(w) }
         .clipShape(RoundedRectangle(cornerRadius: 6))
         // tap and hold-to-move belong to the clip itself; the trim handles below sit outside it and keep
         // their own (bigger) touch area, which a touch shape on the whole tile would cut off
@@ -983,6 +984,16 @@ struct ClipTile: View {
                     onReorder(.ended, 0, 0)
                 }
             })
+    }
+
+    /// The clip's sound fades as ramps at its ends (none on a muted clip).
+    @ViewBuilder
+    private func clipFades(_ w: CGFloat) -> some View {
+        let f = clip.fades
+        if clip.volume > 0.001, f.in > 0.01 || f.out > 0.01 {
+            FadeRamp(fadeIn: CGFloat(f.in) * pxPerSec, fadeOut: CGFloat(f.out) * pxPerSec)
+                .frame(width: w, height: height)
+        }
     }
 
     private var edgeAtLimit: Bool { rollEdge != nil ? rollAtLimit : trim?.atLimit == true }
@@ -1559,9 +1570,11 @@ struct AudioLane: View {
     @State private var dragStart: (start: Double, duration: Double, inPoint: Double)?
     @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
 
-    static let rowHeight: CGFloat = 26
+    static let rowHeight: CGFloat = 30
     static let maxRows = 3
-    static let tint = Color(red: 0.25, green: 0.78, blue: 0.62)
+    /// Sound blocks: magenta, the waveform a deeper magenta.
+    static let tint = Color(red: 0.84, green: 0.25, blue: 0.62)
+    static let ink = Color(red: 0.43, green: 0.06, blue: 0.30)
 
     static func rows(_ list: [AudioItem]) -> [[AudioItem]] {
         var rows: [[AudioItem]] = []
@@ -1606,18 +1619,7 @@ struct AudioLane: View {
         .foregroundStyle(selected ? .black : .white)
         .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background {
-            ZStack {
-                (selected ? Theme.accent : Self.tint.opacity(0.45))
-                if let peaks = waves.peaks(a.file) {
-                    WaveformShape(peaks: peaks, from: a.inPoint, length: a.duration * a.speed)
-                        .fill(.black.opacity(selected ? 0.3 : 0.35))
-                } else {
-                    Wave(seed: a.file.hashValue).fill(.black.opacity(0.1))
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-        }
+        .background { soundBlock(a, selected: selected, width: w, px: px) }
         .clipped()
         .overlay(alignment: .leading) {
             if selected {
@@ -1651,6 +1653,24 @@ struct AudioLane: View {
             onEnded: { finish(a.id) }))
         .offset(x: CGFloat(a.start) * px)
         .zIndex(selected ? 1 : 0)
+    }
+
+    /// The block: its color, the waveform rising from the bottom, the fades as ramps at the ends.
+    private func soundBlock(_ a: AudioItem, selected: Bool, width w: CGFloat, px: CGFloat) -> some View {
+        let f = a.fades
+        let len: Double = max(a.duration, 0.01)
+        return ZStack {
+            (selected ? Theme.accent : Self.tint)
+            if let peaks = waves.peaks(a.file) {
+                WaveformShape(peaks: peaks, from: a.inPoint, length: a.duration * a.speed,
+                              fadeIn: f.in / len, fadeOut: f.out / len)
+                    .fill(selected ? Color.black.opacity(0.3) : Self.ink)
+            } else {
+                Wave(seed: a.file.hashValue).fill(selected ? Color.black.opacity(0.12) : Self.ink.opacity(0.5))
+            }
+            FadeRamp(fadeIn: CGFloat(f.in) * px, fadeOut: CGFloat(f.out) * px)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 5))
     }
 
     private func edge(_ a: AudioItem, leading: Bool, px: CGFloat) -> some View {
@@ -1711,8 +1731,8 @@ private struct Wave: Shape {
         for i in 0..<n {
             x = x &* 6364136223846793005 &+ 1442695040888963407
             let v = 0.25 + Double((x >> 33) % 1000) / 1000 * 0.7
-            let h = r.height * CGFloat(v) * 0.8
-            p.addRect(CGRect(x: CGFloat(i) * 3, y: r.midY - h / 2, width: 2, height: h))
+            let h = r.height * CGFloat(v) * 0.6
+            p.addRect(CGRect(x: CGFloat(i) * 3, y: r.maxY - h, width: 2, height: h))
         }
         return p
     }
