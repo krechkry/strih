@@ -249,6 +249,8 @@ final class EditorModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        // a panel is open on a clip (or Stack): play just that, round and round, like scrubbing stays inside it
+        if previewScrubs, selectedSpan != nil { previewSelected(); return }
         quickMenuClipID = nil
         loopSelected = false
         if currentTime >= lastFrameTime - 0.001 { scrub(to: 0) }
@@ -2081,7 +2083,8 @@ final class EditorModel: ObservableObject {
 
     /// While a bottom panel is open, dragging on the preview scrubs instead of moving the clip:
     /// through the selected clip, or the whole timeline when nothing is selected.
-    @Published var previewScrubs = false
+    /// Playing then loops the selected clip (`togglePlay`); closing the panel lets it play on.
+    @Published var previewScrubs = false { didSet { if !previewScrubs { loopSelected = false } } }
     /// The Track panel is open (the tracked box is only drawn then).
     @Published var trackPanelOpen = false
     /// An overlay's Track panel is open (its followed point is drawn then).
