@@ -21,7 +21,7 @@ enum EditEffort {
                     || p.overlays.contains { $0.kind.isVideo && abs($0.volume - 1) > 0.001 }
             case .color:
                 return p.clips.contains { c in
-                    c.effects.hasColor || c.keyframes.contains { $0.look.effects.hasColor }
+                    c.effects.hasColor || c.filter != nil || c.keyframes.contains { $0.look.effects.hasColor }
                 }
             case .effects:
                 return p.clips.contains { c in

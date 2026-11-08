@@ -280,12 +280,32 @@
         }
       }
     },
+    "Add .cube LUTs from Files (DaVinci Resolve and other apps). Hold one for its strength or to remove it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidej LUTy .cube ze Souborů (DaVinci Resolve a další aplikace). Podržením nastavíš sílu nebo LUT odebereš."
+          }
+        }
+      }
+    },
     "Add .ttf or .otf files from Files. Hold an added font to remove it. Use only fonts you have the rights to.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Přidej soubory .ttf nebo .otf ze Souborů. Podržením přidané písmo odebereš. Používej jen písma, ke kterým máš práva."
+          }
+        }
+      }
+    },
+    "Add LUT": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat LUT"
           }
         }
       }
@@ -830,6 +850,36 @@
         }
       }
     },
+    "BW": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ČB"
+          }
+        }
+      }
+    },
+    "BW Punchy": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ČB Ostré"
+          }
+        }
+      }
+    },
+    "BW Vintage": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ČB Vintage"
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "cs": {
@@ -1006,6 +1056,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Černobíle"
+          }
+        }
+      }
+    },
+    "Bleach Bypass": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bleach Bypass"
           }
         }
       }
@@ -1550,6 +1610,16 @@
         }
       }
     },
+    "Cool Night": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chladná noc"
+          }
+        }
+      }
+    },
     "Copy as overlay": {
       "localizations": {
         "cs": {
@@ -2070,6 +2140,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hotovo"
+          }
+        }
+      }
+    },
+    "Double tap the filter you have picked: it shows up here for quick access.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dvakrát klepni na filtr, který máš vybraný: objeví se tady po ruce."
           }
         }
       }
@@ -2744,6 +2824,16 @@
         }
       }
     },
+    "Faded Matte": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybledlý mat"
+          }
+        }
+      }
+    },
     "Fat": {
       "localizations": {
         "cs": {
@@ -2810,6 +2900,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyplnit bez okrajů"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtry"
           }
         }
       }
@@ -4578,6 +4678,16 @@
         }
       }
     },
+    "Orange / Teal": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oranž / Tyrkys"
+          }
+        }
+      }
+    },
     "Out": {
       "localizations": {
         "cs": {
@@ -5208,6 +5318,16 @@
         }
       }
     },
+    "Remove LUT": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat LUT"
+          }
+        }
+      }
+    },
     "Remove captions": {
       "localizations": {
         "cs": {
@@ -5364,6 +5484,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zachovat velikost"
+          }
+        }
+      }
+    },
+    "Retro": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retro"
           }
         }
       }
@@ -7318,6 +7448,16 @@
         }
       }
     },
+    "Vivid Pop": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Živé barvy"
+          }
+        }
+      }
+    },
     "Voice enhancer": {
       "localizations": {
         "cs": {
@@ -7384,6 +7524,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Čekám na internet · %lld %%"
+          }
+        }
+      }
+    },
+    "Warm Film": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teplý film"
           }
         }
       }

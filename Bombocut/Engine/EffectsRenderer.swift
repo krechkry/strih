@@ -55,6 +55,7 @@ final class LookStore: @unchecked Sendable {
             s.mask = c.mask
             s.autoZoom = c.autoZoom
             s.crop = c.crop
+            s.filter = c.filter
             states[c.id] = s
             lock.unlock()
         } else {

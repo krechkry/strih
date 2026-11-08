@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import CoreImage
+import ImageIO
 import SwiftUI
 
 /// Active edge trim (ripple: neighbours always stay glued to the edited clip).
@@ -2409,6 +2410,10 @@ final class EditorModel: ObservableObject {
     @Published var audioBusy = false
     @Published var openAudioPanel = false
     @Published var audioError: String?
+    /// The Filters panel asks the editor for its Files picker (one importer per view) to add .cube LUTs.
+    @Published var requestLUTImport = false
+    /// Bumped when LUTs were added or removed, so the Filters panel lists them again.
+    @Published var lutsVersion = 0
     private var audioSnapshot: Project?
 
     var selectedAudioIndex: Int? { project.audio.firstIndex { $0.id == selectedAudioID } }
@@ -2665,6 +2670,7 @@ final class EditorModel: ObservableObject {
         case .adjust:
             c.effects = look.effects
             c.opacity = look.opacity
+            c.filter = s.filter
             for k in c.keyframes.indices {
                 c.keyframes[k].look.effects = look.effects
                 c.keyframes[k].look.opacity = look.opacity
@@ -2697,6 +2703,7 @@ final class EditorModel: ObservableObject {
         switch kind {
         case .overlayAdjust:
             o.effects = s.effects
+            if o.isMedia { o.filter = s.filter }
             return
         case .overlayMask:
             guard o.isMedia else { return }
@@ -4312,6 +4319,7 @@ extension EditorModel {
         o.stabilization = c.stabilization
         o.tracking = c.tracking
         o.crop = c.crop
+        o.filter = c.filter
         o.autoZoom = c.autoZoom
         return o
     }
@@ -4499,9 +4507,9 @@ extension EditorModel {
     /// Any Adjust effects in the project (the eye on the preview shows only then).
     var hasAnyEffects: Bool {
         func on(_ e: Effects) -> Bool { e.hasColor || e.hasCanvasFX }
-        return project.clips.contains { on($0.staticLook.effects) || $0.keyframes.contains { on($0.look.effects) } }
-            || project.overlays.contains { on($0.effects) }
-            || project.stacks.contains { on($0.effects) }
+        return project.clips.contains { on($0.staticLook.effects) || $0.keyframes.contains { on($0.look.effects) } || $0.filter != nil }
+            || project.overlays.contains { on($0.effects) || $0.filter != nil }
+            || project.stacks.contains { on($0.effects) || $0.filter != nil }
     }
 
     /// Holding the eye: everything without its effects, until the finger lifts.
@@ -4633,5 +4641,81 @@ final class FramePixels {
         }
         let k = 255.0 * Double(max(n, 1))
         return RGBA(r: Double(r) / k, g: Double(g) / k, b: Double(b) / k)
+    }
+}
+
+// MARK: Filters
+
+extension EditorModel {
+    /// Filters work on the selected clip, Stack, or picture / video layer.
+    var filterTarget: Bool {
+        if selectedStackIndex != nil { return true }
+        if let oi = selectedOverlayIndex { return project.overlays[oi].isMedia }
+        return selectedIndex != nil
+    }
+
+    var editedFilter: LookFilter? {
+        if let k = selectedStackIndex { return project.stacks[k].filter }
+        if let oi = selectedOverlayIndex { return project.overlays[oi].filter }
+        return selectedIndex.flatMap { project.clips[$0].filter }
+    }
+
+    private func storeFilter(_ f: LookFilter?, in p: inout Project) {
+        if let k = selectedStackIndex {
+            p.stacks[k].filter = f
+        } else if let oi = selectedOverlayIndex {
+            guard p.overlays[oi].isMedia else { return }
+            p.overlays[oi].filter = f
+        } else if let i = selectedIndex {
+            p.clips[i].filter = f
+        }
+    }
+
+    /// Picks a filter (nil removes it): one undo step.
+    func setFilter(_ f: LookFilter?) {
+        guard filterTarget, editedFilter != f else { return }
+        mutateLook { p in self.storeFilter(f, in: &p) }
+    }
+
+    /// The strength slider moving (pair with liveEditBegan / liveEditEnded).
+    func editFilterStrength(_ v: Double) {
+        guard var f = editedFilter else { return }
+        f.strength = min(max(v, 0), 1)
+        storeFilter(f, in: &project)
+        publishLook()
+    }
+
+    /// The picture the filter tiles show: the selected clip's (or the clip under the playhead in a Stack, or the
+    /// layer's own) frame at the playhead, before any effects, small.
+    func filterSourceFrame() async -> CGImage? {
+        var file: String?
+        var time = 0.0
+        var still = false
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            switch o.kind {
+            case .image(let f): file = f; still = true
+            case .video(let f, _, _): file = f; time = o.sourceTime(at: currentTime)
+            case .text: return nil
+            }
+        } else if let i = selectedIndex ?? (selectedStackIndex != nil ? project.clipIndex(at: currentTime)?.index : nil) {
+            file = project.clips[i].mediaFile
+            time = sourceTime(i)
+        }
+        guard let file else { return nil }
+        let url = Paths.mediaURL(file)
+        if still {
+            guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+            let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                         kCGImageSourceThumbnailMaxPixelSize: 360,
+                                         kCGImageSourceCreateThumbnailWithTransform: true]
+            return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+        }
+        let gen = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        gen.appliesPreferredTrackTransform = true
+        gen.maximumSize = CGSize(width: 360, height: 360)
+        gen.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 10)
+        gen.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 10)
+        return try? await gen.image(at: CMTime(seconds: max(0, time), preferredTimescale: 600)).image
     }
 }

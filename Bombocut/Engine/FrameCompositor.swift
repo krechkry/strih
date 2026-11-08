@@ -307,7 +307,9 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             return out
         }
-        var image = geometry(EffectsRenderer.color(p.source, look.effects), upright: false)
+        // the filter after Adjust (off with the effects while comparing before / after)
+        let filter: LookFilter? = (info.preview && LookStore.shared.bypassEffects) ? nil : state.filter
+        var image = geometry(FilterRenderer.apply(EffectsRenderer.color(p.source, look.effects), filter), upright: false)
         var opacity = look.opacity
         if let a = anim { opacity *= a.opacity }
         if opacity < 0.999 {
@@ -336,7 +338,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 image = SubjectMasker.outline(mask, on: image, frame: frame)
             }
         }
-        image = EffectsRenderer.canvas(image, look.effects, size: size, frame: Int((t * 30).rounded()))
+        image = EffectsRenderer.canvas(image, FilterRenderer.effects(look.effects, filter), size: size, frame: Int((t * 30).rounded()))
         // the clip is in a Stack: the Stack's own layer on top
         if let st = StackStore.shared.layer(info.clipID) {
             image = Self.stackLayer(image, st, t: t, size: size, preview: info.preview)
@@ -349,7 +351,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     static func stackLayer(_ img: CIImage, _ l: StackStore.Layer, t: Double, size: CGSize, preview: Bool) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
         var s = l.stack
-        if preview && LookStore.shared.bypassEffects { s.effects = Effects() }
+        if preview && LookStore.shared.bypassEffects { s.effects = Effects(); s.filter = nil }
         var out = img
         let editingCrop = preview && LookStore.shared.cropEditClip == l.id
         if let c = s.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
@@ -361,7 +363,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
                 : kept
         }
-        out = EffectsRenderer.color(out, s.effects)
+        out = FilterRenderer.apply(EffectsRenderer.color(out, s.effects), s.filter)
         var tr = s.transform
         if let z = s.autoZoom, !(preview && LookStore.shared.framingClip == l.id) {
             tr = z.apply(tr, at: (t - l.start) / l.duration)
@@ -377,7 +379,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, s.opacity))])
         }
         out = out.composited(over: CIImage(color: StackStore.shared.background).cropped(to: frame)).cropped(to: frame)
-        return EffectsRenderer.canvas(out, s.effects, size: size, frame: Int((t * 30).rounded()))
+        return EffectsRenderer.canvas(out, FilterRenderer.effects(s.effects, s.filter), size: size, frame: Int((t * 30).rounded()))
     }
 
     /// The clip's subject mask on the canvas. People and main subject are found on the finished canvas picture;

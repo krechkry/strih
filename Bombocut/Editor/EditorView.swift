@@ -13,6 +13,7 @@ struct EditorView: View {
     @State private var showAudioFiles = false
     /// The Files picker is shared (two `fileImporter`s on one view clash): true while it picks clips.
     @State private var filesForClips = false
+    @State private var filesForLUTs = false                // the Files picker adds LUTs for Filters
     @State private var showAddClips = false          // our gallery
     @State private var systemAddClips = false        // the system picker (no library access)
     @State private var pickOverlay = false
@@ -55,7 +56,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .export: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .filters, .export: return true
         default: return false
         }
     }
@@ -81,6 +82,7 @@ struct EditorView: View {
         case .easing: return 330
         case .autoZoom: return 470
         case .crop: return 430
+        case .filters: return 500
         case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         case .trackPick:
@@ -183,6 +185,7 @@ struct EditorView: View {
         case .easing: EasingSheet(model: model)
         case .autoZoom: AutoZoomSheet(model: model)
         case .crop: CropSheet(model: model)
+        case .filters: FiltersSheet(model: model)
         case .overlayTrack: OverlayTrackSheet(model: model)
         case .trackPick: TrackPickPanel(model: model) {
             let back: EditorSheet = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize : .track
@@ -218,9 +221,17 @@ struct EditorView: View {
         .onChange(of: model.selectedAudioID) { _, id in
             if id == nil && sheet == .audio { sheet = nil }
         }
-        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: filesForClips ? [.movie, .image] : [.audio, .movie],
-                      allowsMultipleSelection: filesForClips) { result in
+        .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: importTypes,
+                      allowsMultipleSelection: filesForClips || filesForLUTs) { result in
             filesPicked(result)
+        }
+        .onChange(of: model.requestLUTImport) { _, on in
+            guard on else { return }
+            model.requestLUTImport = false
+            model.pause()
+            filesForClips = false
+            filesForLUTs = true
+            showAudioFiles = true
         }
         .photosPicker(isPresented: $showAudioVideo, selection: $audioVideoItem, matching: .videos, preferredItemEncoding: .current)
         .onChange(of: audioVideoItem) { _, item in
@@ -289,7 +300,7 @@ struct EditorView: View {
     /// The Stack's panels close with it (a clip selected instead keeps its own).
     private func stackDeselected(_ id: UUID?) {
         guard id == nil, model.selectedIndex == nil, model.selectedOverlayIndex == nil, let s = sheet else { return }
-        if [EditorSheet.adjust, .crop, .autoZoom, .volume].contains(s) { sheet = nil }
+        if [EditorSheet.adjust, .filters, .crop, .autoZoom, .volume].contains(s) { sheet = nil }
     }
 
     /// A panel opened, closed or changed: what the model needs to know about it.
@@ -725,6 +736,9 @@ struct EditorView: View {
                     }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if o.isMedia {
+                        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
+                    }
+                    if o.isMedia {
                         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     }
                     if pro && o.isMedia {
@@ -757,6 +771,7 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
+                    ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
                     if clip.stack != nil {
                         ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
                     }
@@ -819,7 +834,7 @@ struct EditorView: View {
                         ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
                     }
                     Menu {
-                        Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; showAudioFiles = true }
+                        Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; filesForLUTs = false; showAudioFiles = true }
                         Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
                     } label: {
                         ToolLabel(icon: "music.note", label: "Audio")
@@ -847,6 +862,7 @@ struct EditorView: View {
     private func stackTools(_ st: ClipStack) -> some View {
         ToolButton(icon: "square.stack.3d.up", label: "Open stack") { model.toggleStackOpen(st.id) }
         if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
+        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
         if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
         ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
@@ -881,7 +897,7 @@ struct EditorView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(loc("Add"))
             Menu {
-                Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; showAudioFiles = true }
+                Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; filesForLUTs = false; showAudioFiles = true }
                 Button("From a video in Photos", systemImage: "photo.on.rectangle") { model.pause(); showAudioVideo = true }
             } label: {
                 islandTile(height: lanes.music, icon: "music.note")
@@ -907,7 +923,7 @@ struct EditorView: View {
     /// Add clips: our gallery or the Files app.
     @ViewBuilder private var addMenuItems: some View {
         Button("Photos", systemImage: "photo.on.rectangle") { model.requestAddClips() }
-        Button("Files", systemImage: "folder") { model.pause(); filesForClips = true; showAudioFiles = true }
+        Button("Files", systemImage: "folder") { model.pause(); filesForClips = true; filesForLUTs = false; showAudioFiles = true }
     }
 
     private func islandButton(height: CGFloat, icon: String?, label: String, action: @escaping () -> Void) -> some View {
@@ -1027,8 +1043,22 @@ struct EditorView: View {
     }
 
     /// Files: clips (copied in, like a new project from Files) or a sound.
+    /// What the one Files picker takes: clips (videos, pictures), LUTs for Filters, or sound.
+    private var importTypes: [UTType] {
+        if filesForLUTs { return [UTType(filenameExtension: "cube"), .plainText, .data].compactMap { $0 } }
+        return filesForClips ? [.movie, .image] : [.audio, .movie]
+    }
+
     private func filesPicked(_ result: Result<[URL], Error>) {
+        let luts = filesForLUTs
+        filesForLUTs = false
         guard case .success(let urls) = result, !urls.isEmpty else { return }
+        if luts {
+            let n = LUTLibrary.add(urls)
+            model.lutsVersion += 1
+            UINotificationFeedbackGenerator().notificationOccurred(n == 0 ? .warning : .success)
+            return
+        }
         if filesForClips {
             Task { await addFiles(urls) }
         } else if let url = urls.first {
@@ -1321,7 +1351,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
-    case easing, autoZoom, crop, trackPick, background, overlayTrack
+    case easing, autoZoom, crop, trackPick, background, overlayTrack, filters
     var id: String { rawValue }
 }
 

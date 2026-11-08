@@ -131,7 +131,7 @@ final class MaskExporter: @unchecked Sendable {
                 var matte = geometry(raw, crop: nil).composited(over: black).cropped(to: frame)
                 matte = SubjectMasker.refine(matte, mask, frame: frame)
                 // the crop and the opacity take away from the subject too
-                var picture = geometry(EffectsRenderer.color(src, look.effects), crop: state.crop)
+                var picture = geometry(FilterRenderer.apply(EffectsRenderer.color(src, look.effects), state.filter), crop: state.crop)
                 var opacity = look.opacity
                 if let a = anim { opacity *= a.opacity }
                 if opacity < 0.999 {
@@ -147,7 +147,8 @@ final class MaskExporter: @unchecked Sendable {
                 switch mode {
                 case .cutout:
                     // the film effects (grain, glow…) as on the canvas, then only the subject stays
-                    let full = EffectsRenderer.canvas(picture.composited(over: black).cropped(to: frame), look.effects,
+                    let full = EffectsRenderer.canvas(picture.composited(over: black).cropped(to: frame),
+                                                      FilterRenderer.effects(look.effects, state.filter),
                                                       size: size, frame: n)
                     result = full.applyingFilter("CIBlendWithMask", parameters: [
                         kCIInputBackgroundImageKey: clear, kCIInputMaskImageKey: matte,

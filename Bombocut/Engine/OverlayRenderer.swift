@@ -169,7 +169,7 @@ final class OverlayRenderer: @unchecked Sendable {
     func layer(_ o: Overlay, at t: Double, size: CGSize, canvasAspect A: Double, preview: Bool = false,
                video: (UUID) -> (CIImage, CGAffineTransform)?) -> CIImage? {
         var o = o
-        if preview && LookStore.shared.bypassEffects { o.effects = Effects() }
+        if preview && LookStore.shared.bypassEffects { o.effects = Effects(); o.filter = nil }
         var img: CIImage
         var natural = false   // text keeps its rendered pixel size; pictures fit the canvas
         switch o.kind {
@@ -242,11 +242,12 @@ final class OverlayRenderer: @unchecked Sendable {
     /// Glow, halation and the lens effects may spill past the layer's edges (the result can be bigger than `img`,
     /// with the picture still at 0, 0). A picture's result doesn't change from frame to frame, so it is rendered once and kept.
     private func finished(_ o: Overlay, _ img: CIImage, at t: Double, outline: Bool) -> CIImage {
-        let fx = o.effects
+        let filter = o.isMedia ? o.filter : nil
+        let fx = FilterRenderer.effects(o.effects, filter)
         let mask = o.isMedia ? o.mask : nil
-        guard fx.hasColor || fx.hasCanvasFX || mask != nil else { return img }
+        guard fx.hasColor || fx.hasCanvasFX || mask != nil || filter != nil else { return img }
         guard case .image(let file) = o.kind, fx.grain == 0 else { return look(o, img, at: t, outline: outline) }
-        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)|\(o.crop?.hashValue ?? 0)|\(LookStore.shared.cropEditClip == o.id)"
+        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)|\(o.crop?.hashValue ?? 0)|\(LookStore.shared.cropEditClip == o.id)|\(filter?.hashValue ?? 0)"
         lock.lock()
         if let c = looks[key] { lock.unlock(); return c }
         lock.unlock()
@@ -280,8 +281,9 @@ final class OverlayRenderer: @unchecked Sendable {
                                                                        kCIInputMaskImageKey: mt]).cropped(to: r)
             }
         }
-        out = EffectsRenderer.color(out, o.effects)
-        var fx = o.effects
+        let filter = o.isMedia ? o.filter : nil
+        out = FilterRenderer.apply(EffectsRenderer.color(out, o.effects), filter)
+        var fx = FilterRenderer.effects(o.effects, filter)
         let grain = fx.grain
         fx.grain = 0
         if fx.hasCanvasFX || grain > 0 {
@@ -296,7 +298,7 @@ final class OverlayRenderer: @unchecked Sendable {
                 // grain only where the layer is, so the see-through parts don't turn grainy
                 var g = Effects()
                 g.grain = grain
-                g.grainSize = o.effects.grainSize
+                g.grainSize = fx.grainSize
                 work = EffectsRenderer.canvas(work, g, size: room.size, frame: frameNo)
                     .applyingFilter("CIBlendWithAlphaMask", parameters: [kCIInputBackgroundImageKey: clear.cropped(to: room),
                                                                         kCIInputMaskImageKey: work])

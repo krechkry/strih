@@ -258,6 +258,7 @@ struct LookState: Hashable {
     var anim = AnimPair()
     var autoZoom: AutoZoom? = nil
     var crop: CropRect? = nil
+    var filter: LookFilter? = nil
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }

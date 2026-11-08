@@ -14,6 +14,7 @@ struct ClipStack: Codable, Hashable, Identifiable {
     var crop: CropRect?
     var autoZoom: AutoZoom?
     var volume = 1.0
+    var filter: LookFilter?        // a look from the Filters gallery, after its Adjust
 
     init(clipIDs: [UUID]) { self.clipIDs = clipIDs }
 
@@ -22,10 +23,10 @@ struct ClipStack: Codable, Hashable, Identifiable {
     /// Anything of its own on top of the clips (or just a group).
     var hasLayer: Bool {
         !transform.isIdentity || opacity < 0.999 || effects.hasColor || effects.hasCanvasFX
-            || !(crop?.isEmpty ?? true) || autoZoom != nil
+            || !(crop?.isEmpty ?? true) || autoZoom != nil || filter != nil
     }
 
-    enum CodingKeys: String, CodingKey { case id, clipIDs, open, transform, opacity, effects, crop, autoZoom, volume }
+    enum CodingKeys: String, CodingKey { case id, clipIDs, open, transform, opacity, effects, crop, autoZoom, volume, filter }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -38,6 +39,7 @@ struct ClipStack: Codable, Hashable, Identifiable {
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
+        filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
     }
 }
 

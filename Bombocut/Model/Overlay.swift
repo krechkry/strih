@@ -88,6 +88,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     var stabilization: Stabilization? // video: camera shake removed
     var tracking: Tracking?            // video: follows the subject (keep centered / in place)
     var crop: CropRect?                // its own picture cropped (soft edge, rounded corners)
+    var filter: LookFilter?            // pictures and videos: a look from the Filters gallery, after Adjust
     var autoZoom: AutoZoom?            // a slow zoom over its whole length
     /// Video: a speed curve (from a clip) instead of `speed`. It covers `curveSpan` source seconds from `curveIn`;
     /// the overlay plays it from its own in point on (a split's second half carries on along the same curve).
@@ -152,7 +153,7 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
-        case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan, pin
+        case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan, pin, filter
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -183,6 +184,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         stabilization = try? c.decodeIfPresent(Stabilization.self, forKey: .stabilization)
         tracking = try? c.decodeIfPresent(Tracking.self, forKey: .tracking)
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
+        filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         speedCurve = try? c.decodeIfPresent([SpeedPoint].self, forKey: .speedCurve)
         curveIn = try? c.decodeIfPresent(Double.self, forKey: .curveIn)
