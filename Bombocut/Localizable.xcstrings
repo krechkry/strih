@@ -5298,16 +5298,6 @@
         }
       }
     },
-    "Reversing %lld %% · tap to stop": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Otáčím %lld %% · klepni pro zastavení"
-          }
-        }
-      }
-    },
     "Ride with us": {
       "localizations": {
         "cs": {

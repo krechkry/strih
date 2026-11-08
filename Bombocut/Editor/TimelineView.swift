@@ -189,7 +189,7 @@ struct TimelineView: View {
                         }
                     }
                     .overlay(alignment: .leading) {
-                        if reorder == nil && model.pick == nil && model.slip == nil { stackFrames(shown) }
+                        if model.pick == nil && model.slip == nil { stackFrames(shown) }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
                     .paintSelect(enabled: model.pick != nil && model.pick?.kind.forOverlays == false, ids: shown.map(\.id),
@@ -338,45 +338,65 @@ struct TimelineView: View {
         return (clips[r.lowerBound].id == id, clips[r.upperBound].id == id)
     }
 
-    /// Every Stack as a frame around its clips, with a chip that opens it (edit the clips inside) or closes it
-    /// (it acts as one clip). Closed: a solid lime frame. Open: a dashed one.
+    /// Every Stack as a white frame around its clips (one group), with a chip that opens it (edit the clips
+    /// inside) or closes it (it acts as one clip). Closed: solid. Open: dashed. While clips are reordered the
+    /// frames stay on (no chip) and the Stack being moved turns lime and travels with the finger.
     @ViewBuilder
     private func stackFrames(_ shown: [Clip]) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(model.project.stacks) { st in
-                if let r = model.project.stackRange(st), r.upperBound < shown.count {
-                    let x0 = slotX(shown, r.lowerBound)
-                    let x1 = slotX(shown, r.upperBound) + width(shown[r.upperBound]) - gap
-                    let selected = model.selectedStackID == st.id
-                    RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(st.open ? Color.white.opacity(0.75) : Theme.accent.opacity(selected ? 0 : 0.85),
-                                      style: StrokeStyle(lineWidth: 2, dash: st.open ? [5, 4] : []))
-                        .frame(width: max(6, x1 - x0), height: stripHeight)
-                        .offset(x: x0)
-                        .allowsHitTesting(false)
-                    if x1 - x0 > 34 {
-                        Button { model.toggleStackOpen(st.id) } label: {
-                            HStack(spacing: 3) {
-                                Image(systemName: st.open ? "square.stack.3d.up" : "square.stack.3d.up.fill")
-                                Image(systemName: st.open ? "lock.open.fill" : "lock.fill").font(.system(size: 8, weight: .heavy))
-                            }
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(st.open ? .white : .black)
-                            .padding(.horizontal, 5).frame(height: 18)
-                            .background(st.open ? Color.black.opacity(0.65) : Theme.accent, in: RoundedRectangle(cornerRadius: 5))
-                            .overlay { if st.open { RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.75), lineWidth: 1) } }
-                            .padding(8)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(loc(st.open ? "Close stack" : "Open stack"))
-                        .offset(x: x1 - 50, y: -3)
-                        .frame(width: 50, alignment: .trailing)
-                    }
+                if let r = shownRange(st, shown) {
+                    stackFrame(st, shown, r)
                 }
             }
         }
         .frame(height: stripHeight, alignment: .topLeading)
+    }
+
+    /// A Stack's clips as they are shown right now (mid-reorder the order differs from the project's).
+    private func shownRange(_ st: ClipStack, _ shown: [Clip]) -> ClosedRange<Int>? {
+        let ix = st.clipIDs.compactMap { id in shown.firstIndex { $0.id == id } }
+        guard let a = ix.min(), let b = ix.max(), b < shown.count else { return nil }
+        return a...b
+    }
+
+    @ViewBuilder
+    private func stackFrame(_ st: ClipStack, _ shown: [Clip], _ r: ClosedRange<Int>) -> some View {
+        let moving: Bool = reorder.map { rr in st.clipIDs.contains { rr.ids.contains($0) } } ?? false
+        let block: Int = reorder?.ids.count ?? 0
+        let shift: CGFloat = (moving && block > 1) ? draggedOffset(shown) : 0
+        let x0: CGFloat = slotX(shown, r.lowerBound) + shift
+        let x1: CGFloat = slotX(shown, r.upperBound) + width(shown[r.upperBound]) - gap + shift
+        let selected = model.selectedStackID == st.id && reorder == nil
+        let color: Color = moving ? Theme.accent : Color.white.opacity(selected && !st.open ? 0 : 0.9)
+        RoundedRectangle(cornerRadius: 7)
+            .strokeBorder(color, style: StrokeStyle(lineWidth: 2, dash: st.open ? [5, 4] : []))
+            .frame(width: max(6, x1 - x0), height: stripHeight)
+            .offset(x: x0)
+            .allowsHitTesting(false)
+        if x1 - x0 > 34 && reorder == nil {
+            stackChip(st)
+                .offset(x: x1 - 50, y: -3)
+                .frame(width: 50, alignment: .trailing)
+        }
+    }
+
+    private func stackChip(_ st: ClipStack) -> some View {
+        Button { model.toggleStackOpen(st.id) } label: {
+            HStack(spacing: 3) {
+                Image(systemName: st.open ? "square.stack.3d.up" : "square.stack.3d.up.fill")
+                Image(systemName: st.open ? "lock.open.fill" : "lock.fill").font(.system(size: 8, weight: .heavy))
+            }
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(st.open ? .white : .black)
+            .padding(.horizontal, 5).frame(height: 18)
+            .background(st.open ? Color.black.opacity(0.65) : Color.white, in: RoundedRectangle(cornerRadius: 5))
+            .overlay { if st.open { RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.75), lineWidth: 1) } }
+            .padding(8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(st.open ? "Close stack" : "Open stack"))
     }
 
     /// One lane at its fixed height; an empty lane is a faint strip as long as the video.
@@ -545,11 +565,13 @@ struct TimelineView: View {
             // which slot does the block's middle fall into?
             let others = clips.filter { !r.ids.contains($0.id) }
             let mid = slotX(clips, r.from) + r.dragX + r.scrolled + blockWidth(clips, r.ids) / 2
+            // a closed Stack is one unit here: the block goes before or after it, never between its clips
             var to = 0
             var x: CGFloat = 0
-            for c in others {
-                if mid > x + width(c) / 2 { to += 1 }
-                x += width(c)
+            for unit in reorderUnits(others) {
+                let w: CGFloat = unit.reduce(0) { $0 + width($1) }
+                if mid > x + w / 2 { to += unit.count }
+                x += w
             }
             if to != r.to { UISelectionFeedbackGenerator().selectionChanged() }
             r.to = to
@@ -575,6 +597,24 @@ struct TimelineView: View {
                 scrollPos.scrollTo(x: CGFloat(land) * model.pxPerSec)
             }
         }
+    }
+
+    /// The clips that stay put during a reorder, grouped: each closed (locked) Stack is one group, every
+    /// other clip a group of its own.
+    private func reorderUnits(_ others: [Clip]) -> [[Clip]] {
+        var units: [[Clip]] = []
+        var lastStack: UUID?
+        for c in others {
+            let st = model.project.stack(of: c.id)
+            let locked: UUID? = (st?.open == false) ? st?.id : nil
+            if let locked, locked == lastStack, !units.isEmpty {
+                units[units.count - 1].append(c)
+            } else {
+                units.append([c])
+            }
+            lastStack = locked
+        }
+        return units
     }
 
     private func blockWidth(_ clips: [Clip], _ ids: [UUID]) -> CGFloat {
@@ -1003,7 +1043,7 @@ struct ClipTile: View {
             }
             .offset(x: onCut ? (leading ? handleW / 2 : -handleW / 2) : 0)
             .opacity(otherEnd ? 0.3 : 1)
-            .contentShape(Rectangle().inset(by: -12))
+            .contentShape(OutsetX(dx: 12))   // wider sideways, never above or below the clip
             .highPriorityGesture(handleGesture(leading: leading))
     }
 
@@ -1220,7 +1260,7 @@ struct LaneEdge: View {
             .fill(Theme.accent)
             .frame(width: Self.width, height: height)
             .overlay(Capsule().fill(.black.opacity(0.7)).frame(width: 2, height: max(6, height * 0.42)))
-            .contentShape(Rectangle().inset(by: -8))
+            .contentShape(OutsetX(dx: 8))
     }
 }
 

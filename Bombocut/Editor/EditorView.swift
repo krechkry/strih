@@ -455,8 +455,9 @@ struct EditorView: View {
     /// Top-left status while captions are prepared in the background (you can keep editing).
     private var statusPill: AnyView? {
         if let f = model.reversing {
-            return AnyView(pillView(icon: "backward.fill", text: String(format: loc("Reversing %lld %% · tap to stop"), Int(f * 100)),
-                                    progress: f, tint: Theme.accent) { model.cancelReverse() })
+            // just the icon and the percent; tap still stops it
+            return AnyView(pillView(icon: "backward.fill", text: "\(Int(f * 100)) %", progress: f, tint: Theme.accent,
+                                    bar: false) { model.cancelReverse() })
         }
         if let job = model.captionJob {
             if job.phase == .loadingModel && job.error == nil && speechStatus.warming {
@@ -515,7 +516,7 @@ struct EditorView: View {
         }
     }
 
-    private func pillView(icon: String, text: String, progress: Double?, tint: Color, done: Bool = false,
+    private func pillView(icon: String, text: String, progress: Double?, tint: Color, done: Bool = false, bar: Bool = true,
                           action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
@@ -527,7 +528,7 @@ struct EditorView: View {
                     }
                     Text(loc(text)).font(.caption.weight(.bold)).lineLimit(1)
                 }
-                if let progress {
+                if let progress, bar {
                     ProgressView(value: progress).tint(tint).frame(width: 120)
                 }
             }
