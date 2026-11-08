@@ -58,6 +58,15 @@ struct BackgroundSheet: View {
     var body: some View {
         let cur = model.project.background ?? [0, 0, 0]
         let rgba = RGBA(r: cur[0], g: cur[1], b: cur[2])
+        // its own scroll view, like the caption and text panels: the color menu opens from the bubble the same way
+        ScrollView(.vertical) {
+            content(rgba)
+        }
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    private func content(_ rgba: RGBA) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Background").font(.title3.weight(.heavy))
             Text("Color").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
@@ -70,7 +79,7 @@ struct BackgroundSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

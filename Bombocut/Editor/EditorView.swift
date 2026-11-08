@@ -55,7 +55,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .export: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .export: return true
         default: return false
         }
     }

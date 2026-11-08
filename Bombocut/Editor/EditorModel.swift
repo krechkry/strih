@@ -1,5 +1,6 @@
 import AVFoundation
 import Combine
+import CoreImage
 import SwiftUI
 
 /// Active edge trim (ripple: neighbours always stay glued to the edited clip).
@@ -4470,17 +4471,45 @@ extension EditorModel {
         eyedropper = EyedropperRequest(pick: pick)
         eyedropperFrame = nil
         guard let item = player.currentItem else { return }
+        let t = CMTime(seconds: currentTime, preferredTimescale: 600)
+        let id = eyedropper?.id
+        let player = self.player
+        Task {
+            // the very frame the player shows (its own pixels), or a fresh render of it
+            var px = await Self.shownFrame(item, player: player, at: t)
+            if px == nil { px = await Self.renderedFrame(item, at: t) }
+            if eyedropper?.id == id { eyedropperFrame = px }
+        }
+    }
+
+    /// The frame on screen, read from the player itself: a video output catches the composed frame as it is drawn
+    /// (exactly what the preview shows: background, clips, layers, captions). Nil if none arrives in time.
+    private static func shownFrame(_ item: AVPlayerItem, player: AVPlayer, at t: CMTime) async -> FramePixels? {
+        let out = AVPlayerItemVideoOutput(pixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        ])
+        item.add(out)
+        defer { item.remove(out) }
+        // the paused player draws the frame again, so the output gets it
+        _ = await player.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero)
+        for _ in 0..<25 {
+            let now = item.currentTime()
+            if let pb = out.copyPixelBuffer(forItemTime: now, itemTimeForDisplay: nil) {
+                return FramePixels(composed: pb)
+            }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return nil
+    }
+
+    /// Fallback: the composition renders the frame once more.
+    private static func renderedFrame(_ item: AVPlayerItem, at t: CMTime) async -> FramePixels? {
         let gen = AVAssetImageGenerator(asset: item.asset)
         gen.videoComposition = item.videoComposition
         gen.requestedTimeToleranceBefore = .zero
         gen.requestedTimeToleranceAfter = .zero
-        let t = CMTime(seconds: currentTime, preferredTimescale: 600)
-        let id = eyedropper?.id
-        Task {
-            guard let cg = try? await gen.image(at: t).image else { return }
-            let px = FramePixels(cg)
-            if eyedropper?.id == id { eyedropperFrame = px }
-        }
+        guard let cg = try? await gen.image(at: t).image else { return nil }
+        return FramePixels(cg)
     }
 
     /// Lifted on a color (or cancelled with nil).
@@ -4496,6 +4525,19 @@ final class FramePixels {
     let width: Int
     let height: Int
     private var data: [UInt8]
+
+    /// A frame straight from the compositor: its bytes are Rec. 709 (`FrameCompositor` renders in that space),
+    /// whatever the buffer says, so they are read as such and turned into sRGB, the space every color control
+    /// uses (the exact inverse of how a picked color is drawn).
+    convenience init?(composed pb: CVPixelBuffer) {
+        guard let space = CGColorSpace(name: CGColorSpace.itur_709),
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        let img = CIImage(cvPixelBuffer: pb, options: [.colorSpace: space])
+        guard let cg = FramePixels.context.createCGImage(img, from: img.extent, format: .RGBA8, colorSpace: srgb) else { return nil }
+        self.init(cg)
+    }
+
+    private static let context = CIContext(options: [.cacheIntermediates: false])
 
     init(_ cg: CGImage) {
         width = max(1, cg.width)
