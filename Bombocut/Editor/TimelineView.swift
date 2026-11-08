@@ -1572,9 +1572,8 @@ struct AudioLane: View {
 
     static let rowHeight: CGFloat = 30
     static let maxRows = 3
-    /// Sound blocks: magenta, the waveform a deeper magenta.
-    static let tint = Color(red: 0.84, green: 0.25, blue: 0.62)
-    static let ink = Color(red: 0.43, green: 0.06, blue: 0.30)
+    /// Sound blocks: lime (a little dimmer until selected), the waveform dark green.
+    static let ink = Color(red: 0.16, green: 0.30, blue: 0.04)
 
     static func rows(_ list: [AudioItem]) -> [[AudioItem]] {
         var rows: [[AudioItem]] = []
@@ -1616,7 +1615,7 @@ struct AudioLane: View {
             Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "waveform").font(.system(size: 10, weight: .bold))
             Text(a.name).font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
-        .foregroundStyle(selected ? .black : .white)
+        .foregroundStyle(.black)
         .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
         .background { soundBlock(a, selected: selected, width: w, px: px) }
@@ -1660,13 +1659,13 @@ struct AudioLane: View {
         let f = a.fades
         let len: Double = max(a.duration, 0.01)
         return ZStack {
-            (selected ? Theme.accent : Self.tint)
+            Theme.accent.opacity(selected ? 1 : 0.78)
             if let peaks = waves.peaks(a.file) {
                 WaveformShape(peaks: peaks, from: a.inPoint, length: a.duration * a.speed,
                               fadeIn: f.in / len, fadeOut: f.out / len)
-                    .fill(selected ? Color.black.opacity(0.3) : Self.ink)
+                    .fill(Self.ink)
             } else {
-                Wave(seed: a.file.hashValue).fill(selected ? Color.black.opacity(0.12) : Self.ink.opacity(0.5))
+                Wave(seed: a.file.hashValue).fill(Self.ink.opacity(0.4))
             }
             FadeRamp(fadeIn: CGFloat(f.in) * px, fadeOut: CGFloat(f.out) * px)
         }
