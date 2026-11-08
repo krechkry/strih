@@ -54,12 +54,16 @@ struct MotionBlurSheet: View {
 struct ApplyRow: View {
     @ObservedObject var model: EditorModel
     let kind: EditorModel.ApplyKind
+    /// The "Apply to" label above the buttons (off where the buttons float on their own).
+    var title = true
     @Environment(\.closePanel) private var close
 
     var body: some View {
         if (kind.forOverlays ? model.project.overlays.count : model.project.clips.count) > 1 {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Apply to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                if title {
+                    Text("Apply to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                }
                 HStack(spacing: 8) {
                     button(kind.forOverlays ? "All overlays" : "All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
                     button(kind.forOverlays ? "Pick overlays" : "Pick clips", "hand.tap.fill") {

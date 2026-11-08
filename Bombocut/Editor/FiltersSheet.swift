@@ -1,17 +1,19 @@
 import SwiftUI
 
 /// Filters for the selected clip, Stack or picture / video layer: tiles showing the frame at the playhead with
-/// each look. Tap applies a filter (tap the one you have to take it off), hold a tile for its strength, double tap
-/// the one you have to like it (Liked tab). Imported .cube LUTs have their own tab.
+/// each look. Tap applies a filter (tap the one you have to take it off), the sliders icon on the one you have opens
+/// its Adjust menu (strength and its film effects), double tap the one you have to like it (Liked tab). Imported
+/// .cube LUTs have their own tab. With a filter on, "Apply to" floats at the bottom.
 struct FiltersSheet: View {
     @ObservedObject var model: EditorModel
 
     @AppStorage("likedFilters") private var likedRaw = ""
     @AppStorage("filterTab") private var tabRaw = "all"
+    @Environment(\.panelHeight) private var panelHeight
     @State private var thumbs: [String: UIImage] = [:]
     @State private var luts: [String] = []
-    /// The filter whose strength slider shows (opened by holding its tile).
-    @State private var strengthFor: String?
+    /// The Adjust menu of the filter you have (strength, film effects).
+    @State private var adjusting = false
     @State private var lastTap: (id: String, time: Date)?
     @State private var pendingRemove: Task<Void, Never>?
     @State private var source: CIImage?
@@ -22,24 +24,19 @@ struct FiltersSheet: View {
     private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
     private var active: LookFilter? { model.editedFilter }
 
+    /// "Apply to" floats over the tiles: a filter is on and there is something else to give it to.
+    private var applyKind: EditorModel.ApplyKind? { active == nil ? nil : model.filterApplyKind }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text("Filters").font(.title3.weight(.heavy))
-                Spacer()
-                if let a = active, let d = FilterLibrary.def(a.id) {
-                    Text(verbatim: loc(d.name)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent).lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 20)
+            header.padding(.horizontal, 20)
             if model.filterTarget {
                 tabs.padding(.horizontal, 20)
-                if let id = strengthFor, let a = active, a.id == id { strengthRow(a).padding(.horizontal, 20) }
                 ScrollViewReader { proxy in
                     ScrollView {
                         content
                             .padding(.horizontal, 20)
-                            .padding(.bottom, 30)
+                            .padding(.bottom, applyKind == nil ? 30 : 110)
                     }
                     .scrollIndicators(.hidden)
                     .onAppear { jumpToActive(proxy) }
@@ -50,9 +47,57 @@ struct FiltersSheet: View {
         }
         .padding(.top, 18)
         .frame(maxHeight: .infinity, alignment: .top)
+        .overlay(alignment: .bottom) { floatingApply }
         .task(id: model.selectedClipID ?? model.selectedStackID ?? model.selectedOverlayID) { await loadSource() }
         .onAppear { luts = LUTLibrary.files() }
         .onChange(of: model.lutsVersion) { luts = LUTLibrary.files(); Task { await renderThumbs() } }
+        .onChange(of: active?.id) { _, id in if id == nil { adjusting = false } }
+        .panelMenu(isPresented: $adjusting, height: panelHeight) {
+            FilterAdjustMenu(model: model)
+        }
+    }
+
+    /// "Filters", and Reset (takes the filter off) where the filter's name used to be.
+    private var header: some View {
+        HStack(spacing: 10) {
+            Text("Filters").font(.title3.weight(.heavy))
+            Spacer()
+            Button {
+                model.setFilter(nil)
+                UISelectionFeedbackGenerator().selectionChanged()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.counterclockwise").font(.system(size: 12, weight: .heavy))
+                    Text("Reset").font(.footnote.weight(.heavy)).textCase(.uppercase)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.horizontal, 12).frame(height: 30)
+                .background(Theme.panel2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(active == nil)
+            .opacity(active == nil ? 0.35 : 1)
+            .accessibilityLabel(loc("Reset"))
+        }
+    }
+
+    /// All clips / Pick clips (or overlays), floating at the bottom while a filter is on.
+    @ViewBuilder
+    private var floatingApply: some View {
+        if let kind = applyKind {
+            ApplyRow(model: model, kind: kind, title: false)
+                .padding(.horizontal, 20)
+                .padding(.top, 26)
+                .padding(.bottom, 14)
+                .background(
+                    LinearGradient(stops: [.init(color: Theme.panel.opacity(0), location: 0),
+                                           .init(color: Theme.panel, location: 0.4)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .allowsHitTesting(false)
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     // MARK: Tabs
@@ -99,7 +144,7 @@ struct FiltersSheet: View {
                         if let d = FilterLibrary.def(FilterLibrary.lutID(f)) { tile(d) }
                     }
                 }
-                note("Add .cube LUTs from Files (DaVinci Resolve and other apps). Hold one for its strength or to remove it.")
+                note("Add .cube LUTs from Files (DaVinci Resolve and other apps). Tap the sliders on the one you picked for its strength or to remove it.")
             }
         }
     }
@@ -113,15 +158,20 @@ struct FiltersSheet: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// Built like a filter tile (same size): a plus in the middle of the picture square, the name under it.
     private var addTile: some View {
         Button { model.requestLUTImport = true } label: {
-            VStack(spacing: 6) {
-                Image(systemName: "plus").font(.system(size: 22, weight: .bold))
-                Text("Add LUT").font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7).opacity(0.7)
+            VStack(spacing: 5) {
+                Theme.panel
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        Image(systemName: "plus").font(.system(size: 26, weight: .bold))
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                Text("Add LUT").font(.caption2.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
             }
             .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .aspectRatio(0.82, contentMode: .fit)
+            .padding(5)
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
@@ -147,9 +197,12 @@ struct FiltersSheet: View {
                     .padding(8)
             }
         }
+        .overlay {
+            // the one you have: its Adjust menu (strength, film effects)
+            if on { adjustButton.padding(.bottom, 20) }
+        }
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture { tapped(d.id) }
-        .onLongPressGesture(minimumDuration: 0.35) { held(d.id) }
         .id(d.id)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(loc(d.name))
@@ -169,28 +222,25 @@ struct FiltersSheet: View {
             .clipped()
     }
 
-    // MARK: Strength
+    // MARK: Adjust
 
-    private func strengthRow(_ a: LookFilter) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Strength").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                Spacer()
-                Text(verbatim: "\(Int((a.strength * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
-                if a.id.hasPrefix("lut:") {
-                    Button { removeLUT(a.id) } label: {
-                        Image(systemName: "trash").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(Theme.panel2, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(loc("Remove LUT"))
-                }
-            }
-            BSlider(value: Binding(get: { a.strength }, set: { model.editFilterStrength($0) }), in: 0...1,
-                    onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
-                .doubleTapReset { model.liveEditBegan(); model.editFilterStrength(1); model.liveEditEnded() }
+    private var adjustButton: some View {
+        Button {
+            pendingRemove?.cancel()
+            pendingRemove = nil
+            adjusting = true
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 38, height: 38)
+                .background(Theme.accent, in: Circle())
+                .overlay(Circle().strokeBorder(.black.opacity(0.25), lineWidth: 1))
+                .shadow(color: .black.opacity(0.45), radius: 4, y: 1)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Adjust"))
     }
 
     // MARK: Actions
@@ -213,21 +263,11 @@ struct FiltersSheet: View {
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
                 model.setFilter(nil)
-                strengthFor = nil
             }
         } else {
             model.setFilter(LookFilter(id: id))
-            if strengthFor != nil { strengthFor = id }
             UISelectionFeedbackGenerator().selectionChanged()
         }
-    }
-
-    /// Hold: its strength (picking it first if needed).
-    private func held(_ id: String) {
-        pendingRemove?.cancel()
-        if active?.id != id { model.setFilter(LookFilter(id: id)) }
-        strengthFor = id
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     private func toggleLike(_ id: String) {
@@ -235,17 +275,6 @@ struct FiltersSheet: View {
         if let i = l.firstIndex(of: id) { l.remove(at: i) } else { l.append(id) }
         likedRaw = l.joined(separator: ",")
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-
-    private func removeLUT(_ id: String) {
-        let file = String(id.dropFirst(4))
-        model.setFilter(nil)
-        strengthFor = nil
-        LUTLibrary.remove(file)
-        FilterRenderer.forget(id)
-        likedRaw = liked.filter { $0 != id }.joined(separator: ",")
-        thumbs[id] = nil
-        model.lutsVersion += 1
     }
 
     /// Opening the panel on a clip with a filter: its tab, scrolled to it.
@@ -300,5 +329,99 @@ enum FilterThumbs {
             if let cg = context.createCGImage(img, from: src.extent) { out[id] = UIImage(cgImage: cg) }
         }
         return out
+    }
+}
+
+/// The Adjust menu of the filter you have: its strength, and a slider for each film effect it comes with (grain and
+/// grain size, vignette, halation). Imported LUTs can be removed here.
+struct FilterAdjustMenu: View {
+    @ObservedObject var model: EditorModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeMenu) private var closeMenu
+    @AppStorage("likedFilters") private var likedRaw = ""
+
+    private func close() { if let closeMenu { closeMenu() } else { dismiss() } }
+
+    var body: some View {
+        ScrollView {
+            PanelStack(spacing: 16, span: 1) {
+                header
+                if let f = model.editedFilter {
+                    rows(f)
+                }
+            }
+            .padding(20)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            let name = model.editedFilter.flatMap { FilterLibrary.def($0.id) }.map { loc($0.name) } ?? loc("Filters")
+            Text(verbatim: name).font(.title3.weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
+            Spacer(minLength: 4)
+            Button { model.resetFilterSettings() } label: {
+                Image(systemName: "arrow.counterclockwise").font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 36, height: 36)
+                    .background(Theme.panel2, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc("Reset"))
+            DoneCheck(size: 32) { close() }
+        }
+    }
+
+    @ViewBuilder
+    private func rows(_ f: LookFilter) -> some View {
+        slider("Strength", f.strength, def: 1) { v in model.editFilterStrength(v) }
+        // the effects the filter comes with (your values, or its own)
+        let own = FilterLibrary.def(f.id)?.fx ?? FilterFX()
+        let fx = f.shownFX ?? own
+        let uses = own.uses
+        if uses.grain {
+            slider("Grain", fx.grain, def: own.grain) { v in model.editFilterFX { $0.grain = v } }
+            slider("Grain size", fx.grainSize, def: own.grainSize) { v in model.editFilterFX { $0.grainSize = v } }
+        }
+        if uses.vignette {
+            slider("Vignette", fx.vignette, def: own.vignette) { v in model.editFilterFX { $0.vignette = v } }
+        }
+        if uses.halation {
+            slider("Halation", fx.halation, def: own.halation) { v in model.editFilterFX { $0.halation = v } }
+        }
+        if f.id.hasPrefix("lut:") {
+            Button { removeLUT(f.id) } label: {
+                Label(loc("Remove LUT"), systemImage: "trash")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(Theme.panel2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func slider(_ title: String, _ value: Double, def: Double, _ set: @escaping (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(verbatim: "\(Int((value * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            BSlider(value: Binding(get: { value }, set: set), in: 0...1,
+                    onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
+                .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
+        }
+    }
+
+    private func removeLUT(_ id: String) {
+        let file = String(id.dropFirst(4))
+        model.setFilter(nil)
+        LUTLibrary.remove(file)
+        FilterRenderer.forget(id)
+        likedRaw = likedRaw.split(separator: ",").map(String.init).filter { $0 != id }.joined(separator: ",")
+        model.lutsVersion += 1
+        close()
     }
 }

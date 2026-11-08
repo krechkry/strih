@@ -919,6 +919,13 @@ final class EditorModel: ObservableObject {
         return c.keyframes.firstIndex { abs(rt.local(atSource: $0.t) - here) < 0.5 / Self.fps + 1e-3 }
     }
 
+    /// Fingers on the preview move something: a selected layer, Stack or the captions, or the selected clip
+    /// while it is on screen. Otherwise two fingers only zoom the view (nothing moves without being selected).
+    var transformTarget: Bool {
+        if selectedOverlayID != nil || selectedStackID != nil || captionsSelected { return true }
+        return selectedIndex != nil && playheadInSelected
+    }
+
     var playheadInSelected: Bool {
         guard let i = selectedIndex else { return false }
         let start = project.clipStarts[i]
@@ -2627,6 +2634,8 @@ final class EditorModel: ObservableObject {
         /// Not a copy: picks the clips to put into a Stack.
         case stack
         case crop
+        /// Only the filter (and its strength and film effects), from the Filters panel.
+        case filter, overlayFilter
         /// Not a copy: picks the clips the captions listen to.
         case captions
 
@@ -2647,10 +2656,11 @@ final class EditorModel: ObservableObject {
             case .autoZoom: return "AutoZoom"
             case .stack: return "Stack"
             case .crop: return "Crop"
+            case .filter, .overlayFilter: return "Filters"
             }
         }
         /// Copies between overlays instead of clips.
-        var forOverlays: Bool { [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed].contains(self) }
+        var forOverlays: Bool { [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter].contains(self) }
         /// Changes clip lengths (captions and overlays follow, the video rebuilds).
         var retimes: Bool { self == .speed || self == .speech }
     }
@@ -2695,7 +2705,9 @@ final class EditorModel: ObservableObject {
             c.autoZoom = s.autoZoom
         case .crop:
             c.crop = s.crop
-        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .captions, .stack:
+        case .filter:
+            c.filter = s.filter
+        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .captions, .stack:
             break
         }
     }
@@ -2706,6 +2718,9 @@ final class EditorModel: ObservableObject {
         switch kind {
         case .overlayAdjust:
             o.effects = s.effects
+            if o.isMedia { o.filter = s.filter }
+            return
+        case .overlayFilter:
             if o.isMedia { o.filter = s.filter }
             return
         case .overlayMask:
@@ -4686,6 +4701,30 @@ extension EditorModel {
         f.strength = min(max(v, 0), 1)
         storeFilter(f, in: &project)
         publishLook()
+    }
+
+    /// A film effect slider of the filter's Adjust menu moving (pair with liveEditBegan / liveEditEnded).
+    func editFilterFX(_ change: (inout FilterFX) -> Void) {
+        guard var f = editedFilter, var fx = f.shownFX else { return }
+        change(&fx)
+        f.fx = fx
+        storeFilter(f, in: &project)
+        publishLook()
+    }
+
+    /// The filter's own strength and film effects back (one undo step).
+    func resetFilterSettings() {
+        guard let f = editedFilter else { return }
+        setFilter(LookFilter(id: f.id))
+    }
+
+    /// The Filters panel's "Apply to" buttons: a single clip or a media layer is selected (Stacks have none).
+    var filterApplyKind: ApplyKind? {
+        if selectedStackIndex != nil { return nil }
+        if let oi = selectedOverlayIndex {
+            return project.overlays[oi].isMedia && project.overlays.filter(\.isMedia).count > 1 ? .overlayFilter : nil
+        }
+        return selectedIndex != nil && project.clips.count > 1 ? .filter : nil
     }
 
     /// The picture the filter tiles show: the selected clip's (or the clip under the playhead in a Stack, or the

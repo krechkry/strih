@@ -6,19 +6,26 @@ struct LookFilter: Codable, Hashable {
     /// `FilterLibrary` key: a built-in id ("bw", "orangeTeal"...) or "lut:<file>" for an imported LUT.
     var id: String
     var strength = 1.0          // 0...1
+    /// The film effects changed in the filter's Adjust menu (nil = the filter's own, `FilterDef.fx`).
+    var fx: FilterFX?
 
-    init(id: String, strength: Double = 1) {
+    init(id: String, strength: Double = 1, fx: FilterFX? = nil) {
         self.id = id
         self.strength = strength
+        self.fx = fx
     }
 
-    enum CodingKeys: String, CodingKey { case id, strength }
+    enum CodingKeys: String, CodingKey { case id, strength, fx }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         strength = (try? c.decodeIfPresent(Double.self, forKey: .strength)) ?? 1
+        fx = try? c.decodeIfPresent(FilterFX.self, forKey: .fx)
     }
+
+    /// The film effects this filter draws (at full strength): your changes, or the filter's own.
+    var shownFX: FilterFX? { fx ?? FilterLibrary.def(id)?.fx }
 }
 
 /// The film effects a filter adds on top of its colors (at full strength), from the app's own effects.
@@ -29,6 +36,9 @@ struct FilterFX: Codable, Hashable {
     var halation = 0.0
 
     var isEmpty: Bool { grain < 0.001 && vignette < 0.001 && halation < 0.001 }
+
+    /// Which effects the filter comes with, so its Adjust menu shows a slider for each (and only those).
+    var uses: (grain: Bool, vignette: Bool, halation: Bool) { (grain > 0.001, vignette > 0.001, halation > 0.001) }
 }
 
 /// What a filter is: its colors (a 3D LUT, made from a formula or read from a .cube file) and optional film

@@ -200,6 +200,16 @@
         }
       }
     },
+    "A preset holds the whole look of the text: size, spacing, font, colors, outline, shadow and box. Save makes one from this text; hold a preset to update it with the current look, rename it or delete it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolba drží celý vzhled textu: velikost, rozestupy, písmo, barvy, obrys, stín i pozadí. Uložit vytvoří novou z tohoto textu; podržením předvolbu aktualizuješ podle současného vzhledu, přejmenuješ nebo smažeš."
+          }
+        }
+      }
+    },
     "A preset holds the whole style: layout, font, colors, outline, shadow, box and animation. Save makes one from how your captions look now; hold a preset to update it with the current look or delete it.": {
       "localizations": {
         "cs": {
@@ -280,12 +290,12 @@
         }
       }
     },
-    "Add .cube LUTs from Files (DaVinci Resolve and other apps). Hold one for its strength or to remove it.": {
+    "Add .cube LUTs from Files (DaVinci Resolve and other apps). Tap the sliders on the one you picked for its strength or to remove it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Přidej LUTy .cube ze Souborů (DaVinci Resolve a další aplikace). Podržením nastavíš sílu nebo LUT odebereš."
+            "value": "Přidej LUTy .cube ze Souborů (DaVinci Resolve a další aplikace). Klepnutím na posuvníky u vybraného nastavíš sílu nebo LUT odebereš."
           }
         }
       }
@@ -5068,6 +5078,16 @@
         }
       }
     },
+    "Preset": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolba"
+          }
+        }
+      }
+    },
     "Presets": {
       "localizations": {
         "cs": {
@@ -5664,6 +5684,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uložit nebo sdílet"
+          }
+        }
+      }
+    },
+    "Save preset": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit předvolbu"
           }
         }
       }

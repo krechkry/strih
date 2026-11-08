@@ -76,6 +76,26 @@ final class FilterTests: XCTestCase {
     }
 
     /// Fades never overlap and never run longer than the sound.
+    /// The filter's Adjust menu: changed film effects replace the filter's own, scaled by the strength, and survive
+    /// saving; an old project (no fx) keeps the filter's own.
+    func testFilterFXOverride() throws {
+        let own = FilterRenderer.effects(Effects(), LookFilter(id: "bwVintage"))
+        XCTAssertEqual(own.vignette, 0.45, accuracy: 1e-9)
+        var f = LookFilter(id: "bwVintage", strength: 0.5)
+        var fx = try XCTUnwrap(f.shownFX)
+        fx.vignette = 0.8
+        fx.grain = 0
+        f.fx = fx
+        let mine = FilterRenderer.effects(Effects(), f)
+        XCTAssertEqual(mine.vignette, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(mine.grain, 0, accuracy: 1e-9)
+        let back = try JSONDecoder().decode(LookFilter.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back, f)
+        let old = try JSONDecoder().decode(LookFilter.self, from: Data(#"{"id":"bwVintage","strength":1}"#.utf8))
+        XCTAssertNil(old.fx)
+        XCTAssertEqual(old.shownFX, FilterLibrary.def("bwVintage")?.fx)
+    }
+
     func testFadesFit() {
         let f = Fade.fit(4, 4, length: 3)
         XCTAssertEqual(f.in, 1.5)

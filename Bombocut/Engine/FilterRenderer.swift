@@ -28,7 +28,7 @@ enum FilterRenderer {
 
     /// The effects with the filter's grain, vignette and halation added (by its strength; the stronger wins).
     static func effects(_ e: Effects, _ f: LookFilter?) -> Effects {
-        guard let f, f.strength > 0.001, let fx = def(f.id)?.fx, !fx.isEmpty else { return e }
+        guard let f, f.strength > 0.001, let fx = f.fx ?? def(f.id)?.fx, !fx.isEmpty else { return e }
         var out = e
         let k = min(max(f.strength, 0), 1)
         if fx.grain * k > out.grain {

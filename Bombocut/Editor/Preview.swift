@@ -23,6 +23,8 @@ struct PreviewArea: View {
     @State private var panBase: CGSize = .zero
     @State private var pinching = false
     @State private var dragIsPan: Bool?
+    /// Fingers on the preview with nothing selected: they zoom and move the view (the view when they began).
+    @State private var viewGrab: (zoom: CGFloat, offset: CGSize)?
     @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
     @State private var cropGrab: CropRect?          // Crop: the crop when the drag began
     @State private var zoomGrab: CGPoint?           // AutoZoom: the focus point when the drag began
@@ -63,6 +65,9 @@ struct PreviewArea: View {
         .overlay(alignment: .topLeading) { bypassEye }
         .clipped()
         .onChange(of: model.previewScrubs) { _, on in if !on { resetViewZoom() } }
+        // something to move got selected: back to fit, so the fingers move it one to one
+        .onChange(of: model.transformTarget) { _, on in if on && !model.previewScrubs { resetViewZoom() } }
+        .onChange(of: model.fullscreen) { resetViewZoom() }
     }
 
     // MARK: Eyedropper
@@ -153,7 +158,7 @@ struct PreviewArea: View {
             let size: CGSize = zoomed ? area : canvas
             scrubSurface(canvas, area: area).frame(width: size.width, height: size.height)
         } else {
-            layer(canvas) { touch(canvas) }
+            layer(canvas) { touch(canvas, area: area) }
         }
     }
 
@@ -330,18 +335,49 @@ struct PreviewArea: View {
         .allowsHitTesting(false)
     }
 
-    private func touch(_ canvas: CGSize) -> some View {
+    /// No panel open. Something selected: the fingers move, scale and turn it. Nothing selected: two fingers
+    /// zoom the view (pinch back out to fit) and one finger moves around the zoomed picture; nothing gets moved.
+    private func touch(_ canvas: CGSize, area: CGSize) -> some View {
         TouchSurface(
-            onTap: { p in if !model.tapTitle(p, canvas: canvas) { tapPlay() } },
+            onTap: { p in if !model.tapTitle(contentPoint(p, canvas), canvas: canvas) { tapPlay() } },
             onDoubleTap: {
                 guard !model.project.clips.isEmpty else { return }
                 withAnimation(.easeOut(duration: 0.2)) { model.fullscreen = true }
             },
-            onBegan: { p in if !model.project.clips.isEmpty { model.transformBegan(at: p, canvas: canvas) } },
-            onChanged: { g in model.transformChanged(gesture: g, canvas: canvas) },
-            onEnded: { model.transformEnded() },
+            onBegan: { p in
+                guard !model.project.clips.isEmpty else { return }
+                if model.transformTarget && viewZoom < 1.01 {
+                    model.transformBegan(at: p, canvas: canvas)
+                } else {
+                    viewGrab = (viewZoom, viewOffset)
+                }
+            },
+            onChanged: { g in
+                if let s = viewGrab { moveView(g, from: s, canvas, area) } else { model.transformChanged(gesture: g, canvas: canvas) }
+            },
+            onEnded: {
+                if viewGrab != nil { endViewGrab() } else { model.transformEnded() }
+            },
             onHold: { on in model.setEffectsBypassed(on) }
         )
+    }
+
+    /// The fingers' move (g, on screen since they touched) applied to the view: its zoom follows their spread, the
+    /// picture's middle follows them; never smaller than fit, never past its edges.
+    private func moveView(_ g: CGAffineTransform, from s: (zoom: CGFloat, offset: CGSize), _ canvas: CGSize, _ area: CGSize) {
+        let k: CGFloat = hypot(g.a, g.b)
+        viewZoom = min(max(s.zoom * k, 1), 8)
+        let mid = CGPoint(x: canvas.width / 2 + s.offset.width, y: canvas.height / 2 + s.offset.height)
+        let moved = mid.applying(g)
+        let o = CGSize(width: moved.x - canvas.width / 2, height: moved.y - canvas.height / 2)
+        viewOffset = clampedOffset(o, canvas, area)
+    }
+
+    private func endViewGrab() {
+        viewGrab = nil
+        zoomBase = viewZoom
+        panBase = viewOffset
+        if viewZoom < 1.05 { resetViewZoom() }
     }
 
     @ViewBuilder

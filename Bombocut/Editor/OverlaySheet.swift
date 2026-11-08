@@ -12,12 +12,13 @@ struct OverlaySheet: View {
     @State private var snapped = false
 
     enum Tab: String, CaseIterable {
-        case text, font, style, animation, blend, speed
+        case text, font, style, presets, animation, blend, speed
         var title: String {
             switch self {
             case .text: return "Text"
             case .font: return "Font"
             case .style: return "Style"
+            case .presets: return "Presets"
             case .animation: return "Animation"
             case .blend: return "Blend"
             case .speed: return "Speed"
@@ -29,8 +30,8 @@ struct OverlaySheet: View {
     /// only that part; a text's words and its style stay together.
     private func tabs(_ o: Overlay) -> [Tab] {
         switch tab {
-        case .text, .font, .style:
-            if case .text = o.kind { return UIMode.isPro ? [.text, .font, .style] : [.text, .font] }
+        case .text, .font, .style, .presets:
+            if case .text = o.kind { return UIMode.isPro ? [.text, .font, .style, .presets] : [.text, .font, .presets] }
             return [.animation]
         case .speed: return o.kind.isVideo ? [.speed] : [.animation]
         case .animation, .blend: return [tab]
@@ -87,6 +88,7 @@ struct OverlaySheet: View {
                             case .text: textLook(o.style)
                             case .font: fontTab(o)
                             case .style: styleTab(o.style)
+                            case .presets: TextPresetsTab(model: model, style: o.style)
                             case .animation: animationTab(o)
                             case .blend: blendTab(o)
                             case .speed: speedTab(o)
