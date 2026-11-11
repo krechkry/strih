@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import StoreKit
 
 // MARK: Canvas (aspect ratio)
 
@@ -148,6 +149,9 @@ struct ExportSheet: View {
     /// Name the project once it is done (nobody names it while editing).
     var onRename: (String) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
+    /// The App Store rating prompt comes once, on the done screen of the first finished export.
+    @AppStorage("review.askedAfterFirstExport") private var askedForReview = false
     @State private var name = ""
     @FocusState private var naming: Bool
     @FocusState private var typing: Bool
@@ -703,6 +707,17 @@ struct ExportSheet: View {
         }
         .padding(.horizontal, 20)
         .onDisappear { saveName() }
+        .task { await askForReviewOnce() }
+    }
+
+    /// Apple's own rating prompt (it decides whether to show it, at most three times a year;
+    /// never in TestFlight). A moment after the done screen lands, so the meme gets seen first.
+    private func askForReviewOnce() async {
+        guard !askedForReview, Demo.mode == nil else { return }
+        try? await Task.sleep(for: .seconds(1.5))
+        guard !Task.isCancelled, case .done = phase else { return }
+        askedForReview = true
+        requestReview()
     }
 
     /// The export stopped itself before the phone ran out of memory: offer a lighter way.
