@@ -543,8 +543,8 @@ private final class SystemAudioDecoder: LegacyAudioDecoder {
             return nil
         }
         if t.channels <= 2 { layout = t.channels == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo }
-        guard let channelLayout = AVAudioChannelLayout(layoutTag: layout) else { return nil }
-        let inFormat = AVAudioFormat(streamDescription: &asbd, channelLayout: channelLayout)
+        guard let channelLayout = AVAudioChannelLayout(layoutTag: layout),
+              let inFormat = AVAudioFormat(streamDescription: &asbd, channelLayout: channelLayout) else { return nil }
         if !cookie.isEmpty { inFormat.magicCookie = Data(cookie) }
         let outChannels = AVAudioChannelCount(min(2, max(1, t.channels)))
         guard let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: asbd.mSampleRate, channels: outChannels, interleaved: false),

@@ -212,7 +212,26 @@ struct EditorView: View {
     }
 
     var body: some View {
-        keyHandlers(audioHandlers(editor))
+        keyHandlers(audioHandlers(importDialogs(editor)))
+    }
+
+    /// Converting old camera files: the question first, then what didn't make it (kept apart so the compiler can check the body quickly).
+    private func importDialogs<V: View>(_ v: V) -> some View {
+        v
+        .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
+               isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
+            Button("Proceed") {
+                let files = confirmConvert ?? []
+                confirmConvert = nil
+                Task { await importPickedFiles(files) }
+            }
+            Button("Cancel", role: .cancel) { confirmConvert = nil }
+        } message: {
+            Text("It can take a little while. Your original files stay as they are.")
+        }
+        .alert("Not everything came in", isPresented: Binding(get: { importProblems != nil }, set: { if !$0 { importProblems = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(importProblems ?? "") }
     }
 
     /// Picking, importing and editing sound (kept apart so the compiler can check the body quickly).
@@ -415,20 +434,6 @@ struct EditorView: View {
             Button("Save") { model.rename(renameText) }
             Button("Cancel", role: .cancel) {}
         }
-        .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
-               isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
-            Button("Proceed") {
-                let files = confirmConvert ?? []
-                confirmConvert = nil
-                Task { await importPickedFiles(files) }
-            }
-            Button("Cancel", role: .cancel) { confirmConvert = nil }
-        } message: {
-            Text("It can take a little while. Your original files stay as they are.")
-        }
-        .alert("Not everything came in", isPresented: Binding(get: { importProblems != nil }, set: { if !$0 { importProblems = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(importProblems ?? "") }
     }
 
     // MARK: Top bar
