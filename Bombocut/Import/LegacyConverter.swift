@@ -21,7 +21,8 @@ final class LegacyConverter {
         self.name = name
     }
 
-    func run(progress: @escaping (Double) -> Void) async throws -> Result {
+    /// `cleanup: false` only copies (tests use it to look at each pass on its own).
+    func run(cleanup allowCleanup: Bool = true, progress: @escaping (Double) -> Void) async throws -> Result {
         guard let video = demuxer.video else { throw LegacyImportError(String(format: loc("%@: no video inside."), name)) }
         if case .unsupported(let codec) = video.codec {
             throw LegacyImportError(String(format: loc("%@: its video (%@) can't be played on iPhone."), name, codec))
@@ -38,7 +39,7 @@ final class LegacyConverter {
             }
         }
 
-        let cleanup = video.codec == .mjpeg || video.codec == .mpeg4Part2 || video.interlaced || abs(video.pixelAspect - 1) > 0.01
+        let cleanup = allowCleanup && (video.codec == .mjpeg || video.codec == .mpeg4Part2 || video.interlaced || abs(video.pixelAspect - 1) > 0.01)
         let share = cleanup ? 0.55 : 1.0
         Paths.ensure()
         let target = Paths.mediaURL(UUID().uuidString + ".mov")

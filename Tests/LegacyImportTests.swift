@@ -90,6 +90,38 @@ final class LegacyImportTests: XCTestCase {
         try await convert("legacy-avchd-1080i.mts", width: 1920, height: 1080)
     }
 
+    /// Diagnosis for 1080i: does the plain copy decode, and does a plain HEVC export work?
+    func testAVCHDInterlacedSteps() async throws {
+        let u = try media("legacy-avchd-1080i.mts")
+        let r = try await LegacyConverter(demuxer: try LegacyVideo.open(u), name: "1080i").run(cleanup: false) { _ in }
+        defer { try? FileManager.default.removeItem(at: r.url) }
+        let asset = AVURLAsset(url: r.url)
+        guard let vt = try await asset.loadTracks(withMediaType: .video).first else { return XCTFail("no track") }
+        let fmt = try await vt.load(.formatDescriptions).first
+        print("DIAG 1080i format:", fmt.map { String(describing: CMFormatDescriptionGetExtensions($0)) } ?? "none")
+        let reader = try AVAssetReader(asset: asset)
+        let out = AVAssetReaderTrackOutput(track: vt, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange])
+        reader.add(out)
+        reader.startReading()
+        var n = 0
+        var fields = ""
+        while let sb = out.copyNextSampleBuffer() {
+            if let px = CMSampleBufferGetImageBuffer(sb) {
+                n += 1
+                if n == 1 { fields = String(describing: CVBufferCopyAttachments(px, .shouldPropagate)) }
+            }
+        }
+        print("DIAG 1080i decode: frames \(n) status \(reader.status.rawValue) error \(String(describing: reader.error))")
+        print("DIAG 1080i first frame attachments:", fields)
+        let plain = FileManager.default.temporaryDirectory.appendingPathComponent("diag.mov")
+        try? FileManager.default.removeItem(at: plain)
+        if let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) {
+            do { try await session.export(to: plain, as: .mov); print("DIAG 1080i plain export: ok") }
+            catch { print("DIAG 1080i plain export:", error) }
+        }
+        XCTAssertGreaterThan(n, 40)
+    }
+
     /// 1440x1080 with 4:3 pixels (AVCHD HQ/LP modes, HDV) and LPCM sound: comes out 1920 wide.
     func testAVCHDAnamorphicLPCM() async throws {
         try await convert("legacy-avchd-1440.m2ts", width: 1920, height: 1080)
