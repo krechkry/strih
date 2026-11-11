@@ -55,6 +55,7 @@ final class LegacyConverter {
             try await Self.check(target)
         } catch {
             try? FileManager.default.removeItem(at: target)
+            NSLog("Legacy import of %@ failed: %@", name, String(describing: error))
             if error is LegacyImportError { throw error }
             let detail = video.interlaced ? video.codec.name + " " + loc("interlaced") : video.codec.name
             throw LegacyImportError(String(format: loc("%@: this iPhone can't decode its video (%@)."), name, detail))
@@ -137,9 +138,14 @@ final class LegacyConverter {
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             throw LegacyImportError(loc("Couldn't write the converted video."))
         }
+        // coded size (naturalSize already has the pixel aspect applied when the file says it)
+        let formats = try await track.load(.formatDescriptions)
+        let coded = formats.first.map { CMVideoFormatDescriptionGetDimensions($0) }
         let natural = try await track.load(.naturalSize)
         let par = pixelAspect > 0.1 && pixelAspect < 10 ? pixelAspect : 1
-        let size = CGSize(width: (natural.width * par / 2).rounded() * 2, height: (natural.height / 2).rounded() * 2)
+        let w = coded.map { CGFloat($0.width) * CGFloat(par) } ?? natural.width
+        let h = coded.map { CGFloat($0.height) } ?? natural.height
+        let size = CGSize(width: (w / 2).rounded() * 2, height: (h / 2).rounded() * 2)
         let blend = CIVector(values: [0, 0.25, 0, 0, 0.5, 0, 0, 0.25, 0], count: 9)
         let composition = try await AVMutableVideoComposition.videoComposition(with: asset) { request in
             var img = request.sourceImage
@@ -151,9 +157,10 @@ final class LegacyConverter {
                 f.bias = 0
                 img = (f.outputImage ?? img).cropped(to: extent)
             }
-            if abs(par - 1) > 0.01 {
-                img = img.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
-                    .transformed(by: CGAffineTransform(scaleX: par, y: 1))
+            // whatever size the picture arrives in, it fills the square-pixel frame
+            img = img.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
+            if extent.width > 0 && extent.height > 0 && (abs(extent.width - size.width) > 1 || abs(extent.height - size.height) > 1) {
+                img = img.transformed(by: CGAffineTransform(scaleX: size.width / extent.width, y: size.height / extent.height))
             }
             request.finish(with: img.cropped(to: CGRect(origin: .zero, size: size)), context: nil)
         }

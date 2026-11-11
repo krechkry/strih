@@ -10,8 +10,10 @@ $F $(src 1920x1080 48000) -t 2 -c:v libx264 -preset ultrafast -flags +ilme+ildct
 $F $(src 1440x1080 48000) -t 2 -vf setsar=4/3 -c:v libx264 -preset ultrafast -x264-params aud=1 -pix_fmt yuv420p -c:a pcm_bluray -ac 2 -f mpegts -mpegts_m2ts_mode 1 legacy-avchd-1440.m2ts
 # TV-style TS: H.264 with B-frames + AAC
 $F $(src 640x360 48000) -t 2 -c:v libx264 -preset fast -bf 3 -pix_fmt yuv420p -c:a aac -f mpegts legacy-tv.ts
-# HEVC in TS + MP2
-$F $(src 640x360 48000) -t 2 -c:v libx265 -x265-params log-level=error -pix_fmt yuv420p -tag:v hvc1 -c:a mp2 -f mpegts legacy-hevc.ts
+# HEVC in TS + MP3
+$F $(src 640x360 48000) -t 2 -c:v libx265 -x265-params log-level=error -pix_fmt yuv420p -tag:v hvc1 -c:a libmp3lame -b:a 128k -f mpegts legacy-hevc.ts
+# H.264 in TS + MP2 (no MP2 decoder on iOS: imported without sound, with a note)
+$F $(src 640x360 48000) -t 2 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a mp2 -f mpegts legacy-mp2.ts
 # Old compact camera: MJPEG + 8-bit PCM mono
 $F $(src 640x480 8000) -t 2 -c:v mjpeg -q:v 4 -huffman default -pix_fmt yuvj420p -c:a pcm_u8 -ac 1 legacy-camera.avi
 # MJPEG + IMA ADPCM

@@ -46,7 +46,7 @@ enum AudioCodec: Equatable {
         case .eac3: return "E-AC-3"
         case .aac: return "AAC"
         case .mp3: return "MP3"
-        case .mp2: return "MPEG audio"
+        case .mp2: return "MP2"
         case .opus: return "Opus"
         case .pcm(let bits, _, let f): return f ? "PCM float" : "PCM \(bits)-bit"
         case .bluRayLPCM: return "LPCM"

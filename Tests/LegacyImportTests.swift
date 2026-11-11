@@ -16,12 +16,12 @@ final class LegacyImportTests: XCTestCase {
     }
 
     private func convert(_ name: String, width: CGFloat, height: CGFloat, frames: ClosedRange<Int> = 48...51,
-                         sound: Bool = true, minLoudness: Float = 0.03) async throws {
+                         sound: Bool = true, notes: Int = 0, minLoudness: Float = 0.03) async throws {
         let u = try media(name)
         XCTAssertEqual(LegacyVideo.verdict(u), .convert, name)
         let r = try await LegacyVideo.convert(u) { _ in }
         defer { try? FileManager.default.removeItem(at: r.url) }
-        XCTAssertEqual(r.notes, [], name)
+        XCTAssertEqual(r.notes.count, notes, "\(name): \(r.notes)")
 
         let asset = AVURLAsset(url: r.url)
         let videos = try await asset.loadTracks(withMediaType: .video)
@@ -37,6 +37,7 @@ final class LegacyImportTests: XCTestCase {
         XCTAssertTrue(frames.contains(decoded), "\(name): \(decoded) frames decoded")
 
         let audios = try await asset.loadTracks(withMediaType: .audio)
+        if !sound { XCTAssertEqual(audios.count, 0, "\(name) has sound") }
         if sound {
             XCTAssertEqual(audios.count, 1, "\(name) sound track")
             if let at = audios.first {
@@ -101,6 +102,11 @@ final class LegacyImportTests: XCTestCase {
 
     func testTransportStreamHEVC() async throws {
         try await convert("legacy-hevc.ts", width: 640, height: 360)
+    }
+
+    /// MP2 sound (no decoder on iOS): the picture comes in, with a note that the sound didn't.
+    func testTransportStreamMP2Note() async throws {
+        try await convert("legacy-mp2.ts", width: 640, height: 360, sound: false, notes: 1)
     }
 
     // MARK: AVI
