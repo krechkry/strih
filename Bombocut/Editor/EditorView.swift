@@ -21,6 +21,9 @@ struct EditorView: View {
     @State private var showAudioVideo = false
     @State private var audioVideoItem: PhotosPickerItem?
     @State private var adding = false
+    @State private var confirmConvert: [URL]?     // old camera files picked: waiting for "proceed?"
+    @State private var convertStatus: String?
+    @State private var importProblems: String?
     @State private var renaming = false
     @State private var confirmRemoveCaptions = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
@@ -402,7 +405,7 @@ struct EditorView: View {
         }
         .overlay {
             if adding || model.audioBusy {
-                ProgressView(model.audioBusy ? loc("Getting the sound…") : loc("Importing…"))
+                ProgressView(model.audioBusy ? loc("Getting the sound…") : convertStatus ?? loc("Importing…"))
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
@@ -412,6 +415,20 @@ struct EditorView: View {
             Button("Save") { model.rename(renameText) }
             Button("Cancel", role: .cancel) {}
         }
+        .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
+               isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
+            Button("Proceed") {
+                let files = confirmConvert ?? []
+                confirmConvert = nil
+                Task { await importPickedFiles(files) }
+            }
+            Button("Cancel", role: .cancel) { confirmConvert = nil }
+        } message: {
+            Text("It can take a little while. Your original files stay as they are.")
+        }
+        .alert("Not everything came in", isPresented: Binding(get: { importProblems != nil }, set: { if !$0 { importProblems = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(importProblems ?? "") }
     }
 
     // MARK: Top bar
@@ -1066,17 +1083,30 @@ struct EditorView: View {
         }
     }
 
+    /// Old camera files (AVCHD, AVI, MKV) get converted: ask first.
     private func addFiles(_ picked: [URL]) async {
         adding = true
-        defer { adding = false }
-        var urls: [URL] = []
-        for u in picked {
-            let ok = u.startAccessingSecurityScopedResource()
-            defer { if ok { u.stopAccessingSecurityScopedResource() } }
-            if let copy = try? Media.copyIn(u) { urls.append(copy) }
+        let check = await Media.checkPicked(picked)
+        adding = false
+        if check.convert > 0 {
+            confirmConvert = picked
+        } else {
+            await importPickedFiles(picked)
         }
-        let (clips, _) = await Media.makeClips(from: urls)
+    }
+
+    private func importPickedFiles(_ picked: [URL]) async {
+        adding = true
+        defer { adding = false; convertStatus = nil }
+        let r = await Media.importFiles(picked) { convertStatus = $0 }
+        convertStatus = nil
+        let (clips, _) = await Media.makeClips(from: r.urls)
         model.addClips(clips)
+        var problems = r.problems
+        if clips.count < r.urls.count {
+            problems.append(String(format: loc("%lld files couldn't be opened."), r.urls.count - clips.count))
+        }
+        if !problems.isEmpty { importProblems = problems.joined(separator: "\n") }
     }
 
     private func add(_ items: [PhotosPickerItem]) async {

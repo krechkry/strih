@@ -62,6 +62,46 @@
         }
       }
     },
+    "%@: imported without sound (%@ isn't supported).": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: importováno bez zvuku (%@ není podporovaný)."
+          }
+        }
+      }
+    },
+    "%@: its video (%@) can't be played on iPhone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: jeho video (%@) iPhone neumí přehrát."
+          }
+        }
+      }
+    },
+    "%@: no video inside.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: není v něm video."
+          }
+        }
+      }
+    },
+    "%@: this iPhone can't decode its video (%@).": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: tenhle iPhone neumí dekódovat jeho video (%@)."
+          }
+        }
+      }
+    },
     "%lld chars": {
       "localizations": {
         "cs": {
@@ -122,6 +162,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld files couldn't be opened.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nepodařilo se otevřít souborů: %lld."
           }
         }
       }
@@ -836,6 +886,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "BOMBOCUT změří otřesy kamery v klipu, vyhladí je a lehce přiblíží obraz, aby nebyly vidět okraje. Zabere to pár sekund na minutu videa."
+          }
+        }
+      }
+    },
+    "BOMBOCUT needs to convert your old ass files to a usable format, proceed?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT musí ty tvoje pravěký soubory převést do použitelnýho formátu, pokračovat?"
           }
         }
       }
@@ -1620,6 +1680,26 @@
         }
       }
     },
+    "Converting %lld of %lld…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Převádím %lld z %lld…"
+          }
+        }
+      }
+    },
+    "Converting %lld of %lld… %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Převádím %lld z %lld… %lld %%"
+          }
+        }
+      }
+    },
     "Cool Night": {
       "localizations": {
         "cs": {
@@ -1746,6 +1826,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Video se nepodařilo zapsat."
+          }
+        }
+      }
+    },
+    "Couldn't write the converted video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Převedené video se nepodařilo uložit."
           }
         }
       }
@@ -3688,6 +3778,16 @@
         }
       }
     },
+    "It can take a little while. Your original files stay as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Může to chvilku trvat. Původní soubory zůstanou, jak jsou."
+          }
+        }
+      }
+    },
     "It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.": {
       "localizations": {
         "cs": {
@@ -3714,6 +3814,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kurzíva"
+          }
+        }
+      }
+    },
+    "Its video (%@) can't be played on iPhone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeho video (%@) iPhone neumí přehrát."
           }
         }
       }
@@ -4054,6 +4164,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jas"
+          }
+        }
+      }
+    },
+    "MPEG-1/MPEG-2 video (DVD and hard disk camcorders) can't be played on iPhone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video MPEG-1/MPEG-2 (DVD a kamery s pevným diskem) iPhone neumí přehrát."
           }
         }
       }
@@ -4448,6 +4568,16 @@
         }
       }
     },
+    "No sound in this file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V souboru není zvuk."
+          }
+        }
+      }
+    },
     "No speech found.": {
       "localizations": {
         "cs": {
@@ -4464,6 +4594,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "V klipu není žádné video."
+          }
+        }
+      }
+    },
+    "No video in this file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V souboru není video."
           }
         }
       }
@@ -4514,6 +4654,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nestaženo (%@)"
+          }
+        }
+      }
+    },
+    "Not everything came in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Něco se nenaimportovalo"
           }
         }
       }
@@ -5144,6 +5294,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zásady ochrany soukromí"
+          }
+        }
+      }
+    },
+    "Proceed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokračovat"
           }
         }
       }
@@ -6928,6 +7088,26 @@
         }
       }
     },
+    "The video's settings are missing from this file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V souboru chybí nastavení videa."
+          }
+        }
+      }
+    },
+    "The video's settings in this file can't be read.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nastavení videa v tomhle souboru nejde přečíst."
+          }
+        }
+      }
+    },
     "Then buy it once, or don't.": {
       "localizations": {
         "cs": {
@@ -6964,6 +7144,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thin"
+          }
+        }
+      }
+    },
+    "This AVI file has no movie data.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle AVI soubor nemá žádná data videa."
+          }
+        }
+      }
+    },
+    "This AVI file's video can't be read.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video v tomhle AVI souboru nejde přečíst."
           }
         }
       }
@@ -7028,12 +7228,32 @@
         }
       }
     },
+    "This file has no readable video stream.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V souboru není video, které jde přečíst."
+          }
+        }
+      }
+    },
     "This file has no sound.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Tento soubor nemá zvuk."
+          }
+        }
+      }
+    },
+    "This isn't a video file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tohle není video soubor."
           }
         }
       }
@@ -7854,6 +8074,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "např. 18"
+          }
+        }
+      }
+    },
+    "encrypted sound": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "šifrovaný zvuk"
+          }
+        }
+      }
+    },
+    "encrypted video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "šifrované video"
+          }
+        }
+      }
+    },
+    "interlaced": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "prokládané"
           }
         }
       }

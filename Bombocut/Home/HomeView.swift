@@ -14,6 +14,9 @@ struct HomeView: View {
     @State private var systemPicker = false
     @State private var importing = false
     @State private var importError: String?
+    @State private var confirmConvert: [URL]?     // old camera files picked: waiting for "proceed?"
+    @State private var convertStatus: String?
+    @State private var importNote: String?        // files left out of the new project, shown when naming it
     @State private var openProject: Project?
     @State private var renaming: Project?
     @State private var deleting: Project?
@@ -119,7 +122,7 @@ struct HomeView: View {
             }
             .overlay {
                 if importing {
-                    ProgressView("Importing…")
+                    ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Importing…") } }
                         .padding(24)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
@@ -198,12 +201,23 @@ struct HomeView: View {
         .alert("Import failed", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(importError ?? "") }
+        .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
+               isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
+            Button("Proceed") {
+                let files = confirmConvert ?? []
+                confirmConvert = nil
+                Task { await importPickedFiles(files) }
+            }
+            Button("Cancel", role: .cancel) { confirmConvert = nil }
+        } message: {
+            Text("It can take a little while. Your original files stay as they are.")
+        }
         .alert("Name your project", isPresented: Binding(get: { naming != nil }, set: { if !$0 && naming != nil { openNamed(false) } })) {
             TextField(naming?.name ?? "", text: $newName)
             Button("Save") { openNamed(true) }
             Button("Skip", role: .cancel) { openNamed(false) }
         } message: {
-            Text(String(format: loc("Leave it empty to keep “%@”. You can rename it after export."), naming?.name ?? ""))
+            Text((importNote.map { $0 + "\n\n" } ?? "") + String(format: loc("Leave it empty to keep “%@”. You can rename it after export."), naming?.name ?? ""))
         }
         .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Name", text: $renameText)
@@ -314,26 +328,40 @@ struct HomeView: View {
         await create(clips: clips, firstSize: firstSize)
     }
 
+    /// Old camera files (AVCHD, AVI, MKV) get converted: ask first.
     private func importFromFiles(_ picked: [URL]) async {
         importing = true
-        defer { importing = false }
-        var urls: [URL] = []
-        for u in picked {
-            let ok = u.startAccessingSecurityScopedResource()
-            defer { if ok { u.stopAccessingSecurityScopedResource() } }
-            if let copy = try? Media.copyIn(u) { urls.append(copy) }
+        let check = await Media.checkPicked(picked)
+        importing = false
+        if check.convert > 0 {
+            confirmConvert = picked
+        } else {
+            await importPickedFiles(picked)
         }
-        await create(from: urls)
     }
 
-    private func create(from urls: [URL]) async {
+    private func importPickedFiles(_ picked: [URL]) async {
+        importing = true
+        defer { importing = false; convertStatus = nil }
+        let r = await Media.importFiles(picked) { convertStatus = $0 }
+        convertStatus = nil
+        await create(from: r.urls, problems: r.problems)
+    }
+
+    private func create(from urls: [URL], problems: [String] = []) async {
         let (clips, firstSize) = await Media.makeClips(from: urls)
-        await create(clips: clips, firstSize: firstSize)
+        var problems = problems
+        if !problems.isEmpty && clips.count < urls.count {
+            problems.append(String(format: loc("%lld files couldn't be opened."), urls.count - clips.count))
+        }
+        await create(clips: clips, firstSize: firstSize, problems: problems)
     }
 
-    private func create(clips: [Clip], firstSize: CGSize?) async {
+    private func create(clips: [Clip], firstSize: CGSize?, problems: [String] = []) async {
+        importNote = problems.isEmpty ? nil : problems.joined(separator: "\n")
         guard !clips.isEmpty else {
-            importError = "None of the picked files could be opened as video or picture."
+            importError = problems.isEmpty ? loc("None of the picked files could be opened as video or picture.") : problems.joined(separator: "\n")
+            importNote = nil
             return
         }
         var p = Project(name: store.nextName())
@@ -352,6 +380,7 @@ struct HomeView: View {
             p.name = n
         }
         naming = nil
+        importNote = nil
         openProject = p
     }
 }
