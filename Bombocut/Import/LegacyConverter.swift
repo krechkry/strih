@@ -132,52 +132,147 @@ final class LegacyConverter {
 
     // MARK: Pass 2: square progressive frames
 
-    /// Re-encodes to HEVC: fields blended into frames, stretched pixels made square.
+    /// Re-encodes to HEVC: fields blended into frames, stretched pixels made square. Frames go through
+    /// Core Image one by one (the system export session refuses interlaced input with a filter on it);
+    /// the PCM sound is copied as it is.
     static func normalize(_ src: URL, to out: URL, deinterlace: Bool, pixelAspect: Double,
                           progress: @escaping (Double) -> Void) async throws {
+        let failed = LegacyImportError(loc("Couldn't write the converted video."))
         let asset = AVURLAsset(url: src)
-        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-            throw LegacyImportError(loc("Couldn't write the converted video."))
-        }
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw failed }
+        let audioTrack = try await asset.loadTracks(withMediaType: .audio).first
+        let (formats, fps, range) = try await track.load(.formatDescriptions, .nominalFrameRate, .timeRange)
         // coded size (naturalSize already has the pixel aspect applied when the file says it)
-        let formats = try await track.load(.formatDescriptions)
-        let coded = formats.first.map { CMVideoFormatDescriptionGetDimensions($0) }
-        let natural = try await track.load(.naturalSize)
+        guard let coded = formats.first.map({ CMVideoFormatDescriptionGetDimensions($0) }), coded.width > 0, coded.height > 0 else { throw failed }
         let par = pixelAspect > 0.1 && pixelAspect < 10 ? pixelAspect : 1
-        let w = coded.map { CGFloat($0.width) * CGFloat(par) } ?? natural.width
-        let h = coded.map { CGFloat($0.height) } ?? natural.height
-        let size = CGSize(width: (w / 2).rounded() * 2, height: (h / 2).rounded() * 2)
-        let blend = CIVector(values: [0, 0.25, 0, 0, 0.5, 0, 0, 0.25, 0], count: 9)
-        let composition = try await AVMutableVideoComposition.videoComposition(with: asset) { request in
-            var img = request.sourceImage
-            let extent = img.extent
-            if deinterlace {
-                let f = CIFilter.convolution3X3()
-                f.inputImage = img.clampedToExtent()
-                f.weights = blend
-                f.bias = 0
-                img = (f.outputImage ?? img).cropped(to: extent)
+        let width = Int((Double(coded.width) * par / 2).rounded()) * 2
+        let height = Int((Double(coded.height) / 2).rounded()) * 2
+        let size = CGSize(width: width, height: height)
+
+        let reader = try AVAssetReader(asset: asset)
+        let vout = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        vout.alwaysCopiesSampleData = false
+        reader.add(vout)
+        var aout: AVAssetReaderTrackOutput?
+        var audioFormat: CMFormatDescription?
+        if let audioTrack {
+            let o = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
+            if reader.canAdd(o) {
+                reader.add(o)
+                aout = o
+                audioFormat = try await audioTrack.load(.formatDescriptions).first
             }
-            // whatever size the picture arrives in, it fills the square-pixel frame
-            img = img.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
-            if extent.width > 0 && extent.height > 0 && (abs(extent.width - size.width) > 1 || abs(extent.height - size.height) > 1) {
-                img = img.transformed(by: CGAffineTransform(scaleX: size.width / extent.width, y: size.height / extent.height))
-            }
-            request.finish(with: img.cropped(to: CGRect(origin: .zero, size: size)), context: nil)
         }
-        composition.renderSize = size
-        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
-            throw LegacyImportError(loc("Couldn't write the converted video."))
-        }
-        session.videoComposition = composition
+
         try? FileManager.default.removeItem(at: out)
-        let watcher = Task {
-            for await state in session.states(updateInterval: 0.25) {
-                if case .exporting(let p) = state { progress(p.fractionCompleted) }
-            }
+        let writer = try AVAssetWriter(outputURL: out, fileType: .mov)
+        let rate = Double(fps > 1 ? fps : 30)
+        let vin = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+            ],
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: max(4_000_000, Int(Double(width * height) * rate * 0.2)),
+                AVVideoExpectedSourceFrameRateKey: rate,
+            ],
+        ])
+        vin.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: vin, sourcePixelBufferAttributes: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+        ])
+        writer.add(vin)
+        var ain: AVAssetWriterInput?
+        if aout != nil {
+            let i = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: audioFormat)
+            i.expectsMediaDataInRealTime = false
+            if writer.canAdd(i) { writer.add(i); ain = i }
         }
-        defer { watcher.cancel() }
-        try await session.export(to: out, as: .mov)
+        guard reader.startReading() else { throw reader.error ?? failed }
+        guard writer.startWriting() else { throw writer.error ?? failed }
+        writer.startSession(atSourceTime: range.start)
+
+        let context = CIContext(options: [.cacheIntermediates: false])
+        let total = max(0.01, range.duration.seconds)
+        let report = Throttle(progress)
+        var feeds: [(AVAssetWriterInput, () -> Bool)] = [(vin, {
+            autoreleasepool {
+                guard let sb = vout.copyNextSampleBuffer() else { return false }
+                guard let px = CMSampleBufferGetImageBuffer(sb) else { return true }
+                guard let pool = adaptor.pixelBufferPool else { return false }
+                var made: CVPixelBuffer?
+                CVPixelBufferPoolCreatePixelBuffer(nil, pool, &made)
+                guard let made else { return false }
+                context.render(clean(CIImage(cvPixelBuffer: px), size: size, deinterlace: deinterlace), to: made)
+                let t = CMSampleBufferGetPresentationTimeStamp(sb)
+                report.send((t - range.start).seconds / total)
+                return adaptor.append(made, withPresentationTime: t)
+            }
+        })]
+        if let ain, let aout {
+            feeds.append((ain, {
+                guard let sb = aout.copyNextSampleBuffer() else { return false }
+                return ain.append(sb)
+            }))
+        }
+        await drive(writer, feeds)
+        if reader.status == .failed {
+            writer.cancelWriting()
+            throw reader.error ?? failed
+        }
+        await writer.finishWriting()
+        guard writer.status == .completed else { throw writer.error ?? failed }
+    }
+
+    private static let fieldBlend = CIVector(values: [0, 0.25, 0, 0, 0.5, 0, 0, 0.25, 0], count: 9)
+
+    /// One frame: the two fields blended (no combing), stretched to square pixels.
+    private static func clean(_ src: CIImage, size: CGSize, deinterlace: Bool) -> CIImage {
+        var img = src
+        let extent = img.extent
+        if deinterlace {
+            let f = CIFilter.convolution3X3()
+            f.inputImage = img.clampedToExtent()
+            f.weights = fieldBlend
+            f.bias = 0
+            img = (f.outputImage ?? img).cropped(to: extent)
+        }
+        img = img.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
+        if extent.width > 0 && extent.height > 0 && (abs(extent.width - size.width) > 1 || abs(extent.height - size.height) > 1) {
+            img = img.transformed(by: CGAffineTransform(scaleX: size.width / extent.width, y: size.height / extent.height))
+        }
+        return img.cropped(to: CGRect(origin: .zero, size: size))
+    }
+
+    /// Feeds writer inputs as fast as they take it; each step returns false when its track is done (or failed).
+    private static func drive(_ writer: AVAssetWriter, _ feeds: [(AVAssetWriterInput, () -> Bool)]) async {
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            let group = DispatchGroup()
+            for (k, feed) in feeds.enumerated() {
+                let (input, step) = feed
+                group.enter()
+                var finished = false
+                input.requestMediaDataWhenReady(on: DispatchQueue(label: "legacy.clean.\(k)")) {
+                    guard !finished else { return }
+                    while input.isReadyForMoreMediaData {
+                        if writer.status != .writing || !step() {
+                            finished = true
+                            input.markAsFinished()
+                            group.leave()
+                            return
+                        }
+                    }
+                }
+            }
+            group.notify(queue: .global()) { done.resume() }
+        }
     }
 
     /// The result must open and show a picture on this device (the hardware decoder decides, e.g. for interlaced H.264).
