@@ -1,8 +1,19 @@
 import Foundation
+import UniformTypeIdentifiers
 
 /// Old camera formats (AVCHD .mts/.m2ts, .avi, .mkv/.webm) that iOS can't open by itself.
 /// Picked files are checked first; convertible ones are converted after the user agrees.
 enum LegacyVideo {
+    /// For the Files pickers: iOS doesn't know .mts/.m2ts or .mkv itself (they show greyed out with a "?"),
+    /// so the app declares them in Info.plist and asks for them by name.
+    static let pickerTypes: [UTType] = [
+        UTType("public.avchd-mpeg-2-transport-stream"),
+        UTType("public.mpeg-2-transport-stream"),
+        UTType("public.avi"),
+        UTType("org.matroska.mkv"),
+        UTType("org.webmproject.webm"),
+    ].compactMap { $0 }
+
     enum Verdict: Equatable {
         case native                  // mov, mp4, m4v...: the system opens it
         case convert                 // we can turn it into a .mov

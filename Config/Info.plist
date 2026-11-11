@@ -11,6 +11,50 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
+			<string>public.avchd-mpeg-2-transport-stream</string>
+			<key>UTTypeDescription</key>
+			<string>AVCHD video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mts</string>
+					<string>m2ts</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/MP2T</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.avi</string>
+			<key>UTTypeDescription</key>
+			<string>AVI video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>avi</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/avi</string>
+					<string>video/x-msvideo</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
 			<string>org.matroska.mkv</string>
 			<key>UTTypeDescription</key>
 			<string>Matroska video</string>

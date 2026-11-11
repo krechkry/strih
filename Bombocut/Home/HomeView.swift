@@ -140,7 +140,7 @@ struct HomeView: View {
             }
             .photosPicker(isPresented: $systemPicker, selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered,
                           matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image], allowsMultipleSelection: true) { result in
+            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image] + LegacyVideo.pickerTypes, allowsMultipleSelection: true) { result in
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
             }

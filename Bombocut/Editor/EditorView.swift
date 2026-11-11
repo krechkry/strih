@@ -1068,7 +1068,7 @@ struct EditorView: View {
     /// What the one Files picker takes: clips (videos, pictures), LUTs for Filters, or sound.
     private var importTypes: [UTType] {
         if filesForLUTs { return [UTType(filenameExtension: "cube"), .plainText, .data].compactMap { $0 } }
-        return filesForClips ? [.movie, .image] : [.audio, .movie]
+        return filesForClips ? [.movie, .image] + LegacyVideo.pickerTypes : [.audio, .movie]
     }
 
     private func filesPicked(_ result: Result<[URL], Error>) {
