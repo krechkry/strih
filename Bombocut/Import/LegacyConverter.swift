@@ -210,7 +210,7 @@ final class LegacyConverter {
                 var made: CVPixelBuffer?
                 CVPixelBufferPoolCreatePixelBuffer(nil, pool, &made)
                 guard let made else { return false }
-                context.render(clean(CIImage(cvPixelBuffer: px), size: size, deinterlace: deinterlace), to: made)
+                context.render(Self.clean(CIImage(cvPixelBuffer: px), size: size, deinterlace: deinterlace), to: made)
                 let t = CMSampleBufferGetPresentationTimeStamp(sb)
                 report.send((t - range.start).seconds / total)
                 return adaptor.append(made, withPresentationTime: t)
