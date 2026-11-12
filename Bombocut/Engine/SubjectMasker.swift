@@ -11,6 +11,10 @@ final class SubjectMasker: @unchecked Sendable {
 
     /// Mask (white = subject) for `image` covering `frame`, or nil when nothing is found.
     func mask(for image: CIImage, frame: CGRect, kind: SubjectMask.Kind, detail: CGFloat = 512, accurate: Bool = false) -> CIImage? {
+        #if targetEnvironment(simulator)
+        // screenshots: the simulator has no Vision models, the store footage's lime figure is the subject
+        if Demo.mode != nil { return demoKey(image, frame: frame) }
+        #endif
         guard let (buf, handler) = analysable(image, frame: frame, detail: detail) else { return nil }
         var out: CVPixelBuffer?
         switch kind {
