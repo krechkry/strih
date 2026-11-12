@@ -460,6 +460,16 @@
         }
       }
     },
+    "Adding the project…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidávám projekt…"
+          }
+        }
+      }
+    },
     "Adjust": {
       "localizations": {
         "cs": {
@@ -1840,6 +1850,16 @@
         }
       }
     },
+    "Couldn't add the project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projekt se nepodařilo přidat"
+          }
+        }
+      }
+    },
     "Couldn't write the converted video.": {
       "localizations": {
         "cs": {
@@ -2652,13 +2672,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad, pokud je nesdílíš ty. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon, pokud je nesdílíš ty. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
                 }
               }
             }
@@ -2670,13 +2690,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline on your iPad, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your iPad. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                  "value": "Everything runs offline on your iPad, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your iPad, unless you share them yourself. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                  "value": "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone, unless you share them yourself. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
                 }
               }
             }
@@ -4668,6 +4688,16 @@
         }
       }
     },
+    "Not enough free space. Free up %@ and try again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nemáš dost volného místa. Uvolni %@ a zkus to znovu."
+          }
+        }
+      }
+    },
     "Not everything came in": {
       "localizations": {
         "cs": {
@@ -4818,6 +4848,16 @@
         }
       }
     },
+    "Open": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevřít"
+          }
+        }
+      }
+    },
     "Open Settings": {
       "localizations": {
         "cs": {
@@ -4914,6 +4954,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí s volbou „Za objekt“ se vykreslí mezi pozadím a objektem."
+          }
+        }
+      }
+    },
+    "Packing your projects…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balím projekty…"
+          }
+        }
+      }
+    },
+    "Packing your project…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balím projekt…"
           }
         }
       }
@@ -5324,6 +5384,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Projekt"
+          }
+        }
+      }
+    },
+    "Project added": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projekt přidán"
           }
         }
       }
@@ -6114,6 +6184,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sdílet"
+          }
+        }
+      }
+    },
+    "Share project": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sdílet projekt"
+          }
+        }
+      }
+    },
+    "Sharing failed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sdílení se nepovedlo"
           }
         }
       }
@@ -7258,6 +7348,16 @@
         }
       }
     },
+    "This file isn't a BOMBOCUT project.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tohle není projekt z BOMBOCUTu."
+          }
+        }
+      }
+    },
     "This isn't a video file.": {
       "localizations": {
         "cs": {
@@ -7274,6 +7374,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tenhle obrázek nejde otevřít."
+          }
+        }
+      }
+    },
+    "This project comes from a newer BOMBOCUT. Update the app and open it again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle projekt je z novější verze BOMBOCUTu. Aktualizuj aplikaci a otevři ho znovu."
           }
         }
       }
@@ -7324,6 +7434,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Thomas Zoechling. Packs projects into .bombocut files. License: MIT.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thomas Zoechling. Balí projekty do souborů .bombocut. Licence: MIT."
           }
         }
       }
@@ -8134,6 +8254,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "speech-swift"
+          }
+        }
+      }
+    },
+    "“%@” is in your projects now, with all its clips.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ máš teď v projektech, i se všemi klipy."
           }
         }
       }

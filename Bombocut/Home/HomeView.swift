@@ -32,9 +32,11 @@ struct HomeView: View {
     @State private var selecting = false
     @State private var selected: Set<UUID> = []
     @State private var confirmDeleteSelected = false
+    @StateObject private var transfer = ProjectTransfer()
 
     var body: some View {
         dialogs(stack)
+            .modifier(ProjectTransferLayer(transfer: transfer, store: store) { openProject = $0 })
     }
 
     private var stack: some View {
@@ -70,6 +72,7 @@ struct HomeView: View {
                                                 withAnimation(.snappy) { selecting = true; selected = [p.id] }
                                             }
                                             Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
+                                            Button("Share project", systemImage: "square.and.arrow.up") { transfer.share([p]) }
                                             Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
                                         }
                                     }
@@ -140,7 +143,7 @@ struct HomeView: View {
             }
             .photosPicker(isPresented: $systemPicker, selection: $pickerItems, maxSelectionCount: 50, selectionBehavior: .ordered,
                           matching: .any(of: [.videos, .images]), preferredItemEncoding: .current)
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image] + LegacyVideo.pickerTypes, allowsMultipleSelection: true) { result in
+            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image, .bombocutProject] + LegacyVideo.pickerTypes, allowsMultipleSelection: true) { result in
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
             }
@@ -152,6 +155,15 @@ struct HomeView: View {
         HStack(spacing: 12) {
             Text(String.localizedStringWithFormat(loc("%lld selected"), selected.count)).font(.subheadline.weight(.bold))
             Spacer()
+            Button { shareSelected() } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .padding(.horizontal, 16).frame(height: 40)
+                    .background(Theme.panel2.opacity(selected.isEmpty ? 0.5 : 1), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(selected.isEmpty)
             Button(role: .destructive) { confirmDeleteSelected = true } label: {
                 Label("Delete", systemImage: "trash")
                     .font(.subheadline.weight(.bold)).foregroundStyle(.white)
@@ -165,6 +177,13 @@ struct HomeView: View {
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 18))
         .padding(.horizontal, 12).padding(.bottom, 8)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    /// The selected projects, one .bombocut file each, in one share sheet.
+    private func shareSelected() {
+        let picked = store.projects.filter { selected.contains($0.id) }
+        withAnimation(.snappy) { selecting = false; selected = [] }
+        transfer.share(picked)
     }
 
     /// Sheets and alerts, kept apart so the compiler can check the body quickly.
@@ -329,7 +348,12 @@ struct HomeView: View {
     }
 
     /// Old camera files (AVCHD, AVI, MKV) get converted: ask first.
-    private func importFromFiles(_ picked: [URL]) async {
+    private func importFromFiles(_ all: [URL]) async {
+        // .bombocut files are whole projects: added as they are, the rest makes a new project
+        let projects = all.filter { $0.pathExtension.lowercased() == ProjectFile.ext }
+        if !projects.isEmpty { transfer.add(projects, to: store) }
+        let picked = all.filter { $0.pathExtension.lowercased() != ProjectFile.ext }
+        guard !picked.isEmpty else { return }
         importing = true
         let check = await Media.checkPicked(picked)
         importing = false

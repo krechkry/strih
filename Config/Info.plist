@@ -1,23 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists/1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>BOMBOCUT project</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>cz.krechler.bombocut.project</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>BOMBOCUT project</string>
+			<key>UTTypeIdentifier</key>
+			<string>cz.krechler.bombocut.project</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>bombocut</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-bombocut-project</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>public.avchd-mpeg-2-transport-stream</string>
-			<key>UTTypeDescription</key>
-			<string>AVCHD video</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.movie</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>AVCHD video</string>
+			<key>UTTypeIdentifier</key>
+			<string>public.avchd-mpeg-2-transport-stream</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -32,14 +74,14 @@
 			</dict>
 		</dict>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>public.avi</string>
-			<key>UTTypeDescription</key>
-			<string>AVI video</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.movie</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>AVI video</string>
+			<key>UTTypeIdentifier</key>
+			<string>public.avi</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -54,14 +96,14 @@
 			</dict>
 		</dict>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>org.matroska.mkv</string>
-			<key>UTTypeDescription</key>
-			<string>Matroska video</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.movie</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Matroska video</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.matroska.mkv</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -75,14 +117,14 @@
 			</dict>
 		</dict>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>org.webmproject.webm</string>
-			<key>UTTypeDescription</key>
-			<string>WebM video</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.movie</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>WebM video</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.webmproject.webm</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

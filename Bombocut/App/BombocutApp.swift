@@ -25,6 +25,8 @@ struct BombocutApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
                 .fontWeight(.medium)
+                // a .bombocut project opened from Files, AirDrop, Mail…
+                .onOpenURL { ProjectInbox.shared.receive($0) }
                 .task {
                     if Demo.mode == nil { SpeechEngine.warmUp() }
                     // a speech model download that was running (not paused) when the app closed carries on
