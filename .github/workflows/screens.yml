@@ -9,6 +9,9 @@ on:
       store:
         description: "yes = App Store set: Release build, nicer demo footage, full-size PNGs on the store-shots branch"
         default: "no"
+      device:
+        description: "iphone (newest iPhone Pro) or ipad (13-inch iPad Pro, 2064x2752)"
+        default: "iphone"
 
 permissions:
   contents: write
@@ -70,7 +73,10 @@ jobs:
           UDID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys
           d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]
+          if '${{ github.event.inputs.device }}' == 'ipad':
+              c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPad Pro' in x['name'] and '13' in x['name']]
+          else:
+              c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]
           print(sorted(c,key=lambda x:x['name'])[-1]['udid'])")
           echo "::notice::Simulator: $(xcrun simctl list devices | grep $UDID | head -1)"
           xcrun simctl boot $UDID || true
