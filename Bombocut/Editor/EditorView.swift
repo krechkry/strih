@@ -1218,7 +1218,7 @@ struct EditorView: View {
                 try? await Task.sleep(for: .seconds(0.6))
                 sheet = .adjust
             }
-        case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim":
+        case "captions", "captionstyle", "captionsframe", "captionsel", "captionanim", "translate":
             model.setCaptions(Self.demoCaptions(template: mode == "captionsframe" ? 1 : 0))
             model.scrub(to: mode == "captionsframe" ? 2.05 : 1.2)
             if mode == "captionsel", let cue = model.project.captions?.cues.dropFirst(2).first {

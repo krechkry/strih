@@ -40,6 +40,7 @@ struct CaptionsSheet: View {
         .presentationBackground(Theme.panel)
         .onAppear {
             if Demo.mode == "captionstyle" { tab = 1 }
+            if Demo.mode == "translate" { tab = 3 }
             if Demo.mode == "captionanim" { tab = 1; styleSection = Self.animationSection }
             if let t = model.captionTab { tab = t; model.captionTab = nil }
             if model.captionFocus != nil { tab = 0 }

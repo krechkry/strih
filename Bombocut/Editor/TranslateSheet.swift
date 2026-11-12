@@ -74,7 +74,8 @@ struct TranslateSheet: View {
     private func translator(_ caps: Captions) -> some View {
         let target = translateTarget == caps.language ? (caps.language == "en" ? "cs" : "en") : translateTarget
         let dirs = packs.directions(from: caps.language, to: target)
-        let usePacks = dirs.map { packs.isInstalled($0) } ?? false
+        // screenshots: show the downloaded (offline) state, the simulator has no packs
+        let usePacks = Demo.mode == "translate" || (dirs.map { packs.isInstalled($0) } ?? false)
         let appleCan = appleStatus == .installed || appleStatus == .supported
         let busy = model.translateJob != nil && model.translateJob?.error == nil
         return ScrollView {
