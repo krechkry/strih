@@ -435,8 +435,34 @@ struct ExportSheet: View {
                          subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
                          isOn: withEndCard) { endCard = $0 }
                     .disabled(cardLocked)
+                if cardLocked && !purchases.isBeta {
+                    Divider().overlay(Color.white.opacity(0.08))
+                    Button {
+                        Task {
+                            await purchases.buyFull()
+                            // bought from here to lose the card: it goes off right away
+                            if purchases.fullVersion { endCard = false }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if purchases.busy { ProgressView().tint(.black) }
+                            Text(String(format: loc("Buy for %@ and turn it off"), purchases.price))
+                                .font(.subheadline.weight(.heavy))
+                        }
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity).frame(height: 40)
+                        .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(purchases.busy)
+                    .padding(.vertical, 6)
+                }
             }
         }
+        .alert("BOMBOCUT", isPresented: Binding(get: { purchases.error != nil && cardLocked },
+                                                set: { if !$0 { purchases.error = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(purchases.error ?? "") }
     }
 
     private var customSize: some View {

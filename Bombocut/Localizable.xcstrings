@@ -1340,6 +1340,16 @@
         }
       }
     },
+    "Buy for %@ and turn it off": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koupit za %@ a vypnout"
+          }
+        }
+      }
+    },
     "Buy now for %@": {
       "localizations": {
         "cs": {
