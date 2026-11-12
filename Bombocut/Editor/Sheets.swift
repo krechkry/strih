@@ -245,6 +245,7 @@ struct ExportSheet: View {
             await matchFirstClip()
             // Basic with nothing to match (only photos): Full HD 30 for socials
             if !pro && matched == nil && preset == nil { apply(ExportPreset.all[0]) }
+            if Demo.mode == "exportpresets" { apply(ExportPreset.all[1]) }
         }
         .onAppear {
             if Demo.mode == "done" {
