@@ -98,51 +98,25 @@ enum Pasted {
     }
 }
 
-/// Lime round paste button. It is the system's paste control (only styled), so tapping it never asks
-/// "Allow paste?".
-struct PasteControl: UIViewRepresentable {
+/// Lime round paste button. A plain button that reads the clipboard when tapped (iOS may ask "Allow paste?").
+/// It used to be the system's UIPasteControl in a UIViewRepresentable: the main suspect for the editor freezing
+/// in an endless layout loop on iOS 26 devices (1.1), so it's gone.
+struct PasteControl: View {
     var size: CGFloat = 44
     let action: ([NSItemProvider]) -> Void
 
-    func makeUIView(context: Context) -> Host {
-        let host = Host()
-        host.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: Pasted.types.map(\.identifier))
-        let cfg = UIPasteControl.Configuration()
-        cfg.displayMode = .iconOnly
-        cfg.cornerStyle = .capsule
-        cfg.baseBackgroundColor = UIColor(Theme.accent)
-        cfg.baseForegroundColor = .black
-        let control = UIPasteControl(configuration: cfg)
-        control.target = host
-        control.translatesAutoresizingMaskIntoConstraints = false
-        host.addSubview(control)
-        NSLayoutConstraint.activate([
-            control.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-            control.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-            control.topAnchor.constraint(equalTo: host.topAnchor),
-            control.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-        ])
-        control.accessibilityLabel = loc("Paste")
-        host.onPaste = action
-        return host
-    }
-
-    func updateUIView(_ host: Host, context: Context) {
-        host.onPaste = action
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: Host, context: Context) -> CGSize? {
-        CGSize(width: size, height: size)
-    }
-
-    /// The paste control's target: takes what the system hands over.
-    final class Host: UIView {
-        var onPaste: (([NSItemProvider]) -> Void)?
-
-        override func canPaste(_ itemProviders: [NSItemProvider]) -> Bool { true }
-
-        override func paste(itemProviders: [NSItemProvider]) {
-            onPaste?(itemProviders)
+    var body: some View {
+        Button {
+            let providers = UIPasteboard.general.itemProviders
+            if !providers.isEmpty { action(providers) }
+        } label: {
+            Image(systemName: "doc.on.clipboard")
+                .font(.system(size: size * 0.4, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: size, height: size)
+                .background(Theme.accent, in: Circle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Paste"))
     }
 }
