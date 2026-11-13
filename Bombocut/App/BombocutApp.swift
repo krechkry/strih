@@ -12,6 +12,7 @@ struct BombocutApp: App {
         FirstLaunch.checkNewBuild()
         // presets and settings follow the Apple ID (Settings > iCloud)
         CloudPrefs.shared.start()
+        CloudFiles.shared.sync()
         Task.detached(priority: .background) { StorageReport.tidyTemp() }
         // the speech model is big: drop it if iOS runs short of memory (it reloads when needed)
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,

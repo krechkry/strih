@@ -180,6 +180,7 @@ final class FontLibrary: ObservableObject {
             }
         }
         reload()
+        if added > 0 { CloudFiles.shared.sync() }
         return added
     }
 
@@ -188,6 +189,7 @@ final class FontLibrary: ObservableObject {
         for url in Self.storedFiles() where Self.faces(in: url).contains(where: { f in family.faces.contains { $0.ps == f.face.ps } }) {
             CTFontManagerUnregisterFontsForURL(url as CFURL, .process, nil)
             try? FileManager.default.removeItem(at: url)
+            CloudFiles.removed("Fonts", url.lastPathComponent)
         }
         reload()
     }

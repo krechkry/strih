@@ -1,6 +1,11 @@
 import SwiftUI
 import UIKit
 
+/// A Files picker opened from inside a panel is up (its search keyboard isn't the panel's).
+enum FilesPicker {
+    static var open = false
+}
+
 /// iPad: the same layout as on iPhone (portrait first), with a few things sized for the bigger screen.
 @MainActor
 enum Device {

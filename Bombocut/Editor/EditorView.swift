@@ -377,6 +377,8 @@ struct EditorView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { n in
+            // a Files picker's search field brings up a keyboard too: shrinking the panel for it closed the picker
+            guard !FilesPicker.open, !showAudioFiles else { return }
             guard let f = n.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
             let covered = Device.keyboardOverlap(f)
             withAnimation(.easeOut(duration: 0.25)) { keyboard = covered }

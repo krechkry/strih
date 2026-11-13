@@ -126,11 +126,13 @@ enum LUTLibrary {
             }
             if (try? text.write(to: dest, atomically: true, encoding: .utf8)) != nil { n += 1 }
         }
+        if n > 0 { Task { @MainActor in CloudFiles.shared.sync() } }
         return n
     }
 
     static func remove(_ file: String) {
         try? FileManager.default.removeItem(at: folder.appendingPathComponent(file))
+        CloudFiles.removed("LUTs", file)
     }
 }
 

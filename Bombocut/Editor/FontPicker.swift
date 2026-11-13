@@ -230,6 +230,8 @@ struct FontBrowser: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
+        // the picker's own keyboard (its search field) must not count as typing in the panel (FilesPicker)
+        .onChange(of: importing) { _, on in FilesPicker.open = on }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.font], allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
             let n = library.add(urls)

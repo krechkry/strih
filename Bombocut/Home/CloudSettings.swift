@@ -70,12 +70,21 @@ struct CloudSettings: View {
     @ObservedObject private var backup = CloudBackup.shared
     @State private var prefs = CloudPrefs.enabled
     @State private var projects = CloudBackup.enabled
+    @State private var files = CloudFiles.enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             CloudToggles(prefs: $prefs, projects: $projects)
                 .onChange(of: prefs) { _, v in CloudPrefs.shared.setEnabled(v) }
                 .onChange(of: projects) { _, v in backup.setEnabled(v, store: store) }
+            OnOffRow(title: "Sync imported fonts and LUTs",
+                     subtitle: "Fonts and .cube LUTs you add show up on all your devices with the same Apple ID.",
+                     isOn: files) { v in
+                files = v
+                CloudFiles.shared.setEnabled(v)
+            }
+            .padding(14)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
             if projects {
                 Text(verbatim: status)
                     .font(.footnote.weight(.semibold))

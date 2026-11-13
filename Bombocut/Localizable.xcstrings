@@ -3364,6 +3364,16 @@
         }
       }
     },
+    "Fonts and .cube LUTs you add show up on all your devices with the same Apple ID.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Písma a LUTy .cube, které si přidáš, se objeví na všech tvých zařízeních se stejným Apple ID."
+          }
+        }
+      }
+    },
     "Fonts from Google Fonts, free to use in your videos.": {
       "localizations": {
         "cs": {
@@ -6954,6 +6964,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Sync imported fonts and LUTs": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizovat importovaná písma a LUTy"
           }
         }
       }
