@@ -34,6 +34,14 @@ targets:
       - package: FluidAudio
         product: FluidAudio
       - package: ZIPFoundation
+    # iCloud: presets and settings sync (key-value store) and project backups (iCloud Drive, "BOMBOCUT")
+    entitlements:
+      path: Config/Bombocut.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.cz.krechler.bombocut]
+        com.apple.developer.icloud-services: [CloudDocuments]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.cz.krechler.bombocut]
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     configFiles:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig

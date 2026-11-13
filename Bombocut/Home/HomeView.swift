@@ -72,7 +72,7 @@ struct HomeView: View {
                                                 withAnimation(.snappy) { selecting = true; selected = [p.id] }
                                             }
                                             Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
-                                            Button("Share project", systemImage: "square.and.arrow.up") { transfer.share([p]) }
+                                            Button("Share project", systemImage: "square.and.arrow.up") { transfer.ask([p]) }
                                             Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
                                         }
                                     }
@@ -183,7 +183,7 @@ struct HomeView: View {
     private func shareSelected() {
         let picked = store.projects.filter { selected.contains($0.id) }
         withAnimation(.snappy) { selecting = false; selected = [] }
-        transfer.share(picked)
+        transfer.ask(picked)
     }
 
     /// Sheets and alerts, kept apart so the compiler can check the body quickly.

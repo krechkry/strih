@@ -17,14 +17,20 @@ final class ProjectInbox: ObservableObject {
 /// Packing projects to share them and adding the ones opened, with the progress card on Home.
 @MainActor
 final class ProjectTransfer: ObservableObject {
-    enum Job { case packing(Int), adding }
+    enum Job { case packing(Int), downloading, adding, photos }
 
     @Published private(set) var job: Job?
     @Published private(set) var fraction: Double = 0
     @Published var error: (title: String, message: String)?
     /// The last project added: offered to open.
     @Published var added: Project?
+    /// Projects waiting for the Everything / Light choice before they're packed.
+    @Published var asking: [Project]?
+    /// Said with it: clips that didn't come back from iCloud Photos.
+    @Published private(set) var addedNote: String?
+    /// Cancel goes here; `shown` is what the bar follows (a phase can have its own).
     private var progress: Progress?
+    private var shown: Progress?
 
     /// Shared files live here until the share sheet closes (and anything left goes on the next share).
     private static var outbox: URL {
@@ -33,8 +39,15 @@ final class ProjectTransfer: ObservableObject {
 
     func cancel() { progress?.cancel() }
 
+    /// Share: asks Everything or Light first.
+    func ask(_ projects: [Project]) {
+        guard job == nil, !projects.isEmpty else { return }
+        asking = projects
+    }
+
     /// Packs the projects, one file each, then opens the share sheet with all of them.
-    func share(_ projects: [Project]) {
+    /// Light: videos that are in iCloud Photos stay out (only for the same Apple ID).
+    func share(_ projects: [Project], light: Bool = false) {
         guard job == nil, !projects.isEmpty else { return }
         let folder = Self.outbox
         try? FileManager.default.removeItem(at: folder)
@@ -46,7 +59,7 @@ final class ProjectTransfer: ObservableObject {
                 for project in projects {
                     let step = Progress(totalUnitCount: 1, parent: p, pendingUnitCount: 1000)
                     let url = try await Task.detached(priority: .userInitiated) {
-                        try ProjectFile.pack(project, into: folder, progress: step)
+                        try ProjectFile.pack(project, into: folder, light: light, progress: step)
                     }.value
                     urls.append(url)
                 }
@@ -67,11 +80,14 @@ final class ProjectTransfer: ObservableObject {
         start(.adding, p)
         Task {
             var last: Project?
+            var notes: [String] = []
             var failures: [String] = []
             for url in urls {
                 let step = Progress(totalUnitCount: 1, parent: p, pendingUnitCount: 1000)
                 do {
-                    last = try await addOne(url, store, step)
+                    let (project, note) = try await addOne(url, store, step)
+                    last = project
+                    if let note { notes.append(note) }
                 } catch {
                     if p.isCancelled { break }
                     failures.append(url.deletingPathExtension().lastPathComponent + ": " + error.localizedDescription)
@@ -81,17 +97,24 @@ final class ProjectTransfer: ObservableObject {
             if !failures.isEmpty {
                 self.error = (loc("Couldn't add the project"), failures.joined(separator: "\n"))
             } else if let last, !p.isCancelled {
+                addedNote = notes.isEmpty ? nil : notes.joined(separator: "\n")
                 added = last
             }
         }
     }
 
-    private func addOne(_ url: URL, _ store: ProjectStore, _ step: Progress) async throws -> Project {
+    private func addOne(_ url: URL, _ store: ProjectStore, _ step: Progress) async throws -> (Project, String?) {
         let scoped = url.startAccessingSecurityScopedResource()
         defer {
             if scoped { url.stopAccessingSecurityScopedResource() }
             // a copy iOS put in Documents/Inbox for us: it's in the project now
             if url.path.contains("/Documents/Inbox/") { try? FileManager.default.removeItem(at: url) }
+        }
+        // a backup in iCloud Drive that isn't on this device yet
+        if FileManager.default.isUbiquitousItem(at: url) {
+            job = .downloading
+            try await CloudBackup.download(url, progress: step)
+            job = .adding
         }
         let got = try await Task.detached(priority: .userInitiated) {
             try ProjectFile.unpack(url, progress: step)
@@ -99,18 +122,37 @@ final class ProjectTransfer: ObservableObject {
         defer { try? FileManager.default.removeItem(at: got.temp) }
         if !got.fonts.isEmpty { FontLibrary.shared.add(got.fonts) }
         var project = got.project
+
+        // a light file: its videos come back from iCloud Photos
+        var note: String?
+        if !got.photos.isEmpty {
+            let phase = Progress(totalUnitCount: 1, parent: step, pendingUnitCount: 0)
+            job = .photos
+            shown = phase
+            let (missing, changed) = await ProjectFile.restorePhotos(got.photos, progress: phase)
+            shown = progress
+            job = .adding
+            var lines: [String] = []
+            if missing > 0 { lines.append(String(format: loc("Clips not found in your iCloud Photos: %lld."), missing)) }
+            if changed > 0 { lines.append(String(format: loc("Clips edited in Photos since, check them: %lld."), changed)) }
+            if !lines.isEmpty { note = project.name + ": " + lines.joined(separator: " ") }
+        }
+
         if store.projects.contains(where: { $0.id == project.id }) { project.id = UUID() }
         project.modified = Date()
         store.save(project)
-        return project
+        // what was just added doesn't need backing up again
+        CloudBackup.shared.markBackedUp(project)
+        return (project, note)
     }
 
     private func start(_ j: Job, _ p: Progress) {
         progress = p
+        shown = p
         fraction = 0
         job = j
         Task { [weak self] in
-            while let self, self.job != nil, let p = self.progress {
+            while let self, self.job != nil, let p = self.shown {
                 self.fraction = p.fractionCompleted
                 try? await Task.sleep(nanoseconds: 150_000_000)
             }
@@ -120,12 +162,15 @@ final class ProjectTransfer: ObservableObject {
     private func finish() {
         job = nil
         progress = nil
+        shown = nil
     }
 
     var title: String {
         switch job {
         case .packing(let n): return loc(n == 1 ? "Packing your project…" : "Packing your projects…")
+        case .downloading: return loc("Downloading from iCloud…")
         case .adding: return loc("Adding the project…")
+        case .photos: return loc("Getting clips from iCloud Photos…")
         case nil: return ""
         }
     }
@@ -165,7 +210,18 @@ struct ProjectTransferLayer: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay { if transfer.job != nil { card } }
-            .onAppear(perform: takeInbox)
+            .onAppear {
+                takeInbox()
+                // projects changed since their last iCloud backup (also right after the editor closes)
+                CloudBackup.shared.backUpSoon(store)
+            }
+            .confirmationDialog("Share project", isPresented: askShown, titleVisibility: .visible, presenting: transfer.asking) { ps in
+                Button("Everything") { transfer.share(ps) }
+                Button("Light, for your Apple ID") { transfer.share(ps, light: true) }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Everything packs all the clips, so the file opens anywhere. Light leaves out the videos that are in your iCloud Photos: they come back from there, so it only opens fully with your Apple ID.")
+            }
             .onChange(of: inbox.pending) { _, _ in takeInbox() }
             .alert(transfer.error?.title ?? "", isPresented: errorShown) {
                 Button("OK", role: .cancel) {}
@@ -174,12 +230,20 @@ struct ProjectTransferLayer: ViewModifier {
                 Button("Open") { open(p) }
                 Button("OK", role: .cancel) {}
             } message: { p in
-                Text(verbatim: String(format: loc("“%@” is in your projects now, with all its clips."), p.name))
+                if let note = transfer.addedNote {
+                    Text(verbatim: String(format: loc("“%@” is in your projects now."), p.name) + "\n\n" + note)
+                } else {
+                    Text(verbatim: String(format: loc("“%@” is in your projects now, with all its clips."), p.name))
+                }
             }
     }
 
     private var errorShown: Binding<Bool> {
         Binding(get: { transfer.error != nil }, set: { if !$0 { transfer.error = nil } })
+    }
+
+    private var askShown: Binding<Bool> {
+        Binding(get: { transfer.asking != nil }, set: { if !$0 { transfer.asking = nil } })
     }
 
     private var addedShown: Binding<Bool> {

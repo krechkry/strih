@@ -1,4 +1,5 @@
 import Foundation
+import Photos
 import UniformTypeIdentifiers
 import ZIPFoundation
 
@@ -16,9 +17,12 @@ extension UTType {
 ///   LUTs/…          imported .cube LUTs the project uses
 /// Opening one copies what's missing into the app and adds the project (a copy, if it's already there).
 /// The speech and translation models never go in: every device downloads its own.
+/// A light file (format 2) leaves out the videos that are in the owner's iCloud Photos (`PhotosRef`): they come
+/// back from there when it's opened, so it only opens fully with the same Apple ID.
 enum ProjectFile {
-    /// Bump when an older app couldn't read what a newer one writes.
-    static let format = 1
+    /// The newest format this app reads. Bump when an older app couldn't read what a newer one writes.
+    /// 1 = everything inside, 2 = light (some videos come from iCloud Photos).
+    static let format = 2
     static let ext = "bombocut"
 
     struct Manifest: Codable {
@@ -30,6 +34,16 @@ enum ProjectFile {
         var fonts: [String]
         var luts: [String]
         var bytes: Int64
+        /// Light files: the videos left out, to fetch from iCloud Photos.
+        var photos: [PhotosRef]? = nil
+    }
+
+    /// A video left out of a light file: its file name in the project, its iCloud Photos id (the same on every
+    /// device with that Apple ID), and its size (a different size later = it was edited in Photos since).
+    struct PhotosRef: Codable, Hashable {
+        var file: String
+        var cloud: String
+        var size: Int64
     }
 
     enum Failure: LocalizedError {
@@ -47,9 +61,12 @@ enum ProjectFile {
     }
 
     /// What goes into a project's file: its media, the imported fonts and LUTs it uses, and their size.
-    static func contents(of p: Project) -> (media: [URL], fonts: [URL], luts: [URL], bytes: Int64) {
+    /// Light: videos that are in iCloud Photos stay out (`photos`).
+    static func contents(of p: Project, light: Bool = false)
+        -> (media: [URL], fonts: [URL], luts: [URL], bytes: Int64, photos: [PhotosRef]) {
         let fm = FileManager.default
-        let media = p.mediaFiles.sorted().map(Paths.mediaURL).filter { fm.fileExists(atPath: $0.path) }
+        let refs = light ? inICloudPhotos(p) : [:]
+        let media = p.mediaFiles.subtracting(refs.keys).sorted().map(Paths.mediaURL).filter { fm.fileExists(atPath: $0.path) }
         // fonts and LUTs are found by name in the project's JSON, so every place that names one counts
         let json = (try? JSONEncoder().encode(p)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
         let fonts = FontLibrary.storedFiles().filter { url in
@@ -58,29 +75,87 @@ enum ProjectFile {
         let luts = LUTLibrary.files().filter { json.contains("\"" + FilterLibrary.lutID($0) + "\"") }
             .map { LUTLibrary.folder.appendingPathComponent($0) }
         let bytes = (media + fonts + luts).reduce(Int64(0)) { $0 + size($1) }
-        return (media, fonts, luts, bytes)
+        return (media, fonts, luts, bytes, refs.values.sorted { $0.file < $1.file })
+    }
+
+    /// The project's videos that came from Photos and are in iCloud Photos, by file name. Photos (held pictures)
+    /// are made into a video when added, so they always go in; so does the reversed copy of a clip.
+    static func inICloudPhotos(_ p: Project) -> [String: PhotosRef] {
+        let auth = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard auth == .authorized || auth == .limited else { return [:] }
+        var pairs: [(file: String, asset: String)] = []
+        func walk(_ c: Clip) {
+            if let a = c.asset, !c.still { pairs.append((c.reversed?.mediaFile ?? c.mediaFile, a)) }
+            (c.stack ?? []).forEach(walk)
+        }
+        p.clips.forEach(walk)
+        guard !pairs.isEmpty else { return [:] }
+        var videos: [String] = []
+        PHAsset.fetchAssets(withLocalIdentifiers: Array(Set(pairs.map(\.asset))), options: nil)
+            .enumerateObjects { a, _, _ in if a.mediaType == .video { videos.append(a.localIdentifier) } }
+        guard !videos.isEmpty else { return [:] }
+        // only items already in iCloud Photos get an id (not uploaded yet, or iCloud Photos off: they go in)
+        let cloud = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: videos)
+        var out: [String: PhotosRef] = [:]
+        for (file, asset) in pairs {
+            guard case .success(let id)? = cloud[asset] else { continue }
+            let url = Paths.mediaURL(file)
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            out[file] = PhotosRef(file: file, cloud: id.stringValue, size: size(url))
+        }
+        return out
+    }
+
+    /// Videos a light file left out, fetched again from iCloud Photos under their old names (they download if
+    /// needed). Returns how many couldn't be found (deleted, another Apple ID, no access) and how many came back
+    /// different (edited in Photos since).
+    static func restorePhotos(_ refs: [PhotosRef], progress: Progress) async -> (missing: Int, changed: Int) {
+        let todo = refs.filter { safeName($0.file) && !FileManager.default.fileExists(atPath: Paths.mediaURL($0.file).path) }
+        guard !todo.isEmpty else { return (0, 0) }
+        progress.totalUnitCount = Int64(todo.count)
+        var auth = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        if auth == .notDetermined { auth = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
+        guard auth == .authorized || auth == .limited else { return (todo.count, 0) }
+        let ids = todo.map { PHCloudIdentifier(stringValue: $0.cloud) }
+        let local = PHPhotoLibrary.shared().localIdentifierMappings(for: ids)
+        var missing = 0, changed = 0
+        for (ref, id) in zip(todo, ids) {
+            defer { progress.completedUnitCount += 1 }
+            let dest = Paths.mediaURL(ref.file)
+            guard !progress.isCancelled, case .success(let localID)? = local[id],
+                  let asset = PHAsset.fetchAssets(withLocalIdentifiers: [localID], options: nil).firstObject,
+                  asset.mediaType == .video, await Media.load(asset, to: dest) != nil else {
+                missing += 1
+                continue
+            }
+            if size(dest) != ref.size { changed += 1 }
+        }
+        return (missing, changed)
     }
 
     /// Packs a project into `folder` and returns the new file. Cancel through `progress`.
-    static func pack(_ p: Project, into folder: URL, progress: Progress) throws -> URL {
+    /// Light: videos in iCloud Photos stay out. `name`: the file's name without extension (the project's otherwise).
+    static func pack(_ p: Project, into folder: URL, light: Bool = false, name: String? = nil, progress: Progress) throws -> URL {
         let fm = FileManager.default
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        let parts = contents(of: p)
+        let parts = contents(of: p, light: light)
         let need = parts.bytes + 50_000_000
         if let free = freeSpace(folder), free < need { throw Failure.noSpace(need - free) }
 
-        var url = folder.appendingPathComponent(fileName(p.name) + "." + ext)
+        let base = name ?? fileName(p.name)
+        var url = folder.appendingPathComponent(base + "." + ext)
         var k = 2
         while fm.fileExists(atPath: url.path) {
-            url = folder.appendingPathComponent(fileName(p.name) + " \(k)." + ext)
+            url = folder.appendingPathComponent(base + " \(k)." + ext)
             k += 1
         }
         let archive = try ZIPFoundation.Archive(url: url, accessMode: .create)
         do {
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-            let manifest = Manifest(format: format, app: version, name: p.name, made: Date(),
+            let manifest = Manifest(format: parts.photos.isEmpty ? 1 : 2, app: version, name: p.name, made: Date(),
                                     media: parts.media.map(\.lastPathComponent), fonts: parts.fonts.map(\.lastPathComponent),
-                                    luts: parts.luts.map(\.lastPathComponent), bytes: parts.bytes)
+                                    luts: parts.luts.map(\.lastPathComponent), bytes: parts.bytes,
+                                    photos: parts.photos.isEmpty ? nil : parts.photos)
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             try add(try enc.encode(manifest), "bombocut.json", archive)
@@ -101,11 +176,13 @@ enum ProjectFile {
         return url
     }
 
-    /// A file read back: the project (not saved yet), and imported fonts waiting in `temp` for FontLibrary.
+    /// A file read back: the project (not saved yet), imported fonts waiting in `temp` for FontLibrary, and the
+    /// videos to fetch from iCloud Photos (light files).
     struct Unpacked {
         var project: Project
         var fonts: [URL]
         var temp: URL
+        var photos: [PhotosRef] = []
     }
 
     /// Reads a .bombocut file: media and LUTs go straight into the app (files already there are kept),
@@ -142,7 +219,9 @@ enum ProjectFile {
         }
 
         let total = jobs.reduce(Int64(0)) { $0 + Int64(clamping: $1.entry.uncompressedSize) }
-        let need = total + 50_000_000
+        let photos = (manifest.photos ?? []).filter { used.contains($0.file) }
+        let fromPhotos = photos.filter { !fm.fileExists(atPath: Paths.mediaURL($0.file).path) }.reduce(Int64(0)) { $0 + $1.size }
+        let need = total + fromPhotos + 50_000_000
         if let free = freeSpace(Paths.docs), free < need {
             try? fm.removeItem(at: temp)
             throw Failure.noSpace(need - free)
@@ -163,7 +242,7 @@ enum ProjectFile {
             throw error
         }
         let fonts = jobs.map(\.dest).filter { $0.deletingLastPathComponent().standardizedFileURL == temp.standardizedFileURL }
-        return Unpacked(project: project, fonts: fonts, temp: temp)
+        return Unpacked(project: project, fonts: fonts, temp: temp, photos: photos)
     }
 
     // MARK: - Helpers

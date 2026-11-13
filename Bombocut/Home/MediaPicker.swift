@@ -361,13 +361,14 @@ private struct AssetThumb: View {
 extension Media {
     /// A Photos item copied into the Media folder in its original quality (iCloud items are downloaded):
     /// a video's file as recorded (with its edits, when it was edited in Photos), or a photo's image data.
-    static func load(_ asset: PHAsset) async -> URL? {
+    /// `dest`: where it goes (a new name otherwise), used to bring back a light project file's videos.
+    static func load(_ asset: PHAsset, to dest: URL? = nil) async -> URL? {
         Paths.ensure()
         if asset.mediaType == .video {
             let res = PHAssetResource.assetResources(for: asset)
             guard let r = res.first(where: { $0.type == .fullSizeVideo }) ?? res.first(where: { $0.type == .video }) else { return nil }
             let ext = (r.originalFilename as NSString).pathExtension.lowercased()
-            let url = Paths.mediaURL(UUID().uuidString + "." + (ext.isEmpty ? "mov" : ext))
+            let url = dest ?? Paths.mediaURL(UUID().uuidString + "." + (ext.isEmpty ? "mov" : ext))
             let o = PHAssetResourceRequestOptions()
             o.isNetworkAccessAllowed = true
             do {
@@ -389,7 +390,7 @@ extension Media {
         }
         guard let (data, uti) = got else { return nil }
         let ext = UTType(uti)?.preferredFilenameExtension ?? "jpg"
-        let url = Paths.mediaURL(UUID().uuidString + "." + ext)
+        let url = dest ?? Paths.mediaURL(UUID().uuidString + "." + ext)
         return (try? data.write(to: url)) != nil ? url : nil
     }
 

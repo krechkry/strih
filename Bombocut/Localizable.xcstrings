@@ -250,6 +250,16 @@
         }
       }
     },
+    "A copy of each project in iCloud Drive (the BOMBOCUT folder), updated after you edit. Videos that are in your iCloud Photos aren't copied again, so it takes little space.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie každého projektu na iCloud Drivu (složka BOMBOCUT), aktualizovaná po každé úpravě. Videa, která už máš ve Fotkách na iCloudu, se znovu nekopírují, takže to zabere málo místa."
+          }
+        }
+      }
+    },
     "A preset holds the whole look of the text: size, spacing, font, colors, outline, shadow and box. Save makes one from this text; hold a preset to update it with the current look, rename it or delete it.": {
       "localizations": {
         "cs": {
@@ -266,6 +276,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Předvolba drží celý styl: layout, písmo, barvy, obrys, stín, pozadí i animaci. Uložit vytvoří novou z toho, jak titulky vypadají teď; podržením předvolbu aktualizuješ podle současného vzhledu nebo smažeš."
+          }
+        }
+      }
+    },
+    "A restored project is added next to your projects; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovený projekt se přidá k ostatním, nic se nepřepíše. Zálohy najdeš i v aplikaci Soubory, na iCloud Drivu > BOMBOCUT."
           }
         }
       }
@@ -990,6 +1010,26 @@
         }
       }
     },
+    "Back up now": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zálohovat teď"
+          }
+        }
+      }
+    },
+    "Back up projects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zálohovat projekty"
+          }
+        }
+      }
+    },
     "Background": {
       "localizations": {
         "cs": {
@@ -1006,6 +1046,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pozadí černobíle"
+          }
+        }
+      }
+    },
+    "Backing up…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zálohuju…"
           }
         }
       }
@@ -1450,6 +1500,16 @@
         }
       }
     },
+    "Caption and text presets, your colors, liked fonts and filters and your Settings: the same on all your devices, and back after reinstalling.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolby titulků a textů, tvoje barvy, oblíbená písma a filtry a tvoje Nastavení: stejné na všech tvých zařízeních a zpátky i po přeinstalaci."
+          }
+        }
+      }
+    },
     "Captions": {
       "localizations": {
         "cs": {
@@ -1606,6 +1666,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klipy"
+          }
+        }
+      }
+    },
+    "Clips edited in Photos since, check them: %lld.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy, které se mezitím ve Fotkách upravily (zkontroluj je): %lld."
+          }
+        }
+      }
+    },
+    "Clips not found in your iCloud Photos: %lld.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy, které se ve Fotkách na iCloudu nenašly: %lld."
           }
         }
       }
@@ -2414,6 +2494,16 @@
         }
       }
     },
+    "Downloading from iCloud…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuju z iCloudu…"
+          }
+        }
+      }
+    },
     "Downloading speech model %lld %%": {
       "localizations": {
         "cs": {
@@ -2664,6 +2754,26 @@
         }
       }
     },
+    "Everything": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno"
+          }
+        }
+      }
+    },
+    "Everything packs all the clips, so the file opens anywhere. Light leaves out the videos that are in your iCloud Photos: they come back from there, so it only opens fully with your Apple ID.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno zabalí všechny klipy, takže soubor otevřeš kdekoli. Lehký vynechá videa, která máš ve Fotkách na iCloudu: vrátí se odtamtud, takže se celý otevře jen s tvým Apple ID."
+          }
+        }
+      }
+    },
     "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store.": {
       "localizations": {
         "cs": {
@@ -2672,13 +2782,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad, pokud je nesdílíš ty. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad, pokud je nesdílíš nebo nezálohuješ do svého iCloudu. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu. Synchronizované předvolby a nastavení jdou jen do tvého vlastního iCloudu."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádný cloud, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon, pokud je nesdílíš ty. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu."
+                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon, pokud je nesdílíš nebo nezálohuješ do svého iCloudu. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu. Synchronizované předvolby a nastavení jdou jen do tvého vlastního iCloudu."
                 }
               }
             }
@@ -2690,13 +2800,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline on your iPad, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your iPad, unless you share them yourself. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                  "value": "Everything runs offline on your iPad, using its battery and chip. No servers, no account, no analytics, no data collection. Your videos, captions and projects never leave your iPad, unless you share them or back them up to your own iCloud. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store. Synced presets and settings go only to your own iCloud."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline on your iPhone, using its battery and chip. No cloud, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone, unless you share them yourself. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store."
+                  "value": "Everything runs offline on your iPhone, using its battery and chip. No servers, no account, no analytics, no data collection. Your videos, captions and projects never leave your phone, unless you share them or back them up to your own iCloud. The internet is used only to download the speech model once (from Hugging Face), caption translation models for the languages you pick (from Mozilla), and to check your purchase with the App Store. Synced presets and settings go only to your own iCloud."
                 }
               }
             }
@@ -2712,13 +2822,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline, přímo v iPadu. Žádný cloud, žádný účet, žádné sbírání dat."
+                  "value": "Všechno běží offline, přímo v iPadu. Žádné servery, žádný účet, žádné sbírání dat."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline, přímo v iPhonu. Žádný cloud, žádný účet, žádné sbírání dat."
+                  "value": "Všechno běží offline, přímo v iPhonu. Žádné servery, žádný účet, žádné sbírání dat."
                 }
               }
             }
@@ -2730,13 +2840,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline, on your iPad. No cloud, no account, no data collection."
+                  "value": "Everything runs offline, on your iPad. No servers, no account, no data collection."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Everything runs offline, on your iPhone. No cloud, no account, no data collection."
+                  "value": "Everything runs offline, on your iPhone. No servers, no account, no data collection."
                 }
               }
             }
@@ -3468,6 +3578,16 @@
         }
       }
     },
+    "Getting clips from iCloud Photos…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beru klipy z Fotek na iCloudu…"
+          }
+        }
+      }
+    },
     "Getting the frame…": {
       "localizations": {
         "cs": {
@@ -3808,6 +3928,16 @@
         }
       }
     },
+    "It all goes to your own iCloud, never to us. You can change it any time in Settings.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno jde do tvého vlastního iCloudu, nikdy k nám. Změnit to můžeš kdykoli v Nastavení."
+          }
+        }
+      }
+    },
     "It can take a little while. Your original files stay as they are.": {
       "localizations": {
         "cs": {
@@ -3998,6 +4128,16 @@
         }
       }
     },
+    "Last backup: %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslední záloha: %@"
+          }
+        }
+      }
+    },
     "Later": {
       "localizations": {
         "cs": {
@@ -4064,6 +4204,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lehká"
+          }
+        }
+      }
+    },
+    "Light, for your Apple ID": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lehký, pro tvoje Apple ID"
           }
         }
       }
@@ -4568,6 +4718,16 @@
         }
       }
     },
+    "No backups in iCloud yet.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na iCloudu zatím nejsou žádné zálohy."
+          }
+        }
+      }
+    },
     "No new fonts in those files.": {
       "localizations": {
         "cs": {
@@ -4704,6 +4864,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Něco se nenaimportovalo"
+          }
+        }
+      }
+    },
+    "Nothing backed up yet.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatím nic zálohovaného."
           }
         }
       }
@@ -5718,6 +5888,16 @@
         }
       }
     },
+    "Restore": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obnovit"
+          }
+        }
+      }
+    },
     "Restore purchase": {
       "localizations": {
         "cs": {
@@ -6234,6 +6414,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zúžit / rozšířit"
+          }
+        }
+      }
+    },
+    "Sign in to iCloud and turn on iCloud Drive to back up projects.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro zálohování projektů se přihlas k iCloudu a zapni iCloud Drive."
           }
         }
       }
@@ -6764,6 +6954,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky ve 25 jazycích"
+          }
+        }
+      }
+    },
+    "Sync presets and settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizovat předvolby a nastavení"
           }
         }
       }
@@ -8228,6 +8428,16 @@
         }
       }
     },
+    "iCloud": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud"
+          }
+        }
+      }
+    },
     "interlaced": {
       "localizations": {
         "cs": {
@@ -8258,12 +8468,32 @@
         }
       }
     },
+    "“%@” couldn't be backed up: %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ se nepodařilo zálohovat: %@"
+          }
+        }
+      }
+    },
     "“%@” is in your projects now, with all its clips.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "„%@“ máš teď v projektech, i se všemi klipy."
+          }
+        }
+      }
+    },
+    "“%@” is in your projects now.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ máš teď v projektech."
           }
         }
       }

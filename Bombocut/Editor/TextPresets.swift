@@ -29,6 +29,7 @@ enum TextPresetStore {
 
     static func save(_ list: [TextPreset]) {
         if let data = try? JSONEncoder().encode(list) { try? data.write(to: url, options: .atomic) }
+        CloudPrefs.fileSaved()
     }
 }
 

@@ -376,6 +376,7 @@ enum TemplateStore {
 
     static func save(_ t: [CaptionTemplate]) {
         if let data = try? JSONEncoder().encode(t) { try? data.write(to: url, options: .atomic) }
+        CloudPrefs.fileSaved()
     }
 }
 

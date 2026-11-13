@@ -473,6 +473,7 @@ struct SettingsView: View {
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    group("iCloud") { CloudSettings { dismiss() } }
                     group("App language") {
                         HStack(spacing: 10) {
                             ForEach(AppLanguage.options, id: \.code) { o in

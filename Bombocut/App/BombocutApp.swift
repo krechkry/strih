@@ -10,6 +10,8 @@ struct BombocutApp: App {
         // editor audio plays even when the ring/silent switch is on (and, if chosen, next to other apps' music)
         AudioMix.apply()
         FirstLaunch.checkNewBuild()
+        // presets and settings follow the Apple ID (Settings > iCloud)
+        CloudPrefs.shared.start()
         Task.detached(priority: .background) { StorageReport.tidyTemp() }
         // the speech model is big: drop it if iOS runs short of memory (it reloads when needed)
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,

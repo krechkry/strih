@@ -67,6 +67,27 @@ final class ProjectFileTests: XCTestCase {
         }
     }
 
+    /// Presets from the cloud and this device become one list: the cloud's version of a shared preset wins.
+    func testPresetMerge() throws {
+        let cloud = Data(#"[{"id":"A","name":"cloud A"},{"id":"B","name":"B"}]"#.utf8)
+        let local = Data(#"[{"id":"A","name":"local A"},{"id":"C","name":"C"}]"#.utf8)
+        let merged = try XCTUnwrap(CloudPrefs.merge(cloud: cloud, local: local))
+        let list = try XCTUnwrap(JSONSerialization.jsonObject(with: merged) as? [[String: Any]])
+        XCTAssertEqual(list.compactMap { $0["id"] as? String }, ["A", "B", "C"])
+        XCTAssertEqual(list.first?["name"] as? String, "cloud A")
+        XCTAssertEqual(CloudPrefs.merge(cloud: nil, local: local), local)
+        XCTAssertEqual(CloudPrefs.merge(cloud: cloud, local: nil), cloud)
+    }
+
+    /// Backup file names show as the project's name.
+    func testBackupTitles() {
+        let id = UUID()
+        let file = "Parta edit " + CloudBackup.tag(id) + ".bombocut"
+        XCTAssertEqual(CloudBackup.title(file), "Parta edit")
+        XCTAssertEqual(CloudBackup.title("." + file + ".icloud"), "Parta edit")
+        XCTAssertEqual(CloudBackup.title("Shared.bombocut"), "Shared")
+    }
+
     func testNames() {
         XCTAssertTrue(ProjectFile.safeName("A1B2.mov"))
         XCTAssertFalse(ProjectFile.safeName(".."))

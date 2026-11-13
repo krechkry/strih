@@ -13,6 +13,11 @@ struct RootView: View {
     @State private var exportOnly = false
 
     private var gate: Bool { !inApp && Demo.mode == nil && !purchases.isBeta }
+    @AppStorage("icloudAsked") private var cloudAsked = false
+
+    private var cloudAsk: Binding<Bool> {
+        Binding(get: { onboarded && !cloudAsked && Demo.mode == nil }, set: { if !$0 { cloudAsked = true } })
+    }
 
     /// Home is showing and the App Store has answered (or this is a beta): stay in the app from now on.
     private func latch() {
@@ -28,15 +33,17 @@ struct RootView: View {
             if Demo.mode == "memes" {
                 MemeGallery()
             } else if Demo.mode == "welcome" || Demo.mode == "paywall" || Demo.mode == "uimode" || Demo.mode == "uimodepro" {
-                OnboardingView(step: Demo.mode == "paywall" ? 3 : (Demo.mode?.hasPrefix("uimode") == true ? 1 : 0))
+                OnboardingView(step: Demo.mode == "paywall" ? 4 : (Demo.mode?.hasPrefix("uimode") == true ? 1 : 0))
             } else if Demo.mode == "expired" {
                 PaywallView(mode: .expired)
             } else if Demo.mode == nil && !inApp && (!onboarded || (gate && purchases.access == .new)) {
-                OnboardingView(step: onboarded ? 3 : 0)
+                OnboardingView(step: onboarded ? 4 : 0)
             } else if gate && purchases.access == .expired && !exportOnly {
                 PaywallView(mode: .expired) { withAnimation(.snappy) { exportOnly = true } }
             } else {
                 HomeView(exportOnly: gate && purchases.access == .expired).onAppear(perform: latch)
+                    // the iCloud page, once, for people who were already using the app before it came
+                    .fullScreenCover(isPresented: cloudAsk) { CloudSetupView { cloudAsked = true } }
             }
         }
         .environment(\.locale, Locale(identifier: language))
@@ -65,9 +72,12 @@ struct OnboardingView: View {
                 ModePickerView { withAnimation(.snappy) { step = 2 } }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             case 2:
+                CloudSetupView { withAnimation(.snappy) { step = 3 } }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            case 3:
                 LanguageSetupView(firstLaunch: true) {
                     onboarded = true
-                    withAnimation(.snappy) { step = 3 }
+                    withAnimation(.snappy) { step = 4 }
                 }
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             default: PaywallView(mode: .start).transition(.move(edge: .trailing).combined(with: .opacity))
