@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// .bombocut files opened from outside (Files, AirDrop, Mail…), waiting for Home to add them.
+/// .bbc files opened from outside (Files, AirDrop, Mail…), waiting for Home to add them.
 /// Kept here so a file opened while onboarding or the paywall shows isn't lost.
 @MainActor
 final class ProjectInbox: ObservableObject {
@@ -9,7 +9,7 @@ final class ProjectInbox: ObservableObject {
     @Published var pending: [URL] = []
 
     func receive(_ url: URL) {
-        guard url.pathExtension.lowercased() == ProjectFile.ext else { return }
+        guard ProjectFile.isProjectFile(url) else { return }
         pending.append(url)
     }
 }
@@ -73,7 +73,7 @@ final class ProjectTransfer: ObservableObject {
         }
     }
 
-    /// Adds .bombocut files as projects (each one a new project, a copy if it's already there).
+    /// Adds .bbc files as projects (each one a new project, a copy if it's already there).
     func add(_ urls: [URL], to store: ProjectStore) {
         guard job == nil, !urls.isEmpty else { return }
         let p = Progress(totalUnitCount: Int64(urls.count) * 1000)

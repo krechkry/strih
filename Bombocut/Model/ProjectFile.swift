@@ -8,7 +8,7 @@ extension UTType {
     static let bombocutProject = UTType(exportedAs: "cz.krechler.bombocut.project", conformingTo: .data)
 }
 
-/// A project packed into one .bombocut file, to back it up anywhere (iCloud Drive, Google Drive, a card)
+/// A project packed into one .bbc file, to back it up anywhere (iCloud Drive, Google Drive, a card)
 /// or hand it to someone. It's a plain zip (rename it to .zip on a computer and the clips are inside):
 ///   bombocut.json   what's inside (`Manifest`)
 ///   project.json    the project, as ProjectStore keeps it
@@ -23,7 +23,11 @@ enum ProjectFile {
     /// The newest format this app reads. Bump when an older app couldn't read what a newer one writes.
     /// 1 = everything inside, 2 = light (some videos come from iCloud Photos).
     static let format = 2
-    static let ext = "bombocut"
+    static let ext = "bbc"
+    /// What opens as a project: .bbc, and .bombocut from the first test builds.
+    static let exts: Set<String> = ["bbc", "bombocut"]
+
+    static func isProjectFile(_ url: URL) -> Bool { exts.contains(url.pathExtension.lowercased()) }
 
     struct Manifest: Codable {
         var format: Int
@@ -185,7 +189,7 @@ enum ProjectFile {
         var photos: [PhotosRef] = []
     }
 
-    /// Reads a .bombocut file: media and LUTs go straight into the app (files already there are kept),
+    /// Reads a .bbc file: media and LUTs go straight into the app (files already there are kept),
     /// fonts into a temporary folder. Nothing is left behind when it fails or is cancelled.
     static func unpack(_ url: URL, progress: Progress) throws -> Unpacked {
         let fm = FileManager.default

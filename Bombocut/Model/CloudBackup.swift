@@ -1,6 +1,6 @@
 import Foundation
 
-/// Settings > iCloud > Back up projects (off until the user turns it on): a light .bombocut file of each project
+/// Settings > iCloud > Back up projects (off until the user turns it on): a light .bbc file of each project
 /// in the app's own iCloud Drive folder (Files > iCloud Drive > BOMBOCUT), refreshed when Home shows again after
 /// editing. Videos that are in the user's iCloud Photos aren't copied again (`ProjectFile` light). Backups stay
 /// when a project is deleted here: they're backups. Restore = open one (Settings or Files).
@@ -104,20 +104,20 @@ final class CloudBackup: ObservableObject {
             .appendingPathComponent("Documents", isDirectory: true)
     }
 
-    /// "Name (1A2B3C).bombocut": the tag keeps one backup per project, even after a rename.
+    /// "Name (1A2B3C).bbc": the tag keeps one backup per project, even after a rename.
     nonisolated static func tag(_ id: UUID) -> String { "(\(id.uuidString.prefix(6)))" }
 
     /// The project name shown for a backup file (no tag, no extension).
     nonisolated static func title(_ fileName: String) -> String {
         var n = cleanName(fileName)
-        if n.hasSuffix("." + ProjectFile.ext) { n = String(n.dropLast(ProjectFile.ext.count + 1)) }
+        for e in ProjectFile.exts where n.hasSuffix("." + e) { n = String(n.dropLast(e.count + 1)) }
         if n.hasSuffix(")"), let open = n.lastIndex(of: "("), n.distance(from: open, to: n.endIndex) == 8 {
             n = String(n[..<open]).trimmingCharacters(in: .whitespaces)
         }
         return n
     }
 
-    /// A file not downloaded yet can show as ".Name.bombocut.icloud".
+    /// A file not downloaded yet can show as ".Name.bbc.icloud".
     nonisolated static func cleanName(_ n: String) -> String {
         guard n.hasPrefix("."), n.hasSuffix(".icloud") else { return n }
         return String(n.dropFirst().dropLast(".icloud".count))
@@ -177,7 +177,7 @@ final class BackupBrowser: ObservableObject {
     func start() {
         guard observers.isEmpty else { return }
         query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
-        query.predicate = NSPredicate(format: "%K LIKE '*.bombocut'", NSMetadataItemFSNameKey)
+        query.predicate = NSPredicate(format: "%K LIKE '*.bbc' OR %K LIKE '*.bombocut'", NSMetadataItemFSNameKey, NSMetadataItemFSNameKey)
         for name in [NSNotification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: query, queue: .main) { [weak self] _ in
                 Task { @MainActor in self?.refresh() }

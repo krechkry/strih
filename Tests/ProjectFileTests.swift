@@ -29,7 +29,7 @@ final class ProjectFileTests: XCTestCase {
         let out = fm.temporaryDirectory.appendingPathComponent("ProjectFileTests-" + UUID().uuidString)
         defer { try? fm.removeItem(at: out) }
         let file = try ProjectFile.pack(p, into: out, progress: Progress())
-        XCTAssertEqual(file.pathExtension, "bombocut")
+        XCTAssertEqual(file.pathExtension, "bbc")
         XCTAssertFalse(file.lastPathComponent.contains("/"))
         XCTAssertFalse(file.lastPathComponent.contains(":"))
 
@@ -57,9 +57,9 @@ final class ProjectFileTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: Paths.mediaURL(media)), bytes)
     }
 
-    /// Anything that isn't a .bombocut file is turned down, with nothing written.
+    /// Anything that isn't a .bbc file is turned down, with nothing written.
     func testRejectsOtherFiles() throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bombocut")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bbc")
         try Data("not a zip at all".utf8).write(to: url)
         defer { try? FileManager.default.removeItem(at: url) }
         XCTAssertThrowsError(try ProjectFile.unpack(url, progress: Progress())) { error in
@@ -82,7 +82,7 @@ final class ProjectFileTests: XCTestCase {
     /// Backup file names show as the project's name.
     func testBackupTitles() {
         let id = UUID()
-        let file = "Parta edit " + CloudBackup.tag(id) + ".bombocut"
+        let file = "Parta edit " + CloudBackup.tag(id) + ".bbc"
         XCTAssertEqual(CloudBackup.title(file), "Parta edit")
         XCTAssertEqual(CloudBackup.title("." + file + ".icloud"), "Parta edit")
         XCTAssertEqual(CloudBackup.title("Shared.bombocut"), "Shared")

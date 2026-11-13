@@ -179,7 +179,7 @@ struct HomeView: View {
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
-    /// The selected projects, one .bombocut file each, in one share sheet.
+    /// The selected projects, one .bbc file each, in one share sheet.
     private func shareSelected() {
         let picked = store.projects.filter { selected.contains($0.id) }
         withAnimation(.snappy) { selecting = false; selected = [] }
@@ -349,10 +349,10 @@ struct HomeView: View {
 
     /// Old camera files (AVCHD, AVI, MKV) get converted: ask first.
     private func importFromFiles(_ all: [URL]) async {
-        // .bombocut files are whole projects: added as they are, the rest makes a new project
-        let projects = all.filter { $0.pathExtension.lowercased() == ProjectFile.ext }
+        // .bbc files are whole projects: added as they are, the rest makes a new project
+        let projects = all.filter(ProjectFile.isProjectFile)
         if !projects.isEmpty { transfer.add(projects, to: store) }
-        let picked = all.filter { $0.pathExtension.lowercased() != ProjectFile.ext }
+        let picked = all.filter { !ProjectFile.isProjectFile($0) }
         guard !picked.isEmpty else { return }
         importing = true
         let check = await Media.checkPicked(picked)

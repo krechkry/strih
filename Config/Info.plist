@@ -52,6 +52,7 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
+					<string>bbc</string>
 					<string>bombocut</string>
 				</array>
 				<key>public.mime-type</key>

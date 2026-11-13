@@ -27,7 +27,7 @@ struct BombocutApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.accent)
                 .fontWeight(.medium)
-                // a .bombocut project opened from Files, AirDrop, Mail…
+                // a .bbc project opened from Files, AirDrop, Mail…
                 .onOpenURL { ProjectInbox.shared.receive($0) }
                 .task {
                     if Demo.mode == nil { SpeechEngine.warmUp() }

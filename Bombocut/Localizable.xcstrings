@@ -7638,12 +7638,12 @@
         }
       }
     },
-    "Thomas Zoechling. Packs projects into .bombocut files. License: MIT.": {
+    "Thomas Zoechling. Packs projects into .bbc files. License: MIT.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Thomas Zoechling. Balí projekty do souborů .bombocut. Licence: MIT."
+            "value": "Thomas Zoechling. Balí projekty do souborů .bbc. Licence: MIT."
           }
         }
       }
