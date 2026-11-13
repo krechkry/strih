@@ -5958,6 +5958,26 @@
         }
       }
     },
+    "Reversed clips that couldn't be made again: %lld.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy pozpátku, které se nepodařilo znovu vytvořit: %lld."
+          }
+        }
+      }
+    },
+    "Reversing clips again…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znovu vytvářím klipy pozpátku…"
+          }
+        }
+      }
+    },
     "Ride with us": {
       "localizations": {
         "cs": {

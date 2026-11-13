@@ -40,6 +40,17 @@ enum ProjectFile {
         var bytes: Int64
         /// Light files: the videos left out, to fetch from iCloud Photos.
         var photos: [PhotosRef]? = nil
+        /// Reversed clips left out: made again from their original on the device that opens the file.
+        var reversed: [ReverseRef]? = nil
+    }
+
+    /// A reversed copy of a clip (`file`), remade from `source` between `from` and `to` (the clip's ReverseOrigin).
+    /// It's as big as that part of the original, so it never travels when the original does.
+    struct ReverseRef: Codable, Hashable {
+        var file: String
+        var source: String
+        var from: Double
+        var to: Double
     }
 
     /// A video left out of a light file: its file name in the project, its iCloud Photos id (the same on every
@@ -67,10 +78,12 @@ enum ProjectFile {
     /// What goes into a project's file: its media, the imported fonts and LUTs it uses, and their size.
     /// Light: videos that are in iCloud Photos stay out (`photos`).
     static func contents(of p: Project, light: Bool = false)
-        -> (media: [URL], fonts: [URL], luts: [URL], bytes: Int64, photos: [PhotosRef]) {
+        -> (media: [URL], fonts: [URL], luts: [URL], bytes: Int64, photos: [PhotosRef], reversed: [ReverseRef]) {
         let fm = FileManager.default
         let refs = light ? inICloudPhotos(p) : [:]
-        let media = p.mediaFiles.subtracting(refs.keys).sorted().map(Paths.mediaURL).filter { fm.fileExists(atPath: $0.path) }
+        let remade = reversedClips(p)
+        let media = p.mediaFiles.subtracting(refs.keys).subtracting(remade.map(\.file)).sorted()
+            .map(Paths.mediaURL).filter { fm.fileExists(atPath: $0.path) }
         // fonts and LUTs are found by name in the project's JSON, so every place that names one counts
         let json = (try? JSONEncoder().encode(p)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
         let fonts = FontLibrary.storedFiles().filter { url in
@@ -79,7 +92,47 @@ enum ProjectFile {
         let luts = LUTLibrary.files().filter { json.contains("\"" + FilterLibrary.lutID($0) + "\"") }
             .map { LUTLibrary.folder.appendingPathComponent($0) }
         let bytes = (media + fonts + luts).reduce(Int64(0)) { $0 + size($1) }
-        return (media, fonts, luts, bytes, refs.values.sorted { $0.file < $1.file })
+        return (media, fonts, luts, bytes, refs.values.sorted { $0.file < $1.file }, remade)
+    }
+
+    /// The project's reversed clips whose original is on this device (so it travels, or comes from iCloud Photos):
+    /// those copies are remade instead of packed.
+    static func reversedClips(_ p: Project) -> [ReverseRef] {
+        var out: [ReverseRef] = []
+        func walk(_ c: Clip) {
+            if let o = c.reversed, o.mediaFile != c.mediaFile,
+               FileManager.default.fileExists(atPath: Paths.mediaURL(o.mediaFile).path) {
+                out.append(ReverseRef(file: c.mediaFile, source: o.mediaFile, from: o.inPoint, to: o.outPoint))
+            }
+            (c.stack ?? []).forEach(walk)
+        }
+        p.clips.forEach(walk)
+        var seen = Set<String>()
+        return out.filter { seen.insert($0.file).inserted }
+    }
+
+    /// Remakes reversed clips a file left out, under their old names (after their originals are in).
+    /// Returns how many couldn't be made.
+    static func remakeReversed(_ refs: [ReverseRef], progress: Progress) async -> Int {
+        let fm = FileManager.default
+        let todo = refs.filter { safeName($0.file) && safeName($0.source) && !fm.fileExists(atPath: Paths.mediaURL($0.file).path) }
+        guard !todo.isEmpty else { return 0 }
+        progress.totalUnitCount = Int64(todo.count) * 100
+        var failed = 0
+        for (i, r) in todo.enumerated() {
+            let source = Paths.mediaURL(r.source)
+            guard !progress.isCancelled, fm.fileExists(atPath: source.path) else { failed += 1; continue }
+            do {
+                let made = try await Reverser.reverse(source, from: r.from, to: r.to) { f in
+                    progress.completedUnitCount = Int64(i * 100) + Int64(f * 100)
+                }
+                try fm.moveItem(at: made, to: Paths.mediaURL(r.file))
+            } catch {
+                failed += 1
+            }
+            progress.completedUnitCount = Int64((i + 1) * 100)
+        }
+        return failed
     }
 
     /// The project's media that came from Photos and is in iCloud Photos, by file name: clips' videos, and the
@@ -164,10 +217,12 @@ enum ProjectFile {
         let archive = try ZIPFoundation.Archive(url: url, accessMode: .create)
         do {
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-            let manifest = Manifest(format: parts.photos.isEmpty ? 1 : 2, app: version, name: p.name, made: Date(),
+            let plain = parts.photos.isEmpty && parts.reversed.isEmpty
+            let manifest = Manifest(format: plain ? 1 : 2, app: version, name: p.name, made: Date(),
                                     media: parts.media.map(\.lastPathComponent), fonts: parts.fonts.map(\.lastPathComponent),
                                     luts: parts.luts.map(\.lastPathComponent), bytes: parts.bytes,
-                                    photos: parts.photos.isEmpty ? nil : parts.photos)
+                                    photos: parts.photos.isEmpty ? nil : parts.photos,
+                                    reversed: parts.reversed.isEmpty ? nil : parts.reversed)
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             try add(try enc.encode(manifest), "bombocut.json", archive)
@@ -195,6 +250,7 @@ enum ProjectFile {
         var fonts: [URL]
         var temp: URL
         var photos: [PhotosRef] = []
+        var reversed: [ReverseRef] = []
     }
 
     /// Reads a .bbc file: media and LUTs go straight into the app (files already there are kept),
@@ -254,7 +310,8 @@ enum ProjectFile {
             throw error
         }
         let fonts = jobs.map(\.dest).filter { $0.deletingLastPathComponent().standardizedFileURL == temp.standardizedFileURL }
-        return Unpacked(project: project, fonts: fonts, temp: temp, photos: photos)
+        let reversed = (manifest.reversed ?? []).filter { used.contains($0.file) }
+        return Unpacked(project: project, fonts: fonts, temp: temp, photos: photos, reversed: reversed)
     }
 
     // MARK: - Helpers

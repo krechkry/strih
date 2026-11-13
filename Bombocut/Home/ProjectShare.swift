@@ -17,7 +17,7 @@ final class ProjectInbox: ObservableObject {
 /// Packing projects to share them and adding the ones opened, with the progress card on Home.
 @MainActor
 final class ProjectTransfer: ObservableObject {
-    enum Job { case packing(Int), downloading, adding, photos }
+    enum Job { case packing(Int), downloading, adding, photos, reversing }
 
     @Published private(set) var job: Job?
     @Published private(set) var fraction: Double = 0
@@ -138,6 +138,20 @@ final class ProjectTransfer: ObservableObject {
             if !lines.isEmpty { note = project.name + ": " + lines.joined(separator: " ") }
         }
 
+        // reversed clips travel as a recipe: made again from their original, now that it's here
+        if !got.reversed.isEmpty {
+            let phase = Progress(totalUnitCount: 1, parent: step, pendingUnitCount: 0)
+            job = .reversing
+            shown = phase
+            let failed = await ProjectFile.remakeReversed(got.reversed, progress: phase)
+            shown = progress
+            job = .adding
+            if failed > 0 {
+                let line = String(format: loc("Reversed clips that couldn't be made again: %lld."), failed)
+                note = (note.map { $0 + " " } ?? project.name + ": ") + line
+            }
+        }
+
         if store.projects.contains(where: { $0.id == project.id }) { project.id = UUID() }
         project.modified = Date()
         store.save(project)
@@ -171,6 +185,7 @@ final class ProjectTransfer: ObservableObject {
         case .downloading: return loc("Downloading from iCloud…")
         case .adding: return loc("Adding the project…")
         case .photos: return loc("Getting clips from iCloud Photos…")
+        case .reversing: return loc("Reversing clips again…")
         case nil: return ""
         }
     }

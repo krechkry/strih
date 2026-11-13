@@ -57,6 +57,24 @@ final class ProjectFileTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: Paths.mediaURL(media)), bytes)
     }
 
+    /// A reversed clip doesn't travel when its original does: it's listed to be made again instead.
+    func testReversedTravelsAsRecipe() throws {
+        let fm = FileManager.default
+        Paths.ensure()
+        let original = UUID().uuidString + ".mov", backwards = "reversed-" + UUID().uuidString + ".mov"
+        try Data(count: 1000).write(to: Paths.mediaURL(original))
+        try Data(count: 2000).write(to: Paths.mediaURL(backwards))
+        defer {
+            try? fm.removeItem(at: Paths.mediaURL(original))
+            try? fm.removeItem(at: Paths.mediaURL(backwards))
+        }
+        var p = Project(name: "Reverse")
+        p.clips = [Clip(mediaFile: original, sourceDuration: 4).reversing(to: backwards, length: 4)]
+        let parts = ProjectFile.contents(of: p)
+        XCTAssertEqual(parts.media.map(\.lastPathComponent), [original])
+        XCTAssertEqual(parts.reversed, [ProjectFile.ReverseRef(file: backwards, source: original, from: 0, to: 4)])
+    }
+
     /// Anything that isn't a .bbc file is turned down, with nothing written.
     func testRejectsOtherFiles() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".bbc")
