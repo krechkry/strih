@@ -2902,7 +2902,7 @@ final class EditorModel: ObservableObject {
 
     /// Picture or video from Photos, placed at the playhead.
     func addMediaOverlay(url: URL, isVideo: Bool, at time: Double? = nil, fitCanvas: Bool = false,
-                         blend: BlendMode = .normal) async {
+                         blend: BlendMode = .normal, asset: String? = nil) async {
         let start = onFrame(min(time ?? currentTime, max(0, duration - 0.5)))
         var o: Overlay
         if isVideo {
@@ -2912,12 +2912,14 @@ final class EditorModel: ObservableObject {
             if info.size.height > 0 { o.aspect = info.size.width / info.size.height }
             if fitCanvas { o.transform.scale = 1 / 0.7 }   // same size as a fitted clip
             o.blend = blend
+            o.asset = asset
             let new = o
             mutate { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }     // video needs its own track: rebuild
         } else {
             guard let img = UIImage(contentsOfFile: url.path) else { return }
             o = Overlay(kind: .image(file: url.lastPathComponent), start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
             if img.size.height > 0 { o.aspect = img.size.width / img.size.height }
+            o.asset = asset
             let new = o
             mutateLook { p in var n = new; p.placeNewOverlay(&n); p.overlays.append(n) }
         }
@@ -4304,6 +4306,8 @@ extension EditorModel {
         var o = Overlay(kind: .video(file: c.mediaFile, sourceDuration: c.sourceDuration, inPoint: c.inPoint),
                         start: start, duration: len)
         o.aspect = c.aspect ?? A
+        // the same file as the Photos item (not a reversed copy, not a held picture made into video)
+        o.asset = c.reversed == nil && !c.still ? c.asset : nil
         o.speed = min(max((c.outPoint - c.inPoint) / len, 0.1), 10)
         if c.hasCurve {
             // the speed curve comes along (the composition plays it like the clip's)

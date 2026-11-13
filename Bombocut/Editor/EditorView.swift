@@ -1063,7 +1063,7 @@ struct EditorView: View {
         adding = true
         defer { adding = false }
         guard let url = await Media.load(a) else { return }
-        await model.addMediaOverlay(url: url, isVideo: a.mediaType == .video)
+        await model.addMediaOverlay(url: url, isVideo: a.mediaType == .video, asset: a.localIdentifier)
     }
 
     /// Files: clips (copied in, like a new project from Files) or a sound.

@@ -82,26 +82,33 @@ enum ProjectFile {
         return (media, fonts, luts, bytes, refs.values.sorted { $0.file < $1.file })
     }
 
-    /// The project's videos that came from Photos and are in iCloud Photos, by file name. Photos (held pictures)
-    /// are made into a video when added, so they always go in; so does the reversed copy of a clip.
+    /// The project's media that came from Photos and is in iCloud Photos, by file name: clips' videos, and the
+    /// pictures and videos of layers. A held picture clip is made into a video when added, so it always goes in;
+    /// so does the reversed copy of a clip.
     static func inICloudPhotos(_ p: Project) -> [String: PhotosRef] {
         let auth = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         guard auth == .authorized || auth == .limited else { return [:] }
-        var pairs: [(file: String, asset: String)] = []
+        var pairs: [(file: String, asset: String, picture: Bool)] = []
         func walk(_ c: Clip) {
-            if let a = c.asset, !c.still { pairs.append((c.reversed?.mediaFile ?? c.mediaFile, a)) }
+            if let a = c.asset, !c.still { pairs.append((c.reversed?.mediaFile ?? c.mediaFile, a, false)) }
             (c.stack ?? []).forEach(walk)
         }
         p.clips.forEach(walk)
+        for o in p.overlays {
+            guard let a = o.asset, let file = o.kind.mediaFile else { continue }
+            pairs.append((file, a, true))
+        }
         guard !pairs.isEmpty else { return [:] }
-        var videos: [String] = []
+        var kinds: [String: PHAssetMediaType] = [:]
         PHAsset.fetchAssets(withLocalIdentifiers: Array(Set(pairs.map(\.asset))), options: nil)
-            .enumerateObjects { a, _, _ in if a.mediaType == .video { videos.append(a.localIdentifier) } }
-        guard !videos.isEmpty else { return [:] }
+            .enumerateObjects { a, _, _ in kinds[a.localIdentifier] = a.mediaType }
+        // a clip's file is a video; a layer's is the item itself (picture or video)
+        pairs = pairs.filter { kinds[$0.asset] == .video || ($0.picture && kinds[$0.asset] == .image) }
+        guard !pairs.isEmpty else { return [:] }
         // only items already in iCloud Photos get an id (not uploaded yet, or iCloud Photos off: they go in)
-        let cloud = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: videos)
+        let cloud = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: Array(Set(pairs.map(\.asset))))
         var out: [String: PhotosRef] = [:]
-        for (file, asset) in pairs {
+        for (file, asset, _) in pairs {
             guard case .success(let id)? = cloud[asset] else { continue }
             let url = Paths.mediaURL(file)
             guard FileManager.default.fileExists(atPath: url.path) else { continue }
@@ -110,7 +117,7 @@ enum ProjectFile {
         return out
     }
 
-    /// Videos a light file left out, fetched again from iCloud Photos under their old names (they download if
+    /// Media a light file left out, fetched again from iCloud Photos under their old names (they download if
     /// needed). Returns how many couldn't be found (deleted, another Apple ID, no access) and how many came back
     /// different (edited in Photos since).
     static func restorePhotos(_ refs: [PhotosRef], progress: Progress) async -> (missing: Int, changed: Int) {
@@ -128,7 +135,8 @@ enum ProjectFile {
             let dest = Paths.mediaURL(ref.file)
             guard !progress.isCancelled, case .success(let localID)? = local[id],
                   let asset = PHAsset.fetchAssets(withLocalIdentifiers: [localID], options: nil).firstObject,
-                  asset.mediaType == .video, await Media.load(asset, to: dest) != nil else {
+                  asset.mediaType == .video || asset.mediaType == .image,
+                  await Media.load(asset, to: dest) != nil else {
                 missing += 1
                 continue
             }
