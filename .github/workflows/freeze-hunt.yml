@@ -55,14 +55,13 @@ jobs:
             DATA=$(xcrun simctl get_app_container "$UDID" cz.krechler.bombocut data)
             mkdir -p "$DATA/Documents/Media"
             # like iPhone footage: HEVC 10-bit HLG HDR, recorded landscape with a 90 degree rotation flag
-            ffmpeg -loglevel error -y -f lavfi -i "testsrc2=s=1920x1080:r=30:d=30" -f lavfi -i "sine=frequency=300:duration=30" \
+            # (-display_rotation is an input option: it goes before the -i it applies to)
+            ffmpeg -loglevel error -y -display_rotation 90 -f lavfi -i "testsrc2=s=1920x1080:r=30:d=30" -f lavfi -i "sine=frequency=300:duration=30" \
               -c:v libx265 -pix_fmt yuv420p10le -tag:v hvc1 -color_primaries bt2020 -color_trc arib-std-b67 -colorspace bt2020nc \
-              -x265-params log-level=error -c:a aac -shortest -display_rotation 90 "$DATA/Documents/Media/demo1.mov" \
-              || ffmpeg -loglevel error -y -f lavfi -i "testsrc2=s=1920x1080:r=30:d=30" -c:v libx265 -pix_fmt yuv420p10le -tag:v hvc1 \
-                 -color_primaries bt2020 -color_trc arib-std-b67 -colorspace bt2020nc -metadata:s:v rotate=90 "$DATA/Documents/Media/demo1.mov"
+              -x265-params log-level=error -c:a aac -shortest "$DATA/Documents/Media/demo1.mov"
             mv "$DATA/Documents/Media/demo1.mov" "$DATA/Documents/Media/demo1.mp4"
-            ffmpeg -loglevel error -y -f lavfi -i "testsrc2=s=1920x1080:r=60:d=10" -c:v libx264 -pix_fmt yuv420p \
-              -display_rotation 90 "$DATA/Documents/Media/demo2.mp4" || true
+            ffmpeg -loglevel error -y -display_rotation 90 -f lavfi -i "testsrc2=s=1920x1080:r=60:d=10" -c:v libx264 -pix_fmt yuv420p \
+              "$DATA/Documents/Media/demo2.mp4"
             ffprobe -v error -show_entries stream=codec_name,pix_fmt,color_transfer:stream_side_data=rotation "$DATA/Documents/Media/demo1.mp4" || true
             for MODE in edit; do
               OUT="out/$TAG-$MODE"
