@@ -120,7 +120,7 @@ struct HomeView: View {
                 if Demo.mode == "storage" { showStorage = true }
             }
             .navigationDestination(item: $openProject) { p in
-                EditorView(project: p, store: store)
+                EditorView(project: p, store: store) { openProject = nil }
                     .toolbar(.hidden, for: .navigationBar)
             }
             .overlay {
