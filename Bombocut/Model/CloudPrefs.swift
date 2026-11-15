@@ -26,6 +26,7 @@ final class CloudPrefs {
     static let files: [String: String] = [
         "file.captionPresets": "caption-templates.json",
         "file.textPresets": "text-presets.json",
+        "file.myFilters": MyFilterStore.fileName,
     ]
     /// Presets changed on another device (views that list them can reload).
     static let presetsChanged = Notification.Name("CloudPrefs.presetsChanged")

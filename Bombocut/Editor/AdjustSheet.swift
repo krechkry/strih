@@ -9,6 +9,8 @@ struct AdjustSheet: View {
     @AppStorage("adjustTab") private var tab = 0
     @State private var param: LookParam = .exposure
     @State private var snapped = false
+    @State private var savingFilter = false
+    @Environment(\.panelHeight) private var panelHeight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -28,11 +30,15 @@ struct AdjustSheet: View {
                 .accessibilityLabel(loc("Reset this tab"))
             }
 
-            Text(loc(hint))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.muted)
-                .lineLimit(1)
-                .padding(.top, -6)
+            HStack(spacing: 8) {
+                Text(loc(hint))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 4)
+                if model.hasAdjustTarget { saveFilterButton }
+            }
+            .padding(.top, -6)
 
             if model.hasAdjustTarget {
                 switch tab {
@@ -47,6 +53,28 @@ struct AdjustSheet: View {
         .presentationBackground(Theme.panel)
         .onChange(of: tab) { fixParam() }
         .onAppear { fixParam() }
+        .panelMenu(isPresented: $savingFilter, height: panelHeight) {
+            SaveFilterMenu(model: model, look: MyFilter.look(model.adjustLook().effects))
+        }
+    }
+
+    /// Opens the Save as filter menu (dimmed while nothing is changed).
+    private var saveFilterButton: some View {
+        let e = model.adjustLook().effects
+        let any = !MyFilter.changed(e).isEmpty || e.hasCurves || e.hasHSL
+        return Button { savingFilter = true } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "camera.filters").font(.system(size: 11, weight: .heavy))
+                Text("Save as filter").font(.footnote.weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 11).frame(height: 28)
+            .background(Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!any)
+        .opacity(any ? 1 : 0.35)
+        .fixedSize()
     }
 
     /// Keep the picked slider on the tab that is showing.
@@ -477,5 +505,110 @@ private struct CurveGraph: View {
             if d < reach, d < (best?.1 ?? .infinity) { best = (k, d) }
         }
         return best?.0
+    }
+}
+
+/// Save as filter: a name, and which of the changed adjustments get a slider in the filter's own menu.
+/// Strength is always there (shown checked and dimmed so it's clear). Curves and HSL go in as they are.
+struct SaveFilterMenu: View {
+    @ObservedObject var model: EditorModel
+    let look: Effects
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closeMenu) private var closeMenu
+    @State private var name = ""
+    @State private var picked: Set<LookParam> = []
+
+    private var changed: [LookParam] { MyFilter.changed(look) }
+    private var canSave: Bool { !changed.isEmpty || look.hasCurves || look.hasHSL }
+    private var defaultName: String { String(format: loc("My filter %lld"), MyFilterStore.load().count + 1) }
+
+    private func close() { if let closeMenu { closeMenu() } else { dismiss() } }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                header
+                TextField(defaultName, text: $name)
+                    .font(.body.weight(.semibold))
+                    .submitLabel(.done)
+                    .padding(.horizontal, 14).frame(height: 46)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                Text("Sliders").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                    .padding(.top, 4)
+                row(loc("Strength"), on: true, value: "100 %", locked: true) {}
+                ForEach(changed) { p in
+                    let on = picked.contains(p)
+                    row(loc(p.title), on: on, value: p.display(value(p)), locked: false) {
+                        if on { picked.remove(p) } else { picked.insert(p) }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    }
+                }
+                Text(canSave ? loc(note) : loc("Change something in Adjust first."))
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(20)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var note: String {
+        look.hasCurves || look.hasHSL
+            ? "Pick what you can still fine-tune when you use this filter. Strength is always there. Curves and HSL go into the filter as they are."
+            : "Pick what you can still fine-tune when you use this filter. Strength is always there."
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Text("Save as filter").font(.title3.weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
+            Spacer(minLength: 4)
+            Button { close() } label: {
+                Image(systemName: "xmark").font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 36, height: 36)
+                    .background(Theme.panel2, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc("Cancel"))
+            DoneCheck(size: 32, label: "Save") { save() }
+                .disabled(!canSave)
+                .opacity(canSave ? 1 : 0.35)
+        }
+    }
+
+    private func value(_ p: LookParam) -> Double {
+        var l = Look()
+        l.effects = look
+        return p.get(l)
+    }
+
+    private func row(_ title: String, on: Bool, value: String, locked: Bool, _ tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            HStack(spacing: 12) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(on ? Theme.accent : .white.opacity(0.45))
+                Text(verbatim: title).font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 4)
+                Text(verbatim: value).font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, 14).frame(minHeight: 46)
+            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .disabled(locked)
+        .opacity(locked ? 0.45 : 1)
+    }
+
+    private func save() {
+        guard canSave else { return }
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sliders = changed.filter { picked.contains($0) }
+        model.saveLookAsFilter(name: n.isEmpty ? defaultName : n, sliders: sliders)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        close()
     }
 }

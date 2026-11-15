@@ -8,24 +8,104 @@ struct LookFilter: Codable, Hashable {
     var strength = 1.0          // 0...1
     /// The film effects changed in the filter's Adjust menu (nil = the filter's own, `FilterDef.fx`).
     var fx: FilterFX?
+    /// A filter you saved from Adjust ("my:..." ids): a copy of its look travels with every clip that uses it,
+    /// so a shared project or a deleted filter still looks the same.
+    var own: MyFilter?
+    /// Its sliders moved here (LookParam raw value → value), on top of the saved look.
+    var tweaks: [String: Double]?
 
-    init(id: String, strength: Double = 1, fx: FilterFX? = nil) {
+    init(id: String, strength: Double = 1, fx: FilterFX? = nil, own: MyFilter? = nil) {
         self.id = id
         self.strength = strength
         self.fx = fx
+        self.own = own
     }
 
-    enum CodingKeys: String, CodingKey { case id, strength, fx }
+    enum CodingKeys: String, CodingKey { case id, strength, fx, own, tweaks }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         strength = (try? c.decodeIfPresent(Double.self, forKey: .strength)) ?? 1
         fx = try? c.decodeIfPresent(FilterFX.self, forKey: .fx)
+        own = try? c.decodeIfPresent(MyFilter.self, forKey: .own)
+        tweaks = try? c.decodeIfPresent([String: Double].self, forKey: .tweaks)
     }
 
     /// The film effects this filter draws (at full strength): your changes, or the filter's own.
     var shownFX: FilterFX? { fx ?? FilterLibrary.def(id)?.fx }
+
+    /// A saved filter's look at full strength, with the sliders moved here (nil for library filters).
+    var ownEffects: Effects? {
+        guard let own else { return nil }
+        guard let tweaks, !tweaks.isEmpty else { return own.effects }
+        var l = Look()
+        l.effects = own.effects
+        for (k, v) in tweaks { if let p = LookParam(rawValue: k) { p.set(&l, v) } }
+        return l.effects
+    }
+
+    /// The value a saved filter's slider shows here.
+    func ownValue(_ p: LookParam) -> Double? {
+        guard let own else { return nil }
+        if let v = tweaks?[p.rawValue] { return v }
+        var l = Look()
+        l.effects = own.effects
+        return p.get(l)
+    }
+}
+
+/// A look you saved from Adjust as a filter: everything changed there (light and color, curves, HSL and the
+/// effects) plus which of its sliders you can still move when you use it (strength is always there).
+struct MyFilter: Codable, Hashable, Identifiable {
+    /// "my:" + a UUID, the `LookFilter` id.
+    var id: String
+    var name: String
+    var effects: Effects
+    /// LookParam raw values shown as sliders in the filter's Adjust menu.
+    var sliders: [String]
+
+    var params: [LookParam] { sliders.compactMap(LookParam.init(rawValue:)) }
+
+    /// The adjustments that can become a saved filter: everything in Adjust but Opacity.
+    static let savable: [LookParam] = LookParam.basic.filter { $0 != .opacity } + LookParam.effects
+
+    /// The sliders that changed in this look (a sub control like Grain size counts for its effect).
+    static func changed(_ e: Effects) -> [LookParam] {
+        var l = Look()
+        l.effects = e
+        return savable.filter { abs($0.get(l) - $0.neutral) > 0.005 }
+    }
+
+    /// The look as it goes into a filter (motion blur lives on the clip, not in a look).
+    static func look(_ e: Effects) -> Effects {
+        var out = e
+        out.motionBlur = 0
+        return out
+    }
+}
+
+/// Your saved filters, shared by all projects and synced with the presets (Settings > iCloud).
+enum MyFilterStore {
+    static let fileName = "my-filters.json"
+    private static var url: URL { Paths.docs.appendingPathComponent(fileName) }
+
+    static func load() -> [MyFilter] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([MyFilter].self, from: data)) ?? []
+    }
+
+    static func save(_ list: [MyFilter]) {
+        if let data = try? JSONEncoder().encode(list) { try? data.write(to: url, options: .atomic) }
+        CloudPrefs.fileSaved()
+    }
+
+    /// Newest first.
+    static func add(_ f: MyFilter) { save([f] + load().filter { $0.id != f.id }) }
+
+    static func remove(_ id: String) { save(load().filter { $0.id != id }) }
+
+    static func filter(_ id: String) -> MyFilter? { load().first { $0.id == id } }
 }
 
 /// The film effects a filter adds on top of its colors (at full strength), from the app's own effects.
@@ -47,6 +127,7 @@ struct FilterDef: Identifiable, Hashable {
     enum Colors: Hashable {
         case builtIn(String)        // FilterLooks formula
         case lut(String)            // file in LUTLibrary.folder
+        case own                    // a look saved from Adjust (`LookFilter.own`)
     }
 
     let id: String
@@ -78,10 +159,18 @@ enum FilterLibrary {
     /// Any filter by its key (an imported LUT whose file is gone: nil, the picture stays as it is).
     static func def(_ id: String) -> FilterDef? {
         if let d = builtIn.first(where: { $0.id == id }) { return d }
+        if id.hasPrefix("my:") { return MyFilterStore.filter(id).map(def) }
         guard id.hasPrefix("lut:") else { return nil }
         let file = String(id.dropFirst(4))
         guard FileManager.default.fileExists(atPath: LUTLibrary.folder.appendingPathComponent(file).path) else { return nil }
         return FilterDef(id: id, name: LUTLibrary.title(file), colors: .lut(file))
+    }
+
+    static func def(_ f: MyFilter) -> FilterDef { FilterDef(id: f.id, name: f.name, colors: .own) }
+
+    /// The filter as it goes on a clip (a saved one carries its look).
+    static func pick(_ id: String) -> LookFilter {
+        LookFilter(id: id, own: id.hasPrefix("my:") ? MyFilterStore.filter(id) : nil)
     }
 }
 

@@ -135,3 +135,67 @@ final class FilterTests: XCTestCase {
         XCTAssertGreaterThan(px[0], 200)
     }
 }
+
+final class MyFilterTests: XCTestCase {
+    private func saved() -> MyFilter {
+        var e = Effects()
+        e.exposure = 0.3
+        e.shadows = 0.5
+        e.grain = 0.4
+        e.curve = [0, 0.1, 1, 0.9]
+        return MyFilter(id: "my:test", name: "Mine", effects: e, sliders: ["shadows", "grain"])
+    }
+
+    func testChangedListsOnlyMovedSlidersAndNeverOpacity() {
+        XCTAssertEqual(MyFilter.changed(saved().effects), [.exposure, .shadows, .grain])
+        XCTAssertTrue(MyFilter.changed(Effects()).isEmpty)
+        XCTAssertFalse(MyFilter.savable.contains(.opacity))
+    }
+
+    func testTweaksSitOnTopOfTheSavedLook() {
+        var f = LookFilter(id: "my:test", own: saved())
+        XCTAssertEqual(f.ownEffects, saved().effects)
+        f.tweaks = ["shadows": -0.2]
+        XCTAssertEqual(f.ownEffects?.shadows ?? 0, -0.2, accuracy: 1e-9)
+        XCTAssertEqual(f.ownEffects?.exposure ?? 0, 0.3, accuracy: 1e-9)
+        XCTAssertEqual(f.ownValue(.grain) ?? 0, 0.4, accuracy: 1e-9)
+        XCTAssertNil(LookFilter(id: "bw").ownEffects)
+    }
+
+    func testSavedFilterRoundTripsWithTheClipAndOldFiltersStillDecode() throws {
+        var f = LookFilter(id: "my:test", strength: 0.6, own: saved())
+        f.tweaks = ["grain": 0.1]
+        let back = try JSONDecoder().decode(LookFilter.self, from: JSONEncoder().encode(f))
+        XCTAssertEqual(back, f)
+        let old = try JSONDecoder().decode(LookFilter.self, from: Data(#"{"id":"bw","strength":0.5}"#.utf8))
+        XCTAssertNil(old.own)
+        XCTAssertNil(old.tweaks)
+    }
+
+    func testFilterEffectsMergeByStrength() {
+        var clip = Effects()
+        clip.grain = 0.1
+        clip.clarity = 0.2
+        var own = Effects()
+        own.grain = 0.8
+        own.grainSize = 0.7
+        own.clarity = 0.4
+        let m = FilterRenderer.merged(clip, own, 0.5)
+        XCTAssertEqual(m.grain, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(m.grainSize, 0.7, accuracy: 1e-9)
+        XCTAssertEqual(m.clarity, 0.4, accuracy: 1e-9)
+    }
+
+    func testFullStrengthLooksLikeAdjust() {
+        let src = CIImage(color: CIColor(red: 0.2, green: 0.4, blue: 0.6)).cropped(to: CGRect(x: 0, y: 0, width: 4, height: 4))
+        let f = LookFilter(id: "my:test", own: saved())
+        let ctx = CIContext()
+        func px(_ i: CIImage) -> [UInt8] {
+            var b = [UInt8](repeating: 0, count: 4)
+            ctx.render(i, toBitmap: &b, rowBytes: 4, bounds: CGRect(x: 1, y: 1, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
+            return b
+        }
+        XCTAssertEqual(px(FilterRenderer.apply(src, f)), px(EffectsRenderer.color(src, saved().effects)))
+        XCTAssertNotEqual(px(FilterRenderer.apply(src, f)), px(src))
+    }
+}

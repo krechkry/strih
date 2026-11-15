@@ -12,13 +12,14 @@ struct FiltersSheet: View {
     @Environment(\.panelHeight) private var panelHeight
     @State private var thumbs: [String: UIImage] = [:]
     @State private var luts: [String] = []
+    @State private var mine: [MyFilter] = []
     /// The Adjust menu of the filter you have (strength, film effects).
     @State private var adjusting = false
     @State private var lastTap: (id: String, time: Date)?
     @State private var pendingRemove: Task<Void, Never>?
     @State private var source: CIImage?
 
-    private enum Tab: String, CaseIterable { case liked, all, imported }
+    private enum Tab: String, CaseIterable { case liked, all, mine, imported }
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .all }
     private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
@@ -49,8 +50,9 @@ struct FiltersSheet: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .overlay(alignment: .bottom) { floatingApply }
         .task(id: model.selectedClipID ?? model.selectedStackID ?? model.selectedOverlayID) { await loadSource() }
-        .onAppear { luts = LUTLibrary.files() }
-        .onChange(of: model.lutsVersion) { luts = LUTLibrary.files(); Task { await renderThumbs() } }
+        .onAppear { luts = LUTLibrary.files(); mine = MyFilterStore.load() }
+        .onChange(of: model.lutsVersion) { reloadLibrary() }
+        .onReceive(NotificationCenter.default.publisher(for: CloudPrefs.presetsChanged)) { _ in reloadLibrary() }
         .onChange(of: active?.id) { _, id in if id == nil { adjusting = false } }
         .panelMenu(isPresented: $adjusting, height: panelHeight) {
             FilterAdjustMenu(model: model)
@@ -106,6 +108,7 @@ struct FiltersSheet: View {
         HStack(spacing: 6) {
             tabButton(.liked) { Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
             tabButton(.all) { Text("All").font(.footnote.weight(.bold)).lineLimit(1) }
+            tabButton(.mine) { Image(systemName: "person.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
             tabButton(.imported) { Image(systemName: "folder.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
         }
     }
@@ -119,7 +122,7 @@ struct FiltersSheet: View {
                 .background(on ? Color.white : Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(loc(t == .liked ? "Liked" : t == .imported ? "Imported" : "All"))
+        .accessibilityLabel(loc(t == .liked ? "Liked" : t == .imported ? "Imported" : t == .mine ? "Mine" : "All"))
     }
 
     // MARK: Tiles
@@ -128,7 +131,7 @@ struct FiltersSheet: View {
     private var content: some View {
         switch tab {
         case .liked:
-            let defs = liked.compactMap { FilterLibrary.def($0) }
+            let defs = liked.compactMap(def)
             if defs.isEmpty {
                 note("Double tap the filter you have picked: it shows up here for quick access.")
             } else {
@@ -136,6 +139,12 @@ struct FiltersSheet: View {
             }
         case .all:
             grid { ForEach(FilterLibrary.builtIn) { tile($0) } }
+        case .mine:
+            if mine.isEmpty {
+                note("Save a look in Adjust with Save as filter and it shows up here.")
+            } else {
+                grid { ForEach(mine) { tile(FilterLibrary.def($0)) } }
+            }
         case .imported:
             VStack(alignment: .leading, spacing: 12) {
                 grid {
@@ -265,7 +274,7 @@ struct FiltersSheet: View {
                 model.setFilter(nil)
             }
         } else {
-            model.setFilter(LookFilter(id: id))
+            model.setFilter(pick(id))
             UISelectionFeedbackGenerator().selectionChanged()
         }
     }
@@ -282,6 +291,8 @@ struct FiltersSheet: View {
         guard let a = active else { return }
         if a.id.hasPrefix("lut:") {
             tabRaw = Tab.imported.rawValue
+        } else if a.id.hasPrefix("my:") {
+            if !(tab == .liked && liked.contains(a.id)) { tabRaw = Tab.mine.rawValue }
         } else if !(tab == .liked && liked.contains(a.id)) {
             tabRaw = Tab.all.rawValue
         }
@@ -307,10 +318,28 @@ struct FiltersSheet: View {
     private func renderThumbs() async {
         guard let src = source else { return }
         let ids = FilterLibrary.builtIn.map(\.id) + LUTLibrary.files().map(FilterLibrary.lutID)
+        let filters = ids.map { LookFilter(id: $0) } + MyFilterStore.load().map { LookFilter(id: $0.id, own: $0) }
         let made: [String: UIImage] = await Task.detached(priority: .userInitiated) {
-            FilterThumbs.render(src, ids)
+            FilterThumbs.render(src, filters)
         }.value
         thumbs = made
+    }
+
+    private func reloadLibrary() {
+        luts = LUTLibrary.files()
+        mine = MyFilterStore.load()
+        Task { await renderThumbs() }
+    }
+
+    /// A tile's filter from the lists already loaded (saved filters without reading the file again).
+    private func def(_ id: String) -> FilterDef? {
+        if id.hasPrefix("my:") { return mine.first { $0.id == id }.map(FilterLibrary.def) }
+        return FilterLibrary.def(id)
+    }
+
+    private func pick(_ id: String) -> LookFilter {
+        if id.hasPrefix("my:"), let f = mine.first(where: { $0.id == id }) { return LookFilter(id: id, own: f) }
+        return FilterLibrary.pick(id)
     }
 }
 
@@ -318,11 +347,11 @@ struct FiltersSheet: View {
 enum FilterThumbs {
     private static let context = CIContext(options: [.cacheIntermediates: false])
 
-    static func render(_ src: CIImage, _ ids: [String]) -> [String: UIImage] {
+    static func render(_ src: CIImage, _ filters: [LookFilter]) -> [String: UIImage] {
         var out: [String: UIImage] = [:]
         let size = src.extent.size
-        for id in ids {
-            let f = LookFilter(id: id)
+        for f in filters {
+            let id = f.id
             var img = FilterRenderer.apply(src, f)
             img = EffectsRenderer.canvas(img, FilterRenderer.effects(Effects(), f), size: size, frame: 0)
                 .cropped(to: src.extent)
@@ -357,7 +386,8 @@ struct FilterAdjustMenu: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            let name = model.editedFilter.flatMap { FilterLibrary.def($0.id) }.map { loc($0.name) } ?? loc("Filters")
+            let f = model.editedFilter
+            let name = f?.own?.name ?? f.flatMap { FilterLibrary.def($0.id) }.map { loc($0.name) } ?? loc("Filters")
             Text(verbatim: name).font(.title3.weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
             Spacer(minLength: 4)
             Button { model.resetFilterSettings() } label: {
@@ -375,6 +405,50 @@ struct FilterAdjustMenu: View {
     @ViewBuilder
     private func rows(_ f: LookFilter) -> some View {
         slider("Strength", f.strength, def: 1) { v in model.editFilterStrength(v) }
+        if let own = f.own {
+            ownRows(f, own)
+        } else {
+            libraryRows(f)
+        }
+    }
+
+    /// A saved filter: the sliders picked when it was saved (with an effect's own extra controls).
+    @ViewBuilder
+    private func ownRows(_ f: LookFilter, _ own: MyFilter) -> some View {
+        ForEach(own.params) { p in
+            paramSlider(f, p, title: p.title, own: own)
+            ForEach(p.subParams) { sub in paramSlider(f, sub, title: sub.title, own: own) }
+        }
+        Button { deleteOwn(f.id) } label: {
+            Label(loc("Delete filter"), systemImage: "trash")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func paramSlider(_ f: LookFilter, _ p: LookParam, title: String, own: MyFilter) -> some View {
+        let value = f.ownValue(p) ?? p.neutral
+        var saved = Look()
+        saved.effects = own.effects
+        let def = p.get(saved)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(verbatim: p.display(value)).font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            BSlider(value: Binding(get: { f.ownValue(p) ?? p.neutral }, set: { model.editFilterTweak(p, $0) }), in: p.range,
+                    onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
+                .doubleTapReset { model.liveEditBegan(); model.editFilterTweak(p, def); model.liveEditEnded() }
+        }
+    }
+
+    @ViewBuilder
+    private func libraryRows(_ f: LookFilter) -> some View {
         // the effects the filter comes with (your values, or its own)
         let own = FilterLibrary.def(f.id)?.fx ?? FilterFX()
         let fx = f.shownFX ?? own
@@ -413,6 +487,15 @@ struct FilterAdjustMenu: View {
                     onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
                 .doubleTapReset { model.liveEditBegan(); set(def); model.liveEditEnded() }
         }
+    }
+
+    /// Takes it off here and out of your filters; other clips that use it keep their copy of the look.
+    private func deleteOwn(_ id: String) {
+        model.setFilter(nil)
+        MyFilterStore.remove(id)
+        likedRaw = likedRaw.split(separator: ",").map(String.init).filter { $0 != id }.joined(separator: ",")
+        model.lutsVersion += 1
+        close()
     }
 
     private func removeLUT(_ id: String) {

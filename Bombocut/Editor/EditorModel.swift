@@ -4716,10 +4716,32 @@ extension EditorModel {
         publishLook()
     }
 
+    /// A saved filter's slider moving (pair with liveEditBegan / liveEditEnded).
+    func editFilterTweak(_ p: LookParam, _ v: Double) {
+        guard var f = editedFilter, f.own != nil else { return }
+        var t = f.tweaks ?? [:]
+        t[p.rawValue] = min(max(v, p.range.lowerBound), p.range.upperBound)
+        f.tweaks = t
+        storeFilter(f, in: &project)
+        publishLook()
+    }
+
     /// The filter's own strength and film effects back (one undo step).
     func resetFilterSettings() {
         guard let f = editedFilter else { return }
-        setFilter(LookFilter(id: f.id))
+        setFilter(LookFilter(id: f.id, own: f.own))
+    }
+
+    /// Saves the selected item's Adjust look (at the playhead) as a filter of your own, with the sliders picked.
+    /// The item keeps its adjustments. Returns the new filter.
+    @discardableResult
+    func saveLookAsFilter(name: String, sliders: [LookParam]) -> MyFilter? {
+        let e = MyFilter.look(adjustLook().effects)
+        guard !MyFilter.changed(e).isEmpty || e.hasCurves || e.hasHSL else { return nil }
+        let f = MyFilter(id: "my:" + UUID().uuidString, name: name, effects: e, sliders: sliders.map(\.rawValue))
+        MyFilterStore.add(f)
+        lutsVersion += 1
+        return f
     }
 
     /// The Filters panel's "Apply to" buttons: a single clip or a media layer is selected (Stacks have none).

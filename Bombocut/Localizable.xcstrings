@@ -1560,6 +1560,16 @@
         }
       }
     },
+    "Change something in Adjust first.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív něco změň v Úpravách."
+          }
+        }
+      }
+    },
     "Checking…": {
       "localizations": {
         "cs": {
@@ -2150,6 +2160,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat stažené jazyky (%@)"
+          }
+        }
+      }
+    },
+    "Delete filter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat filtr"
           }
         }
       }
@@ -4498,6 +4518,16 @@
         }
       }
     },
+    "Mine": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moje"
+          }
+        }
+      }
+    },
     "Mono": {
       "localizations": {
         "cs": {
@@ -4604,6 +4634,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moje barvy"
+          }
+        }
+      }
+    },
+    "My filter %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Můj filtr %lld"
           }
         }
       }
@@ -5388,6 +5428,26 @@
         }
       }
     },
+    "Pick what you can still fine-tune when you use this filter. Strength is always there.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber, co půjde doladit, až filtr použiješ. Síla je tam vždycky."
+          }
+        }
+      }
+    },
+    "Pick what you can still fine-tune when you use this filter. Strength is always there. Curves and HSL go into the filter as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber, co půjde doladit, až filtr použiješ. Síla je tam vždycky. Křivky a HSL se do filtru uloží, jak jsou."
+          }
+        }
+      }
+    },
     "Picture": {
       "localizations": {
         "cs": {
@@ -6138,6 +6198,26 @@
         }
       }
     },
+    "Save a look in Adjust with Save as filter and it shows up here.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V Úpravách si ulož vzhled přes Uložit jako filtr a objeví se tady."
+          }
+        }
+      }
+    },
+    "Save as filter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uložit jako filtr"
+          }
+        }
+      }
+    },
     "Save or share": {
       "localizations": {
         "cs": {
@@ -6534,6 +6614,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nahoru"
+          }
+        }
+      }
+    },
+    "Sliders": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posuvníky"
           }
         }
       }

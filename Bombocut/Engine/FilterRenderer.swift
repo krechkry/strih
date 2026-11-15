@@ -12,12 +12,20 @@ enum FilterRenderer {
 
     /// The picture with the filter's colors (nil or an unknown filter: as it is).
     static func apply(_ img: CIImage, _ f: LookFilter?) -> CIImage {
-        guard let f, f.strength > 0.001, let cube = cube(f.id) else { return img }
-        let filtered = img.applyingFilter("CIColorCubeWithColorSpace", parameters: [
-            "inputCubeDimension": cube.size,
-            "inputCubeData": cube.data,
-            "inputColorSpace": space as Any,
-        ])
+        guard let f, f.strength > 0.001 else { return img }
+        let filtered: CIImage
+        if let e = f.ownEffects {
+            // a look saved from Adjust: its color part, the same code as Adjust itself
+            guard e.hasColor else { return img }
+            filtered = EffectsRenderer.color(img, e)
+        } else {
+            guard let cube = cube(f.id) else { return img }
+            filtered = img.applyingFilter("CIColorCubeWithColorSpace", parameters: [
+                "inputCubeDimension": cube.size,
+                "inputCubeData": cube.data,
+                "inputColorSpace": space as Any,
+            ])
+        }
         guard f.strength < 0.999 else { return filtered }
         // the strength: a straight mix of the two (alpha too, so see-through parts stay as they are)
         return img.applyingFilter("CIDissolveTransition", parameters: [
@@ -28,7 +36,9 @@ enum FilterRenderer {
 
     /// The effects with the filter's grain, vignette and halation added (by its strength; the stronger wins).
     static func effects(_ e: Effects, _ f: LookFilter?) -> Effects {
-        guard let f, f.strength > 0.001, let fx = f.fx ?? def(f.id)?.fx, !fx.isEmpty else { return e }
+        guard let f, f.strength > 0.001 else { return e }
+        if let own = f.ownEffects { return merged(e, own, min(max(f.strength, 0), 1)) }
+        guard let fx = f.fx ?? def(f.id)?.fx, !fx.isEmpty else { return e }
         var out = e
         let k = min(max(f.strength, 0), 1)
         if fx.grain * k > out.grain {
@@ -37,6 +47,24 @@ enum FilterRenderer {
         }
         out.vignette = max(out.vignette, fx.vignette * k)
         out.halation = max(out.halation, fx.halation * k)
+        return out
+    }
+
+    /// A saved look's lens and film effects on top of the clip's own, by the strength: for the 0...1 ones the
+    /// stronger wins (with its size / threshold), clarity and texture add up.
+    static func merged(_ e: Effects, _ o: Effects, _ k: Double) -> Effects {
+        var out = e
+        if o.grain * k > out.grain { out.grain = o.grain * k; out.grainSize = o.grainSize }
+        if o.bloom * k > out.bloom {
+            out.bloom = o.bloom * k
+            out.bloomSize = o.bloomSize
+            out.bloomThreshold = o.bloomThreshold
+        }
+        out.vignette = max(out.vignette, o.vignette * k)
+        out.aberration = max(out.aberration, o.aberration * k)
+        out.halation = max(out.halation, o.halation * k)
+        out.clarity = min(max(out.clarity + o.clarity * k, -1), 1)
+        out.texture = min(max(out.texture + o.texture * k, -1), 1)
         return out
     }
 
@@ -57,6 +85,7 @@ enum FilterRenderer {
             case .lut(let file):
                 let url = LUTLibrary.folder.appendingPathComponent(file)
                 if let text = try? String(contentsOf: url, encoding: .utf8) { lut = CubeLUT.parse(text) }
+            case .own: lut = nil
             }
         }
         lock.lock()
