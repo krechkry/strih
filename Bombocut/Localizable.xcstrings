@@ -255,7 +255,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kopie každého projektu na iCloud Drivu (složka BOMBOCUT), aktualizovaná po každé úpravě. Videa, která už máš ve Fotkách na iCloudu, se znovu nekopírují, takže to zabere málo místa."
+            "value": "Každý projekt se po úpravě zkopíruje na iCloud Drive (složka BOMBOCUT). Videa, která už máš ve Fotkách na iCloudu, se znovu nekopírují, takže záloha skoro nezabere místo."
           }
         }
       }
@@ -285,7 +285,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obnovený projekt se přidá k ostatním, nic se nepřepíše. Zálohy najdeš i v aplikaci Soubory, na iCloud Drivu > BOMBOCUT."
+            "value": "Obnovený projekt se přidá k ostatním, nic se nepřepíše. Zálohy najdeš i v Souborech: iCloud Drive > BOMBOCUT."
           }
         }
       }
@@ -585,7 +585,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Povol přístup v Nastavení a vybírej klipy tady, i tahem prstu. Nebo je vyber v systémovém výběru."
+            "value": "Povol v Nastavení přístup k fotkám a vybírej klipy tady, klidně tahem prstu. Nebo použij systémový výběr."
           }
         }
       }
@@ -865,7 +865,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Automatické titulky ve 25 jazycích. A všechny ostatní funkce, který bys čekal."
+            "value": "Automatické titulky ve 25 jazycích. A všechno ostatní, co od střihače čekáš."
           }
         }
       }
@@ -895,7 +895,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu můžou dál přibývat updaty a na tvojí zpětné vazbě opravdu záleží."
+            "value": "BOMBOCUT dělá jeden filmař. Díky tvému nákupu budou dál chodit updaty a na tvém názoru fakt záleží."
           }
         }
       }
@@ -935,7 +935,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT vidí jen položky, které jsi povolil. Změníš to v Nastavení."
+            "value": "BOMBOCUT vidí jen to, k čemu má přístup. Změníš to v Nastavení."
           }
         }
       }
@@ -1358,13 +1358,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPadu a pořád je můžeš exportovat, jak jsou."
+                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty ti v iPadu zůstanou a exportovat je můžeš pořád, tak jak jsou."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty zůstávají v bezpečí v iPhonu a pořád je můžeš exportovat, jak jsou."
+                  "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty ti v iPhonu zůstanou a exportovat je můžeš pořád, tak jak jsou."
                 }
               }
             }
@@ -1410,12 +1410,12 @@
         }
       }
     },
-    "Buy now for %@": {
+    "Buy once for %@": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koupit hned za %@"
+            "value": "Koupit napořád za %@"
           }
         }
       }
@@ -1505,7 +1505,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Předvolby titulků a textů, tvoje barvy, oblíbená písma a filtry a tvoje Nastavení: stejné na všech tvých zařízeních a zpátky i po přeinstalaci."
+            "value": "Presety titulků a textů, tvoje barvy, oblíbená písma, filtry a Nastavení. Na všech zařízeních stejné a po přeinstalaci zase zpátky."
           }
         }
       }
@@ -1675,7 +1675,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klipy, které se mezitím ve Fotkách upravily (zkontroluj je): %lld."
+            "value": "Klipy, které se mezitím upravily ve Fotkách (mrkni na ně): %lld."
           }
         }
       }
@@ -1685,7 +1685,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klipy, které se ve Fotkách na iCloudu nenašly: %lld."
+            "value": "Klipy, které ve Fotkách na iCloudu nejsou: %lld."
           }
         }
       }
@@ -2025,7 +2025,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stříhání a skládání klipů, text a hudba, automatické titulky, rychlost, hlasitost a formát videa. Nic navíc, co by překáželo."
+            "value": "Stříhání a skládání klipů, text a hudba, automatické titulky, rychlost, hlasitost a formát videa. Nic navíc, co by se pletlo pod ruce."
           }
         }
       }
@@ -2129,7 +2129,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uvolníš smazáním projektu"
+            "value": "Uvolní se smazáním projektu"
           }
         }
       }
@@ -2299,7 +2299,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Během stahování hlasového modelu nejde nic mazat."
+            "value": "Dokud se stahuje hlasový model, mazat nejde."
           }
         }
       }
@@ -2759,7 +2759,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno"
+            "value": "Celý projekt"
           }
         }
       }
@@ -2769,7 +2769,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno zabalí všechny klipy, takže soubor otevřeš kdekoli. Lehký vynechá videa, která máš ve Fotkách na iCloudu: vrátí se odtamtud, takže se celý otevře jen s tvým Apple ID."
+            "value": "Celý projekt má v sobě všechny klipy a otevře se kdekoli. Verze bez videí z iCloudu je menší, ta videa si stáhne z tvých Fotek na iCloudu. Celá se proto otevře jen pod tvým Apple ID."
           }
         }
       }
@@ -2782,13 +2782,13 @@
               "ipad": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj iPad, pokud je nesdílíš nebo nezálohuješ do svého iCloudu. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu. Synchronizované předvolby a nastavení jdou jen do tvého vlastního iCloudu."
+                  "value": "Všechno běží offline v iPadu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty z iPadu nikam neodejdou, dokud je nesdílíš nebo nezálohuješ na svůj iCloud. Internet je potřeba jen na jednorázové stažení hlasového modelu (z Hugging Face), na modely pro překlad titulků do jazyků, které si vybereš (od Mozilly), a na ověření nákupu v App Storu. Synchronizované presety a nastavení jdou jen do tvého vlastního iCloudu."
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty nikdy neopustí tvůj telefon, pokud je nesdílíš nebo nezálohuješ do svého iCloudu. Internet se používá jen k jednorázovému stažení hlasového modelu (z Hugging Face), modelů pro překlad titulků do jazyků, které si vybereš (od Mozilly), a k ověření nákupu v App Storu. Synchronizované předvolby a nastavení jdou jen do tvého vlastního iCloudu."
+                  "value": "Všechno běží offline v iPhonu, na jeho baterku a čip. Žádné servery, žádný účet, žádná analytika, žádné sbírání dat. Videa, titulky a projekty z telefonu nikam neodejdou, dokud je nesdílíš nebo nezálohuješ na svůj iCloud. Internet je potřeba jen na jednorázové stažení hlasového modelu (z Hugging Face), na modely pro překlad titulků do jazyků, které si vybereš (od Mozilly), a na ověření nákupu v App Storu. Synchronizované presety a nastavení jdou jen do tvého vlastního iCloudu."
                 }
               }
             }
@@ -2899,7 +2899,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno: keyframy, přechody, překrytí a režimy prolnutí, masky, tracking, stabilizace, motion blur, rychlostní křivky, animace a layouty sítí."
+            "value": "Všechno: keyframy, přechody, překrytí a prolnutí, masky, tracking, stabilizace, motion blur, rychlostní křivky, animace a layouty pro sítě."
           }
         }
       }
@@ -2959,7 +2959,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Export od 144p až po 4K a 120 fps, s bitratem podle tebe"
+            "value": "Export od 144p do 4K a 120 fps, s bitratem, jaký chceš"
           }
         }
       }
@@ -3369,7 +3369,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Písma a LUTy .cube, které si přidáš, se objeví na všech tvých zařízeních se stejným Apple ID."
+            "value": "Písma a .cube LUTy, které přidáš, budeš mít na všech zařízeních se stejným Apple ID."
           }
         }
       }
@@ -3409,7 +3409,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Našel jsi chybu nebo ti něco chybí? Udělej screenshot a klepni na Sdílet zpětnou vazbu k betě, nebo otevři TestFlight a klepni na Odeslat zpětnou vazbu. Čteme každou zprávu."
+            "value": "Chyba nebo nápad? Udělej screenshot a klepni na Sdílet zpětnou vazbu k betě, nebo otevři TestFlight a klepni na Odeslat zpětnou vazbu. Čtu každou zprávu."
           }
         }
       }
@@ -3593,7 +3593,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beru klipy z Fotek na iCloudu…"
+            "value": "Stahuju klipy z Fotek na iCloudu…"
           }
         }
       }
@@ -3843,7 +3843,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Importování…"
+            "value": "Importuju…"
           }
         }
       }
@@ -3883,7 +3883,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Už v časové ose"
+            "value": "Už v timeline"
           }
         }
       }
@@ -3943,7 +3943,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Všechno jde do tvého vlastního iCloudu, nikdy k nám. Změnit to můžeš kdykoli v Nastavení."
+            "value": "Všechno jde jen do tvého vlastního iCloudu, nikam jinam. Změnit to můžeš kdykoli v Nastavení."
           }
         }
       }
@@ -4173,7 +4173,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nech prázdné a zůstane „%@“. Přejmenovat ho můžeš i po exportu."
+            "value": "Když to necháš prázdné, zůstane „%@“. Přejmenovat ho můžeš i po exportu."
           }
         }
       }
@@ -4223,7 +4223,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lehký, pro tvoje Apple ID"
+            "value": "Bez videí z iCloudu"
           }
         }
       }
@@ -4373,7 +4373,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vytvořil jeden filmař v Česku."
+            "value": "Od jednoho filmaře z Česka."
           }
         }
       }
@@ -4788,6 +4788,16 @@
         }
       }
     },
+    "No subscription. Pay once, no ads, nothing locked.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádné předplatné. Platíš jen jednou, žádné reklamy, nic zamčeného."
+          }
+        }
+      }
+    },
     "No video in this clip.": {
       "localizations": {
         "cs": {
@@ -4838,6 +4848,16 @@
         }
       }
     },
+    "Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only its exports end with the BOMBOCUT end card. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Není to předplatné. Po 7 dnech se nic samo nekoupí ani nestrhne. Zkušební verze má všechny nástroje, jen exporty končí koncovou kartou BOMBOCUT. Pak si BOMBOCUT buď jednou koupíš za %@, nebo ne. Projekty můžeš exportovat dál, tak jak jsou. App Store zkušební verzi ukáže jako nákup zdarma, tím se jen spustí."
+          }
+        }
+      }
+    },
     "Not available for %@ yet.": {
       "localizations": {
         "cs": {
@@ -4883,7 +4903,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zatím nic zálohovaného."
+            "value": "Zatím nic nezálohováno."
           }
         }
       }
@@ -4923,7 +4943,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vypnuto: vejdou se dovnitř, s okraji tam, kde se tvary liší."
+            "value": "Vypnuto: vejdou se celé dovnitř a kde se tvar liší, budou okraje."
           }
         }
       }
@@ -5268,16 +5288,6 @@
         }
       }
     },
-    "Pay once. No subscription, no ads, nothing locked.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zaplatíš jednou. Žádné předplatné, žádné reklamy, nic zamčeného."
-          }
-        }
-      }
-    },
     "People": {
       "localizations": {
         "cs": {
@@ -5373,7 +5383,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyber až %lld, v pořadí, v jakém se ukážou. Menu otevřeš dalším klepnutím na vybraný klip."
+            "value": "Vyber až %lld v pořadí, v jakém mají jít. Dalším klepnutím na vybraný klip otevřeš menu."
           }
         }
       }
@@ -5963,7 +5973,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klipy pozpátku, které se nepodařilo znovu vytvořit: %lld."
+            "value": "Klipy pozpátku, které nešlo znovu vytvořit: %lld."
           }
         }
       }
@@ -5973,7 +5983,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Znovu vytvářím klipy pozpátku…"
+            "value": "Znovu otáčím klipy pozpátku…"
           }
         }
       }
@@ -6773,7 +6783,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Spotify, Apple Music a další hrají dál, i když stříháš. Zvuk editoru hraje přes ně."
+            "value": "Spotify, Apple Music a další hrají dál, i když stříháš. Zvuk z editoru jde přes ně."
           }
         }
       }
@@ -6833,7 +6843,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyzkoušet 7 dní zdarma"
+            "value": "Začít 7 dní zdarma"
           }
         }
       }
@@ -6943,7 +6953,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Maska objektu, stabilizace a tracking"
+            "value": "Masky objektů, stabilizace a tracking"
           }
         }
       }
@@ -6993,7 +7003,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Synchronizovat importovaná písma a LUTy"
+            "value": "Synchronizovat písma a LUTy"
           }
         }
       }
@@ -7003,7 +7013,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Synchronizovat předvolby a nastavení"
+            "value": "Synchronizovat presety a nastavení"
           }
         }
       }
@@ -7043,7 +7053,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klepni na projekt a vyexportuj ho, jak je, s koncovou kartou. Kup si BOMBOCUT jednou a stříhej dál."
+            "value": "Klepni na projekt a vyexportuješ ho, jak je, s koncovou kartou. Kup si BOMBOCUT jednou a stříhej dál."
           }
         }
       }
@@ -7214,16 +7224,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Textura"
-          }
-        }
-      }
-    },
-    "The 7-day trial is free and has every tool. Its exports end with the BOMBOCUT end card. After 7 days you can still export your projects as they are, and editing needs a one-time purchase of %@. Nothing renews and nothing is charged automatically.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7denní zkušební verze je zdarma a má všechny nástroje. Její exporty končí koncovou kartou BOMBOCUT. Po 7 dnech můžeš projekty dál exportovat, jak jsou, a pro další stříhání je potřeba jednorázový nákup za %@. Nic se neobnovuje a nic se automaticky neúčtuje."
           }
         }
       }
@@ -7453,7 +7453,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pak si ho jednou kup, nebo ne."
+            "value": "Pak ho jednou koupíš, nebo ne."
           }
         }
       }
@@ -7703,7 +7703,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Náhledy a systémová mezipaměť, v případě potřeby se vytvoří znovu"
+            "value": "Náhledy a systémová mezipaměť, podle potřeby se vytvoří znovu"
           }
         }
       }
@@ -7903,7 +7903,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vyzkoušej si všechno na 7 dní zdarma."
+            "value": "Vyzkoušej si všechno 7 dní zdarma."
           }
         }
       }
@@ -8353,7 +8353,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Originálů ve Fotkách se nic nedotkne. Mazání je tady trvalé, koš neexistuje."
+            "value": "Originálů ve Fotkách se nic nedotkne. Co tu smažeš, je pryč navždy, koš tu není."
           }
         }
       }
@@ -8523,7 +8523,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "„%@“ máš teď v projektech, i se všemi klipy."
+            "value": "„%@“ je v projektech, i se všemi klipy."
           }
         }
       }
@@ -8533,7 +8533,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "„%@“ máš teď v projektech."
+            "value": "„%@“ je v projektech."
           }
         }
       }

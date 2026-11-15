@@ -187,7 +187,7 @@ struct PaywallView: View {
                     point("person.fill", "Subject masks, stabilization and tracking")
                     point("square.and.arrow.up.fill", "Export from 144p to 4K and 120 fps, at the bitrate you pick")
                     point("wifi.slash", "Everything runs offline, on your iPhone. No cloud, no account, no data collection.")
-                    point("creditcard.fill", "Pay once. No subscription, no ads, nothing locked.")
+                    point("creditcard.fill", "No subscription. Pay once, no ads, nothing locked.")
                     point("arrow.triangle.2.circlepath", "All updates included")
                 }
 
@@ -197,7 +197,7 @@ struct PaywallView: View {
                     switch mode {
                     case .start:
                         primary("Start 7-day free trial") { await purchases.startTrial() }
-                        secondary(String(format: loc("Buy now for %@"), purchases.price)) { await purchases.buyFull() }
+                        secondary(String(format: loc("Buy once for %@"), purchases.price)) { await purchases.buyFull() }
                     case .buy, .expired:
                         primary(String(format: loc("Buy for %@"), purchases.price)) { await purchases.buyFull() }
                         if mode == .expired, let exportOnly {
@@ -255,7 +255,7 @@ struct PaywallView: View {
     }
 
     private var disclosure: String {
-        String(format: loc("The 7-day trial is free and has every tool. Its exports end with the BOMBOCUT end card. After 7 days you can still export your projects as they are, and editing needs a one-time purchase of %@. Nothing renews and nothing is charged automatically."), purchases.price)
+        String(format: loc("Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only its exports end with the BOMBOCUT end card. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it."), purchases.price)
     }
 
     private var team: some View {
