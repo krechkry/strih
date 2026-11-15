@@ -6,7 +6,9 @@ import UniformTypeIdentifiers
 
 struct EditorView: View {
     @StateObject private var model: EditorModel
-    @Environment(\.dismiss) private var dismiss
+    /// Closes the editor. Not @Environment(\.dismiss): on iOS 26 that action changed on every update,
+    /// which redrew the whole editor in an endless loop (the editor froze as it opened, 1.1).
+    private let onClose: () -> Void
     @State private var sheet: EditorSheet?
     @State private var addItems: [PhotosPickerItem] = []
     @State private var overlayItems: [PhotosPickerItem] = []
@@ -207,8 +209,9 @@ struct EditorView: View {
         return max(0, panelHeight(s) + extra + kb - 34 - bottomHeight + 6)
     }
 
-    init(project: Project, store: ProjectStore) {
+    init(project: Project, store: ProjectStore, onClose: @escaping () -> Void) {
         _model = StateObject(wrappedValue: EditorModel(project: project, store: store))
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -440,7 +443,7 @@ struct EditorView: View {
 
     private var topBar: some View {
         HStack(spacing: 6) {
-            Button { dismiss() } label: {
+            Button { onClose() } label: {
                 Image(systemName: "chevron.left").font(.body.weight(.semibold)).frame(width: 40, height: 40)
             }
             if let pill = statusPill {
