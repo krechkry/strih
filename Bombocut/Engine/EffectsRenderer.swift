@@ -141,18 +141,30 @@ enum EffectsRenderer {
                 "inputTargetNeutral": CIVector(x: 6500, y: 0),
             ])
         }
-        if e.highlights != 0 || e.shadows != 0 {
-            out = out.applyingFilter("CIToneCurve", parameters: [
-                "inputPoint0": CIVector(x: 0, y: 0),
-                "inputPoint1": CIVector(x: 0.25, y: 0.25 + e.shadows * 0.12),
-                "inputPoint2": CIVector(x: 0.5, y: 0.5),
-                "inputPoint3": CIVector(x: 0.75, y: 0.75 + e.highlights * 0.12),
-                "inputPoint4": CIVector(x: 1, y: 1),
-            ])
-        }
+        if e.highlights != 0 || e.shadows != 0 { out = shadowsHighlights(out, e) }
         if e.hasCurves { out = curves(out, e) }
         if e.hasHSL { out = hsl(out, e) }
         return out
+    }
+
+    // MARK: Shadows / Highlights
+
+    /// Shadows and Highlights as one tone curve, in sRGB like the eye sees it.
+    private static func shadowsHighlights(_ img: CIImage, _ e: Effects) -> CIImage {
+        let n = 256
+        var table = [Float](repeating: 0, count: n * 3)
+        for i in 0..<n {
+            let v = Float(ToneLift.value(Double(i) / Double(n - 1), shadows: e.shadows, highlights: e.highlights))
+            table[i * 3] = v
+            table[i * 3 + 1] = v
+            table[i * 3 + 2] = v
+        }
+        let data = table.withUnsafeBufferPointer { Data(buffer: $0) }
+        return img.applyingFilter("CIColorCurves", parameters: [
+            "inputCurvesData": data,
+            "inputCurvesDomain": CIVector(x: 0, y: 1),
+            "inputColorSpace": srgb,
+        ])
     }
 
     // MARK: Curves
@@ -447,4 +459,27 @@ enum EffectsRenderer {
     }
 
     private static let stillContext = CIContext()
+}
+
+/// The Shadows / Highlights tone curve (0...1 in, 0...1 out, always rising).
+/// Shadows + lifts the dark tones a lot (most around 10 to 30 %), fades out through the mid tones and
+/// leaves white alone; black only lifts a little, so the picture doesn't go grey. Shadows - pushes the
+/// dark tones down toward black. Highlights is the same curve mirrored onto the bright end:
+/// + brightens the bright tones, - pulls them back (recovers a bright sky).
+enum ToneLift {
+    static func value(_ x: Double, shadows: Double, highlights: Double) -> Double {
+        var y = min(max(x, 0), 1)
+        if shadows != 0 { y = lift(y, shadows) }
+        if highlights != 0 { y = 1 - lift(1 - y, -highlights) }
+        return min(max(y, 0), 1)
+    }
+
+    /// Brightens (amount > 0) or darkens (amount < 0) the low end: x * (1 + k * (1 - x)^4).
+    /// Lifting is up to 3.4x the value in the deepest tones; darkening keeps at least a tenth of it,
+    /// so the curve never turns back down.
+    private static func lift(_ x: Double, _ amount: Double) -> Double {
+        let a = min(max(amount, -1), 1)
+        let k = a > 0 ? 2.4 * a : 0.9 * a
+        return x * (1 + k * pow(1 - x, 4))
+    }
 }

@@ -154,3 +154,41 @@ final class ClipReverseTests: XCTestCase {
         XCTAssertNil(back.reversed)
     }
 }
+
+final class ToneLiftTests: XCTestCase {
+    func testNeutralIsIdentity() {
+        for i in 0...100 { let x = Double(i) / 100; XCTAssertEqual(ToneLift.value(x, shadows: 0, highlights: 0), x, accuracy: 1e-12) }
+    }
+
+    func testAlwaysRisingAndInRange() {
+        for s in stride(from: -1.0, through: 1.0, by: 0.25) {
+            for h in stride(from: -1.0, through: 1.0, by: 0.25) {
+                var last = -1.0
+                for i in 0...400 {
+                    let v = ToneLift.value(Double(i) / 400, shadows: s, highlights: h)
+                    XCTAssertGreaterThanOrEqual(v, last - 1e-12, "s \(s) h \(h) at \(i)")
+                    XCTAssertTrue((0...1).contains(v))
+                    last = v
+                }
+            }
+        }
+    }
+
+    func testShadowsLiftTheDarkTonesAndLeaveTheBrightOnes() {
+        let up = { (x: Double) in ToneLift.value(x, shadows: 1, highlights: 0) }
+        XCTAssertGreaterThan(up(0.15), 0.3)          // a dark tone more than doubles
+        XCTAssertLessThan(up(0.02), 0.08)            // black stays nearly black
+        XCTAssertLessThan(up(0.8) - 0.8, 0.005)      // bright tones barely move
+        XCTAssertEqual(up(1), 1, accuracy: 1e-12)
+        let down = ToneLift.value(0.15, shadows: -1, highlights: 0)
+        XCTAssertLessThan(down, 0.1)
+        XCTAssertGreaterThan(down, 0.01)
+    }
+
+    func testHighlightsMirrorTheShadows() {
+        XCTAssertLessThan(ToneLift.value(0.85, shadows: 0, highlights: -1), 0.7)   // recovered
+        XCTAssertGreaterThan(ToneLift.value(0.85, shadows: 0, highlights: 1), 0.88)
+        XCTAssertLessThan(abs(ToneLift.value(0.2, shadows: 0, highlights: -1) - 0.2), 0.005)
+        XCTAssertEqual(ToneLift.value(0, shadows: 0, highlights: 1), 0, accuracy: 1e-12)
+    }
+}
