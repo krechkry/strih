@@ -187,6 +187,8 @@ final class EditorModel: ObservableObject {
         project.migratePins()         // older pins named a clip: now its footage
         self.project = project
         self.store = store
+        // iCloud sync never swaps or removes the project while it's open here
+        CloudBackup.shared.editing = project.id
         player.actionAtItemEnd = .pause
 
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self] t in
@@ -237,6 +239,7 @@ final class EditorModel: ObservableObject {
     }
 
     func tearDown() {
+        if CloudBackup.shared.editing == project.id { CloudBackup.shared.editing = nil }
         LookStore.shared.clear()
         CaptionStore.shared.update([])
         player.pause()

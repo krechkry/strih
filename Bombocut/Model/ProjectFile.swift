@@ -80,7 +80,13 @@ enum ProjectFile {
     static func contents(of p: Project, light: Bool = false)
         -> (media: [URL], fonts: [URL], luts: [URL], bytes: Int64, photos: [PhotosRef], reversed: [ReverseRef]) {
         let fm = FileManager.default
-        let refs = light ? inICloudPhotos(p) : [:]
+        var refs = light ? inICloudPhotos(p) : [:]
+        // videos this device is still waiting for from iCloud Photos: passed on, so the file stays complete
+        let used = p.mediaFiles
+        for r in p.cloudPhotos ?? [] where refs[r.file] == nil && used.contains(r.file)
+            && !fm.fileExists(atPath: Paths.mediaURL(r.file).path) {
+            refs[r.file] = r
+        }
         let remade = reversedClips(p)
         let media = p.mediaFiles.subtracting(refs.keys).subtracting(remade.map(\.file)).sorted()
             .map(Paths.mediaURL).filter { fm.fileExists(atPath: $0.path) }
@@ -170,19 +176,32 @@ enum ProjectFile {
         return out
     }
 
+    /// What came back from iCloud Photos: file name → this device's Photos item, what didn't come, how many came
+    /// back different (edited in Photos since), and the Photos access the app has.
+    struct PhotosBack {
+        var found: [String: String] = [:]
+        var missing: [PhotosRef] = []
+        var changed = 0
+        var access: PHAuthorizationStatus = .authorized
+    }
+
     /// Media a light file left out, fetched again from iCloud Photos under their old names (they download if
-    /// needed). Returns how many couldn't be found (deleted, another Apple ID, no access) and how many came back
-    /// different (edited in Photos since).
-    static func restorePhotos(_ refs: [PhotosRef], progress: Progress) async -> (missing: Int, changed: Int) {
+    /// needed). Not found: deleted, another Apple ID, iCloud Photos off or not synced yet here, no access.
+    /// `ask`: may ask for Photos access (never while syncing quietly).
+    static func restorePhotos(_ refs: [PhotosRef], ask: Bool = true, progress: Progress) async -> PhotosBack {
         let todo = refs.filter { safeName($0.file) && !FileManager.default.fileExists(atPath: Paths.mediaURL($0.file).path) }
-        guard !todo.isEmpty else { return (0, 0) }
+        var back = PhotosBack()
+        guard !todo.isEmpty else { return back }
         progress.totalUnitCount = Int64(todo.count)
         var auth = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        if auth == .notDetermined { auth = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
-        guard auth == .authorized || auth == .limited else { return (todo.count, 0) }
+        if auth == .notDetermined, ask { auth = await PHPhotoLibrary.requestAuthorization(for: .readWrite) }
+        back.access = auth
+        guard auth == .authorized || auth == .limited else {
+            back.missing = todo
+            return back
+        }
         let ids = todo.map { PHCloudIdentifier(stringValue: $0.cloud) }
         let local = PHPhotoLibrary.shared().localIdentifierMappings(for: ids)
-        var missing = 0, changed = 0
         for (ref, id) in zip(todo, ids) {
             defer { progress.completedUnitCount += 1 }
             let dest = Paths.mediaURL(ref.file)
@@ -190,12 +209,46 @@ enum ProjectFile {
                   let asset = PHAsset.fetchAssets(withLocalIdentifiers: [localID], options: nil).firstObject,
                   asset.mediaType == .video || asset.mediaType == .image,
                   await Media.load(asset, to: dest) != nil else {
-                missing += 1
+                back.missing.append(ref)
                 continue
             }
-            if size(dest) != ref.size { changed += 1 }
+            back.found[ref.file] = localID
+            if size(dest) != ref.size { back.changed += 1 }
         }
-        return (missing, changed)
+        return back
+    }
+
+    /// After videos came back from iCloud Photos: the clips and layers point at this device's Photos items (so
+    /// its own backups stay light), and the ones that didn't come wait in `cloudPhotos` to be tried again.
+    static func settle(_ p: inout Project, refs: [PhotosRef], back: PhotosBack) {
+        func walk(_ c: inout Clip) {
+            if let id = back.found[c.reversed?.mediaFile ?? c.mediaFile] { c.asset = id }
+            if var inner = c.stack {
+                for i in inner.indices { walk(&inner[i]) }
+                c.stack = inner
+            }
+        }
+        for i in p.clips.indices { walk(&p.clips[i]) }
+        for i in p.overlays.indices {
+            if let f = p.overlays[i].kind.mediaFile, let id = back.found[f] { p.overlays[i].asset = id }
+        }
+        let used = p.mediaFiles
+        var waiting: [String: PhotosRef] = [:]
+        for r in (p.cloudPhotos ?? []) + refs + back.missing where used.contains(r.file)
+            && !FileManager.default.fileExists(atPath: Paths.mediaURL(r.file).path) {
+            waiting[r.file] = r
+        }
+        p.cloudPhotos = waiting.isEmpty ? nil : waiting.values.sorted { $0.file < $1.file }
+    }
+
+    /// A project still waiting for videos from iCloud Photos tries again (quietly). The updated project when
+    /// something changed (its `modified` stays: nothing was edited).
+    static func retryMissing(_ p: Project) async -> Project? {
+        guard let refs = p.cloudPhotos, !refs.isEmpty else { return nil }
+        let back = await restorePhotos(refs, ask: false, progress: Progress())
+        var q = p
+        settle(&q, refs: [], back: back)
+        return q == p ? nil : q
     }
 
     /// Packs a project into `folder` and returns the new file. Cancel through `progress`.

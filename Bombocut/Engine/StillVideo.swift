@@ -24,13 +24,13 @@ enum StillVideo {
         return try await make(from: cg)
     }
 
-    /// A still video holding `image` (already upright).
-    static func make(from image: CGImage) async throws -> URL {
+    /// A still video holding `image` (already upright). `dest`: where it goes (a new file in Media otherwise).
+    static func make(from image: CGImage, to dest: URL? = nil) async throws -> URL {
         let w0 = CGFloat(image.width), h0 = CGFloat(image.height)
         let k = min(1, maxSide / max(w0, h0))
         let w = max(2, Int((w0 * k / 2).rounded()) * 2), h = max(2, Int((h0 * k / 2).rounded()) * 2)
         Paths.ensure()
-        let out = Paths.mediaURL("still-" + UUID().uuidString + ".mov")
+        let out = dest ?? Paths.mediaURL("still-" + UUID().uuidString + ".mov")
         let writer = try AVAssetWriter(outputURL: out, fileType: .mov)
         // HEVC above H.264's 4096 limit; both are hardware encoded
         let codec: AVVideoCodecType = max(w, h) > 4096 ? .hevc : .h264

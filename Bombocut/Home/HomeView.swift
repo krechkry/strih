@@ -35,7 +35,7 @@ struct HomeView: View {
     @StateObject private var transfer = ProjectTransfer()
 
     var body: some View {
-        dialogs(stack)
+        deleteDialogs(dialogs(stack))
             .modifier(ProjectTransferLayer(transfer: transfer, store: store) { openProject = $0 })
     }
 
@@ -189,7 +189,8 @@ struct HomeView: View {
     /// Sheets and alerts, kept apart so the compiler can check the body quickly.
     private func dialogs<V: View>(_ v: V) -> some View {
         v
-        .alert(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count), isPresented: $confirmDeleteSelected) {
+        .alert(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count),
+               isPresented: Binding(get: { confirmDeleteSelected && !CloudBackup.enabled }, set: { if !$0 { confirmDeleteSelected = false } })) {
             Button("Delete forever", role: .destructive) {
                 for p in store.projects where selected.contains(p.id) { store.delete(p) }
                 selected = []
@@ -202,7 +203,7 @@ struct HomeView: View {
         .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
             LanguageSetupView(firstLaunch: true).presentationDetents([.large])
         }
-        .alert("Delete this project?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+        .alert("Delete this project?", isPresented: Binding(get: { deleting != nil && !CloudBackup.enabled }, set: { if !$0 { deleting = nil } }),
                presenting: deleting) { p in
             Button("Delete forever", role: .destructive) { store.delete(p) }
             Button("Cancel", role: .cancel) {}
@@ -243,6 +244,38 @@ struct HomeView: View {
             Button("Save") { if let r = renaming { store.rename(r, to: renameText) } }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    /// With Sync projects on, deleting asks where: this device only, or every device.
+    private func deleteDialogs<V: View>(_ v: V) -> some View {
+        v
+        .confirmationDialog("Delete this project?",
+                            isPresented: Binding(get: { deleting != nil && CloudBackup.enabled }, set: { if !$0 { deleting = nil } }),
+                            titleVisibility: .visible, presenting: deleting) { p in
+            Button("Remove from this device") { CloudBackup.shared.removeHere(p, store: store) }
+            Button("Delete everywhere", role: .destructive) { CloudBackup.shared.deleteEverywhere(p, store: store) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Restore.")
+        }
+        .confirmationDialog(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count),
+                            isPresented: Binding(get: { confirmDeleteSelected && CloudBackup.enabled },
+                                                 set: { if !$0 { confirmDeleteSelected = false } }),
+                            titleVisibility: .visible) {
+            Button("Remove from this device") { deleteSelected(everywhere: false) }
+            Button("Delete everywhere", role: .destructive) { deleteSelected(everywhere: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Restore.")
+        }
+    }
+
+    private func deleteSelected(everywhere: Bool) {
+        for p in store.projects where selected.contains(p.id) {
+            if everywhere { CloudBackup.shared.deleteEverywhere(p, store: store) } else { CloudBackup.shared.removeHere(p, store: store) }
+        }
+        selected = []
+        selecting = false
     }
 
     /// The speech model download: progress, and Pause / Resume (it keeps going with the phone locked).
@@ -425,6 +458,15 @@ private struct ProjectRow: View {
         return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
+    /// Clips and size; how many of its videos aren't on this device yet, when some aren't.
+    private var detail: Text {
+        let base = Text(verbatim: String(format: loc(project.clips.count == 1 ? "%lld clip" : "%lld clips"), project.clips.count) + " · " + size)
+            .foregroundStyle(Theme.muted)
+        let missing = project.missingFiles
+        guard missing > 0 else { return base }
+        return base + Text(verbatim: " · " + String(format: loc("Missing: %lld"), missing)).foregroundStyle(.orange)
+    }
+
     var body: some View {
         HStack(spacing: 14) {
             if selecting {
@@ -447,8 +489,7 @@ private struct ProjectRow: View {
                 Text(project.name).font(.body.weight(.semibold)).lineLimit(1)
                 Text(Fmt.duration(project.duration))
                     .font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.85))
-                Text(String(format: loc(project.clips.count == 1 ? "%lld clip" : "%lld clips"), project.clips.count) + " · " + size)
-                    .font(.footnote).foregroundStyle(Theme.muted)
+                detail.font(.footnote)
             }
             Spacer()
             if !selecting { Image(systemName: "chevron.right").foregroundStyle(Theme.muted) }

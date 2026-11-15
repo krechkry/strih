@@ -43,6 +43,8 @@ final class ProjectStore: ObservableObject {
         }
         if let i = projects.firstIndex(where: { $0.id == p.id }) { projects[i] = p } else { projects.insert(p, at: 0) }
         projects.sort { $0.modified > $1.modified }
+        // synced to the user's other devices a little after the last change (Settings > iCloud)
+        CloudBackup.shared.changed(p.id)
     }
 
     func delete(_ p: Project) {
@@ -54,15 +56,21 @@ final class ProjectStore: ObservableObject {
     func rename(_ p: Project, to name: String) {
         var q = p
         q.name = name
+        q.modified = Date()
         save(q)
     }
 
-    /// Removes imported media no project uses any more.
+    /// Removes imported media no project uses any more. Files from the last few minutes stay: a project being
+    /// added (opened, synced, clips coming from iCloud Photos) has its media in before the project is saved.
     func cleanupMedia() {
         let used = Set(projects.flatMap { $0.mediaFiles })
         let files = (try? FileManager.default.contentsOfDirectory(atPath: Paths.media.path)) ?? []
+        let recent = Date().addingTimeInterval(-600)
         for f in files where !used.contains(f) {
-            try? FileManager.default.removeItem(at: Paths.mediaURL(f))
+            let url = Paths.mediaURL(f)
+            let made = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let made, made > recent { continue }
+            try? FileManager.default.removeItem(at: url)
         }
     }
 

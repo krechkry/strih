@@ -591,6 +591,8 @@ struct ExportSheet: View {
                     phase = .done(url, saved: false, note: error.localizedDescription)
                 }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                // whatever changed goes to the other devices now (Settings > iCloud > Sync projects)
+                CloudBackup.shared.exported()
             } catch is CancellationError {
                 if !Task.isCancelled { phase = .setup }
             } catch is Exporter.LowMemory {

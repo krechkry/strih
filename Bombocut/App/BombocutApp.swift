@@ -5,6 +5,7 @@ import AVFoundation
 struct BombocutApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = ProjectStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // editor audio plays even when the ring/silent switch is on (and, if chosen, next to other apps' music)
@@ -30,7 +31,13 @@ struct BombocutApp: App {
                 .fontWeight(.medium)
                 // a .bbc project opened from Files, AirDrop, Mail…
                 .onOpenURL { ProjectInbox.shared.receive($0) }
+                // projects on all devices with the same Apple ID (Settings > iCloud > Sync projects)
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { CloudBackup.shared.becameActive() }
+                    if phase == .background { CloudBackup.shared.wentToBackground() }
+                }
                 .task {
+                    if Demo.mode == nil { CloudBackup.shared.start(store) }
                     if Demo.mode == nil { SpeechEngine.warmUp() }
                     // a speech model download that was running (not paused) when the app closed carries on
                     ModelDownload.shared.resumeIfWanted()

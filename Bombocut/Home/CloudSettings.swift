@@ -53,8 +53,8 @@ struct CloudToggles: View {
                      isOn: prefs) { prefs = $0 }
                 .padding(14)
                 .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
-            OnOffRow(title: "Back up projects",
-                     subtitle: "A copy of each project in iCloud Drive (the BOMBOCUT folder), updated after you edit. Videos that are in your iCloud Photos aren't copied again, so it takes little space.",
+            OnOffRow(title: "Sync projects",
+                     subtitle: "Your projects on all your devices with the same Apple ID, saved to iCloud after every change (also a backup, in iCloud Drive > BOMBOCUT). Videos that are in your iCloud Photos aren't copied again, so it takes little space.",
                      isOn: projects) { projects = $0 }
                 .padding(14)
                 .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -91,7 +91,10 @@ struct CloudSettings: View {
                     .foregroundStyle(backup.problem == nil ? Theme.muted : .orange)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
-                    Button { backup.backUp(store.projects, force: true) } label: { chip("Back up now", "arrow.clockwise.icloud") }
+                    Button {
+                        backup.backUp(store.projects, force: true)
+                        backup.sync()
+                    } label: { chip("Sync now", "arrow.clockwise.icloud") }
                         .buttonStyle(.plain)
                         .disabled(backup.working)
                     NavigationLink { BackupsView(close: close) } label: { chip("Restore", "clock.arrow.circlepath") }
@@ -103,12 +106,12 @@ struct CloudSettings: View {
 
     private var status: String {
         if let p = backup.problem { return p }
-        if backup.working { return loc("Backing up…") }
+        if backup.working { return loc("Syncing…") }
         if let last = backup.last {
             let when = last.formatted(.relative(presentation: .named))
-            return String(format: loc("Last backup: %@"), when)
+            return String(format: loc("Last synced: %@"), when)
         }
-        return loc("Nothing backed up yet.")
+        return loc("Nothing synced yet.")
     }
 
     private func chip(_ title: String, _ icon: String) -> some View {
@@ -124,6 +127,7 @@ struct CloudSettings: View {
 struct BackupsView: View {
     let close: () -> Void
     @StateObject private var browser = BackupBrowser()
+    @StateObject private var bin = BackupBrowser(deleted: true)
 
     var body: some View {
         ScrollView {
@@ -144,18 +148,39 @@ struct BackupsView: View {
                     } label: { row(item) }
                     .buttonStyle(.plain)
                 }
-                Text("A restored project is added next to your projects; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.")
+                Text("A project that's already here is added as a copy; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
+                if !bin.items.isEmpty {
+                    Text("Recently deleted")
+                        .font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                        .padding(.top, 14)
+                    ForEach(bin.items) { item in
+                        Button {
+                            ProjectInbox.shared.receive(item.url)
+                            close()
+                        } label: { row(item) }
+                        .buttonStyle(.plain)
+                    }
+                    Text("Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(20)
         }
         .background(Theme.bg)
         .navigationTitle(loc("Restore"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { browser.start() }
-        .onDisappear { browser.stop() }
+        .onAppear {
+            browser.start()
+            bin.start()
+        }
+        .onDisappear {
+            browser.stop()
+            bin.stop()
+        }
     }
 
     private func row(_ item: BackupBrowser.Item) -> some View {

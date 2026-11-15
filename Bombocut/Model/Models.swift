@@ -439,6 +439,9 @@ struct Project: Identifiable, Codable, Hashable {
     var stacks: [ClipStack] = []   // groups of neighbouring clips treated as one (see ClipStack)
     /// Color of the empty space around and behind the clips (red, green, blue 0...1); nil is black.
     var background: [Double]?
+    /// Videos that should come from iCloud Photos but weren't there yet on this device (a project from another
+    /// device): tried again later, and passed on when this device backs the project up. nil when none.
+    var cloudPhotos: [ProjectFile.PhotosRef]?
 
     /// The caption track being edited (setting nil removes it).
     var captions: Captions? {
@@ -511,7 +514,7 @@ struct Project: Identifiable, Codable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, created, modified, canvas, clips, captions, captionTracks, activeCaption, overlays, audio
-        case layerRows, stacks, background
+        case layerRows, stacks, background, cloudPhotos
     }
 
     func encode(to e: Encoder) throws {
@@ -529,6 +532,7 @@ struct Project: Identifiable, Codable, Hashable {
         try c.encode(true, forKey: .layerRows)
         if !stacks.isEmpty { try c.encode(stacks, forKey: .stacks) }
         if let background { try c.encode(background, forKey: .background) }
+        if let cloudPhotos, !cloudPhotos.isEmpty { try c.encode(cloudPhotos, forKey: .cloudPhotos) }
     }
 
     init(from d: Decoder) throws {
@@ -552,6 +556,7 @@ struct Project: Identifiable, Codable, Hashable {
         if (try? c.decodeIfPresent(Bool.self, forKey: .layerRows)) != true { mergeOverlayLanes() }
         stacks = (try? c.decodeIfPresent([ClipStack].self, forKey: .stacks)) ?? []
         if let b = try? c.decodeIfPresent([Double].self, forKey: .background), b.count == 3 { background = b }
+        cloudPhotos = try? c.decodeIfPresent([ProjectFile.PhotosRef].self, forKey: .cloudPhotos)
     }
 
     /// Earlier versions made a transition by fading the clip before out and the clip after in (through
@@ -571,6 +576,11 @@ struct Project: Identifiable, Codable, Hashable {
     var mediaFiles: Set<String> {
         Set(clips.flatMap(\.allMediaFiles))
             .union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
+    }
+
+    /// How many of the project's files aren't on this device (they play as a stand-in, see MissingClip).
+    var missingFiles: Int {
+        mediaFiles.filter { !FileManager.default.fileExists(atPath: Paths.mediaURL($0).path) }.count
     }
 
     /// Timeline start time of each clip.

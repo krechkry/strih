@@ -250,16 +250,6 @@
         }
       }
     },
-    "A copy of each project in iCloud Drive (the BOMBOCUT folder), updated after you edit. Videos that are in your iCloud Photos aren't copied again, so it takes little space.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Každý projekt se po úpravě zkopíruje na iCloud Drive (složka BOMBOCUT). Videa, která už máš ve Fotkách na iCloudu, se znovu nekopírují, takže záloha skoro nezabere místo."
-          }
-        }
-      }
-    },
     "A preset holds the whole look of the text: size, spacing, font, colors, outline, shadow and box. Save makes one from this text; hold a preset to update it with the current look, rename it or delete it.": {
       "localizations": {
         "cs": {
@@ -280,12 +270,12 @@
         }
       }
     },
-    "A restored project is added next to your projects; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.": {
+    "A project that's already here is added as a copy; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obnovený projekt se přidá k ostatním, nic se nepřepíše. Zálohy najdeš i v Souborech: iCloud Drive > BOMBOCUT."
+            "value": "Projekt, který už tu máš, se přidá jako kopie, nic se nepřepíše. Zálohy najdeš i v Souborech: iCloud Drive > BOMBOCUT."
           }
         }
       }
@@ -566,6 +556,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Všechny aktualizace v ceně"
+          }
+        }
+      }
+    },
+    "Allow BOMBOCUT to use your photos in Settings > BOMBOCUT > Photos.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Povol BOMBOCUTu přístup k fotkám v Nastavení > BOMBOCUT > Fotky."
           }
         }
       }
@@ -930,6 +930,16 @@
         }
       }
     },
+    "BOMBOCUT sees only some of your photos: allow full access in Settings > BOMBOCUT > Photos.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT vidí jen některé tvoje fotky: povol plný přístup v Nastavení > BOMBOCUT > Fotky."
+          }
+        }
+      }
+    },
     "BOMBOCUT sees only the items you allowed. Change it in Settings.": {
       "localizations": {
         "cs": {
@@ -1010,26 +1020,6 @@
         }
       }
     },
-    "Back up now": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zálohovat teď"
-          }
-        }
-      }
-    },
-    "Back up projects": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zálohovat projekty"
-          }
-        }
-      }
-    },
     "Background": {
       "localizations": {
         "cs": {
@@ -1046,16 +1036,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pozadí černobíle"
-          }
-        }
-      }
-    },
-    "Backing up…": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zálohuju…"
           }
         }
       }
@@ -1660,6 +1640,16 @@
         }
       }
     },
+    "Clip missing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klip chybí"
+          }
+        }
+      }
+    },
     "Clip sound": {
       "localizations": {
         "cs": {
@@ -1690,12 +1680,12 @@
         }
       }
     },
-    "Clips not found in your iCloud Photos: %lld.": {
+    "Clips that aren't in iCloud Photos on this device yet: %lld.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klipy, které ve Fotkách na iCloudu nejsou: %lld."
+            "value": "Klipy, které na tomhle zařízení ještě nejsou ve Fotkách na iCloudu: %lld."
           }
         }
       }
@@ -2164,6 +2154,16 @@
         }
       }
     },
+    "Delete everywhere": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat všude"
+          }
+        }
+      }
+    },
     "Delete filter": {
       "localizations": {
         "cs": {
@@ -2310,6 +2310,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat nepoužitá videa?"
+          }
+        }
+      }
+    },
+    "Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazané všude. Každý tu zůstane 30 dní, klepnutím ho vrátíš na všechna svá zařízení."
           }
         }
       }
@@ -4158,12 +4168,12 @@
         }
       }
     },
-    "Last backup: %@": {
+    "Last synced: %@": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poslední záloha: %@"
+            "value": "Naposledy synchronizováno: %@"
           }
         }
       }
@@ -4524,6 +4534,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moje"
+          }
+        }
+      }
+    },
+    "Missing: %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chybí: %lld"
           }
         }
       }
@@ -4938,12 +4958,12 @@
         }
       }
     },
-    "Nothing backed up yet.": {
+    "Nothing synced yet.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zatím nic nezálohováno."
+            "value": "Zatím nic nesynchronizováno."
           }
         }
       }
@@ -5758,6 +5778,16 @@
         }
       }
     },
+    "Recently deleted": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nedávno smazané"
+          }
+        }
+      }
+    },
     "Rectangle": {
       "localizations": {
         "cs": {
@@ -5854,6 +5884,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odebrat písmo"
+          }
+        }
+      }
+    },
+    "Remove from this device": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit z tohoto zařízení"
+          }
+        }
+      }
+    },
+    "Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Restore.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit z tohoto zařízení: zůstane na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní ho vrátíš v Nastavení > iCloud > Obnovit."
+          }
+        }
+      }
+    },
+    "Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Restore.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit z tohoto zařízení: zůstanou na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní je vrátíš v Nastavení > iCloud > Obnovit."
           }
         }
       }
@@ -6538,12 +6598,12 @@
         }
       }
     },
-    "Sign in to iCloud and turn on iCloud Drive to back up projects.": {
+    "Sign in to iCloud and turn on iCloud Drive to sync projects.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na zálohování projektů se přihlas k iCloudu a zapni iCloud Drive."
+            "value": "Na synchronizaci projektů se přihlas k iCloudu a zapni iCloud Drive."
           }
         }
       }
@@ -7098,12 +7158,42 @@
         }
       }
     },
+    "Sync now": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizovat teď"
+          }
+        }
+      }
+    },
     "Sync presets and settings": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Synchronizovat presety a nastavení"
+          }
+        }
+      }
+    },
+    "Sync projects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizovat projekty"
+          }
+        }
+      }
+    },
+    "Syncing…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizuju…"
           }
         }
       }
@@ -7544,6 +7634,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pak ho jednou koupíš, nebo ne."
+          }
+        }
+      }
+    },
+    "They come back by themselves once iCloud Photos has them on this device (Settings > Photos > iCloud Photos). Until then the project plays without them.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrátí se samy, jakmile je Fotky na iCloudu budou mít i na tomhle zařízení (Nastavení > Fotky > Fotky na iCloudu). Do té doby se projekt přehrává bez nich."
           }
         }
       }
@@ -8448,6 +8548,16 @@
         }
       }
     },
+    "Your projects on all your devices with the same Apple ID, saved to iCloud after every change (also a backup, in iCloud Drive > BOMBOCUT). Videos that are in your iCloud Photos aren't copied again, so it takes little space.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tvoje projekty na všech zařízeních se stejným Apple ID, uložené na iCloud po každé změně (zároveň záloha v iCloud Drive > BOMBOCUT). Videa, která máš ve Fotkách na iCloudu, se znovu nekopírují, takže to zabere málo místa."
+          }
+        }
+      }
+    },
     "Zoom": {
       "localizations": {
         "cs": {
@@ -8598,12 +8708,12 @@
         }
       }
     },
-    "“%@” couldn't be backed up: %@": {
+    "“%@” couldn't be synced: %@": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "„%@“ se nepodařilo zálohovat: %@"
+            "value": "„%@“ se nepodařilo synchronizovat: %@"
           }
         }
       }

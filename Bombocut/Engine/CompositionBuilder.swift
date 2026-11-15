@@ -252,8 +252,15 @@ enum CompositionBuilder {
                           audio: hadAudio ? audioOut.map { ($0.1, Float(vol)) } : nil)
         }
 
-        for (k, clip) in project.clips.enumerated() {
-            let asset = AVURLAsset(url: Paths.mediaURL(clip.mediaFile))
+        for (k, original) in project.clips.enumerated() {
+            // a clip whose video isn't on this device plays a stand-in as long as itself (nothing else moves)
+            var clip = original
+            var url = Paths.mediaURL(original.mediaFile)
+            if MissingClip.isMissing(original), let stand = await MissingClip.url() {
+                clip = MissingClip.standIn(for: original, file: stand.lastPathComponent)
+                url = stand
+            }
+            let asset = AVURLAsset(url: url)
             var start = placed.last?.end ?? .zero
             var cut: CutTransition? = nil
             let shape = project.cutShape(k)

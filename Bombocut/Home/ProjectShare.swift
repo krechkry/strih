@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Photos
 
 /// .bbc files opened from outside (Files, AirDrop, Mail…), waiting for Home to add them.
 /// Kept here so a file opened while onboarding or the paywall shows isn't lost.
@@ -123,18 +124,22 @@ final class ProjectTransfer: ObservableObject {
         if !got.fonts.isEmpty { FontLibrary.shared.add(got.fonts) }
         var project = got.project
 
-        // a light file: its videos come back from iCloud Photos
+        // a light file: its videos come back from iCloud Photos (what doesn't come yet is tried again later)
         var note: String?
         if !got.photos.isEmpty {
             let phase = Progress(totalUnitCount: 1, parent: step, pendingUnitCount: 0)
             job = .photos
             shown = phase
-            let (missing, changed) = await ProjectFile.restorePhotos(got.photos, progress: phase)
+            let back = await ProjectFile.restorePhotos(got.photos, progress: phase)
+            ProjectFile.settle(&project, refs: [], back: back)
             shown = progress
             job = .adding
             var lines: [String] = []
-            if missing > 0 { lines.append(String(format: loc("Clips not found in your iCloud Photos: %lld."), missing)) }
-            if changed > 0 { lines.append(String(format: loc("Clips edited in Photos since, check them: %lld."), changed)) }
+            if !back.missing.isEmpty {
+                lines.append(String(format: loc("Clips that aren't in iCloud Photos on this device yet: %lld."), back.missing.count))
+                lines.append(Self.missingHint(back.access))
+            }
+            if back.changed > 0 { lines.append(String(format: loc("Clips edited in Photos since, check them: %lld."), back.changed)) }
             if !lines.isEmpty { note = project.name + ": " + lines.joined(separator: " ") }
         }
 
@@ -152,12 +157,32 @@ final class ProjectTransfer: ObservableObject {
             }
         }
 
-        if store.projects.contains(where: { $0.id == project.id }) { project.id = UUID() }
-        project.modified = Date()
-        store.save(project)
-        // what was just added doesn't need backing up again
-        CloudBackup.shared.markBackedUp(project)
+        if store.projects.contains(where: { $0.id == project.id }) {
+            // already here: added as a copy, a project of its own
+            project.id = UUID()
+            project.modified = Date()
+            store.save(project)
+        } else if CloudBackup.isOurs(url) {
+            // a backup from our iCloud folder (Settings > Restore): the same project, as it was synced
+            store.save(project)
+            CloudBackup.shared.restored(project, from: url)
+        } else {
+            project.modified = Date()
+            store.save(project)
+        }
         return (project, note)
+    }
+
+    /// What to do about clips that didn't come from iCloud Photos, by the Photos access BOMBOCUT has.
+    static func missingHint(_ access: PHAuthorizationStatus) -> String {
+        switch access {
+        case .limited:
+            return loc("BOMBOCUT sees only some of your photos: allow full access in Settings > BOMBOCUT > Photos.")
+        case .denied, .restricted, .notDetermined:
+            return loc("Allow BOMBOCUT to use your photos in Settings > BOMBOCUT > Photos.")
+        default:
+            return loc("They come back by themselves once iCloud Photos has them on this device (Settings > Photos > iCloud Photos). Until then the project plays without them.")
+        }
     }
 
     private func start(_ j: Job, _ p: Progress) {
