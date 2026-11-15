@@ -1,1 +1,3 @@
 "CFBundleDisplayName" = "BOMBOCUT";
+"NSPhotoLibraryUsageDescription" = "BOMBOCUT si načte videa, která vybereš, a můžeš je stříhat.";
+"NSPhotoLibraryAddUsageDescription" = "BOMBOCUT ukládá vyexportovaná videa do tvých Fotek.";
