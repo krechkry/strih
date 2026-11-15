@@ -162,10 +162,6 @@ final class ProjectTransfer: ObservableObject {
             project.id = UUID()
             project.modified = Date()
             store.save(project)
-        } else if CloudBackup.isOurs(url) {
-            // a backup from our iCloud folder (Settings > Restore): the same project, as it was synced
-            store.save(project)
-            CloudBackup.shared.restored(project, from: url)
         } else {
             project.modified = Date()
             store.save(project)

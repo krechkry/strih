@@ -270,16 +270,6 @@
         }
       }
     },
-    "A project that's already here is added as a copy; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Projekt, který už tu máš, se přidá jako kopie, nic se nepřepíše. Zálohy najdeš i v Souborech: iCloud Drive > BOMBOCUT."
-          }
-        }
-      }
-    },
     "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!": {
       "localizations": {
         "cs": {
@@ -2524,6 +2514,16 @@
         }
       }
     },
+    "Downloading %lld of %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuju %lld z %lld"
+          }
+        }
+      }
+    },
     "Downloading from iCloud…": {
       "localizations": {
         "cs": {
@@ -3668,6 +3668,16 @@
         }
       }
     },
+    "Gone for good in %lld days": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dní do trvalého smazání: %lld"
+          }
+        }
+      }
+    },
     "Grain": {
       "localizations": {
         "cs": {
@@ -4788,16 +4798,6 @@
         }
       }
     },
-    "No backups in iCloud yet.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Na iCloudu zatím nejsou žádné zálohy."
-          }
-        }
-      }
-    },
     "No new fonts in those files.": {
       "localizations": {
         "cs": {
@@ -4948,12 +4948,32 @@
         }
       }
     },
+    "Not enough space for “%@” (%@ needed).": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na „%@“ není dost místa (potřeba %@)."
+          }
+        }
+      }
+    },
     "Not everything came in": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Něco se nenaimportovalo"
+          }
+        }
+      }
+    },
+    "Nothing deleted in the last 30 days.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Za posledních 30 dní se nic nesmazalo."
           }
         }
       }
@@ -5898,22 +5918,22 @@
         }
       }
     },
-    "Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Restore.": {
+    "Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Recently deleted.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Odstranit z tohoto zařízení: zůstane na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní ho vrátíš v Nastavení > iCloud > Obnovit."
+            "value": "Odstranit z tohoto zařízení: zůstane na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní ho vrátíš v Nastavení > iCloud > Nedávno smazané."
           }
         }
       }
     },
-    "Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Restore.": {
+    "Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Recently deleted.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Odstranit z tohoto zařízení: zůstanou na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní je vrátíš v Nastavení > iCloud > Obnovit."
+            "value": "Odstranit z tohoto zařízení: zůstanou na iCloudu a na tvých ostatních zařízeních. Smazat všude: zmizí ze všech tvých zařízení, ale ještě 30 dní je vrátíš v Nastavení > iCloud > Nedávno smazané."
           }
         }
       }
@@ -8548,12 +8568,12 @@
         }
       }
     },
-    "Your projects on all your devices with the same Apple ID, saved to iCloud after every change (also a backup, in iCloud Drive > BOMBOCUT). Videos that are in your iCloud Photos aren't copied again, so it takes little space.": {
+    "Your projects on all your devices with the same Apple ID, with every clip in them, saved to iCloud after every change. Each clip goes up once, and leaves iCloud when no project uses it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tvoje projekty na všech zařízeních se stejným Apple ID, uložené na iCloud po každé změně (zároveň záloha v iCloud Drive > BOMBOCUT). Videa, která máš ve Fotkách na iCloudu, se znovu nekopírují, takže to zabere málo místa."
+            "value": "Tvoje projekty na všech zařízeních se stejným Apple ID, i se všemi klipy, uložené na iCloud po každé změně. Každý klip se nahraje jen jednou a z iCloudu zmizí, když ho už žádný projekt nepoužívá."
           }
         }
       }

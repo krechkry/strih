@@ -48,6 +48,7 @@ struct HomeView: View {
                         downloadBanner
                         newProjectCard
                     }
+                    IncomingRows()
                     if !store.projects.isEmpty {
                         Text("Projects")
                             .font(.footnote.weight(.semibold))
@@ -256,7 +257,7 @@ struct HomeView: View {
             Button("Delete everywhere", role: .destructive) { CloudBackup.shared.deleteEverywhere(p, store: store) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
-            Text("Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Restore.")
+            Text("Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Recently deleted.")
         }
         .confirmationDialog(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count),
                             isPresented: Binding(get: { confirmDeleteSelected && CloudBackup.enabled },
@@ -266,7 +267,7 @@ struct HomeView: View {
             Button("Delete everywhere", role: .destructive) { deleteSelected(everywhere: true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Restore.")
+            Text("Remove from this device keeps them in iCloud and on your other devices. Delete everywhere removes them from all your devices; you can still get them back for 30 days in Settings > iCloud > Recently deleted.")
         }
     }
 
@@ -439,6 +440,37 @@ struct HomeView: View {
         naming = nil
         importNote = nil
         openProject = p
+    }
+}
+
+/// Projects coming down from iCloud (Sync projects): shown until every file is in, then they're real projects.
+private struct IncomingRows: View {
+    @ObservedObject private var sync = CloudBackup.shared
+
+    var body: some View {
+        if !sync.incoming.isEmpty {
+            VStack(spacing: 10) {
+                ForEach(sync.incoming) { i in
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Theme.panel2
+                            Image(systemName: "icloud.and.arrow.down").font(.title3.weight(.bold)).foregroundStyle(Theme.accent)
+                        }
+                        .frame(width: 56, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(verbatim: i.name).font(.body.weight(.semibold)).lineLimit(1)
+                            Text(verbatim: String(format: loc("Downloading %lld of %lld"), i.done, i.total))
+                                .font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(Theme.muted)
+                            ProgressView(value: Double(i.done), total: Double(max(1, i.total))).tint(Theme.accent)
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                    .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+                }
+            }
+        }
     }
 }
 

@@ -2,29 +2,34 @@ import Foundation
 import UIKit
 
 /// Settings > iCloud > Sync projects (off until the user turns it on): every project on all the user's devices
-/// with the same Apple ID, through the app's own iCloud Drive folder. It's the user's own iCloud: nothing goes to us.
+/// with the same Apple ID, through the app's own iCloud container. It's the user's own iCloud: nothing goes to us.
 ///
-/// In the folder (`iCloud.cz.krechler.bombocut`):
-///   Documents/Name (1A2B3C).bbc   each project as a light project file (Files > iCloud Drive > BOMBOCUT, so it
-///                                 is a backup as well); the tag (first 6 of the id) keeps one file per project
-///   Sync/<id>.json                a small note per project (`Entry`): which change the file holds, which device
-///                                 made it, or that it was deleted everywhere
-///   Deleted/Name (1A2B3C).bbc     projects deleted everywhere, kept 30 days (Settings > iCloud > Restore)
+/// In the container (`iCloud.cz.krechler.bombocut`, all outside Documents, so nothing shows in Files):
+///   Projects/<id>.json      one note per project (`Note`): the edit itself, which change it is, the device that
+///                           made it, the media / fonts / LUTs it needs, or that it was deleted everywhere
+///   ProjectMedia/<file>     every clip, picture and sound a synced project uses, ONCE: the key is the file's name
+///                           in the app's Media folder (files there never change after they're added, and their
+///                           names travel with the project), so the same name is the same file on every device
+///   ProjectMedia/Fonts/, ProjectMedia/LUTs/   imported fonts and LUTs projects use, once each
+/// Reversed clips never go up: they're remade from their source (`ProjectFile.reversedClips`).
 ///
 /// Up: a changed project goes up 20 s after its last change, right away when the editor closes, when the app goes
-/// to the background and after an export. While it's open in the editor a project with lots of packed media
-/// (videos from Files, not in iCloud Photos) waits for the editor to close.
-/// Down: at launch, back in the app and whenever iCloud brings a note: projects that aren't here are added, newer
-/// ones replace the one here, the ones deleted everywhere go. A project open in the editor is never swapped.
-/// Both devices changed it since the last sync: this device keeps its version, the other one is added next to it
-/// as "Name (iPad)". Nothing is lost.
+/// to the background and after an export. Media it needs that iCloud doesn't have yet goes first (cloned, so no
+/// extra space here), then the note. An edit only sends the note (a few KB).
+/// Down: at launch, back in the app and whenever iCloud brings something: a project that isn't here or is newer
+/// comes down with every file it needs; it shows on Home as "Downloading 3 of 14" (`incoming`) and becomes a
+/// project only once it's complete (a replaced one stays as it was until then). A project open in the editor is
+/// never swapped. Both devices changed it since the last sync: this device keeps its version, the other one is
+/// added next to it as "Name (iPad)". Nothing is lost.
+/// Clean up: a file in ProjectMedia that no note needs (deleted ones count for their 30 days) leaves iCloud once
+/// it's been unneeded for a day (`orphans`), and only when every note is on this device.
 /// This device remembers each project's `modified` at its last sync (`done`): changed here = it's different now,
 /// changed elsewhere = the note says something else.
 @MainActor
 final class CloudBackup: ObservableObject {
     static let shared = CloudBackup()
     static let enabledKey = "icloud.projects"
-    static let containerID = "iCloud.cz.krechler.bombocut"
+    nonisolated static let containerID = "iCloud.cz.krechler.bombocut"
     static var enabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
 
     /// Project id → its `modified` (seconds since 1970) at the last sync (up or down).
@@ -32,14 +37,29 @@ final class CloudBackup: ObservableObject {
     private static let lastKey = "icloud.lastBackup"
     /// Projects removed from this device only: they stay in iCloud and aren't added here again.
     private static let removedKey = "icloud.removedHere"
-    /// Deleted everywhere: kept this long in Deleted/.
+    /// Cloud file → when this device first saw no note needing it.
+    private static let orphansKey = "icloud.orphans"
+    /// The container layout this device has moved to (2 = notes + one shared media folder).
+    private static let layoutKey = "icloud.layout"
+    /// Deleted everywhere: kept this long (Settings > iCloud > Recently deleted).
     nonisolated static let keepDeleted: TimeInterval = 30 * 24 * 3600
-    /// While a project is open in the editor, more packed media than this waits for the editor to close.
-    nonisolated static let bigWhileEditing: Int64 = 200_000_000
+    /// An unneeded cloud file waits this long before it goes (a note pointing at it may still be on its way).
+    nonisolated static let orphanGrace: TimeInterval = 24 * 3600
 
     @Published private(set) var working = false
     @Published private(set) var problem: String?
     @Published private(set) var last: Date? = UserDefaults.standard.object(forKey: lastKey) as? Date
+    /// Projects coming down from iCloud right now (Home shows them until they're complete).
+    @Published private(set) var incoming: [Incoming] = []
+    /// Projects deleted everywhere in the last 30 days (Settings > iCloud > Recently deleted).
+    @Published private(set) var recentlyDeleted: [Note] = []
+
+    struct Incoming: Identifiable, Equatable {
+        var id: UUID
+        var name: String
+        var done: Int
+        var total: Int
+    }
 
     /// The project open in the editor (never replaced or removed while it's open).
     var editing: UUID?
@@ -48,7 +68,6 @@ final class CloudBackup: ObservableObject {
     private struct Job: Equatable {
         var id: UUID
         var force = false
-        var whileEditing = false
     }
     private var queue: [Job] = []
     private var wantSync = false
@@ -60,17 +79,22 @@ final class CloudBackup: ObservableObject {
     private var observers: [NSObjectProtocol] = []
     private var querySync: Task<Void, Never>?
 
-    /// The note kept in Sync/<id>.json.
-    struct Entry: Codable {
+    /// The note kept in Projects/<id>.json.
+    struct Note: Codable, Identifiable {
         var id: UUID
         var name: String
         var modified: Date
-        /// The project's file in Documents (or Deleted).
-        var file: String
         /// "iPhone", "iPad": names the copy when both devices changed it.
         var device: String
-        /// Deleted everywhere (then the file is in Deleted/ until it's 30 days old).
+        /// Deleted everywhere (the note and the project stay 30 days for Recently deleted).
         var deleted: Date?
+        var project: Project
+        /// Files in ProjectMedia it needs, with their sizes (for the free space check).
+        var media: [String: Int64]
+        var fonts: [String]
+        var luts: [String]
+        /// Reversed clips, remade from their source after it's in.
+        var reversed: [ProjectFile.ReverseRef]
     }
 
     // MARK: - Starting, switching
@@ -96,6 +120,7 @@ final class CloudBackup: ObservableObject {
             queue = []
             wantSync = false
             soon?.cancel()
+            incoming = []
             unwatch()
         }
     }
@@ -139,7 +164,7 @@ final class CloudBackup: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             let ids = self.changedIDs
             self.changedIDs = []
-            self.enqueue(ids.map { Job(id: $0, whileEditing: $0 == self.editing) })
+            self.enqueue(ids.map { Job(id: $0) })
         }
     }
 
@@ -176,7 +201,6 @@ final class CloudBackup: ObservableObject {
         for j in jobs {
             if let i = queue.firstIndex(where: { $0.id == j.id }) {
                 queue[i].force = queue[i].force || j.force
-                queue[i].whileEditing = j.whileEditing && queue[i].whileEditing
             } else {
                 queue.append(j)
             }
@@ -193,7 +217,7 @@ final class CloudBackup: ObservableObject {
         pump()
     }
 
-    /// A project from another device still waiting for clips from iCloud Photos tries again (quietly).
+    /// A project still waiting for clips from iCloud Photos (opened from a light .bbc file) tries again quietly.
     func retryMissing() {
         guard let store else { return }
         let waiting = store.projects.filter { !($0.cloudPhotos ?? []).isEmpty && $0.id != editing }
@@ -209,8 +233,7 @@ final class CloudBackup: ObservableObject {
 
     // MARK: - Deleting
 
-    /// Remove from this device: the project stays in iCloud and on the other devices, and isn't added here again
-    /// (Settings > iCloud > Restore brings it back).
+    /// Remove from this device: the project stays in iCloud and on the other devices, and isn't added here again.
     func removeHere(_ p: Project, store: ProjectStore) {
         var r = Self.removed
         r.insert(p.id.uuidString)
@@ -218,40 +241,30 @@ final class CloudBackup: ObservableObject {
         store.delete(p)
     }
 
-    /// Delete everywhere: gone here, the other devices remove it when they next look, and the file waits 30 days
-    /// in Deleted/ (Settings > iCloud > Restore > Recently deleted).
+    /// Delete everywhere: gone here, the other devices remove it when they next look, and the note keeps it 30 days
+    /// (Settings > iCloud > Recently deleted). Its media leaves iCloud after that.
     func deleteEverywhere(_ p: Project, store: ProjectStore) {
         store.delete(p)
         queue.removeAll { $0.id == p.id }
         changedIDs.remove(p.id)
-        let entry = Entry(id: p.id, name: p.name, modified: p.modified, file: "", device: Self.device, deleted: Date())
         Task {
             guard let root = await Task.detached(operation: { Self.root() }).value else { return }
-            try? await Task.detached(priority: .utility) { try Self.bury(entry, root: root) }.value
+            await Task.detached(priority: .utility) { Self.mark(p.id, deleted: Date(), root: root) }.value
+            sync()
         }
     }
 
-    /// A project added back from our iCloud folder (Restore): synced as it is, no longer "removed here", and
-    /// back from Recently deleted for every device.
-    func restored(_ p: Project, from url: URL) {
+    /// Back from Recently deleted: the note stops saying deleted, and every device takes the project again.
+    func bringBack(_ note: Note) {
         var r = Self.removed
-        r.remove(p.id.uuidString)
+        r.remove(note.id.uuidString)
         UserDefaults.standard.set(Array(r), forKey: Self.removedKey)
-        if url.deletingLastPathComponent().lastPathComponent == "Deleted" {
-            // goes up again: the note stops saying deleted
-            var d = Self.done
-            d[p.id.uuidString] = nil
-            UserDefaults.standard.set(d, forKey: Self.doneKey)
-            enqueue([Job(id: p.id, force: true)])
-        } else {
-            markBackedUp(p)
+        recentlyDeleted.removeAll { $0.id == note.id }
+        Task {
+            guard let root = await Task.detached(operation: { Self.root() }).value else { return }
+            await Task.detached(priority: .utility) { Self.mark(note.id, deleted: nil, root: root) }.value
+            sync()
         }
-    }
-
-    /// Whether a file is in our iCloud folder (a backup or a recently deleted one).
-    nonisolated static func isOurs(_ url: URL) -> Bool {
-        url.path.contains(containerID.replacingOccurrences(of: ".", with: "~"))
-            || url.path.contains("/" + containerID + "/")
     }
 
     /// The project's `modified` at its last sync is this.
@@ -300,6 +313,13 @@ final class CloudBackup: ObservableObject {
             return
         }
         problem = nil
+        // once: the backups of the first 1.2 test builds (light .bbc files) make way for this layout
+        if UserDefaults.standard.integer(forKey: Self.layoutKey) < 2 {
+            await Task.detached(priority: .utility) { Self.leaveOldLayout(root) }.value
+            UserDefaults.standard.removeObject(forKey: Self.doneKey)
+            UserDefaults.standard.set(2, forKey: Self.layoutKey)
+            wantSync = true
+        }
         while Self.enabled {
             if wantSync {
                 wantSync = false
@@ -317,21 +337,17 @@ final class CloudBackup: ObservableObject {
         guard job.force || needsUpload(p) else { return }
         let base = Self.done[p.id.uuidString]
         let device = Self.device
-        let whileEditing = job.whileEditing && editing == p.id
         do {
             let result = try await Task.detached(priority: .utility) {
-                try Self.write(p, root: root, base: base, device: device, whileEditing: whileEditing)
+                try Self.push(p, root: root, base: base, device: device)
             }.value
             switch result {
             case .done:
                 markBackedUp(p)
                 last = Date()
                 UserDefaults.standard.set(last, forKey: Self.lastKey)
-            case .later:
-                break
             case .compare:
                 // iCloud holds a change this device hasn't seen (or its note isn't here yet): compare first
-                wantSync = true
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: 5_000_000_000)
                     self?.sync()
@@ -344,40 +360,42 @@ final class CloudBackup: ObservableObject {
 
     private func reconcile(_ root: URL) async {
         guard let store else { return }
-        let read = await Task.detached(priority: .utility) { Self.readEntries(root) }.value
-        let entries = read.entries
+        let read = await Task.detached(priority: .utility) { Self.readNotes(root) }.value
+        let notes = read.notes
         let removed = Self.removed
+        recentlyDeleted = notes.values.filter { $0.deleted != nil }
+            .sorted { ($0.deleted ?? .distantPast) > ($1.deleted ?? .distantPast) }
 
         for p in store.projects where p.id != editing && !read.unknown.contains(p.id) {
             let base = Self.done[p.id.uuidString]
-            guard let e = entries[p.id] else {
+            guard let n = notes[p.id] else {
                 enqueue([Job(id: p.id)])
                 continue
             }
-            if e.deleted != nil {
+            if n.deleted != nil {
                 // deleted on another device: goes here too, unless it was changed here since
                 if let base, Self.same(p.modified.timeIntervalSince1970, base) {
                     store.delete(p)
                 } else {
-                    enqueue([Job(id: p.id)])
+                    enqueue([Job(id: p.id, force: true)])
                 }
                 continue
             }
-            if Self.same(p.modified, e.modified) {
+            if Self.same(p.modified, n.modified) {
                 if base.map({ !Self.same(p.modified.timeIntervalSince1970, $0) }) ?? true { markBackedUp(p) }
                 continue
             }
             let here = base.map { !Self.same(p.modified.timeIntervalSince1970, $0) } ?? true
-            let there = base.map { !Self.same(e.modified.timeIntervalSince1970, $0) } ?? true
+            let there = base.map { !Self.same(n.modified.timeIntervalSince1970, $0) } ?? true
             if here, !there {
                 enqueue([Job(id: p.id)])
             } else if there, !here {
-                await bringDown(e, root: root, copyNextTo: nil)
+                await bringDown(n, root: root, copyNextTo: nil)
             } else {
                 // both changed: the other version comes as a copy next to this one, then this one goes up
-                if await bringDown(e, root: root, copyNextTo: p) {
+                if await bringDown(n, root: root, copyNextTo: p) {
                     var d = Self.done
-                    d[p.id.uuidString] = e.modified.timeIntervalSince1970
+                    d[p.id.uuidString] = n.modified.timeIntervalSince1970
                     UserDefaults.standard.set(d, forKey: Self.doneKey)
                     enqueue([Job(id: p.id, force: true)])
                 }
@@ -386,49 +404,71 @@ final class CloudBackup: ObservableObject {
 
         // only in iCloud: added here (not the ones removed from this device)
         let onDevice = Set(store.projects.map(\.id))
-        for e in entries.values.sorted(by: { $0.modified < $1.modified })
-        where e.deleted == nil && !onDevice.contains(e.id) && !removed.contains(e.id.uuidString) && e.id != editing {
-            await bringDown(e, root: root, copyNextTo: nil)
+        for n in notes.values.sorted(by: { $0.modified < $1.modified })
+        where n.deleted == nil && !onDevice.contains(n.id) && !removed.contains(n.id.uuidString) && n.id != editing {
+            await bringDown(n, root: root, copyNextTo: nil)
+        }
+
+        // files no note needs leave iCloud (only when every note is here: one not downloaded may need them)
+        if read.unknown.isEmpty {
+            let orphans = UserDefaults.standard.dictionary(forKey: Self.orphansKey) as? [String: Double] ?? [:]
+            let needed = Set(notes.values.flatMap { Array($0.media.keys) })
+            let fonts = Set(notes.values.flatMap(\.fonts))
+            let luts = Set(notes.values.flatMap(\.luts))
+            let next = await Task.detached(priority: .utility) {
+                Self.cleanUp(root, needed: needed, fonts: fonts, luts: luts, orphans: orphans)
+            }.value
+            UserDefaults.standard.set(next, forKey: Self.orphansKey)
         }
     }
 
-    /// Brings a project down from iCloud: as itself (added or replacing the one here) or, both changed, as a copy
-    /// named after the device it came from. False when it couldn't (not downloaded yet, older than its note…).
+    /// Brings a project down: every file it needs, then the project (added, replacing the one here, or, both
+    /// changed, as a copy named after the device it came from). False when it couldn't (yet).
     @discardableResult
-    private func bringDown(_ e: Entry, root: URL, copyNextTo local: Project?) async -> Bool {
+    private func bringDown(_ n: Note, root: URL, copyNextTo local: Project?) async -> Bool {
         guard let store else { return false }
-        let url = root.appendingPathComponent("Documents", isDirectory: true).appendingPathComponent(e.file)
-        guard ProjectFile.safeName(e.file) else { return false }
-        do {
-            try await Self.download(url, progress: Progress(), timeout: 90)
-        } catch {
+        let need = n.media.filter {
+            ProjectFile.safeName($0.key) && !FileManager.default.fileExists(atPath: Paths.mediaURL($0.key).path)
+        }
+        let bytes = need.values.reduce(Int64(0), +)
+        if bytes > 0, let free = Self.freeSpace(), free < bytes + 300_000_000 {
+            problem = String(format: loc("Not enough space for “%@” (%@ needed)."), n.name,
+                             ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
             return false
         }
-        guard let got = try? await Task.detached(priority: .utility, operation: {
-            try ProjectFile.unpack(url, progress: Progress())
-        }).value else { return false }
-        defer { try? FileManager.default.removeItem(at: got.temp) }
-        // the file hasn't caught up with its note yet: next time
-        guard got.project.id == e.id, got.project.modified.timeIntervalSince1970 >= e.modified.timeIntervalSince1970 - 0.001 else {
-            return false
+        if !need.isEmpty { show(Incoming(id: n.id, name: n.name, done: 0, total: need.count)) }
+        defer { incoming.removeAll { $0.id == n.id } }
+        var got = 0
+        for name in need.keys.sorted() {
+            let ok = await Task.detached(priority: .utility) { Self.fetch(name, root: root) }.value
+            if !ok {
+                // still on its way (or iCloud had a hiccup): next time. A file iCloud doesn't have at all can't
+                // be waited for: the project still comes (it plays that clip as missing)
+                let there = await Task.detached(priority: .utility) { Self.exists(name, root: root) }.value
+                if there { return false }
+            }
+            got += 1
+            show(Incoming(id: n.id, name: n.name, done: got, total: need.count))
         }
-        // the editor opened it meanwhile
-        if editing == e.id, local == nil { return false }
-        if !got.fonts.isEmpty { FontLibrary.shared.add(got.fonts) }
-        var project = got.project
-        if !got.photos.isEmpty {
-            let back = await ProjectFile.restorePhotos(got.photos, progress: Progress())
-            ProjectFile.settle(&project, refs: [], back: back)
+        let fonts = await Task.detached(priority: .utility) { Self.fetchFonts(n.fonts, root: root) }.value
+        if !fonts.isEmpty {
+            FontLibrary.shared.add(fonts)
+            for u in fonts { try? FileManager.default.removeItem(at: u.deletingLastPathComponent()) }
         }
-        if !got.reversed.isEmpty { _ = await ProjectFile.remakeReversed(got.reversed, progress: Progress()) }
+        let luts = n.luts
+        await Task.detached(priority: .utility) { Self.fetchLUTs(luts, root: root) }.value
+        if !n.reversed.isEmpty { _ = await ProjectFile.remakeReversed(n.reversed, progress: Progress()) }
 
+        var project = n.project
+        project.cloudPhotos = nil
         if let local {
             project.id = UUID()
-            project.name = local.name + " (" + e.device + ")"
+            project.name = local.name + " (" + n.device + ")"
             project.modified = Date()
             store.save(project)
         } else {
-            if editing == e.id { return false }
+            // the editor opened it meanwhile
+            if editing == n.id { return false }
             store.save(project)
             markBackedUp(project)
             store.cleanupMedia()
@@ -436,13 +476,17 @@ final class CloudBackup: ObservableObject {
         return true
     }
 
-    // MARK: - Watching iCloud for notes from other devices
+    private func show(_ i: Incoming) {
+        if let k = incoming.firstIndex(where: { $0.id == i.id }) { incoming[k] = i } else { incoming.append(i) }
+    }
+
+    // MARK: - Watching iCloud for changes from other devices
 
     private func watch() {
         guard query == nil, Self.enabled else { return }
         let q = NSMetadataQuery()
-        q.searchScopes = [NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope]
-        q.predicate = NSPredicate(format: "%K LIKE '*.json' OR %K LIKE '*.bbc'", NSMetadataItemFSNameKey, NSMetadataItemFSNameKey)
+        q.searchScopes = [NSMetadataQueryUbiquitousDataScope]
+        q.predicate = NSPredicate(format: "%K LIKE '*.json'", NSMetadataItemFSNameKey)
         for name in [NSNotification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: q, queue: .main) { [weak self] _ in
                 Task { @MainActor in self?.somethingArrived() }
@@ -472,22 +516,29 @@ final class CloudBackup: ObservableObject {
 
     // MARK: - Files (off the main thread)
 
-    enum Wrote { case done, later, compare }
+    enum Wrote { case done, compare }
 
     /// The app's iCloud container. Nil without iCloud Drive.
     nonisolated static func root() -> URL? {
         FileManager.default.url(forUbiquityContainerIdentifier: containerID)
     }
 
-    /// The app's iCloud Drive folder (shows as BOMBOCUT in Files). Nil without iCloud Drive.
-    nonisolated static func folder() -> URL? {
-        root()?.appendingPathComponent("Documents", isDirectory: true)
+    nonisolated private static func notesDir(_ root: URL) -> URL { root.appendingPathComponent("Projects", isDirectory: true) }
+    nonisolated private static func mediaDir(_ root: URL) -> URL { root.appendingPathComponent("ProjectMedia", isDirectory: true) }
+    nonisolated private static func fontsDir(_ root: URL) -> URL { mediaDir(root).appendingPathComponent("Fonts", isDirectory: true) }
+    nonisolated private static func lutsDir(_ root: URL) -> URL { mediaDir(root).appendingPathComponent("LUTs", isDirectory: true) }
+
+    /// Free space on this device for important things (nil when unknown).
+    nonisolated static func freeSpace() -> Int64? {
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+        return (try? home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage
     }
 
-    /// "Name (1A2B3C).bbc": the tag keeps one backup per project, even after a rename.
+    /// "Name (1A2B3C).bbc": the tag a project's file name carries (shared files, the old backups).
     nonisolated static func tag(_ id: UUID) -> String { "(\(id.uuidString.prefix(6)))" }
 
-    /// The project name shown for a backup file (no tag, no extension).
+    /// The project name shown for a project file (no tag, no extension).
     nonisolated static func title(_ fileName: String) -> String {
         var n = cleanName(fileName)
         for e in ProjectFile.exts where n.hasSuffix("." + e) { n = String(n.dropLast(e.count + 1)) }
@@ -497,10 +548,21 @@ final class CloudBackup: ObservableObject {
         return n
     }
 
-    /// A file not downloaded yet can show as ".Name.bbc.icloud".
+    /// A file not downloaded yet can show as ".Name.ext.icloud".
     nonisolated static func cleanName(_ n: String) -> String {
         guard n.hasPrefix("."), n.hasSuffix(".icloud") else { return n }
         return String(n.dropFirst().dropLast(".icloud".count))
+    }
+
+    /// The file names in a cloud folder (also the ones not downloaded here; no folders).
+    nonisolated private static func names(_ dir: URL) -> Set<String> {
+        let all = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return Set(all.map(cleanName).filter { ProjectFile.safeName($0) && $0 != "Fonts" && $0 != "LUTs" && !$0.hasPrefix(".") })
+    }
+
+    /// Whether iCloud has this media file (downloaded here or not).
+    nonisolated private static func exists(_ name: String, root: URL) -> Bool {
+        names(mediaDir(root)).contains(name)
     }
 
     /// Whether this device has the newest version of an iCloud file (asks for it when not).
@@ -513,47 +575,45 @@ final class CloudBackup: ObservableObject {
         return false
     }
 
-    /// The notes in Sync/, and the ids whose note isn't on this device yet (left alone this time).
-    nonisolated static func readEntries(_ root: URL) -> (entries: [UUID: Entry], unknown: Set<UUID>) {
+    /// The notes, and the ids whose note isn't on this device yet (left alone this time). Notes deleted more than
+    /// 30 days ago go for good here.
+    nonisolated static func readNotes(_ root: URL) -> (notes: [UUID: Note], unknown: Set<UUID>) {
         let fm = FileManager.default
-        let dir = root.appendingPathComponent("Sync", isDirectory: true)
-        var entries: [UUID: Entry] = [:]
+        let dir = notesDir(root)
+        var notes: [UUID: Note] = [:]
         var unknown = Set<UUID>()
         for n in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] {
             let name = cleanName(n)
             guard name.hasSuffix(".json"), let id = UUID(uuidString: String(name.dropLast(5))) else { continue }
             let url = dir.appendingPathComponent(name)
-            guard n == name, isCurrent(url), let e = readEntry(url), e.id == id else {
-                if n != name { try? fm.startDownloadingUbiquitousItem(at: url) }
+            guard n == name, isCurrent(url), let note = readNote(url), note.id == id else {
+                try? fm.startDownloadingUbiquitousItem(at: url)
                 unknown.insert(id)
                 continue
             }
-            entries[id] = e
+            if let d = note.deleted, Date().timeIntervalSince(d) > keepDeleted {
+                remove(url)
+                continue
+            }
+            notes[id] = note
         }
-        // deleted everywhere long ago: the note and the file go for good
-        for e in entries.values {
-            guard let d = e.deleted, Date().timeIntervalSince(d) > keepDeleted else { continue }
-            remove(root.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent(e.id.uuidString + ".json"))
-            removeTagged(e.id, in: root.appendingPathComponent("Deleted", isDirectory: true))
-            entries[e.id] = nil
-        }
-        return (entries, unknown)
+        return (notes, unknown)
     }
 
-    nonisolated private static func readEntry(_ url: URL) -> Entry? {
-        var out: Entry?
+    nonisolated private static func readNote(_ url: URL) -> Note? {
+        var out: Note?
         var err: NSError?
         NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &err) { u in
-            out = (try? Data(contentsOf: u)).flatMap { try? JSONDecoder().decode(Entry.self, from: $0) }
+            out = (try? Data(contentsOf: u)).flatMap { try? JSONDecoder().decode(Note.self, from: $0) }
         }
         return out
     }
 
-    nonisolated private static func writeEntry(_ e: Entry, root: URL) throws {
-        let dir = root.appendingPathComponent("Sync", isDirectory: true)
+    nonisolated private static func writeNote(_ n: Note, root: URL) throws {
+        let dir = notesDir(root)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent(e.id.uuidString + ".json")
-        let data = try JSONEncoder().encode(e)
+        let url = dir.appendingPathComponent(n.id.uuidString + ".json")
+        let data = try JSONEncoder().encode(n)
         var err: NSError?
         var inner: Error?
         NSFileCoordinator().coordinate(writingItemAt: url, options: .forReplacing, error: &err) { u in
@@ -569,73 +629,184 @@ final class CloudBackup: ObservableObject {
         }
     }
 
-    /// Removes this project's files (any name) from a folder.
-    nonisolated private static func removeTagged(_ id: UUID, in folder: URL) {
-        let mark = tag(id) + "." + ProjectFile.ext
-        for n in (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [] where cleanName(n).hasSuffix(mark) {
-            remove(folder.appendingPathComponent(cleanName(n)))
+    /// Copies a local file into iCloud (a clone on the same disk: no extra space here, and the file stays).
+    nonisolated private static func put(_ src: URL, into dir: URL) throws {
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dest = dir.appendingPathComponent(src.lastPathComponent)
+        var err: NSError?
+        var inner: Error?
+        NSFileCoordinator().coordinate(writingItemAt: dest, options: .forReplacing, error: &err) { d in
+            do {
+                if FileManager.default.fileExists(atPath: d.path) { return }
+                try FileManager.default.copyItem(at: src, to: d)
+            } catch { inner = error }
         }
+        if let e = err ?? inner { throw e }
     }
 
-    /// Packs the project into Documents and writes its note, unless iCloud holds a change this device hasn't seen
-    /// (`compare`) or it's too big to send while it's being edited (`later`).
-    nonisolated private static func write(_ p: Project, root: URL, base: Double?, device: String, whileEditing: Bool) throws -> Wrote {
+    /// Sends the project: the media / fonts / LUTs iCloud doesn't have yet, then its note. Unless iCloud holds a
+    /// change this device hasn't seen (`compare`).
+    nonisolated private static func push(_ p: Project, root: URL, base: Double?, device: String) throws -> Wrote {
         let fm = FileManager.default
-        let note = root.appendingPathComponent("Sync", isDirectory: true).appendingPathComponent(p.id.uuidString + ".json")
-        if fm.fileExists(atPath: note.path) {
-            guard isCurrent(note) else { return .compare }
-            if let e = readEntry(note), e.deleted == nil, !same(e.modified, p.modified),
-               !(base.map { same(e.modified.timeIntervalSince1970, $0) } ?? false) {
+        let dir = notesDir(root)
+        let noteURL = dir.appendingPathComponent(p.id.uuidString + ".json")
+        let placeholder = dir.appendingPathComponent("." + p.id.uuidString + ".json.icloud")
+        if fm.fileExists(atPath: noteURL.path) || fm.fileExists(atPath: placeholder.path) {
+            guard isCurrent(noteURL) else { return .compare }
+            if let n = readNote(noteURL), n.deleted == nil, !same(n.modified, p.modified),
+               !(base.map { same(n.modified.timeIntervalSince1970, $0) } ?? false) {
                 return .compare
             }
         }
-        if whileEditing, ProjectFile.contents(of: p, light: true).bytes > bigWhileEditing { return .later }
-
-        let docs = root.appendingPathComponent("Documents", isDirectory: true)
-        try fm.createDirectory(at: docs, withIntermediateDirectories: true)
-        let temp = fm.temporaryDirectory.appendingPathComponent("Backup-" + UUID().uuidString, isDirectory: true)
-        defer { try? fm.removeItem(at: temp) }
-        let file = try ProjectFile.pack(p, into: temp, light: true, name: ProjectFile.fileName(p.name) + " " + tag(p.id),
-                                        progress: Progress())
-        // this project's older file goes (maybe under an older name, maybe in Recently deleted)
-        removeTagged(p.id, in: docs)
-        removeTagged(p.id, in: root.appendingPathComponent("Deleted", isDirectory: true))
-        let dest = docs.appendingPathComponent(file.lastPathComponent)
-        try fm.setUbiquitous(true, itemAt: file, destinationURL: dest)
-        try writeEntry(Entry(id: p.id, name: p.name, modified: p.modified, file: dest.lastPathComponent, device: device),
-                       root: root)
+        let parts = ProjectFile.contents(of: p)
+        let remade = Set(parts.reversed.map(\.file))
+        // every file it needs is named in the note; what iCloud doesn't have yet goes up now, once
+        let have = names(mediaDir(root))
+        var media: [String: Int64] = [:]
+        for name in p.mediaFiles.subtracting(remade) where ProjectFile.safeName(name) {
+            let url = Paths.mediaURL(name)
+            let local = fm.fileExists(atPath: url.path)
+            if local, !have.contains(name) { try put(url, into: mediaDir(root)) }
+            if local || have.contains(name) { media[name] = local ? ProjectFile.size(url) : 0 }
+        }
+        let haveFonts = names(fontsDir(root))
+        for f in parts.fonts where !haveFonts.contains(f.lastPathComponent) { try put(f, into: fontsDir(root)) }
+        let haveLUTs = names(lutsDir(root))
+        for l in parts.luts where !haveLUTs.contains(l.lastPathComponent) { try put(l, into: lutsDir(root)) }
+        var project = p
+        project.cloudPhotos = nil
+        try writeNote(Note(id: p.id, name: p.name, modified: p.modified, device: device, deleted: nil, project: project,
+                           media: media, fonts: parts.fonts.map(\.lastPathComponent),
+                           luts: parts.luts.map(\.lastPathComponent), reversed: parts.reversed),
+                      root: root)
         return .done
     }
 
-    /// Deleted everywhere: the file moves to Deleted/, the note says so.
-    nonisolated private static func bury(_ e: Entry, root: URL) throws {
-        let fm = FileManager.default
-        let docs = root.appendingPathComponent("Documents", isDirectory: true)
-        let dead = root.appendingPathComponent("Deleted", isDirectory: true)
-        try fm.createDirectory(at: dead, withIntermediateDirectories: true)
-        var entry = e
-        let mark = tag(e.id) + "." + ProjectFile.ext
-        for n in (try? fm.contentsOfDirectory(atPath: docs.path)) ?? [] where cleanName(n).hasSuffix(mark) {
-            let from = docs.appendingPathComponent(cleanName(n))
-            let to = dead.appendingPathComponent(cleanName(n))
-            removeTagged(e.id, in: dead)
-            var err: NSError?
-            NSFileCoordinator().coordinate(writingItemAt: from, options: .forMoving, writingItemAt: to, options: .forReplacing,
-                                           error: &err) { a, b in
-                try? fm.moveItem(at: a, to: b)
-            }
-            entry.file = to.lastPathComponent
-        }
-        try writeEntry(entry, root: root)
+    /// Deleted everywhere (date) or back (nil): the note says so.
+    nonisolated private static func mark(_ id: UUID, deleted: Date?, root: URL) {
+        let url = notesDir(root).appendingPathComponent(id.uuidString + ".json")
+        guard (try? wait(url)) != nil, var n = readNote(url) else { return }
+        n.deleted = deleted
+        try? writeNote(n, root: root)
     }
 
-    /// Waits until an iCloud Drive file is on this device (`timeout`: gives up after that many seconds).
-    nonisolated static func download(_ url: URL, progress: Progress, timeout: TimeInterval? = nil) async throws {
+    /// Takes one media file from iCloud into the app's Media folder.
+    nonisolated private static func fetch(_ name: String, root: URL) -> Bool {
+        let fm = FileManager.default
+        let src = mediaDir(root).appendingPathComponent(name)
+        let dest = Paths.mediaURL(name)
+        if fm.fileExists(atPath: dest.path) { return true }
+        guard (try? wait(src)) != nil else { return false }
+        try? fm.createDirectory(at: Paths.media, withIntermediateDirectories: true)
+        let part = fm.temporaryDirectory.appendingPathComponent("incoming-" + UUID().uuidString)
+        var ok = false
+        var err: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: src, options: [], error: &err) { s in
+            ok = (try? fm.copyItem(at: s, to: part)) != nil
+        }
+        guard ok else {
+            try? fm.removeItem(at: part)
+            return false
+        }
+        do {
+            try fm.moveItem(at: part, to: dest)
+            // new on this device: clean up leaves it alone until the project is saved
+            try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: dest.path)
+        } catch {
+            try? fm.removeItem(at: part)
+            return fm.fileExists(atPath: dest.path)
+        }
+        return true
+    }
+
+    /// Imported fonts a project needs that aren't here: temporary copies for FontLibrary to take in.
+    nonisolated private static func fetchFonts(_ names: [String], root: URL) -> [URL] {
+        let fm = FileManager.default
+        var out: [URL] = []
+        for name in names where ProjectFile.safeName(name)
+            && !fm.fileExists(atPath: FontLibrary.folder.appendingPathComponent(name).path) {
+            let src = fontsDir(root).appendingPathComponent(name)
+            guard (try? wait(src)) != nil else { continue }
+            let temp = fm.temporaryDirectory.appendingPathComponent("SyncFont-" + UUID().uuidString, isDirectory: true)
+            try? fm.createDirectory(at: temp, withIntermediateDirectories: true)
+            var err: NSError?
+            NSFileCoordinator().coordinate(readingItemAt: src, options: [], error: &err) { s in
+                let copy = temp.appendingPathComponent(name)
+                if (try? fm.copyItem(at: s, to: copy)) != nil { out.append(copy) }
+            }
+        }
+        return out
+    }
+
+    /// Imported LUTs a project needs that aren't here.
+    nonisolated private static func fetchLUTs(_ names: [String], root: URL) {
+        let fm = FileManager.default
+        let folder = LUTLibrary.folder
+        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        for name in names where ProjectFile.safeName(name) && !fm.fileExists(atPath: folder.appendingPathComponent(name).path) {
+            let src = lutsDir(root).appendingPathComponent(name)
+            guard (try? wait(src)) != nil else { continue }
+            var err: NSError?
+            NSFileCoordinator().coordinate(readingItemAt: src, options: [], error: &err) { s in
+                try? fm.copyItem(at: s, to: folder.appendingPathComponent(name))
+            }
+        }
+    }
+
+    /// Cloud files no note needs: noted the first time, removed once they've been unneeded for a day.
+    nonisolated private static func cleanUp(_ root: URL, needed: Set<String>, fonts: Set<String>, luts: Set<String>,
+                                            orphans: [String: Double]) -> [String: Double] {
+        let now = Date().timeIntervalSince1970
+        var next: [String: Double] = [:]
+        let folders: [(dir: URL, keep: Set<String>, kind: String)] = [
+            (mediaDir(root), needed, "m"), (fontsDir(root), fonts, "f"), (lutsDir(root), luts, "l"),
+        ]
+        for f in folders {
+            for name in names(f.dir) where !f.keep.contains(name) {
+                let key = f.kind + "/" + name
+                let since = orphans[key] ?? now
+                if now - since > orphanGrace {
+                    remove(f.dir.appendingPathComponent(name))
+                } else {
+                    next[key] = since
+                }
+            }
+        }
+        return next
+    }
+
+    /// The first 1.2 test builds kept light .bbc backups in Documents, Deleted/ and Sync/: they go.
+    nonisolated private static func leaveOldLayout(_ root: URL) {
+        let fm = FileManager.default
+        let docs = root.appendingPathComponent("Documents", isDirectory: true)
+        for n in (try? fm.contentsOfDirectory(atPath: docs.path)) ?? [] {
+            let name = cleanName(n)
+            if ProjectFile.isProjectFile(URL(fileURLWithPath: name)) { remove(docs.appendingPathComponent(name)) }
+        }
+        remove(root.appendingPathComponent("Deleted", isDirectory: true))
+        remove(root.appendingPathComponent("Sync", isDirectory: true))
+    }
+
+    /// Waits until an iCloud file is on this device (gives up after ten minutes).
+    nonisolated private static func wait(_ url: URL) throws {
         try FileManager.default.startDownloadingUbiquitousItem(at: url)
         let start = Date()
         while true {
+            if Date().timeIntervalSince(start) > 600 { throw CocoaError(.fileReadUnknown) }
+            var u = url
+            u.removeAllCachedResourceValues()
+            let v = try u.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey, .ubiquitousItemDownloadingErrorKey])
+            if v.ubiquitousItemDownloadingStatus == .current { return }
+            if let e = v.ubiquitousItemDownloadingError { throw e }
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+    }
+
+    /// Waits until an iCloud Drive file is on this device (opening a shared project file from iCloud Drive).
+    nonisolated static func download(_ url: URL, progress: Progress) async throws {
+        try FileManager.default.startDownloadingUbiquitousItem(at: url)
+        while true {
             if progress.isCancelled { throw CancellationError() }
-            if let timeout, Date().timeIntervalSince(start) > timeout { throw CancellationError() }
             var u = url
             u.removeAllCachedResourceValues()
             let v = try u.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey, .ubiquitousItemDownloadingErrorKey])
@@ -643,64 +814,5 @@ final class CloudBackup: ObservableObject {
             if let e = v.ubiquitousItemDownloadingError { throw e }
             try await Task.sleep(nanoseconds: 400_000_000)
         }
-    }
-}
-
-/// Project files in the app's iCloud folder, also the ones not downloaded to this device yet: the backups
-/// (Documents) or the recently deleted ones (Deleted/).
-@MainActor
-final class BackupBrowser: ObservableObject {
-    struct Item: Identifiable {
-        let url: URL
-        let title: String
-        let date: Date?
-        let size: Int64
-        var id: URL { url }
-    }
-
-    let deleted: Bool
-    @Published private(set) var items: [Item] = []
-    @Published private(set) var loading = true
-    private let query = NSMetadataQuery()
-    private var observers: [NSObjectProtocol] = []
-
-    init(deleted: Bool = false) { self.deleted = deleted }
-
-    func start() {
-        guard observers.isEmpty else { return }
-        query.searchScopes = [deleted ? NSMetadataQueryUbiquitousDataScope : NSMetadataQueryUbiquitousDocumentsScope]
-        query.predicate = NSPredicate(format: "%K LIKE '*.bbc' OR %K LIKE '*.bombocut'", NSMetadataItemFSNameKey, NSMetadataItemFSNameKey)
-        for name in [NSNotification.Name.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate] {
-            observers.append(NotificationCenter.default.addObserver(forName: name, object: query, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.refresh() }
-            })
-        }
-        query.start()
-        // without iCloud the query never answers
-        Task {
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            loading = false
-        }
-    }
-
-    func stop() {
-        query.stop()
-        for o in observers { NotificationCenter.default.removeObserver(o) }
-        observers = []
-    }
-
-    private func refresh() {
-        query.disableUpdates()
-        defer { query.enableUpdates() }
-        items = query.results.compactMap { $0 as? NSMetadataItem }.compactMap { i -> Item? in
-            guard let url = i.value(forAttribute: NSMetadataItemURLKey) as? URL else { return nil }
-            if deleted, url.deletingLastPathComponent().lastPathComponent != "Deleted" { return nil }
-            let name = i.value(forAttribute: NSMetadataItemFSNameKey) as? String ?? url.lastPathComponent
-            return Item(url: url, title: CloudBackup.title(name),
-                        date: i.value(forAttribute: NSMetadataItemFSContentChangeDateKey) as? Date,
-                        size: (i.value(forAttribute: NSMetadataItemFSSizeKey) as? NSNumber)?.int64Value ?? 0)
-        }
-        .sorted { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
-        loading = false
     }
 }

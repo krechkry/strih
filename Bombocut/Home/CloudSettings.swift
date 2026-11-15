@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The iCloud page: in the first-launch screens right after Basic / Pro, and once after the update that brought
-/// it. Presets and settings sync starts on, project backups off.
+/// it. Presets and settings sync starts on, project sync off.
 struct CloudSetupView: View {
     let done: () -> Void
     @EnvironmentObject private var store: ProjectStore
@@ -54,7 +54,7 @@ struct CloudToggles: View {
                 .padding(14)
                 .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
             OnOffRow(title: "Sync projects",
-                     subtitle: "Your projects on all your devices with the same Apple ID, saved to iCloud after every change (also a backup, in iCloud Drive > BOMBOCUT). Videos that are in your iCloud Photos aren't copied again, so it takes little space.",
+                     subtitle: "Your projects on all your devices with the same Apple ID, with every clip in them, saved to iCloud after every change. Each clip goes up once, and leaves iCloud when no project uses it.",
                      isOn: projects) { projects = $0 }
                 .padding(14)
                 .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -62,7 +62,7 @@ struct CloudToggles: View {
     }
 }
 
-/// Settings > iCloud: the switches, how the backup is doing, back up now, and restoring a backup.
+/// Settings > iCloud: the switches, how syncing is doing, sync now, and Recently deleted.
 struct CloudSettings: View {
     /// Closes Settings (a restored project is added on Home, behind it).
     let close: () -> Void
@@ -97,7 +97,7 @@ struct CloudSettings: View {
                     } label: { chip("Sync now", "arrow.clockwise.icloud") }
                         .buttonStyle(.plain)
                         .disabled(backup.working)
-                    NavigationLink { BackupsView(close: close) } label: { chip("Restore", "clock.arrow.circlepath") }
+                    NavigationLink { RecentlyDeletedView() } label: { chip("Recently deleted", "trash") }
                         .buttonStyle(.plain)
                 }
             }
@@ -123,83 +123,51 @@ struct CloudSettings: View {
     }
 }
 
-/// The backups in iCloud Drive: tap one to add it as a project (it downloads first if needed).
-struct BackupsView: View {
-    let close: () -> Void
-    @StateObject private var browser = BackupBrowser()
-    @StateObject private var bin = BackupBrowser(deleted: true)
+/// Projects deleted everywhere in the last 30 days: tap one to bring it back on all devices.
+struct RecentlyDeletedView: View {
+    @ObservedObject private var backup = CloudBackup.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                if browser.items.isEmpty {
-                    if browser.loading {
-                        ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                    } else {
-                        Text("No backups in iCloud yet.")
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                            .padding(.top, 20)
-                    }
+                if backup.recentlyDeleted.isEmpty {
+                    Text("Nothing deleted in the last 30 days.")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .padding(.top, 20)
                 }
-                ForEach(browser.items) { item in
-                    Button {
-                        ProjectInbox.shared.receive(item.url)
-                        close()
-                    } label: { row(item) }
-                    .buttonStyle(.plain)
+                ForEach(backup.recentlyDeleted) { note in
+                    Button { backup.bringBack(note) } label: { row(note) }
+                        .buttonStyle(.plain)
                 }
-                Text("A project that's already here is added as a copy; nothing is replaced. Backups are also in the Files app, in iCloud Drive > BOMBOCUT.")
+                Text("Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
-                if !bin.items.isEmpty {
-                    Text("Recently deleted")
-                        .font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
-                        .padding(.top, 14)
-                    ForEach(bin.items) { item in
-                        Button {
-                            ProjectInbox.shared.receive(item.url)
-                            close()
-                        } label: { row(item) }
-                        .buttonStyle(.plain)
-                    }
-                    Text("Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.")
-                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
             .padding(20)
         }
         .background(Theme.bg)
-        .navigationTitle(loc("Restore"))
+        .navigationTitle(loc("Recently deleted"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            browser.start()
-            bin.start()
-        }
-        .onDisappear {
-            browser.stop()
-            bin.stop()
-        }
+        .onAppear { backup.sync() }
     }
 
-    private func row(_ item: BackupBrowser.Item) -> some View {
+    private func row(_ note: CloudBackup.Note) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "film.stack").font(.title3.weight(.bold)).foregroundStyle(Theme.accent)
             VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: item.title).font(.body.weight(.bold)).lineLimit(1)
-                Text(verbatim: detail(item)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                Text(verbatim: note.name).font(.body.weight(.bold)).lineLimit(1)
+                Text(verbatim: detail(note)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             Spacer()
-            Image(systemName: "arrow.down.circle").foregroundStyle(Theme.muted)
+            Image(systemName: "arrow.uturn.backward.circle").foregroundStyle(Theme.muted)
         }
         .padding(14)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private func detail(_ item: BackupBrowser.Item) -> String {
-        let size = ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file)
-        guard let d = item.date else { return size }
-        return d.formatted(date: .abbreviated, time: .shortened) + " · " + size
+    private func detail(_ note: CloudBackup.Note) -> String {
+        let left = max(1, Int(ceil(((note.deleted ?? Date()).addingTimeInterval(CloudBackup.keepDeleted).timeIntervalSinceNow) / 86400)))
+        return String(format: loc("Gone for good in %lld days"), left)
     }
 }
