@@ -111,7 +111,13 @@ final class CloudBackup: ObservableObject {
     /// Turned on or off in Settings / the iCloud page.
     func setEnabled(_ on: Bool, store: ProjectStore) {
         self.store = store
+        setEnabled(on)
+    }
+
+    /// Turned on or off here or on another device (`CloudSwitches`).
+    func setEnabled(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: Self.enabledKey)
+        CloudSwitches.chosen(Self.enabledKey, on)
         problem = nil
         if on {
             watch()

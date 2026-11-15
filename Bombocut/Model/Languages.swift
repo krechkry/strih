@@ -77,7 +77,7 @@ enum CaptionLanguage {
 /// The language of the app's own buttons and texts (English or Czech).
 enum AppLanguage {
     static let options: [(code: String, name: String, flag: String)] = [("en", "English", "🇬🇧"), ("cs", "Čeština", "🇨🇿")]
-    private static let key = "appLanguage"
+    static let key = "appLanguage"
 
     /// Picked in the app, or the phone's language when it is one we have.
     static var current: String {

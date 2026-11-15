@@ -12,6 +12,8 @@ struct BombocutApp: App {
         AudioMix.apply()
         FirstLaunch.checkNewBuild()
         // presets and settings follow the Apple ID (Settings > iCloud)
+        // the iCloud switches first: they're the same on all the user's devices
+        CloudSwitches.start()
         CloudPrefs.shared.start()
         CloudFiles.shared.sync()
         Task.detached(priority: .background) { StorageReport.tidyTemp() }

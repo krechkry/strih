@@ -14,9 +14,10 @@ final class CloudPrefs {
     private static let joinedKey = "icloud.prefs.joined"
 
     /// UserDefaults keys that follow the Apple ID. Not here: things about this device (downloaded models,
-    /// subtitle languages, app language, playing along with other apps' music) and panel tabs.
+    /// subtitle languages: each needs its model downloaded on the device) and panel tabs. The iCloud switches
+    /// themselves follow the Apple ID even with this off (`CloudSwitches`).
     static let keys: [String] = [
-        UIMode.key, FavoriteColors.key, FontPicking.likedKey, "likedFilters",
+        UIMode.key, FavoriteColors.key, FontPicking.likedKey, "likedFilters", AppLanguage.key, AudioMix.key,
         "safeZone", "safeZoneAlways",
         "export.autoBitrate", "export.bitrate", "export.customW", "export.customH", "export.endCard",
         "defTransition", "defStill", "defLayer", "defFill", "quickActions",
@@ -56,6 +57,7 @@ final class CloudPrefs {
 
     func setEnabled(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: Self.enabledKey)
+        CloudSwitches.chosen(Self.enabledKey, on)
         if on { start() } else { stop() }
     }
 
@@ -72,7 +74,10 @@ final class CloudPrefs {
         let ud = UserDefaults.standard
         for key in Self.keys {
             if key != UIMode.key, let c = kv.object(forKey: key) {
-                if !same(c, ud.object(forKey: key)) { ud.set(c, forKey: key) }
+                if !same(c, ud.object(forKey: key)) {
+                    ud.set(c, forKey: key)
+                    Self.took(key, c)
+                }
             } else if let l = ud.object(forKey: key) {
                 kv.set(l, forKey: key)
             }
@@ -134,6 +139,13 @@ final class CloudPrefs {
     private func apply(_ key: String) {
         guard let c = kv.object(forKey: key), !same(c, UserDefaults.standard.object(forKey: key)) else { return }
         UserDefaults.standard.set(c, forKey: key)
+        Self.took(key, c)
+    }
+
+    /// Settings that do something when they change (not just read when needed).
+    private static func took(_ key: String, _ value: Any) {
+        if key == AppLanguage.key, let code = value as? String { AppLanguage.set(code) }
+        if key == AudioMix.key { AudioMix.apply() }
     }
 
     /// Writes the cloud's preset file here when it differs; true if it did.
@@ -173,5 +185,67 @@ final class CloudPrefs {
     private func same(_ a: Any?, _ b: Any?) -> Bool {
         guard let a = a as? NSObject, let b = b as? NSObject else { return a == nil && b == nil }
         return a.isEqual(b)
+    }
+}
+
+/// The three iCloud switches (presets and settings, fonts and LUTs, projects) are the same on every device with
+/// the Apple ID: turned on or off on one, the others follow. Always on, also with "Sync presets and settings" off.
+/// At launch a device takes the cloud's switches (before anything starts); when the cloud has none yet, this
+/// device's go up. Later the last change on any device wins.
+enum CloudSwitches {
+    static let keys = [CloudPrefs.enabledKey, CloudFiles.enabledKey, "icloud.projects"]
+    /// Switches changed from another device (Settings / the iCloud page refresh their toggles).
+    static let changed = Notification.Name("CloudSwitches.changed")
+    private static var observer: NSObjectProtocol?
+
+    private static func cloudKey(_ k: String) -> String { "switch." + k }
+
+    /// At launch, before CloudPrefs / CloudFiles / CloudBackup start.
+    static func start() {
+        let kv = NSUbiquitousKeyValueStore.default
+        kv.synchronize()
+        let ud = UserDefaults.standard
+        for k in keys {
+            if let c = kv.object(forKey: cloudKey(k)) as? Bool {
+                ud.set(c, forKey: k)
+            } else if let l = ud.object(forKey: k) as? Bool {
+                kv.set(l, forKey: cloudKey(k))
+            }
+        }
+        // decided on another device: the iCloud page isn't asked again here
+        if keys.contains(where: { kv.object(forKey: cloudKey($0)) != nil }) { ud.set(true, forKey: "icloudAsked") }
+        guard observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+                                                          object: kv, queue: .main) { n in
+            let keysChanged = n.userInfo?[NSUbiquitousKeyValueStoreChangedKeysKey] as? [String] ?? []
+            MainActor.assumeIsolated { took(keysChanged) }
+        }
+    }
+
+    /// Turned on or off here: every device follows.
+    static func chosen(_ key: String, _ on: Bool) {
+        let kv = NSUbiquitousKeyValueStore.default
+        guard kv.object(forKey: cloudKey(key)) as? Bool != on else { return }
+        kv.set(on, forKey: cloudKey(key))
+    }
+
+    @MainActor
+    private static func took(_ changedKeys: [String]) {
+        let kv = NSUbiquitousKeyValueStore.default
+        var any = false
+        for k in keys where changedKeys.contains(cloudKey(k)) {
+            guard let on = kv.object(forKey: cloudKey(k)) as? Bool, on != UserDefaults.standard.bool(forKey: k)
+                    || UserDefaults.standard.object(forKey: k) == nil else { continue }
+            any = true
+            switch k {
+            case CloudPrefs.enabledKey: CloudPrefs.shared.setEnabled(on)
+            case CloudFiles.enabledKey: CloudFiles.shared.setEnabled(on)
+            default: CloudBackup.shared.setEnabled(on)
+            }
+        }
+        if any {
+            UserDefaults.standard.set(true, forKey: "icloudAsked")
+            NotificationCenter.default.post(name: changed, object: nil)
+        }
     }
 }

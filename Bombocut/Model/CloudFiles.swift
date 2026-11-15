@@ -22,6 +22,7 @@ final class CloudFiles: ObservableObject {
 
     func setEnabled(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: Self.enabledKey)
+        CloudSwitches.chosen(Self.enabledKey, on)
         if on { sync() }
     }
 

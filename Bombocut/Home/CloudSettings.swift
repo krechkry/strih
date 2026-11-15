@@ -20,6 +20,11 @@ struct CloudSetupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             CloudToggles(prefs: $prefs, projects: $projects)
+                // chosen on another device meanwhile
+                .onReceive(NotificationCenter.default.publisher(for: CloudSwitches.changed)) { _ in
+                    prefs = CloudPrefs.enabled
+                    projects = CloudBackup.enabled
+                }
             Spacer(minLength: 10)
             Button {
                 CloudPrefs.shared.setEnabled(prefs)
@@ -85,6 +90,12 @@ struct CloudSettings: View {
             }
             .padding(14)
             .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+            Color.clear.frame(width: 1, height: 0)
+                .onReceive(NotificationCenter.default.publisher(for: CloudSwitches.changed)) { _ in
+                    prefs = CloudPrefs.enabled
+                    projects = CloudBackup.enabled
+                    files = CloudFiles.enabled
+                }
             if projects {
                 Text(verbatim: status)
                     .font(.footnote.weight(.semibold))
