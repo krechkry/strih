@@ -237,6 +237,58 @@ final class CloudBackup: ObservableObject {
         }
     }
 
+    // MARK: - Opening
+
+    /// Right before a project opens (sync on): a quick look at its note, so a project deleted or changed on another
+    /// device isn't opened as it was. Nil = deleted everywhere (removed here too, unless it was changed here since).
+    /// Newer on another device with every file already here: that version opens. Waits a few seconds at most
+    /// (offline: what's here opens, the sync sorts it out later).
+    func beforeOpening(_ p: Project) async -> Project? {
+        guard Self.enabled, let store else { return p }
+        guard let root = await Task.detached(operation: { Self.root() }).value,
+              let n = await Task.detached(priority: .userInitiated, operation: { Self.quickNote(p.id, root: root) }).value
+        else { return p }
+        let base = Self.done[p.id.uuidString]
+        let changedHere = base.map { !Self.same(p.modified.timeIntervalSince1970, $0) } ?? true
+        if n.deleted != nil {
+            guard !changedHere else { return p }
+            store.delete(p)
+            sync()
+            return nil
+        }
+        guard !changedHere, !Self.same(n.modified, p.modified) else { return p }
+        // newer elsewhere: taken now if nothing has to download, otherwise the sync brings it
+        let fm = FileManager.default
+        let complete = n.media.keys.allSatisfy { fm.fileExists(atPath: Paths.mediaURL($0).path) }
+            && n.reversed.allSatisfy { fm.fileExists(atPath: Paths.mediaURL($0.file).path) }
+            && n.fonts.allSatisfy { fm.fileExists(atPath: FontLibrary.folder.appendingPathComponent($0).path) }
+            && n.luts.allSatisfy { fm.fileExists(atPath: LUTLibrary.folder.appendingPathComponent($0).path) }
+        guard complete else {
+            sync()
+            return p
+        }
+        var q = n.project
+        q.cloudPhotos = nil
+        store.save(q)
+        markBackedUp(q)
+        return q
+    }
+
+    /// The project's note, fresh from iCloud (waits up to 3 s for it). Nil when there's none or it didn't come.
+    nonisolated private static func quickNote(_ id: UUID, root: URL) -> Note? {
+        let dir = notesDir(root)
+        let url = dir.appendingPathComponent(id.uuidString + ".json")
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) || fm.fileExists(atPath: dir.appendingPathComponent("." + id.uuidString + ".json.icloud").path)
+        else { return nil }
+        let start = Date()
+        while !isCurrent(url) {
+            if Date().timeIntervalSince(start) > 3 { return nil }
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+        return readNote(url)
+    }
+
     // MARK: - Deleting
 
     /// Remove from this device: the project stays in iCloud and on the other devices, and isn't added here again.

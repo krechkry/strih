@@ -2314,6 +2314,16 @@
         }
       }
     },
+    "Deleted on another device": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazáno na jiném zařízení"
+          }
+        }
+      }
+    },
     "Deleting is off while the voice model downloads.": {
       "localizations": {
         "cs": {
@@ -7834,6 +7844,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tenhle projekt je z novější verze BOMBOCUTu. Aktualizuj aplikaci a otevři ho znovu."
+          }
+        }
+      }
+    },
+    "This project was deleted everywhere. You can bring it back for 30 days in Settings > iCloud > Recently deleted.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tenhle projekt byl smazán všude. Ještě 30 dní ho vrátíš v Nastavení > iCloud > Nedávno smazané."
           }
         }
       }

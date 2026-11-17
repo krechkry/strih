@@ -18,6 +18,9 @@ struct HomeView: View {
     @State private var convertStatus: String?
     @State private var importNote: String?        // files left out of the new project, shown when naming it
     @State private var openProject: Project?
+    /// A project being checked against iCloud before it opens (Sync projects).
+    @State private var checking: UUID?
+    @State private var goneElsewhere = false
     @State private var renaming: Project?
     @State private var deleting: Project?
     @State private var renameText = ""
@@ -58,13 +61,14 @@ struct HomeView: View {
                         LazyVStack(spacing: 10) {
                             ForEach(store.projects) { p in
                                 ProjectRow(project: p, selecting: selecting, selected: selected.contains(p.id))
+                                    .opacity(checking == p.id ? 0.5 : 1)
                                     .onTapGesture {
                                         if selecting {
                                             if selected.contains(p.id) { selected.remove(p.id) } else { selected.insert(p.id) }
                                         } else if exportOnly {
                                             exporting = p
                                         } else {
-                                            openProject = p
+                                            open(p)
                                         }
                                     }
                                     .contextMenu {
@@ -203,6 +207,11 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSetup, onDismiss: { onboarded = true }) {
             LanguageSetupView(firstLaunch: true).presentationDetents([.large])
+        }
+        .alert("Deleted on another device", isPresented: $goneElsewhere) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("This project was deleted everywhere. You can bring it back for 30 days in Settings > iCloud > Recently deleted.")
         }
         .alert("Delete this project?", isPresented: Binding(get: { deleting != nil && !CloudBackup.enabled }, set: { if !$0 { deleting = nil } }),
                presenting: deleting) { p in
@@ -428,6 +437,22 @@ struct HomeView: View {
         store.save(p)
         newName = ""
         naming = p
+    }
+
+    /// Opens a project; with Sync projects on, only after a quick look at iCloud (deleted or newer on another
+    /// device).
+    private func open(_ p: Project) {
+        guard CloudBackup.enabled else {
+            openProject = p
+            return
+        }
+        guard checking == nil else { return }
+        checking = p.id
+        Task {
+            let fresh = await CloudBackup.shared.beforeOpening(p)
+            checking = nil
+            if let fresh { openProject = fresh } else { goneElsewhere = true }
+        }
     }
 
     private func openNamed(_ custom: Bool) {
