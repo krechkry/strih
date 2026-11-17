@@ -97,10 +97,15 @@ struct CloudSettings: View {
                     files = CloudFiles.enabled
                 }
             if projects {
-                Text(verbatim: status)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(backup.problem == nil ? Theme.muted : .orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    if backup.working && backup.problem == nil {
+                        ProgressView().controlSize(.small).tint(Theme.accent)
+                    }
+                    Text(verbatim: status)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(backup.problem == nil ? Theme.muted : .orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack(spacing: 10) {
                     Button {
                         backup.backUp(store.projects, force: true)

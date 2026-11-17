@@ -112,6 +112,7 @@ struct HomeView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 4) {
+                        SyncActivity { showSettings = true }
                         Button { showStorage = true } label: { Image(systemName: "internaldrive") }
                         Button { showSettings = true } label: { Image(systemName: "gearshape") }
                     }

@@ -20,7 +20,7 @@ import UIKit
 /// comes down with every file it needs; it shows on Home as "Downloading 3 of 14" (`incoming`) and becomes a
 /// project only once it's complete (a replaced one stays as it was until then). A project open in the editor is
 /// never swapped. Both devices changed it since the last sync: this device keeps its version, the other one is
-/// added next to it as "Name (iPad)". Nothing is lost.
+/// added next to it as "Name (iPad, 17. 11. 10:43)" (when it was changed there). Nothing is lost.
 /// Clean up: a file in ProjectMedia that no note needs (deleted ones count for their 30 days) leaves iCloud once
 /// it's been unneeded for a day (`orphans`), and only when every note is on this device.
 /// This device remembers each project's `modified` at its last sync (`done`): changed here = it's different now,
@@ -528,7 +528,10 @@ final class CloudBackup: ObservableObject {
         project.cloudPhotos = nil
         if let local {
             project.id = UUID()
-            project.name = local.name + " (" + n.device + ")"
+            // "Name (iPad, 17. 11. 10:43)": which device, and when it was changed there
+            let df = DateFormatter()
+            df.dateFormat = "d. M. HH:mm"
+            project.name = local.name + " (" + n.device + ", " + df.string(from: n.modified) + ")"
             project.modified = Date()
             store.save(project)
         } else {
