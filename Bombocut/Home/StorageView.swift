@@ -4,6 +4,7 @@ import SwiftUI
 struct StorageView: View {
     @EnvironmentObject private var store: ProjectStore
     @ObservedObject private var speech = SpeechModels.shared
+    @ObservedObject private var cloud = CloudBackup.shared
     @Environment(\.dismiss) private var dismiss
     @State private var report = StorageReport()
     @State private var confirm: Confirm?
@@ -56,6 +57,7 @@ struct StorageView: View {
                         info(icon: "film", title: "Videos in your projects", bytes: report.usedMedia)
                         info(icon: "doc.text", title: "Project files", bytes: report.projects)
                     }
+                    if CloudBackup.enabled { icloud }
                     Text("Your originals in Photos are never touched. Deleting here is permanent, there is no trash bin.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 }
@@ -205,6 +207,21 @@ struct StorageView: View {
         }
         .padding(12)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// What Sync projects keeps in the user's iCloud. Its folder isn't shown in Files on purpose: files moved or
+    /// deleted there by hand would break projects on every device.
+    private var icloud: some View {
+        section("iCloud") {
+            row(icon: "icloud", title: "Synced projects",
+                detail: String(format: loc("%lld projects, every clip stored once"), cloud.cloudProjects),
+                bytes: cloud.cloudBytes, action: nil)
+            Text("Clips leave iCloud a day after no project uses them. Projects deleted everywhere keep theirs for 30 days (Settings > iCloud > Recently deleted). See your whole iCloud in the Settings app: your name > iCloud.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .onAppear { CloudBackup.shared.sync() }
     }
 
     private func info(icon: String, title: String, bytes: Int64) -> some View {

@@ -53,6 +53,9 @@ final class CloudBackup: ObservableObject {
     @Published private(set) var incoming: [Incoming] = []
     /// Projects deleted everywhere in the last 30 days (Settings > iCloud > Recently deleted).
     @Published private(set) var recentlyDeleted: [Note] = []
+    /// What sync keeps in iCloud, as of the last look (Storage): projects, and the size of their files (each once).
+    @Published private(set) var cloudProjects = 0
+    @Published private(set) var cloudBytes: Int64?
 
     struct Incoming: Identifiable, Equatable {
         var id: UUID
@@ -423,6 +426,10 @@ final class CloudBackup: ObservableObject {
         let removed = Self.removed
         recentlyDeleted = notes.values.filter { $0.deleted != nil }
             .sorted { ($0.deleted ?? .distantPast) > ($1.deleted ?? .distantPast) }
+        var sizes: [String: Int64] = [:]
+        for n in notes.values { sizes.merge(n.media) { max($0, $1) } }
+        cloudBytes = sizes.values.reduce(0, +)
+        cloudProjects = notes.values.filter { $0.deleted == nil }.count
 
         for p in store.projects where p.id != editing && !read.unknown.contains(p.id) {
             let base = Self.done[p.id.uuidString]

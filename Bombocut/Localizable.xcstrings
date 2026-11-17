@@ -176,6 +176,16 @@
         }
       }
     },
+    "%lld projects, every clip stored once": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Projektů: %lld, každý klip uložený jen jednou"
+          }
+        }
+      }
+    },
     "%lld selected": {
       "localizations": {
         "cs": {
@@ -1666,6 +1676,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klipy, které se mezitím upravily ve Fotkách (mrkni na ně): %lld."
+          }
+        }
+      }
+    },
+    "Clips leave iCloud a day after no project uses them. Projects deleted everywhere keep theirs for 30 days (Settings > iCloud > Recently deleted). See your whole iCloud in the Settings app: your name > iCloud.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipy zmizí z iCloudu den poté, co je už žádný projekt nepoužívá. Projekty smazané všude si je nechají 30 dní (Nastavení > iCloud > Nedávno smazané). Celý svůj iCloud uvidíš v aplikaci Nastavení: tvoje jméno > iCloud."
           }
         }
       }
@@ -7214,6 +7234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Synchronizovat projekty"
+          }
+        }
+      }
+    },
+    "Synced projects": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizované projekty"
           }
         }
       }
