@@ -1380,12 +1380,12 @@
         }
       }
     },
-    "Buy for %@ and turn it off": {
+    "Buy for %@ to keep it off": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Koupit za %@ a vypnout"
+            "value": "Koupit za %@, ať zůstane vypnutá"
           }
         }
       }
@@ -4938,12 +4938,12 @@
         }
       }
     },
-    "Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only its exports end with the BOMBOCUT end card. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it.": {
+    "Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only the BOMBOCUT end card has to be turned off for each export. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Není to předplatné. Po 7 dnech se nic samo nekoupí ani nestrhne. Zkušební verze má všechny nástroje, jen exporty končí koncovou kartou BOMBOCUT. Pak si BOMBOCUT buď jednou koupíš za %@, nebo ne. Projekty můžeš exportovat dál, tak jak jsou. App Store zkušební verzi ukáže jako nákup zdarma, tím se jen spustí."
+            "value": "Není to předplatné. Po 7 dnech se nic samo nekoupí ani nestrhne. Zkušební verze má všechny nástroje, jen koncovou kartu BOMBOCUT musíš vypnout u každého exportu zvlášť. Pak si BOMBOCUT buď jednou koupíš za %@, nebo ne. Projekty můžeš exportovat dál, tak jak jsou. App Store zkušební verzi ukáže jako nákup zdarma, tím se jen spustí."
           }
         }
       }
@@ -7288,12 +7288,12 @@
         }
       }
     },
-    "Tap a project to export it as it is, with the end card. Buy BOMBOCUT once to keep editing.": {
+    "Tap a project to export it as it is. Buy BOMBOCUT once to keep editing.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klepni na projekt a vyexportuješ ho, jak je, s koncovou kartou. Kup si BOMBOCUT jednou a stříhej dál."
+            "value": "Klepni na projekt a vyexportuješ ho, jak je. Kup si BOMBOCUT jednou a stříhej dál."
           }
         }
       }
@@ -8578,12 +8578,12 @@
         }
       }
     },
-    "You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!": {
+    "You can turn it off for this export. The full version remembers your choice.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "V plné verzi jde vypnout. Pomáhá dostat BOMBOCUT mezi lidi. Jestli chceš, po exportu si ji ustřihni. Díky!"
+            "value": "U tohohle exportu ji můžeš vypnout. Plná verze si tvoji volbu zapamatuje."
           }
         }
       }

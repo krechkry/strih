@@ -255,7 +255,7 @@ struct PaywallView: View {
     }
 
     private var disclosure: String {
-        String(format: loc("Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only its exports end with the BOMBOCUT end card. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it."), purchases.price)
+        String(format: loc("Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool, only the BOMBOCUT end card has to be turned off for each export. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are. The App Store shows the trial as a free purchase: that only starts it."), purchases.price)
     }
 
     private var team: some View {
@@ -345,7 +345,7 @@ struct TrialPill: View {
                     Image(systemName: "hourglass.bottomhalf.filled").foregroundStyle(Theme.accent)
                     Text("Your 7 free days are over").font(.subheadline.weight(.heavy))
                 }
-                Text("Tap a project to export it as it is, with the end card. Buy BOMBOCUT once to keep editing.")
+                Text("Tap a project to export it as it is. Buy BOMBOCUT once to keep editing.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {

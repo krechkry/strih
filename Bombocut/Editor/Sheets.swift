@@ -172,9 +172,12 @@ struct ExportSheet: View {
     /// A social preset while nothing was changed by hand (it sets its own bitrate).
     @State private var preset: ExportPreset.ID?
     @ObservedObject private var purchases = Purchases.shared
-    /// Trial and after-trial exports always end with the card; only the full version can switch it off.
-    private var cardLocked: Bool { !purchases.fullVersion }
-    private var withEndCard: Bool { endCard || cardLocked }
+    /// Everyone can switch the card off. Only the full version remembers it: in the trial and after it,
+    /// every export starts with the card on again.
+    private var cardForgotten: Bool { !purchases.fullVersion }
+    /// Switched off for this export only (trial, after the trial).
+    @State private var cardOffOnce = false
+    private var withEndCard: Bool { cardForgotten ? !cardOffOnce : endCard }
 
     @State private var customFPS = ""
     /// What the first clip was, while the settings still match it.
@@ -427,26 +430,27 @@ struct ExportSheet: View {
     }
 
     private var endCardGroup: some View {
-        group("End card", footer: cardLocked
-              ? loc("You can turn this off in the full version. It helps spread the word about BOMBOCUT. If you want, cut it off after export. Thanks!")
+        group("End card", footer: cardForgotten
+              ? loc("You can turn it off for this export. The full version remembers your choice.")
               : nil) {
             card {
                 OnOffRow(title: "BOMBOCUT end card",
                          subtitle: "A short Made with BOMBOCUT card after your last clip. Thanks for spreading the word!",
-                         isOn: withEndCard) { endCard = $0 }
-                    .disabled(cardLocked)
-                if cardLocked && !purchases.isBeta {
+                         isOn: withEndCard) { on in
+                    if cardForgotten { cardOffOnce = !on } else { endCard = on }
+                }
+                if cardForgotten && !purchases.isBeta {
                     Divider().overlay(Color.white.opacity(0.08))
                     Button {
                         Task {
                             await purchases.buyFull()
-                            // bought from here to lose the card: it goes off right away
+                            // bought from here to lose the card: it goes off right away, and stays off
                             if purchases.fullVersion { endCard = false }
                         }
                     } label: {
                         HStack(spacing: 8) {
                             if purchases.busy { ProgressView().tint(.black) }
-                            Text(String(format: loc("Buy for %@ and turn it off"), purchases.price))
+                            Text(String(format: loc("Buy for %@ to keep it off"), purchases.price))
                                 .font(.subheadline.weight(.heavy))
                         }
                         .foregroundStyle(.black)
@@ -459,7 +463,7 @@ struct ExportSheet: View {
                 }
             }
         }
-        .alert("BOMBOCUT", isPresented: Binding(get: { purchases.error != nil && cardLocked },
+        .alert("BOMBOCUT", isPresented: Binding(get: { purchases.error != nil && cardForgotten },
                                                 set: { if !$0 { purchases.error = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(purchases.error ?? "") }
