@@ -69,7 +69,7 @@ final class StackTests: XCTestCase {
         a.opacity = 1
         b.opacity = 0
         s.keyframes = [Keyframe(t: 0, look: a, ease: .linear), Keyframe(t: 2, look: b, ease: .linear)]
-        XCTAssertEqual(s.look(at: 1).transform.scale, 1.5, accuracy: 1e-9)
+        XCTAssertEqual(s.look(at: 1).transform.scale, 2.0.squareRoot(), accuracy: 1e-9)   // zoom moves in even steps
         XCTAssertEqual(s.look(at: 1).opacity, 0.5, accuracy: 1e-9)
         XCTAssertEqual(s.look(at: 5).transform.scale, 2, accuracy: 1e-9)
         // a change between keyframes adds one there
@@ -107,7 +107,7 @@ final class StackTests: XCTestCase {
         let (x, y) = s.halves(at: 2, length: 4, firstIDs: [s.clipIDs[0]], secondIDs: [s.clipIDs[1]])
         XCTAssertNotEqual(x.id, y.id)
         XCTAssertEqual(x.keyframes.last?.t ?? -1, 2, accuracy: 1e-9)
-        XCTAssertEqual(x.keyframes.last?.look.transform.scale ?? 0, 2, accuracy: 1e-9)
+        XCTAssertEqual(x.keyframes.last?.look.transform.scale ?? 0, 3.0.squareRoot(), accuracy: 1e-9)
         XCTAssertEqual(y.keyframes.first?.t ?? -1, 0, accuracy: 1e-9)
         XCTAssertEqual(y.keyframes.last?.t ?? -1, 2, accuracy: 1e-9)
         // AutoZoom carries on: the first ends where the second starts

@@ -149,8 +149,8 @@ struct ClipStack: Codable, Hashable, Identifiable {
         if !keyframes.isEmpty {
             let here = look(at: local)
             a.keyframes = keyframes.filter { $0.t < local - 0.001 } + [Keyframe(t: local, look: here)]
-            b.keyframes = [Keyframe(t: 0, look: here)] + keyframes.filter { $0.t > local + 0.001 }
-                .map { var k = $0; k.t -= local; return k }
+            // (still on this Stack's time: shiftTime below moves the second half's to its own start)
+            b.keyframes = [Keyframe(t: local, look: here)] + keyframes.filter { $0.t > local + 0.001 }
         }
         if let z = autoZoom, length > 0.01 {
             let f = min(max(local / length, 0), 1)
