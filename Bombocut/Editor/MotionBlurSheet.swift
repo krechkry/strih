@@ -6,43 +6,44 @@ struct MotionBlurSheet: View {
 
     var body: some View {
         PanelStack(spacing: 16, span: 1) {
-            if let i = model.selectedIndex {
-                let c = model.project.clips[i]
-                Toggle(isOn: Binding(get: { c.motionBlurOn }, set: { model.setMotionBlurOn($0) })) {
+            if let c = model.editedBlur {
+                let stack = model.selectedStackIndex != nil
+                Toggle(isOn: Binding(get: { c.on }, set: { model.setMotionBlurOn($0) })) {
                     Text("Motion blur").font(.title3.weight(.heavy))
                 }
                 .tint(Theme.accent)
                 HStack {
                     Text("Amount").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                     Spacer()
-                    Text("\(Int((c.motionBlur * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
+                    Text("\(Int((c.amount * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
                         .doubleTapNumberReset { model.liveEditBegan(); model.setMotionBlur(0.5); model.liveEditEnded() }
                 }
-                .opacity(c.motionBlurOn ? 1 : 0.4)
-                BSlider(value: Binding(get: { c.motionBlur }, set: { model.setMotionBlur($0) }), in: 0.01...1,
+                .opacity(c.on ? 1 : 0.4)
+                BSlider(value: Binding(get: { c.amount }, set: { model.setMotionBlur($0) }), in: 0.01...1,
                        onEditingChanged: { e in if e { model.liveEditBegan() } else { model.liveEditEnded() } })
                     .tint(Theme.accent)
                     .doubleTapReset { model.liveEditBegan(); model.setMotionBlur(0.5); model.liveEditEnded() }
-                    .disabled(!c.motionBlurOn)
-                    .opacity(c.motionBlurOn ? 1 : 0.4)
+                    .disabled(!c.on)
+                    .opacity(c.on ? 1 : 0.4)
                 HStack(spacing: 8) {
                     ForEach(BlurDirection.allCases, id: \.self) { d in
                         Button { model.setBlurDirection(d) } label: {
                             Text(loc(d.title)).font(.subheadline.weight(.bold))
                                 .lineLimit(1).minimumScaleFactor(0.7)
-                                .foregroundStyle(c.blurDirection == d ? .black : .white)
+                                .foregroundStyle(c.direction == d ? .black : .white)
                                 .padding(.horizontal, 14).frame(height: 36)
-                                .background(c.blurDirection == d ? Theme.accent : Theme.panel2, in: Capsule())
+                                .background(c.direction == d ? Theme.accent : Theme.panel2, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 PanelBreak()
-                Text("Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.")
+                Text(stack ? "Smears whatever moves in all the stack's clips, and the stack's own moves (keyframes, AutoZoom, way in and out), like a slow camera shutter."
+                     : "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                ApplyRow(model: model, kind: .motionBlur)
+                if !stack { ApplyRow(model: model, kind: .motionBlur) }
             }
         }
         .padding(20)
@@ -97,7 +98,9 @@ struct ClipAnimSheet: View {
         ScrollView {
             PanelStack(spacing: 16, span: 1) {
                 Text("Transition").font(.title3.weight(.heavy))
-                if let i = model.selectedIndex {
+                if let st = model.selectedStack, let r = model.project.stackRange(st) {
+                    stackEdges(st, r)
+                } else if let i = model.selectedIndex {
                     let n = model.project.clips.count
                     let start = model.transitionAtStart
                     HStack(spacing: 8) {
@@ -125,6 +128,30 @@ struct ClipAnimSheet: View {
         }
         .scrollIndicators(.hidden)
         .onDisappear { model.cutDurationEnded() }
+    }
+
+    /// A Stack: the cut into it (or out of it) with the clip next to it, and the Stack's own way in or out on top
+    /// (its whole picture moves, whatever its clips do).
+    @ViewBuilder
+    private func stackEdges(_ st: ClipStack, _ r: ClosedRange<Int>) -> some View {
+        let n = model.project.clips.count
+        let start = model.transitionAtStart
+        HStack(spacing: 8) {
+            edgeButton(start: true, neighbour: r.lowerBound > 0, on: start)
+            edgeButton(start: false, neighbour: r.upperBound + 1 < n, on: !start)
+        }
+        if let k = model.transitionCut, k + 1 < n, k == (start ? r.lowerBound - 1 : r.upperBound) {
+            cutEditor(k)
+            PanelBreak()
+        }
+        let length = model.project.stackTime(st).map { $0.end - $0.start } ?? 1
+        Text(start ? "The stack's own way in" : "The stack's own way out")
+            .font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+        AnimEditor(anim: st.anim, maxLength: length,
+                   set: { model.setClipAnim($0) },
+                   live: { a in model.editStackAnim(a) },
+                   began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
+                   preview: { model.previewClipAnim() }, only: start)
     }
 
     /// Start or end of the clip, drawn: the clip with its edge marked, and the clip next to it (or black).
@@ -350,7 +377,7 @@ struct SpeechSheet: View {
     var body: some View {
         ScrollView {
             PanelStack(spacing: 16, span: 1) {
-                if let i = model.selectedIndex {
+                if let i = model.selectedIndex ?? model.stackFirstIndex {
                     let c = model.project.clips[i]
                     let fx = c.speech ?? SpeechFX()
                     HStack {
@@ -410,7 +437,12 @@ struct SpeechSheet: View {
                     Text("Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    ApplyRow(model: model, kind: .speech)
+                    if model.selectedStackIndex == nil {
+                        ApplyRow(model: model, kind: .speech)
+                    } else {
+                        Text("Goes to every clip in the stack.")
+                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    }
                 }
             }
             .padding(20)

@@ -138,19 +138,34 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
                 return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
             }
-            let hasOverlays = !OverlayStore.shared.current.overlays.isEmpty
+            let bare = clips[0].layer.info.bare
+            let hasOverlays = !bare && !OverlayStore.shared.current.overlays.isEmpty
 
             var masked = false
-            var image = clipImage(clips[0], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+            let preview = clips[0].layer.info.preview
+            // a transition between two clips of the same Stack: the Stack's layer goes on top of the transition
+            let shared: StackStore.Layer? = !bare && clips.count > 1 && cut != nil
+                ? StackStore.shared.layer(clips[0].layer.info.clipID).flatMap { a in
+                    StackStore.shared.layer(clips[1].layer.info.clipID)?.id == a.id ? a : nil }
+                : nil
+            var image = clipImage(clips[0], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked,
+                                  withStack: shared == nil && !bare)
             if clips.count > 1, let cut {
-                let top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked)
+                let top = clipImage(clips[1], t: t, size: size, hasOverlays: hasOverlays, video: videoFrame, masked: &masked,
+                                    withStack: shared == nil && !bare)
                 let p = min(max((t - cut.start) / max(cut.length, 1e-6), 0), 1)
                 if cut.cut.kind == .smooth {
                     // smooth cut: the frame engine morphs the shot going out into the one coming in
                     smoothCut(request, from: image, to: top, phase: p * p * (3 - 2 * p), t: t,
-                              light: clips[0].layer.info.light, preview: clips[0].layer.info.preview) { morphed in
-                        self.complete(request, morphed, t: t, masked: masked, hasOverlays: hasOverlays,
-                                      preview: clips[0].layer.info.preview, video: videoFrame)
+                              light: clips[0].layer.info.light, preview: preview) { morphed in
+                        var m = masked
+                        var out = morphed
+                        if let shared {
+                            out = self.stackLayer(out, shared, t: t, size: size, preview: preview, hasOverlays: hasOverlays,
+                                                  video: videoFrame, masked: &m)
+                        }
+                        self.complete(request, out, t: t, masked: m, hasOverlays: hasOverlays, preview: preview, bare: bare,
+                                      video: videoFrame)
                     }
                     return
                 }
@@ -162,15 +177,20 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     .composited(over: bg)
                     .cropped(to: frame)
                 image = Self.transitionBlur(image, cut.cut.motion(t - cut.start, length: cut.length), size: size)
+                if let shared {
+                    image = stackLayer(image, shared, t: t, size: size, preview: preview, hasOverlays: hasOverlays,
+                                       video: videoFrame, masked: &masked)
+                }
             }
-            complete(request, image, t: t, masked: masked, hasOverlays: hasOverlays, preview: clips[0].layer.info.preview,
+            complete(request, image, t: t, masked: masked, hasOverlays: hasOverlays, preview: preview, bare: bare,
                      video: videoFrame)
         }
     }
 
     /// Overlays and captions on top, then the frame goes out.
     private func complete(_ request: AVAsynchronousVideoCompositionRequest, _ base: CIImage, t: Double, masked: Bool,
-                          hasOverlays: Bool, preview: Bool, video: @escaping (UUID) -> (CIImage, CGAffineTransform)?) {
+                          hasOverlays: Bool, preview: Bool, bare: Bool = false,
+                          video: @escaping (UUID) -> (CIImage, CGAffineTransform)?) {
         autoreleasepool {
             guard let out = request.renderContext.newPixelBuffer() else {
                 request.finish(with: CompositionBuilder.err("Missing frame."))
@@ -184,7 +204,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                                     preview: preview, video: video)
             }
             // (captions behind the subject were already drawn under it, when this frame has a subject mask)
-            for caps in CaptionStore.shared.all where !(masked && caps.style.behindSubject) {
+            for caps in CaptionStore.shared.all where !bare && !(masked && caps.style.behindSubject) {
                 if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                     image = text.composited(over: image).cropped(to: frame)
                 }
@@ -215,7 +235,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     }
 
     /// Motion blur along a slide or a zoom, from how fast the picture moves (a half-frame shutter).
-    private static func transitionBlur(_ img: CIImage, _ m: (dx: Double, dy: Double, zoom: Double), size: CGSize) -> CIImage {
+    static func transitionBlur(_ img: CIImage, _ m: (dx: Double, dy: Double, zoom: Double), size: CGSize) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
         let shutter = 1.0 / 60
         var out = img
@@ -276,7 +296,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     /// One clip drawn on the full frame (black around it): color, placement, its own in / out animation,
     /// subject mask with the overlays behind the subject, and the frame effects.
     private func clipImage(_ p: Prepared, t: Double, size: CGSize, hasOverlays: Bool,
-                           video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool) -> CIImage {
+                           video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool,
+                           withStack: Bool = true) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
         let info = p.layer.info, state = p.state, srcT = p.srcT
         var look = p.look
@@ -339,47 +360,108 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
         }
         image = EffectsRenderer.canvas(image, FilterRenderer.effects(look.effects, filter), size: size, frame: Int((t * 30).rounded()))
-        // the clip is in a Stack: the Stack's own layer on top
-        if let st = StackStore.shared.layer(info.clipID) {
-            image = Self.stackLayer(image, st, t: t, size: size, preview: info.preview)
+        // the clip is in a Stack: the Stack's own layer on top (unless the caller puts it on after a transition)
+        if withStack, let st = StackStore.shared.layer(info.clipID) {
+            image = stackLayer(image, st, t: t, size: size, preview: info.preview, hasOverlays: hasOverlays, video: video,
+                               masked: &masked)
         }
         return image
     }
 
-    /// A Stack's layer on one of its clips' finished pictures (the canvas): its crop, its color, its placement
-    /// (with AutoZoom over the whole Stack), its film effects and opacity, like a clip of its own.
-    static func stackLayer(_ img: CIImage, _ l: StackStore.Layer, t: Double, size: CGSize, preview: Bool) -> CIImage {
+    /// A Stack's layer on the finished picture of its clips (the canvas, after their transitions), like a clip of
+    /// its own whose source is that picture: Adjust color and filter, placement with keyframes and AutoZoom over the
+    /// whole Stack, stabilization and tracking of that picture, crop, in / out animation, opacity, subject mask
+    /// (with what goes behind the subject), motion blur of its own moves, and its film effects.
+    func stackLayer(_ img: CIImage, _ l: StackStore.Layer, t: Double, size: CGSize, preview: Bool, hasOverlays: Bool,
+                    video: @escaping (UUID) -> (CIImage, CGAffineTransform)?, masked: inout Bool) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
-        var s = l.stack
-        if preview && LookStore.shared.bypassEffects { s.effects = Effects(); s.filter = nil }
-        var out = img
+        let s = l.stack
+        let bypass = preview && LookStore.shared.bypassEffects
+        let local = t - l.start
+        let length = max(l.duration, 0.01)
+        var look = s.look(at: local)
+        if bypass { look.effects = Effects() }
+        let filter: LookFilter? = bypass ? nil : s.filter
+        let framing = preview && LookStore.shared.framingClip == l.id
         let editingCrop = preview && LookStore.shared.cropEditClip == l.id
-        if let c = s.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
-            let kept = cropped(out, c, size)
-            out = editingCrop
-                ? kept.composited(over: out.applyingFilter("CIColorMatrix", parameters: [
-                    "inputRVector": CIVector(x: 0.3, y: 0, z: 0, w: 0),
-                    "inputGVector": CIVector(x: 0, y: 0.3, z: 0, w: 0),
-                    "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
-                : kept
+        func transform(at x: Double) -> ClipTransform {
+            var tr = x == local ? look.transform : s.look(at: x).transform
+            if let z = s.autoZoom, !framing { tr = z.apply(tr, at: min(max(x / length, 0), 1)) }
+            return tr
         }
-        out = FilterRenderer.apply(EffectsRenderer.color(out, s.effects), s.filter)
-        var tr = s.transform
-        if let z = s.autoZoom, !(preview && LookStore.shared.framingClip == l.id) {
-            tr = z.apply(tr, at: (t - l.start) / l.duration)
+        let tr = transform(at: local)
+        let anim = s.anim.isNone ? nil : s.anim.pose(local: local, length: length)
+        func geometry(_ src: CIImage) -> CIImage {
+            var out = Self.place(src, prefTransform: .identity, fill: false, transform: tr,
+                                 stab: l.stab.map { $0.pose(at: local) },
+                                 follow: l.track.map { $0.follow(at: local) },
+                                 crop: s.crop ?? (editingCrop ? CropRect() : nil), cropEditing: editingCrop, in: size)
+            if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
+                let cx = size.width / 2, cy = size.height / 2
+                out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
+                    .concatenating(CGAffineTransform(scaleX: a.scale, y: a.scale))
+                    .concatenating(CGAffineTransform(translationX: cx + a.dx * size.width, y: cy - a.dy * size.height)))
+            }
+            return out
         }
-        if !tr.isIdentity {
-            let cx = size.width / 2, cy = size.height / 2
-            out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
-                .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
-                .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
-                .concatenating(CGAffineTransform(translationX: cx + tr.x * size.width, y: cy - tr.y * size.height)))
+        var image = geometry(FilterRenderer.apply(EffectsRenderer.color(img, look.effects), filter))
+        var opacity = look.opacity
+        if let a = anim { opacity *= a.opacity }
+        if opacity < 0.999 {
+            image = image.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, opacity))])
         }
-        if s.opacity < 0.999 {
-            out = out.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: max(0, s.opacity))])
+        let bg = CIImage(color: StackStore.shared.background).cropped(to: frame)
+        image = image.composited(over: bg).cropped(to: frame)
+        // its own moves (keyframes, AutoZoom, in / out) smeared like a camera move
+        if s.blurAmount > 0.001 {
+            image = Self.transitionBlur(image, Self.stackMotion(s, transform: transform, local: local, length: length,
+                                                               amount: s.blurAmount), size: size)
         }
-        out = out.composited(over: CIImage(color: StackStore.shared.background).cropped(to: frame)).cropped(to: frame)
-        return EffectsRenderer.canvas(out, FilterRenderer.effects(s.effects, s.filter), size: size, frame: Int((t * 30).rounded()))
+        // subject cut-out of the Stack's picture: what goes behind the subject goes under it
+        if let m = s.mask, m.kind != .custom,
+           let raw = SubjectMasker.shared.mask(for: image, frame: frame, kind: m.kind) {
+            let mask = SubjectMasker.refine(raw, m, frame: frame)
+            var back = SubjectMasker.background(image, m, frame: frame)
+            if hasOverlays {
+                back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, preview: preview, video: video)
+            }
+            for caps in CaptionStore.shared.all where caps.style.behindSubject {
+                if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
+                    back = text.composited(over: back).cropped(to: frame)
+                }
+            }
+            image = image.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: back,
+                                                                        kCIInputMaskImageKey: mask]).cropped(to: frame)
+            masked = true
+            if preview, LookStore.shared.outlineClip == l.id { image = SubjectMasker.outline(mask, on: image, frame: frame) }
+        }
+        return EffectsRenderer.canvas(image, FilterRenderer.effects(look.effects, filter), size: size, frame: Int((t * 30).rounded()))
+    }
+
+    /// How fast a Stack's picture moves at Stack time `local` (canvas fractions and log zoom per second), for its
+    /// motion blur. `amount` 0.5 = a half-frame shutter.
+    static func stackMotion(_ s: ClipStack, transform: (Double) -> ClipTransform, local: Double, length: Double,
+                            amount: Double) -> (dx: Double, dy: Double, zoom: Double) {
+        let dt = 1.0 / 60
+        var a0 = local - dt, a1 = local + dt
+        switch s.blurDirection {
+        case .both: break
+        case .forward: a0 = local
+        case .backward: a1 = local
+        }
+        let span = max(a1 - a0, 1e-6)
+        let p = transform(min(max(a0, 0), length)), q = transform(min(max(a1, 0), length))
+        func animPose(_ x: Double) -> (dx: Double, dy: Double, scale: Double) {
+            guard !s.anim.isNone else { return (0, 0, 1) }
+            let a = s.anim.pose(local: x, length: length)
+            return (a.dx, a.dy, a.scale)
+        }
+        let ap = animPose(a0), aq = animPose(a1)
+        let k = amount * 2 / span
+        let dx = (q.x - p.x + aq.dx - ap.dx) * k
+        let dy = (q.y - p.y + aq.dy - ap.dy) * k
+        let zoom = (log(max(q.scale * aq.scale, 1e-6)) - log(max(p.scale * ap.scale, 1e-6))) * k
+        return (dx, dy, zoom)
     }
 
     /// The clip's subject mask on the canvas. People and main subject are found on the finished canvas picture;

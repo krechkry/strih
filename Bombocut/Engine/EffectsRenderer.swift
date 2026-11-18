@@ -91,6 +91,8 @@ final class StackStore: @unchecked Sendable {
         var start: Double
         var duration: Double
         var stack: ClipStack
+        var stab: StabCurve? = nil     // on Stack time, canvas aspect
+        var track: TrackCurve? = nil
     }
 
     /// The project's background (the empty space around the clips), drawn under every clip.
@@ -103,7 +105,8 @@ final class StackStore: @unchecked Sendable {
         var d: [UUID: Layer] = [:]
         for s in p.stacks where s.hasLayer {
             guard let t = p.stackTime(s) else { continue }
-            let l = Layer(id: s.id, start: t.start, duration: max(t.end - t.start, 0.01), stack: s)
+            let l = Layer(id: s.id, start: t.start, duration: max(t.end - t.start, 0.01), stack: s,
+                          stab: s.stabilization?.curve(aspect: p.canvas.aspect), track: s.tracking?.curve())
             for id in s.clipIDs { d[id] = l }
         }
         lock.lock()

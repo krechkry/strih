@@ -105,7 +105,12 @@ struct VolumeSheet: View {
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                         .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
-                if let i = model.selectedIndex, model.selectedStackIndex == nil {
+                if let st = model.selectedStack, let t = model.project.stackTime(st) {
+                    FadeSliders(fadeIn: st.fadeIn, fadeOut: st.fadeOut, length: t.end - t.start,
+                                set: { fin, fout in model.setClipFade(in: fin, out: fout) },
+                                done: { model.volumeEditing(false) },
+                                began: { model.volumeEditing(true) })
+                } else if let i = model.selectedIndex {
                     let c = model.project.clips[i]
                     FadeSliders(fadeIn: c.fadeIn, fadeOut: c.fadeOut, length: c.duration,
                                 set: { fin, fout in model.setClipFade(in: fin, out: fout) },
@@ -846,12 +851,12 @@ struct StabilizeSheet: View {
         ScrollView {
         PanelStack(spacing: 16, span: 1) {
             Text("Stabilize").font(.title3.weight(.heavy))
-            if let i = model.selectedIndex {
-                let c = model.project.clips[i]
-                if let st = c.stabilization {
+            if model.selectedIndex != nil || model.selectedStackIndex != nil {
+                let stack = model.selectedStackIndex != nil
+                if let st = model.editedStabilization {
                     HStack(spacing: 8) {
                         ForEach(StabMode.allCases, id: \.self) { m in
-                            Button { model.liveEditBegan(); model.editClip { $0.stabilization?.mode = m }; model.liveEditEnded() } label: {
+                            Button { model.liveEditBegan(); model.editStabilization { $0.mode = m }; model.liveEditEnded() } label: {
                                 Text(loc(m.title)).font(.subheadline.weight(.bold))
                                     .lineLimit(1).minimumScaleFactor(0.7)
                                     .foregroundStyle(st.mode == m ? .black : .white)
@@ -868,12 +873,12 @@ struct StabilizeSheet: View {
                             Text("\(Int((st.strength * 100).rounded()))").font(.subheadline.weight(.bold).monospacedDigit())
                         }
                         BSlider(value: Binding(get: { st.strength }, set: { v in
-                            model.editClip { $0.stabilization?.strength = v }
+                            model.editStabilization { $0.strength = v }
                         }), in: 0...1, onEditingChanged: { e in
                             if e { model.liveEditBegan() } else { model.liveEditEnded() }
                         })
                         .tint(Theme.accent)
-                        .doubleTapReset { model.liveEditBegan(); model.editClip { $0.stabilization?.strength = 0.6 }; model.liveEditEnded() }
+                        .doubleTapReset { model.liveEditBegan(); model.editStabilization { $0.strength = 0.6 }; model.liveEditEnded() }
                     } else {
                         Text("Holds the shot still as if on a tripod. Where the camera really moves, it follows as little as the zoom allows.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -886,13 +891,13 @@ struct StabilizeSheet: View {
                         Text(verbatim: "\(Int((st.maxZoom * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
                     }
                     BSlider(value: Binding(get: { st.maxZoom }, set: { v in
-                        model.editClip { $0.stabilization?.maxZoom = v }
+                        model.editStabilization { $0.maxZoom = v }
                     }), in: 0.03...0.4, onEditingChanged: { e in
                         if e { model.liveEditBegan() } else { model.liveEditEnded() }
                     })
                     .tint(Theme.accent)
-                    .doubleTapReset { model.liveEditBegan(); model.editClip { $0.stabilization?.maxZoom = 0.15 }; model.liveEditEnded() }
-                    if let curve = st.curve(aspect: c.aspect ?? 16.0 / 9) {
+                    .doubleTapReset { model.liveEditBegan(); model.editStabilization { $0.maxZoom = 0.15 }; model.liveEditEnded() }
+                    if let curve = st.curve(aspect: model.editedAspect) {
                         Text("Zoomed in \(Int(((curve.crop - 1) * 100).rounded())) % to hide the moving edges. More zoom lets it take out bigger shakes.")
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -915,7 +920,8 @@ struct StabilizeSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
                 } else {
-                    Text("BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges.")
+                    Text(stack ? "BOMBOCUT measures how the picture of the whole stack shakes, tilts and wobbles (each shot on its own), then smooths it out on top of its clips and zooms in slightly to hide the edges."
+                         : "BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges.")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     Button { model.analyzeStabilization(); dismiss() } label: {
                         Label("Analyze & stabilize", systemImage: "gyroscope")
@@ -969,7 +975,7 @@ struct TrackSheet: View {
     var body: some View {
         PanelStack(spacing: 18, span: 1) {
             Text("Track subject").font(.title3.weight(.heavy))
-            if let i = model.selectedIndex, let tr = model.project.clips[i].tracking {
+            if let tr = model.editedTracking {
                 Text("Follow").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 HStack(spacing: 8) {
                     ForEach(FollowMode.allCases, id: \.self) { m in
@@ -999,11 +1005,11 @@ struct TrackSheet: View {
                 PanelBreak()
                 Text("Smoothness").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 BSlider(value: Binding(get: { tr.smooth }, set: { v in
-                    model.editClip { $0.tracking?.smooth = v }
+                    model.editTracking { $0.smooth = v }
                 }), in: 0...1, onEditingChanged: { e in
                     if e { model.liveEditBegan() } else { model.liveEditEnded() }
                 })
-                .doubleTapReset { model.liveEditBegan(); model.editClip { $0.tracking?.smooth = 0.5 }; model.liveEditEnded() }
+                .doubleTapReset { model.liveEditBegan(); model.editTracking { $0.smooth = 0.5 }; model.liveEditEnded() }
                 HStack(spacing: 10) {
                     Button { model.startTrackPick() } label: {
                         Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
@@ -1017,7 +1023,9 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text("Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.")
+                Text(model.selectedStackIndex != nil
+                     ? "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT follows it through the whole stack and looks for it again after every cut."
+                     : "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

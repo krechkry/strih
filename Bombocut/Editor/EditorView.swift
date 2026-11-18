@@ -72,7 +72,7 @@ struct EditorView: View {
         case .canvas: return 124
         case .background: return 380
         case .volume: return 400
-        case .speed: return 620
+        case .speed: return model.selectedStackIndex != nil ? 300 : 620
         case .adjust: return 470
         case .captions: return 420
         case .stabilize: return 440
@@ -175,7 +175,8 @@ struct EditorView: View {
         case .canvas: CanvasSheet(model: model)
         case .background: BackgroundSheet(model: model)
         case .volume: VolumeSheet(model: model)
-        case .speed: SpeedSheet(model: model)
+        case .speed:
+            if model.selectedStackIndex != nil { StackSpeedView(model: model) } else { SpeedSheet(model: model) }
         case .adjust: AdjustSheet(model: model)
         case .captions: CaptionsSheet(model: model)
         case .stabilize: StabilizeSheet(model: model)
@@ -888,14 +889,39 @@ struct EditorView: View {
     @ViewBuilder
     private func stackTools(_ st: ClipStack) -> some View {
         ToolButton(icon: "square.stack.3d.up", label: "Open stack") { model.toggleStackOpen(st.id) }
+        ToolButton(icon: "scissors", label: "Split") { model.splitStack() }
         if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
         ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
+        ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
         if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
-        ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
-        if !st.transform.isIdentity {
+        ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
+        if pro {
+            ToolButton(icon: "scope", label: "Track") { model.pause(); model.playheadIntoSelected(); sheet = .track }
+            ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); model.playheadIntoSelected(); sheet = .mask }
+            ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
+            ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
+            ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { model.openTransitionForSelection() }
+        }
+        ToolButton(icon: "snowflake", label: "Freeze") { model.freezeFrame() }
+            .opacity(model.freezing ? 0.4 : 1)
+        ToolButton(icon: "arrow.up.left.and.arrow.down.right", label: "Fill") { model.fitStack(fill: true) }
+            .contextMenu {
+                Button("Fill all clips", systemImage: "square.stack.3d.up.fill") { model.fitStack(fill: true) }
+                Button("Fit all clips", systemImage: "square.stack.3d.up") { model.fitStack(fill: false) }
+            }
+        if !model.stackTransformNow(st).isIdentity {
             ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetStackTransform() }
         }
+        ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateStack() }
+        if pro {
+            ToolButton(icon: "waveform.badge.plus", label: "Sound from video") {
+                model.pause()
+                Task { await model.extractStackAudio() }
+            }
+        }
+        ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
+        ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
         ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
     }
 

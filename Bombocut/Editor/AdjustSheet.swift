@@ -160,7 +160,11 @@ struct AdjustSheet: View {
     }
 
     private var hint: String {
-        if model.selectedStackIndex != nil { return "Whole stack" }
+        if let k = model.selectedStackIndex {
+            if model.project.stacks[k].keyframes.isEmpty { return "Whole stack" }
+            if model.stackKeyAtPlayhead(k) != nil { return String(format: loc("Editing keyframe at %@"), Fmt.time(model.currentTime)) }
+            return String(format: loc("Change adds a keyframe at %@"), Fmt.time(model.currentTime))
+        }
         if let oi = model.selectedOverlayIndex {
             if model.project.overlays[oi].keys.isEmpty { return "Whole layer" }
             return model.overlayKeyAtPlayhead != nil ? String(format: loc("Opacity: keyframe at %@"), Fmt.time(model.currentTime))

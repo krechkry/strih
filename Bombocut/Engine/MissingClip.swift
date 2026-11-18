@@ -35,6 +35,7 @@ enum MissingClip {
         c.inPoint = 0
         c.outPoint = min(StillVideo.length, length)
         c.speed = length > StillVideo.length ? StillVideo.length / length : 1
+        c.outerSpeed = 1   // its length is already counted in
         c.speedCurve = nil
         c.reversed = nil
         c.stack = nil

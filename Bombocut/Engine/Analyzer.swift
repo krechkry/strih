@@ -6,23 +6,54 @@ import Vision
 enum Analyzer {
     private static let ctx = CIContext(options: [.cacheIntermediates: false])
 
+    /// Where frames come from: a clip's file (source time), or a Stack's picture (its clips as they play, without
+    /// the Stack's own layer, on Stack time).
+    enum Source {
+        case file(String)
+        case stack(Project, UUID)
+    }
+
     /// Calls `frame` with upright, downscaled frames between t0 and t1, about `rate` per second.
     private static func readFrames(file: String, from t0: Double, to t1: Double, maxSide: CGFloat, rate: Double,
                                    isCancelled: () -> Bool, frame: (Double, CGImage) throws -> Void) async throws {
-        let asset = AVURLAsset(url: Paths.mediaURL(file))
-        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-            throw CompositionBuilder.err("No video in this clip.")
+        try await readFrames(.file(file), from: t0, to: t1, maxSide: maxSide, rate: rate, isCancelled: isCancelled, frame: frame)
+    }
+
+    private static func readFrames(_ source: Source, from t0: Double, to t1: Double, maxSide: CGFloat, rate: Double,
+                                   isCancelled: () -> Bool, frame: (Double, CGImage) throws -> Void) async throws {
+        let reader: AVAssetReader
+        let out: AVAssetReaderOutput
+        var orientation = CGImagePropertyOrientation.up
+        switch source {
+        case .file(let file):
+            let asset = AVURLAsset(url: Paths.mediaURL(file))
+            guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                throw CompositionBuilder.err("No video in this clip.")
+            }
+            let pref = try await track.load(.preferredTransform)
+            reader = try AVAssetReader(asset: asset)
+            out = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            ])
+            orientation = FrameCompositor.orientation(for: pref)
+        case .stack(let project, let id):
+            guard let sub = stackProject(project, id) else { throw CompositionBuilder.err("Could not read the stack.") }
+            let a = max(project.canvas.aspect, 0.01)
+            let size = CGSize(width: Canvas.even(a >= 1 ? Double(maxSide) : Double(maxSide) * a),
+                              height: Canvas.even(a >= 1 ? Double(maxSide) / a : Double(maxSide)))
+            let built = try await CompositionBuilder.build(project: sub, renderSize: size, fps: 30, light: true, bare: true)
+            reader = try AVAssetReader(asset: built.composition)
+            let tracks = try await built.composition.loadTracks(withMediaType: .video)
+            let v = AVAssetReaderVideoCompositionOutput(videoTracks: tracks, videoSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            ])
+            v.videoComposition = built.videoComposition
+            out = v
         }
-        let pref = try await track.load(.preferredTransform)
-        let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(start: CMTime(seconds: t0, preferredTimescale: 600),
                                        end: CMTime(seconds: t1, preferredTimescale: 600))
-        let out = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
-        ])
         reader.add(out)
         guard reader.startReading() else { throw reader.error ?? CompositionBuilder.err("Could not read the clip.") }
-        let orientation = FrameCompositor.orientation(for: pref)
         var next = t0
         while let sb = out.copyNextSampleBuffer() {
             if isCancelled() {
@@ -45,14 +76,53 @@ enum Analyzer {
         if reader.status == .failed { throw reader.error ?? CompositionBuilder.err("Reading failed.") }
     }
 
+    /// Just a Stack's clips, from 0 (no way in from the clip before it, nothing on top).
+    static func stackProject(_ p: Project, _ id: UUID) -> Project? {
+        guard let st = p.stacks.first(where: { $0.id == id }), let r = p.stackRange(st) else { return nil }
+        var sub = p
+        sub.clips = Array(p.clips[r])
+        sub.clips[0].cut = nil
+        sub.overlays = []
+        sub.audio = []
+        sub.captionTracks = []
+        sub.stacks = [st]
+        return sub
+    }
+
+    /// Stack times where one of its shots cuts to the next (tracking and shake measuring start over there).
+    static func stackCuts(_ p: Project, _ id: UUID) -> [Double] {
+        guard let sub = stackProject(p, id) else { return [] }
+        return Array(sub.clipStarts.dropFirst())
+    }
+
+    /// One upright frame of a source at time t.
+    static func frame(_ source: Source, at t: Double, maxSide: CGFloat = 1024) async throws -> CGImage {
+        if case .file(let f) = source { return try await still(file: f, at: t, maxSide: maxSide) }
+        var got: CGImage?
+        try await readFrames(source, from: max(0, t - 0.02), to: t + 0.1, maxSide: maxSide, rate: 60,
+                             isCancelled: { false }) { _, cg in if got == nil { got = cg } }
+        guard let got else { throw CompositionBuilder.err("Could not read the frame.") }
+        return got
+    }
+
     /// Cumulative camera path: how each frame must shift, turn and zoom to line up with the first one.
     static func cameraPath(file: String, from t0: Double, to t1: Double,
                            progress: @escaping @Sendable (Double) -> Void,
                            isCancelled: @escaping @Sendable () -> Bool) async throws -> [PathSample] {
+        try await cameraPath(.file(file), from: t0, to: t1, progress: progress, isCancelled: isCancelled)
+    }
+
+    /// `cuts`: times where the picture cuts to another shot (no motion is measured across them).
+    static func cameraPath(_ source: Source, from t0: Double, to t1: Double, cuts: [Double] = [],
+                           progress: @escaping @Sendable (Double) -> Void,
+                           isCancelled: @escaping @Sendable () -> Bool) async throws -> [PathSample] {
         var prev: CGImage?
+        var prevT = -Double.infinity
         var acc = PathSample(t: 0, x: 0, y: 0)
         var out: [PathSample] = []
-        try await readFrames(file: file, from: t0, to: t1, maxSide: 480, rate: 30, isCancelled: isCancelled) { t, cg in
+        try await readFrames(source, from: t0, to: t1, maxSide: 480, rate: 30, isCancelled: isCancelled) { t, cg in
+            if cuts.contains(where: { $0 > prevT + 1e-4 && $0 <= t + 1e-4 }) { prev = nil }
+            prevT = t
             if let prev, let m = CameraMotion.estimate(from: prev, to: cg) {
                 // the picture moved by m: the alignment moves it back
                 acc.x -= m.dx / Double(cg.width)
@@ -162,7 +232,11 @@ enum Analyzer {
     /// Finds the subject the user roughly marked (normalized, top-left origin, like the UI).
     /// Returns a tidy box around it, or nil when nothing fits.
     static func detectSubject(file: String, at t: Double, rough: CGRect) async throws -> CGRect? {
-        let cg = try await still(file: file, at: t)
+        try await detectSubject(.file(file), at: t, rough: rough)
+    }
+
+    static func detectSubject(_ source: Source, at t: Double, rough: CGRect) async throws -> CGRect? {
+        let cg = try await frame(source, at: t)
         let v = CGRect(x: rough.minX, y: 1 - rough.maxY, width: rough.width, height: rough.height)
         guard let b = best(candidates(in: cg, focus: v), for: v) else { return nil }
         let e = b.insetBy(dx: -b.width * 0.06, dy: -b.height * 0.06).intersection(CGRect(x: 0, y: 0, width: 1, height: 1))
@@ -190,6 +264,18 @@ enum Analyzer {
             box = t
             current = VNDetectedObjectObservation(boundingBox: t)
             handler = VNSequenceRequestHandler()
+        }
+
+        /// The picture cut to another shot: the most likely same subject near where it was (people first), or
+        /// the same spot when nothing fits.
+        func cut(_ cg: CGImage) {
+            let search = box.insetBy(dx: -box.width * 0.8, dy: -box.height * 0.8)
+            let cands = Analyzer.candidates(in: cg, focus: search).filter { c in
+                let k = (c.box.width * c.box.height) / max(box.width * box.height, 1e-6)
+                return k > 0.25 && k < 4
+            }
+            restart(Analyzer.best(cands, for: box) ?? Analyzer.best(cands, for: search) ?? box)
+            misses = 0
         }
 
         func step(_ cg: CGImage) -> CGRect {
@@ -237,6 +323,17 @@ enum Analyzer {
     static func track(file: String, from t0: Double, to t1: Double, anchor: Double, box: CGRect,
                       progress: @escaping @Sendable (Double) -> Void,
                       isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
+        try await track(.file(file), from: t0, to: t1, anchor: anchor, box: box, progress: progress, isCancelled: isCancelled)
+    }
+
+    /// `cuts`: times where the picture cuts to another shot: the subject is looked for again there.
+    static func track(_ source: Source, from t0: Double, to t1: Double, anchor: Double, box: CGRect, cuts: [Double] = [],
+                      progress: @escaping @Sendable (Double) -> Void,
+                      isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
+        func crossed(_ a: Double, _ b: Double) -> Bool {
+            let lo = min(a, b), hi = max(a, b)
+            return cuts.contains { $0 > lo + 1e-4 && $0 <= hi + 1e-4 }
+        }
         let start = CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height)
         func sample(_ t: Double, _ r: CGRect) -> TrackSample {
             TrackSample(t: t, x: Double(r.midX), y: Double(1 - r.midY), w: Double(r.width), h: Double(r.height))
@@ -249,12 +346,16 @@ enum Analyzer {
         var forward: [TrackSample] = []
         let f = Follower(box: start)
         if fwdLen > 0.02 {
-            try await readFrames(file: file, from: anchor, to: t1, maxSide: maxSide, rate: 30, isCancelled: isCancelled) { t, cg in
+            var lastT = anchor
+            try await readFrames(source, from: anchor, to: t1, maxSide: maxSide, rate: 30, isCancelled: isCancelled) { t, cg in
                 if forward.isEmpty {
                     forward.append(sample(t, start))
                     _ = f.step(cg)   // primes the tracker on the first frame
+                    lastT = t
                     return
                 }
+                if crossed(lastT, t) { f.cut(cg) }
+                lastT = t
                 forward.append(sample(t, f.step(cg)))
                 progress(min(1, (t - anchor) / total))
             }
@@ -264,17 +365,20 @@ enum Analyzer {
         var backward: [TrackSample] = []
         if anchor - t0 > 0.02 {
             let b = Follower(box: start)
+            var lastBack = anchor
             var chunkEnd = anchor
             let chunk = 1.0
             while chunkEnd - t0 > 0.01 {
                 let chunkStart = max(t0, chunkEnd - chunk)
                 var frames: [(Double, CGImage)] = []
-                try await readFrames(file: file, from: chunkStart, to: chunkEnd, maxSide: maxSide, rate: 30,
+                try await readFrames(source, from: chunkStart, to: chunkEnd, maxSide: maxSide, rate: 30,
                                      isCancelled: isCancelled) { t, cg in
                     if t < chunkEnd - 1e-3 { frames.append((t, cg)) }
                 }
                 for (t, cg) in frames.reversed() {
                     if isCancelled() { throw CancellationError() }
+                    if crossed(t, lastBack) { b.cut(cg) }
+                    lastBack = t
                     backward.append(sample(t, b.step(cg)))
                 }
                 progress(min(1, (fwdLen + anchor - chunkStart) / total))

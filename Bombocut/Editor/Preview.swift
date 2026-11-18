@@ -165,7 +165,7 @@ struct PreviewArea: View {
     @ViewBuilder
     private func cropLayer(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, model.playheadInSelectedStack {
-            layer(canvas) { cropEditor(canvas, toCanvas: Self.stackMap(st.transform, canvas), crop: st.crop ?? CropRect()) }
+            layer(canvas) { cropEditor(canvas, toCanvas: Self.stackMap(model.stackTransformNow(st), canvas), crop: st.crop ?? CropRect()) }
         } else if let i = model.selectedIndex, model.playheadInSelected {
             layer(canvas) { cropEditor(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
                                        crop: model.project.clips[i].crop ?? CropRect()) }
@@ -196,7 +196,7 @@ struct PreviewArea: View {
     @ViewBuilder
     private func autoZoomLayer(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, let z = st.autoZoom, model.playheadInSelectedStack {
-            layer(canvas) { zoomFrames(canvas, transform: st.transform, zoom: z) }
+            layer(canvas) { zoomFrames(canvas, transform: model.stackTransformNow(st), zoom: z) }
         } else if let i = model.selectedIndex, let z = model.project.clips[i].autoZoom, model.playheadInSelected {
             layer(canvas) { zoomFrames(canvas, transform: model.lookAtPlayhead(i).transform, zoom: z) }
         }
@@ -649,7 +649,7 @@ struct PreviewArea: View {
     @ViewBuilder
     private func stackBox(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, !model.isPlaying, model.playheadInSelectedStack, !model.cropPanelOpen {
-            let m = Self.stackMap(st.transform, canvas)
+            let m = Self.stackMap(model.stackTransformNow(st), canvas)
             Path { p in
                 p.addLines([CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0), CGPoint(x: 1, y: 1), CGPoint(x: 0, y: 1)].map { $0.applying(m) })
                 p.closeSubpath()

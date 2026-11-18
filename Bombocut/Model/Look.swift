@@ -562,6 +562,15 @@ struct AutoZoom: Codable, Hashable {
                        y: start.y + (end.y - start.y) * f)
     }
 
+    /// Cut in two at progress p: the first runs to the framing there, the second carries on from it.
+    func halves(at p: Double) -> (AutoZoom, AutoZoom) {
+        var a = self, b = self
+        let m = framing(at: p)
+        a.end = m
+        b.start = m
+        return (a, b)
+    }
+
     /// The clip's placement at progress p: zoomed around the view's center.
     func apply(_ t: ClipTransform, at p: Double) -> ClipTransform {
         let f = framing(at: p)

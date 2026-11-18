@@ -375,6 +375,19 @@ struct TimelineView: View {
             .frame(width: max(6, x1 - x0), height: stripHeight)
             .offset(x: x0)
             .allowsHitTesting(false)
+        // the Stack's own keyframes, along its bottom edge (white, so they read apart from the clips' lime ones)
+        if reorder == nil {
+            ForEach(st.keyframes) { kf in
+                Image(systemName: "diamond.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 1.5)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+                    .offset(x: x0 + CGFloat(kf.t) * model.pxPerSec - 11, y: stripHeight - 20)
+                    .onTapGesture { model.jump(toStackKey: kf, in: st.id) }
+            }
+        }
         if x1 - x0 > 34 && reorder == nil {
             stackChip(st)
                 .offset(x: x1 - 50, y: -3)

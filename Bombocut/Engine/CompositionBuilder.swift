@@ -15,6 +15,7 @@ struct ClipRenderInfo {
     var lead: Double = 0               // handle played before the clip's own start (a transition into it)
     var trail: Double = 0              // handle played after the clip's own end (a transition out of it)
     var light = false                  // simple frame blending instead of Apple's frame engine (less memory)
+    var bare = false                   // just the clips: no Stack layer, overlays or captions (analysing a Stack)
 }
 
 /// One clip drawn in a frame: its footage track and, for motion blur / smooth slow motion, the same
@@ -167,11 +168,18 @@ enum CompositionBuilder {
     }
 
     static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false,
-                      endCard: Bool = false, light: Bool = false) async throws -> BuiltComposition {
+                      endCard: Bool = false, light: Bool = false, bare: Bool = false) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
         let lanes = [Lane(comp), Lane(comp)]
         var stackVolume: [UUID: Double] = [:]
         for st in project.stacks where abs(st.volume - 1) > 0.001 { for id in st.clipIDs { stackVolume[id] = st.volume } }
+        // a Stack's sound fades in on its first clip and out on its last
+        var stackFadeIn: [UUID: Double] = [:], stackFadeOut: [UUID: Double] = [:]
+        for st in project.stacks {
+            guard let r = project.stackRange(st) else { continue }
+            if st.fadeIn > 0.01 { stackFadeIn[project.clips[r.lowerBound].id] = st.fadeIn }
+            if st.fadeOut > 0.01 { stackFadeOut[project.clips[r.upperBound].id] = st.fadeOut }
+        }
         var lane = 0
         var placed: [Placed] = []
 
@@ -242,7 +250,8 @@ enum CompositionBuilder {
             let info = ClipRenderInfo(transform: prefTransform, clipID: clip.id, start: start.seconds,
                                       retime: clip.retime, state: clip.lookState, srcFps: fps,
                                       smoothSlowMo: clip.smoothSlowMo, preview: preview,
-                                      duration: (cursor - start).seconds, lead: lead, trail: trail, light: light)
+                                      duration: (cursor - start).seconds, lead: lead, trail: trail, light: light,
+                                      bare: bare)
             let layer = ClipLayer(trackID: vTrack.trackID, info: info,
                                   prevTrackID: aux ? neighbours.prev?.trackID : nil,
                                   nextTrackID: aux ? neighbours.next?.trackID : nil)
@@ -281,6 +290,10 @@ enum CompositionBuilder {
                 continue
             }
             p.fade = clip.fades
+            if stackFadeIn[clip.id] != nil || stackFadeOut[clip.id] != nil {
+                p.fade = Fade.fit(max(clip.fadeIn, stackFadeIn[clip.id] ?? 0), max(clip.fadeOut, stackFadeOut[clip.id] ?? 0),
+                                  length: clip.duration)
+            }
             p.rampedUntil = p.start
             // nothing comes in over the clip before: its own fade out plays to its end
             if cut == nil, let before = placed.last { fadeOut(before) }

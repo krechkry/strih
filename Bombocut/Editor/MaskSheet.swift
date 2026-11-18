@@ -18,6 +18,8 @@ struct MaskSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 if let oi = model.selectedOverlayIndex {
                     overlayMask(model.project.overlays[oi])
+                } else if let st = model.selectedStack {
+                    stackMask(st)
                 } else if let i = model.selectedIndex {
                     clipMask(i)
                 }
@@ -55,6 +57,29 @@ struct MaskSheet: View {
             }
         } else {
             Text("Finds people (fast) or the main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, put text behind the subject, or save the cut-out as a transparent video.")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// A Stack: the subject found in its whole picture (all its clips), on top of anything the clips do.
+    @ViewBuilder
+    private func stackMask(_ st: ClipStack) -> some View {
+        Text("Subject mask").font(.title3.weight(.heavy))
+        let m = st.mask
+        kindRow(m)
+        if let m {
+            group("Edge") { edge(m) }
+            group("Background") {
+                slider("Blur", m.blur) { v in model.editMask { $0.blur = v } }
+                slider("Darken", m.dim) { v in model.editMask { $0.dim = v } }
+                slider("Black & white", m.desaturate) { v in model.editMask { $0.desaturate = v } }
+            }
+            Text("Overlays set to “Behind subject” go between the background and the subject.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Text("Finds people or the main subject in the whole stack, on top of what its clips do. Then blur, darken or drain the color from everything else, or put text behind the subject.")
                 .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }

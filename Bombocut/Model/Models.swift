@@ -88,10 +88,14 @@ struct Retime {
     let segs: [Seg]
     let outDuration: Double
 
-    init(_ c: Clip) { self.init(inPoint: c.inPoint, length: c.outPoint - c.inPoint, curve: c.speedCurve, speed: c.speed) }
+    init(_ c: Clip) {
+        self.init(inPoint: c.inPoint, length: c.outPoint - c.inPoint, curve: c.speedCurve, speed: c.speed, factor: c.outerSpeed)
+    }
 
     /// `length` source seconds from `inPoint`, at `speed` or along `curve` (0...1 over that source range).
-    init(inPoint: Double, length: Double, curve: [SpeedPoint]?, speed: Double = 1) {
+    /// `factor`: a speed on top of it all (the clip's Stack).
+    init(inPoint: Double, length: Double, curve: [SpeedPoint]?, speed: Double = 1, factor: Double = 1) {
+        let factor = max(factor, 0.01)
         let len = max(0, length)
         if let pts = curve, pts.count >= 2, len > 0 {
             let n = min(240, max(8, Int((len * 12).rounded(.up))))
@@ -100,7 +104,7 @@ struct Retime {
             var arr: [Seg] = []
             arr.reserveCapacity(n)
             for i in 0..<n {
-                let v = SpeedCurve.value(pts, at: (Double(i) + 0.5) / Double(n))
+                let v = SpeedCurve.value(pts, at: (Double(i) + 0.5) / Double(n)) * factor
                 let ol = step / v
                 arr.append(Seg(src0: inPoint + Double(i) * step, srcLen: step, out0: out, outLen: ol))
                 out += ol
@@ -108,7 +112,7 @@ struct Retime {
             segs = arr
             outDuration = out
         } else {
-            let v = max(speed, 0.01)
+            let v = max(speed * factor, 0.01)
             segs = [Seg(src0: inPoint, srcLen: len, out0: 0, outLen: len / v)]
             outDuration = len / v
         }
@@ -176,7 +180,9 @@ struct Clip: Identifiable, Codable, Hashable {
     var motionBlur = 0.5           // 0...1 amount, smear along the movement (Apple Video Toolbox)
     var motionBlurOn = false       // the switch: the amount stays when it is off
     /// What the renderer uses.
-    var blurAmount: Double { motionBlurOn ? motionBlur : 0 }
+    var blurAmount: Double { max(motionBlurOn ? motionBlur : 0, stackBlur) }
+    /// Its Stack's motion blur (the footage smears at least this much), kept in step like `outerSpeed`, not saved.
+    var stackBlur = 0.0
     var blurDirection = BlurDirection.both
     var anim = AnimPair()          // in / out animation of the clip
     var cut: CutTransition?        // how this clip comes in over the one before it (the two overlap)
@@ -192,6 +198,10 @@ struct Clip: Identifiable, Codable, Hashable {
     var fadeOut = 0.0              // seconds its sound sinks to silence at the end
     /// The sound fades as they play (each at most half the clip).
     var fades: (in: Double, out: Double) { Fade.fit(fadeIn, fadeOut, length: duration) }
+    /// Its Stack's speed, on top of its own (kept in step by `Project.syncStackSpeeds`, not saved).
+    var outerSpeed = 1.0
+    /// The constant speed it really plays at (its own and its Stack's).
+    var rate: Double { max(speed * outerSpeed, 0.01) }
 
     /// Look used when the clip has no keyframes.
     var staticLook: Look {
@@ -224,18 +234,18 @@ struct Clip: Identifiable, Codable, Hashable {
     /// it). None for speed curves and held pictures.
     var headHandle: Double {
         guard !hasCurve, !still, reversed == nil, stack == nil else { return 0 }
-        return max(0, inPoint / max(speed, 0.01))
+        return max(0, inPoint / rate)
     }
     var tailHandle: Double {
         guard !hasCurve, !still, reversed == nil, stack == nil else { return 0 }
-        return max(0, (sourceDuration - outPoint) / max(speed, 0.01))
+        return max(0, (sourceDuration - outPoint) / rate)
     }
 
     /// The clip with `head` / `tail` timeline seconds of its handles added (constant speed only).
     func withHandles(head: Double, tail: Double) -> Clip {
         guard head > 0 || tail > 0, !hasCurve else { return self }
         var c = self
-        let v = max(speed, 0.01)
+        let v = rate
         c.inPoint = max(0, inPoint - head * v)
         c.outPoint = min(sourceDuration, outPoint + tail * v)
         return c
@@ -555,6 +565,7 @@ struct Project: Identifiable, Codable, Hashable {
         // texts and pictures share layer rows now
         if (try? c.decodeIfPresent(Bool.self, forKey: .layerRows)) != true { mergeOverlayLanes() }
         stacks = (try? c.decodeIfPresent([ClipStack].self, forKey: .stacks)) ?? []
+        syncStackSpeeds()
         if let b = try? c.decodeIfPresent([Double].self, forKey: .background), b.count == 3 { background = b }
         cloudPhotos = try? c.decodeIfPresent([ProjectFile.PhotosRef].self, forKey: .cloudPhotos)
     }
