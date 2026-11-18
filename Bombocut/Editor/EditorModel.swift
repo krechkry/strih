@@ -2117,6 +2117,9 @@ final class EditorModel: ObservableObject {
     @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
     /// AutoZoom panel: setting the last frame's framing (else the first's).
     @Published var autoZoomEditsEnd = false
+    /// A menu with its own text field is open over a panel (Save as filter): the keyboard is for it, so the panel
+    /// keeps its normal form instead of folding into its typing form.
+    @Published var textMenuOpen = false
     /// The selected Stack (a closed Stack is selected as one; see ClipStack).
     @Published var selectedStackID: UUID? {
         didSet {

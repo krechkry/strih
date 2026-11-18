@@ -124,7 +124,8 @@ struct TimelineView: View {
                                      pxPerSec: model.pxPerSec,
                                      height: stripHeight,
                                      inset: gap,
-                                     selected: (clip.id == model.selectedClipID || edges != nil) && reorder == nil && model.slip == nil,
+                                     selected: (clip.id == model.selectedClipID || edges != nil) && reorder == nil && model.slip == nil
+                                         && model.pick == nil,
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
                                      lead: edges?.lead ?? true,
@@ -367,7 +368,7 @@ struct TimelineView: View {
         let shift: CGFloat = (moving && block > 1) ? draggedOffset(shown) : 0
         let x0: CGFloat = slotX(shown, r.lowerBound) + shift
         let x1: CGFloat = slotX(shown, r.upperBound) + width(shown[r.upperBound]) - gap + shift
-        let selected = model.selectedStackID == st.id && reorder == nil
+        let selected = model.selectedStackID == st.id && reorder == nil && model.pick == nil
         let color: Color = moving ? Theme.accent : Color.white.opacity(selected && !st.open ? 0 : 0.9)
         RoundedRectangle(cornerRadius: 7)
             .strokeBorder(color, style: StrokeStyle(lineWidth: 2, dash: st.open ? [5, 4] : []))
@@ -536,7 +537,7 @@ struct TimelineView: View {
         let clips = model.project.clips
         switch phase {
         case .began:
-            guard !model.edgeEditing, let k = clips.firstIndex(where: { $0.id == id }) else { return }
+            guard !model.edgeEditing, model.pick == nil, let k = clips.firstIndex(where: { $0.id == id }) else { return }
             // a closed Stack moves as one block
             var ids = [id]
             if let st = model.project.stack(of: id), !st.open, let r = model.project.stackRange(st) {
@@ -1297,6 +1298,8 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
     var onEnded: () -> Void
     /// Vertical movement too (overlay blocks change rows).
     var onVertical: ((_ dy: CGFloat) -> Void)? = nil
+    /// Off while picking what to apply settings to (nothing moves meanwhile).
+    var enabled = true
 
     final class Coordinator {
         var startX: CGFloat = 0
@@ -1310,7 +1313,12 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
         g.minimumPressDuration = 0.18
         g.allowableMovement = 10
         g.cancelsTouchesInView = false
+        g.isEnabled = enabled
         return g
+    }
+
+    func updateUIGestureRecognizer(_ g: UILongPressGestureRecognizer, context: Context) {
+        if g.isEnabled != enabled { g.isEnabled = enabled }
     }
 
     func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
@@ -1392,7 +1400,8 @@ struct OverlayLane: View {
     private static let mediaTint = Color(red: 0.3, green: 0.52, blue: 1)
 
     private func block(_ o: Overlay, px: CGFloat, row: Int, rows: Int) -> some View {
-        let selected = o.id == model.selectedOverlayID
+        // picking what to apply settings to: nothing can be trimmed or moved meanwhile
+        let selected = o.id == model.selectedOverlayID && model.pick == nil
         let w = max(10, CGFloat(o.duration) * px)
         return HStack(spacing: 4) {
             Image(systemName: o.icon).font(.system(size: 9, weight: .bold))
@@ -1469,7 +1478,8 @@ struct OverlayLane: View {
                 let was = lift.map { target($0.dy, from: row, rows: rows) }
                 lift = (o.id, dy)
                 if was != nil, was != target(dy, from: row, rows: rows) { UISelectionFeedbackGenerator().selectionChanged() }
-            }))
+            },
+            enabled: model.pick == nil))
         .offset(x: CGFloat(o.start) * px, y: lift?.id == o.id ? lift!.dy : 0)
         .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
         .zIndex(selected ? 1 : 0)
@@ -1609,7 +1619,7 @@ struct AudioLane: View {
     }
 
     private func block(_ a: AudioItem, px: CGFloat) -> some View {
-        let selected = a.id == model.selectedAudioID
+        let selected = a.id == model.selectedAudioID && model.pick == nil
         let w = max(10, CGFloat(a.duration) * px)
         return HStack(spacing: 4) {
             Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "waveform").font(.system(size: 10, weight: .bold))
@@ -1649,7 +1659,8 @@ struct AudioLane: View {
                 model.laneDragMoved(x)
                 apply()
             },
-            onEnded: { finish(a.id) }))
+            onEnded: { finish(a.id) },
+            enabled: model.pick == nil))
         .offset(x: CGFloat(a.start) * px)
         .zIndex(selected ? 1 : 0)
     }

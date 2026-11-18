@@ -138,7 +138,11 @@ struct FiltersSheet: View {
                 grid { ForEach(defs) { tile($0) } }
             }
         case .all:
-            grid { ForEach(FilterLibrary.builtIn) { tile($0) } }
+            // everything: your own filters first, then the built-in ones
+            grid {
+                ForEach(mine) { tile(FilterLibrary.def($0)) }
+                ForEach(FilterLibrary.builtIn) { tile($0) }
+            }
         case .mine:
             if mine.isEmpty {
                 note("Save a look in Adjust with Save as filter and it shows up here.")
@@ -368,6 +372,7 @@ struct FilterAdjustMenu: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.closeMenu) private var closeMenu
     @AppStorage("likedFilters") private var likedRaw = ""
+    @State private var confirmDelete: String?
 
     private func close() { if let closeMenu { closeMenu() } else { dismiss() } }
 
@@ -382,6 +387,12 @@ struct FilterAdjustMenu: View {
             .padding(20)
         }
         .scrollIndicators(.hidden)
+        .alert(loc("Are you sure?"), isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
+            Button(loc("Delete"), role: .destructive) { if let id = confirmDelete { deleteOwn(id) } }
+            Button(loc("Cancel"), role: .cancel) {}
+        } message: {
+            Text("The filter goes from your filters. Clips that use it keep their look.")
+        }
     }
 
     private var header: some View {
@@ -419,7 +430,7 @@ struct FilterAdjustMenu: View {
             paramSlider(f, p, title: p.title, own: own)
             ForEach(p.subParams) { sub in paramSlider(f, sub, title: sub.title, own: own) }
         }
-        Button { deleteOwn(f.id) } label: {
+        Button { confirmDelete = f.id } label: {
             Label(loc("Delete filter"), systemImage: "trash")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.white)

@@ -40,7 +40,7 @@ struct EditorView: View {
     /// Typing in any text field: single-key shortcuts (space, arrows, delete) go to the text instead.
     @State private var textEditing = false
     /// Typing in a panel: it shrinks to the text field above the keyboard so the preview stays visible.
-    private var typing: Bool { keyboard > 60 && sheet != nil && sheet != .export }
+    private var typing: Bool { keyboard > 60 && sheet != nil && sheet != .export && !model.textMenuOpen }
     private let compactPanel: CGFloat = 150
     @ObservedObject private var speechStatus = SpeechStatus.shared
     @ObservedObject private var clipboard = ClipboardWatch.shared

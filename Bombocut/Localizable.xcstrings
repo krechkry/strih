@@ -800,6 +800,16 @@
         }
       }
     },
+    "Are you sure?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opravdu?"
+          }
+        }
+      }
+    },
     "Aspect": {
       "localizations": {
         "cs": {
@@ -2740,6 +2750,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Upravit text"
+          }
+        }
+      }
+    },
+    "Editable in Filter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravitelné ve filtru"
           }
         }
       }
@@ -6728,16 +6748,6 @@
         }
       }
     },
-    "Sliders": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Posuvníky"
-          }
-        }
-      }
-    },
     "Slip": {
       "localizations": {
         "cs": {
@@ -7534,6 +7544,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Konec videa: klip odejde do černé."
+          }
+        }
+      }
+    },
+    "The filter goes from your filters. Clips that use it keep their look.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtr zmizí z tvých filtrů. Klipy, které ho používají, si svůj vzhled nechají."
           }
         }
       }

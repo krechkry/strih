@@ -534,7 +534,7 @@ struct SaveFilterMenu: View {
                     .submitLabel(.done)
                     .padding(.horizontal, 14).frame(height: 46)
                     .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-                Text("Sliders").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
+                Text("Editable in Filter").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
                     .padding(.top, 4)
                 row(loc("Strength"), on: true, value: "100 %", locked: true) {}
                 ForEach(changed) { p in
@@ -551,6 +551,10 @@ struct SaveFilterMenu: View {
             .padding(20)
         }
         .scrollIndicators(.hidden)
+        // typing the name must not fold the panel under it into its compact typing form: that rebuilt the
+        // Adjust panel and closed this menu with everything picked in it
+        .onAppear { model.textMenuOpen = true }
+        .onDisappear { model.textMenuOpen = false }
     }
 
     private var note: String {
