@@ -38,8 +38,8 @@ struct MotionBlurSheet: View {
                     }
                 }
                 PanelBreak()
-                Text(stack ? "Smears whatever moves in all the stack's clips, and the stack's own moves (keyframes, AutoZoom, way in and out), like a slow camera shutter."
-                     : "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.")
+                Text(loc(stack ? "Smears whatever moves in all the stack's clips, and the stack's own moves (keyframes, AutoZoom, way in and out), like a slow camera shutter."
+                     : "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality."))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -145,7 +145,7 @@ struct ClipAnimSheet: View {
             PanelBreak()
         }
         let length = model.project.stackTime(st).map { $0.end - $0.start } ?? 1
-        Text(start ? "The stack's own way in" : "The stack's own way out")
+        Text(loc(start ? "The stack's own way in" : "The stack's own way out"))
             .font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
         AnimEditor(anim: st.anim, maxLength: length,
                    set: { model.setClipAnim($0) },

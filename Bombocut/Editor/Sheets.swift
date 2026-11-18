@@ -920,8 +920,8 @@ struct StabilizeSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
                 } else {
-                    Text(stack ? "BOMBOCUT measures how the picture of the whole stack shakes, tilts and wobbles (each shot on its own), then smooths it out on top of its clips and zooms in slightly to hide the edges."
-                         : "BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges.")
+                    Text(loc(stack ? "BOMBOCUT measures how the picture of the whole stack shakes, tilts and wobbles (each shot on its own), then smooths it out on top of its clips and zooms in slightly to hide the edges."
+                         : "BOMBOCUT measures how the camera shakes, tilts and wobbles in this clip (things moving in the shot are ignored), then smooths it out and zooms in slightly to hide the edges."))
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                     Button { model.analyzeStabilization(); dismiss() } label: {
                         Label("Analyze & stabilize", systemImage: "gyroscope")
@@ -1023,9 +1023,9 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text(model.selectedStackIndex != nil
+                Text(loc(model.selectedStackIndex != nil
                      ? "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT follows it through the whole stack and looks for it again after every cut."
-                     : "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.")
+                     : "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip."))
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 Button { model.startTrackPick() } label: {
                     Label("Select subject", systemImage: "viewfinder")

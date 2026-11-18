@@ -104,7 +104,10 @@ struct ClipStack: Codable, Hashable, Identifiable {
     mutating func shiftTime(_ dt: Double) {
         guard abs(dt) > 1e-9 else { return }
         for k in keyframes.indices { keyframes[k].t += dt }
-        stabilization?.path = stabilization?.path.map { var p = $0; p.t += dt; return p } ?? []
+        if var st = stabilization {
+            st.path = st.path.map { var p = $0; p.t += dt; return p }
+            stabilization = st
+        }
         if var tr = tracking {
             tr.samples = tr.samples.map { var p = $0; p.t += dt; return p }
             tr.anchor = tr.anchor.map { $0 + dt }
@@ -123,7 +126,10 @@ struct ClipStack: Codable, Hashable, Identifiable {
     mutating func scaleTime(_ k: Double) {
         guard abs(k - 1) > 1e-9 else { return }
         for i in keyframes.indices { keyframes[i].t *= k }
-        stabilization?.path = stabilization?.path.map { var p = $0; p.t *= k; return p } ?? []
+        if var st = stabilization {
+            st.path = st.path.map { var p = $0; p.t *= k; return p }
+            stabilization = st
+        }
         if var tr = tracking {
             tr.samples = tr.samples.map { var p = $0; p.t *= k; return p }
             tr.anchor = tr.anchor.map { $0 * k }
@@ -148,7 +154,9 @@ struct ClipStack: Codable, Hashable, Identifiable {
         }
         if let z = autoZoom, length > 0.01 {
             let f = min(max(local / length, 0), 1)
-            (a.autoZoom, b.autoZoom) = z.halves(at: f)
+            let (za, zb) = z.halves(at: f)
+            a.autoZoom = za
+            b.autoZoom = zb
         }
         a.anim.outAnim = .none
         b.anim.inAnim = .none

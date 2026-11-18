@@ -920,6 +920,16 @@
         }
       }
     },
+    "BOMBOCUT measures how the picture of the whole stack shakes, tilts and wobbles (each shot on its own), then smooths it out on top of its clips and zooms in slightly to hide the edges.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BOMBOCUT změří, jak se obraz celého Stacku třese, naklání a kymácí (každý záběr zvlášť), pak to nad jeho klipy vyhladí a trochu přiblíží, aby nebyly vidět okraje."
+          }
+        }
+      }
+    },
     "BOMBOCUT measures the camera shake in this clip, then smooths it out and zooms in slightly to hide the edges. Takes a few seconds per minute of footage.": {
       "localizations": {
         "cs": {
@@ -1920,6 +1930,26 @@
         }
       }
     },
+    "Could not read the frame.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snímek se nedá načíst."
+          }
+        }
+      }
+    },
+    "Could not read the stack.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stack se nedá načíst."
+          }
+        }
+      }
+    },
     "Could not read.": {
       "localizations": {
         "cs": {
@@ -2624,6 +2654,16 @@
         }
       }
     },
+    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT follows it through the whole stack and looks for it again after every cut.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhni po náhledu do strany, najdi snímek, kde je objekt dobře vidět, pak klepni na Vybrat objekt a klepni na něj nebo ho zhruba ohranič. BOMBOCUT ho sleduje celým Stackem a po každém střihu ho hledá znovu."
+          }
+        }
+      }
+    },
     "Drag the box to fix it, then Track": {
       "localizations": {
         "cs": {
@@ -3324,6 +3364,16 @@
         }
       }
     },
+    "Finds people or the main subject in the whole stack, on top of what its clips do. Then blur, darken or drain the color from everything else, or put text behind the subject.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Najde lidi nebo hlavní objekt v celém Stacku, nad tím, co dělají jeho klipy. Pak můžeš všechno ostatní rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+          }
+        }
+      }
+    },
     "First time downloads the speech model (%@). Wi-Fi recommended.": {
       "localizations": {
         "cs": {
@@ -3714,6 +3764,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Na začátek"
+          }
+        }
+      }
+    },
+    "Goes on top of each clip's own speed (their speed curves keep their shape). Keyframes stay on the same moments.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidá se k vlastní rychlosti každého klipu (jejich křivky rychlosti si nechají tvar). Keyframy zůstanou na stejných momentech."
+          }
+        }
+      }
+    },
+    "Goes to every clip in the stack.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platí pro všechny klipy ve Stacku."
           }
         }
       }
@@ -6768,6 +6838,16 @@
         }
       }
     },
+    "Smears whatever moves in all the stack's clips, and the stack's own moves (keyframes, AutoZoom, way in and out), like a slow camera shutter.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozmaže všechno, co se hýbe ve všech klipech Stacku, i pohyby Stacku samotného (keyframy, AutoZoom, příchod a odchod), jako dlouhý čas závěrky."
+          }
+        }
+      }
+    },
     "Smears whatever moves, like a slow camera shutter. Made on your iPhone by Apple's frame engine. The editor plays a lighter version so it keeps up; the export renders it in full quality.": {
       "localizations": {
         "cs": {
@@ -7604,6 +7684,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "V aplikaci chybí hlasový model."
+          }
+        }
+      }
+    },
+    "The stack's own way in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příchod celého Stacku"
+          }
+        }
+      }
+    },
+    "The stack's own way out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odchod celého Stacku"
           }
         }
       }
