@@ -144,17 +144,24 @@ enum Media {
                 clips.append(still)
                 continue
             }
-            guard let info = try? await probe(url), info.duration > 0.05 else {
+            let (made, size) = await videoClip(url)
+            guard let c = made.first else {
                 try? FileManager.default.removeItem(at: url)
                 continue
             }
-            if first == nil { first = info.size }
-            var c = Clip(mediaFile: url.lastPathComponent, sourceDuration: info.duration)
-            if info.size.height > 0 { c.aspect = info.size.width / info.size.height }
-            c.fill = Defaults.fillNewClips
+            if first == nil { first = size }
             clips.append(c)
         }
         return (clips, first)
+    }
+
+    /// A video already in the Media folder as a clip (nothing removed when it can't be read).
+    static func videoClip(_ url: URL) async -> (clips: [Clip], firstSize: CGSize?) {
+        guard let info = try? await probe(url), info.duration > 0.05 else { return ([], nil) }
+        var c = Clip(mediaFile: url.lastPathComponent, sourceDuration: info.duration)
+        if info.size.height > 0 { c.aspect = info.size.width / info.size.height }
+        c.fill = Defaults.fillNewClips
+        return ([c], info.size)
     }
 
     static func canvas(for size: CGSize?) -> Canvas {

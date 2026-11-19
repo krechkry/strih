@@ -362,9 +362,12 @@ extension Media {
     /// A Photos item copied into the Media folder in its original quality (iCloud items are downloaded):
     /// a video's file as recorded (with its edits, when it was edited in Photos), or a photo's image data.
     /// `dest`: where it goes (a new name otherwise), used to bring back a light project file's videos.
+    /// A video already copied in for another project (same Photos item, not edited since) is reused instead of
+    /// copied again: one file here, one file in iCloud (`PhotosMedia`).
     static func load(_ asset: PHAsset, to dest: URL? = nil) async -> URL? {
         Paths.ensure()
         if asset.mediaType == .video {
+            if dest == nil, let same = PhotosMedia.existing(asset) { return same }
             let res = PHAssetResource.assetResources(for: asset)
             guard let r = res.first(where: { $0.type == .fullSizeVideo }) ?? res.first(where: { $0.type == .video }) else { return nil }
             let ext = (r.originalFilename as NSString).pathExtension.lowercased()
@@ -373,6 +376,7 @@ extension Media {
             o.isNetworkAccessAllowed = true
             do {
                 try await PHAssetResourceManager.default().writeData(for: r, toFile: url, options: o)
+                PhotosMedia.remember(asset, url)
                 return url
             } catch {
                 try? FileManager.default.removeItem(at: url)
@@ -400,9 +404,15 @@ extension Media {
         var first: CGSize?
         for a in assets {
             guard let url = await load(a) else { continue }
-            let (made, size) = await makeClips(from: [url])
-            if first == nil { first = size }
-            clips += made.map { var c = $0; c.asset = a.localIdentifier; return c }
+            // a reused file belongs to other projects too: never removed here, even when it can't be read
+            let got: (clips: [Clip], firstSize: CGSize?)
+            if PhotosMedia.isShared(url) {
+                got = await videoClip(url)
+            } else {
+                got = await makeClips(from: [url])
+            }
+            if first == nil { first = got.firstSize }
+            clips += got.clips.map { var c = $0; c.asset = a.localIdentifier; return c }
         }
         return (clips, first)
     }
@@ -516,5 +526,53 @@ private struct LoopingPlayer: UIViewRepresentable {
     final class PlayerLayerView: UIView {
         override static var layerClass: AnyClass { AVPlayerLayer.self }
         var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+    }
+}
+
+/// Which Media file holds which Photos video, so picking the same video again (another project, another layer)
+/// reuses it: no second copy here, nothing uploaded twice. Only videos: a picked photo becomes a made still video
+/// and its image is removed. A video edited in Photos since (new trim, filter) is copied again.
+enum PhotosMedia {
+    private static let key = "photosMedia"
+
+    /// What the copy depends on: unedited, a video never changes; edited, the edit's date says which edit.
+    private static func stamp(_ a: PHAsset) -> String {
+        let res = PHAssetResource.assetResources(for: a)
+        let edited = res.contains { $0.type == .fullSizeVideo || $0.type == .adjustmentData }
+        let edit = edited ? String(Int((a.modificationDate ?? .distantPast).timeIntervalSince1970)) : "-"
+        return "\(Int((a.duration * 1000).rounded())).\(a.pixelWidth)x\(a.pixelHeight).\(edit)"
+    }
+
+    private static var table: [String: String] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: String] ?? [:]
+    }
+
+    /// The Media file already holding this video, if it's still there and still the same.
+    static func existing(_ a: PHAsset) -> URL? {
+        guard let entry = table[a.localIdentifier] else { return nil }
+        let parts = entry.split(separator: "|", maxSplits: 1).map(String.init)
+        guard parts.count == 2, parts[1] == stamp(a) else { return nil }
+        let url = Paths.mediaURL(parts[0])
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            var t = table
+            t.removeValue(forKey: a.localIdentifier)
+            UserDefaults.standard.set(t, forKey: key)
+            return nil
+        }
+        // counts as new for a moment, so a clean up can't take it before the project using it is saved
+        try? (url as NSURL).setResourceValue(Date(), forKey: .contentModificationDateKey)
+        return url
+    }
+
+    static func remember(_ a: PHAsset, _ url: URL) {
+        guard url.deletingLastPathComponent().standardizedFileURL == Paths.media.standardizedFileURL else { return }
+        var t = table.filter { FileManager.default.fileExists(atPath: Paths.mediaURL($0.value.components(separatedBy: "|")[0]).path) }
+        t[a.localIdentifier] = url.lastPathComponent + "|" + stamp(a)
+        UserDefaults.standard.set(t, forKey: key)
+    }
+
+    /// The file is one remembered for a Photos video (so it may be in other projects).
+    static func isShared(_ url: URL) -> Bool {
+        table.values.contains { $0.hasPrefix(url.lastPathComponent + "|") }
     }
 }
