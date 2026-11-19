@@ -1069,13 +1069,17 @@ final class EditorModel: ObservableObject {
 
     /// The Adjust panel's reset: only the values of the tab that is showing, everywhere on the clip (its fixed look
     /// and every keyframe), so the other tabs and the keyframes' timing stay as they are.
-    func resetLookTab(_ tab: LookTab) {
+    func resetLookTab(_ tab: LookTab) { resetLookTabs([tab]) }
+
+    /// Several tabs at once (hold Reset: all of them), one undo step.
+    func resetLookTabs(_ tabs: [LookTab]) {
+        func reset(_ l: inout Look) { for t in tabs { t.reset(&l) } }
         if let k = selectedStackIndex {
             mutateLook { pr in
                 var l = pr.stacks[k].look
-                tab.reset(&l)
+                reset(&l)
                 pr.stacks[k].look = l
-                for j in pr.stacks[k].keyframes.indices { tab.reset(&pr.stacks[k].keyframes[j].look) }
+                for j in pr.stacks[k].keyframes.indices { reset(&pr.stacks[k].keyframes[j].look) }
             }
             return
         }
@@ -1083,7 +1087,7 @@ final class EditorModel: ObservableObject {
             // an overlay's opacity has its own keyframes (Animate), so only its effects reset here
             mutateLook { pr in
                 var l = Look(transform: ClipTransform(), opacity: 1, effects: pr.overlays[oi].effects)
-                tab.reset(&l)
+                reset(&l)
                 pr.overlays[oi].effects = l.effects
             }
             return
@@ -1091,9 +1095,9 @@ final class EditorModel: ObservableObject {
         guard let i = selectedIndex else { return }
         mutateLook { pr in
             var st = pr.clips[i].staticLook
-            tab.reset(&st)
+            reset(&st)
             pr.clips[i].staticLook = st
-            for k in pr.clips[i].keyframes.indices { tab.reset(&pr.clips[i].keyframes[k].look) }
+            for k in pr.clips[i].keyframes.indices { reset(&pr.clips[i].keyframes[k].look) }
         }
     }
 

@@ -18,6 +18,8 @@ struct Effects: Codable, Hashable {
     var bloomSize = 0.4     //  0...1  how far the glow spreads
     var bloomThreshold = 0.0 // 0...1  how bright a part must be to glow (0: everything glows a little)
     var halation = 0.0      //  0...1  red film glow around highlights
+    var halationSize = 0.4  //  0...1  how far it glows (0.4 = the original)
+    var halationThreshold = 0.5 // 0...1  how bright a part must be to glow (0.5 = the original)
     var clarity = 0.0       // -1...1  local contrast in the midtones (− = soft, dreamy)
     var texture = 0.0       // -1...1  fine detail (− = smoother skin and surfaces)
     var motionBlur = 0.0    //  old projects only: motion blur now lives on the clip (Clip.motionBlur)
@@ -66,6 +68,8 @@ struct Effects: Codable, Hashable {
         e.bloomSize = m(a.bloomSize, b.bloomSize)
         e.bloomThreshold = m(a.bloomThreshold, b.bloomThreshold)
         e.halation = m(a.halation, b.halation)
+        e.halationSize = m(a.halationSize, b.halationSize)
+        e.halationThreshold = m(a.halationThreshold, b.halationThreshold)
         e.clarity = m(a.clarity, b.clarity)
         e.texture = m(a.texture, b.texture)
         func ms(_ x: [Double], _ y: [Double]) -> [Double] {
@@ -85,7 +89,7 @@ struct Effects: Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case exposure, contrast, saturation, temperature, tint, highlights, shadows, vignette, aberration, grain, grainSize
         case motionBlur, bloom, halation, clarity, texture, curve, curveR, curveG, curveB, hslHue, hslSat, hslLum
-        case bloomSize, bloomThreshold
+        case bloomSize, bloomThreshold, halationSize, halationThreshold
     }
 
     init(from d: Decoder) throws {
@@ -107,6 +111,8 @@ struct Effects: Codable, Hashable {
         bloomSize = try v(.bloomSize, 0.4)
         bloomThreshold = try v(.bloomThreshold)
         halation = try v(.halation)
+        halationSize = try v(.halationSize, 0.4)
+        halationThreshold = try v(.halationThreshold, 0.5)
         clarity = try v(.clarity)
         texture = try v(.texture)
         func arr(_ k: CodingKeys, _ def: [Double]) -> [Double] {
@@ -279,6 +285,7 @@ struct LookState: Hashable {
 enum LookParam: String, CaseIterable, Identifiable {
     case exposure, contrast, saturation, temperature, tint, highlights, shadows
     case vignette, aberration, grain, grainSize, opacity, bloom, halation, clarity, texture, bloomSize, bloomThreshold
+    case halationSize, halationThreshold
 
     var id: String { rawValue }
 
@@ -290,6 +297,7 @@ enum LookParam: String, CaseIterable, Identifiable {
     var subParams: [LookParam] {
         switch self {
         case .bloom: return [.bloomSize, .bloomThreshold]
+        case .halation: return [.halationSize, .halationThreshold]
         case .grain: return [.grainSize]
         default: return []
         }
@@ -299,7 +307,8 @@ enum LookParam: String, CaseIterable, Identifiable {
     var subTitle: String {
         switch self {
         case .bloomSize, .grainSize: return "Size"
-        case .bloomThreshold: return "Threshold"
+        case .bloomThreshold, .halationThreshold: return "Threshold"
+        case .halationSize: return "Radius"
         default: return title
         }
     }
@@ -322,6 +331,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .bloomSize: return "Bloom size"
         case .bloomThreshold: return "Bloom threshold"
         case .halation: return "Halation"
+        case .halationSize: return "Halation radius"
+        case .halationThreshold: return "Halation threshold"
         case .clarity: return "Clarity"
         case .texture: return "Texture"
         }
@@ -345,6 +356,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .bloomSize: return "arrow.up.left.and.arrow.down.right.circle"
         case .bloomThreshold: return "sun.max.circle"
         case .halation: return "sun.haze.fill"
+        case .halationSize: return "circle.dashed"
+        case .halationThreshold: return "sun.max.circle"
         case .clarity: return "diamond.lefthalf.filled"
         case .texture: return "circle.hexagongrid.fill"
         }
@@ -352,7 +365,8 @@ enum LookParam: String, CaseIterable, Identifiable {
 
     var range: ClosedRange<Double> {
         switch self {
-        case .vignette, .aberration, .grain, .grainSize, .opacity, .bloom, .halation, .bloomSize, .bloomThreshold: return 0...1
+        case .vignette, .aberration, .grain, .grainSize, .opacity, .bloom, .halation, .bloomSize, .bloomThreshold,
+             .halationSize, .halationThreshold: return 0...1
         default: return -1...1
         }
     }
@@ -360,7 +374,8 @@ enum LookParam: String, CaseIterable, Identifiable {
     var neutral: Double {
         switch self {
         case .opacity: return 1
-        case .grainSize, .bloomSize: return 0.4
+        case .grainSize, .bloomSize, .halationSize: return 0.4
+        case .halationThreshold: return 0.5
         default: return 0
         }
     }
@@ -383,6 +398,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .bloomSize: return l.effects.bloomSize
         case .bloomThreshold: return l.effects.bloomThreshold
         case .halation: return l.effects.halation
+        case .halationSize: return l.effects.halationSize
+        case .halationThreshold: return l.effects.halationThreshold
         case .clarity: return l.effects.clarity
         case .texture: return l.effects.texture
         }
@@ -407,6 +424,8 @@ enum LookParam: String, CaseIterable, Identifiable {
         case .bloomSize: l.effects.bloomSize = v
         case .bloomThreshold: l.effects.bloomThreshold = v
         case .halation: l.effects.halation = v
+        case .halationSize: l.effects.halationSize = v
+        case .halationThreshold: l.effects.halationThreshold = v
         case .clarity: l.effects.clarity = v
         case .texture: l.effects.texture = v
         }

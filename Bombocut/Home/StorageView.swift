@@ -57,7 +57,7 @@ struct StorageView: View {
                         info(icon: "film", title: "Videos in your projects", bytes: report.usedMedia)
                         info(icon: "doc.text", title: "Project files", bytes: report.projects)
                     }
-                    if CloudBackup.enabled { icloud }
+                    if CloudBackup.enabled || cloud.cloudProjects > 0 { icloud }
                     Text("Your originals in Photos are never touched. Deleting here is permanent, there is no trash bin.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 }

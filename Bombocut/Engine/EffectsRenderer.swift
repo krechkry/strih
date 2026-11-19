@@ -307,7 +307,9 @@ enum EffectsRenderer {
                 "inputFalloff": 0.6,
             ])
         }
-        if e.halation > 0 { out = halation(out, amount: e.halation, size: size) }
+        if e.halation > 0 {
+            out = halation(out, amount: e.halation, radius: e.halationSize, threshold: e.halationThreshold, size: size)
+        }
         if e.bloom > 0 { out = bloom(out, amount: e.bloom, size: e.bloomSize, threshold: e.bloomThreshold, canvas: size) }
         if e.grain > 0 { out = grain(out, amount: e.grain, size: e.grainSize, canvas: size, frame: frame) }
         return out.cropped(to: rect)
@@ -368,21 +370,25 @@ enum EffectsRenderer {
         ]).cropped(to: rect)
     }
 
-    /// Film halation: the brightest parts glow red-orange into their surroundings.
-    private static func halation(_ img: CIImage, amount: Double, size: CGSize) -> CIImage {
+    /// Film halation: the brightest parts glow red-orange into their surroundings. `threshold` sets where the
+    /// glow starts (0.5: brightness 0.55 up, the original), `radius` how far it spreads (0.4: 1.4 % of the short
+    /// side, the original).
+    static func halation(_ img: CIImage, amount: Double, radius: Double, threshold: Double, size: CGSize) -> CIImage {
         let rect = CGRect(origin: .zero, size: size)
         let a = CGFloat(amount)
+        let knee = halationKnee(threshold)
+        let blur = min(size.width, size.height) * CGFloat(0.002 + 0.03 * min(max(radius, 0), 1))
         let glow = img
             .applyingFilter("CIColorControls", parameters: ["inputSaturation": 0, "inputContrast": 1, "inputBrightness": 0])
             .applyingFilter("CIToneCurve", parameters: [
                 "inputPoint0": CIVector(x: 0, y: 0),
-                "inputPoint1": CIVector(x: 0.55, y: 0),
-                "inputPoint2": CIVector(x: 0.75, y: 0.08),
-                "inputPoint3": CIVector(x: 0.9, y: 0.5),
+                "inputPoint1": CIVector(x: knee[0], y: 0),
+                "inputPoint2": CIVector(x: knee[1], y: 0.08),
+                "inputPoint3": CIVector(x: knee[2], y: 0.5),
                 "inputPoint4": CIVector(x: 1, y: 1),
             ])
             .clampedToExtent()
-            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: min(size.width, size.height) * 0.014])
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: blur])
             .cropped(to: rect)
             .applyingFilter("CIColorMatrix", parameters: [
                 "inputRVector": CIVector(x: 1.0 * a, y: 0, z: 0, w: 0),
@@ -391,6 +397,14 @@ enum EffectsRenderer {
                 "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
             ])
         return glow.applyingFilter("CIScreenBlendMode", parameters: [kCIInputBackgroundImageKey: img]).cropped(to: rect)
+    }
+
+    /// Where the halation tone curve bends: the start moves with the threshold (0.15 at 0, 0.55 at 0.5, 0.95 at 1),
+    /// the other two points keep their place in what's left above it.
+    static func halationKnee(_ threshold: Double) -> [CGFloat] {
+        let start = 0.15 + 0.8 * min(max(threshold, 0), 1)
+        let span = 1 - start
+        return [CGFloat(start), CGFloat(start + span * 0.2 / 0.45), CGFloat(start + span * 0.35 / 0.45)]
     }
 
     /// Red and green pushed outwards from the center, like a cheap lens.

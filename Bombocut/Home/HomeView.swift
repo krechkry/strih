@@ -36,6 +36,10 @@ struct HomeView: View {
     @State private var selected: Set<UUID> = []
     @State private var confirmDeleteSelected = false
     @StateObject private var transfer = ProjectTransfer()
+    @ObservedObject private var sync = CloudBackup.shared
+    @AppStorage("projectSort") private var sort = ProjectSort.modified
+    /// Why a project's red cloud is red (tapped).
+    @State private var syncTrouble: String?
 
     var body: some View {
         deleteDialogs(dialogs(stack))
@@ -53,14 +57,12 @@ struct HomeView: View {
                     }
                     IncomingRows()
                     if !store.projects.isEmpty {
-                        Text("Projects")
-                            .font(.footnote.weight(.semibold))
-                            .textCase(.uppercase)
-                            .foregroundStyle(Theme.muted)
-                            .padding(.top, 6)
+                        projectsHeader
                         LazyVStack(spacing: 10) {
-                            ForEach(store.projects) { p in
-                                ProjectRow(project: p, selecting: selecting, selected: selected.contains(p.id))
+                            ForEach(sort.sorted(store.projects)) { p in
+                                ProjectRow(project: p, selecting: selecting, selected: selected.contains(p.id)) {
+                                    syncTrouble = sync.failure(p.id) ?? sync.problem
+                                }
                                     .opacity(checking == p.id ? 0.5 : 1)
                                     .onTapGesture {
                                         if selecting {
@@ -78,6 +80,7 @@ struct HomeView: View {
                                             }
                                             Button("Rename", systemImage: "pencil") { renameText = p.name; renaming = p }
                                             Button("Share project", systemImage: "square.and.arrow.up") { transfer.ask([p]) }
+                                            syncButton(p)
                                             Button("Delete", systemImage: "trash", role: .destructive) { deleting = p }
                                         }
                                     }
@@ -156,6 +159,45 @@ struct HomeView: View {
         }
     }
 
+    /// "PROJECTS" with the sort menu on its right.
+    private var projectsHeader: some View {
+        HStack {
+            Text("Projects")
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.muted)
+            Spacer()
+            Menu {
+                Picker(selection: $sort) {
+                    ForEach(ProjectSort.allCases) { o in
+                        Label(loc(o.title), systemImage: o.icon).tag(o)
+                    }
+                } label: { EmptyView() }
+                .pickerStyle(.inline)
+            } label: {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 32, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(loc("Sort by"))
+        }
+        .padding(.top, 6)
+    }
+
+    /// With Sync projects off, each project can sync on its own: Sync / Stop syncing.
+    @ViewBuilder
+    private func syncButton(_ p: Project) -> some View {
+        if !CloudBackup.enabled {
+            if sync.isSynced(p.id) {
+                Button("Stop syncing", systemImage: "icloud.slash") { sync.stopSyncing([p.id]) }
+            } else {
+                Button("Sync", systemImage: "icloud") { sync.startSyncing([p.id]) }
+            }
+        }
+    }
+
     /// Selecting projects: delete them together.
     private var selectionBar: some View {
         HStack(spacing: 12) {
@@ -196,7 +238,7 @@ struct HomeView: View {
     private func dialogs<V: View>(_ v: V) -> some View {
         v
         .alert(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count),
-               isPresented: Binding(get: { confirmDeleteSelected && !CloudBackup.enabled }, set: { if !$0 { confirmDeleteSelected = false } })) {
+               isPresented: Binding(get: { confirmDeleteSelected && !anySelectedSynced }, set: { if !$0 { confirmDeleteSelected = false } })) {
             Button("Delete forever", role: .destructive) {
                 for p in store.projects where selected.contains(p.id) { store.delete(p) }
                 selected = []
@@ -214,7 +256,10 @@ struct HomeView: View {
         } message: {
             Text("This project was deleted everywhere. You can bring it back for 30 days in Settings > iCloud > Recently deleted.")
         }
-        .alert("Delete this project?", isPresented: Binding(get: { deleting != nil && !CloudBackup.enabled }, set: { if !$0 { deleting = nil } }),
+        .alert("Sync problem", isPresented: Binding(get: { syncTrouble != nil }, set: { if !$0 { syncTrouble = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(verbatim: syncTrouble ?? "") }
+        .alert("Delete this project?", isPresented: Binding(get: { deleting.map { !sync.isSynced($0.id) } ?? false }, set: { if !$0 { deleting = nil } }),
                presenting: deleting) { p in
             Button("Delete forever", role: .destructive) { store.delete(p) }
             Button("Cancel", role: .cancel) {}
@@ -261,7 +306,7 @@ struct HomeView: View {
     private func deleteDialogs<V: View>(_ v: V) -> some View {
         v
         .confirmationDialog("Delete this project?",
-                            isPresented: Binding(get: { deleting != nil && CloudBackup.enabled }, set: { if !$0 { deleting = nil } }),
+                            isPresented: Binding(get: { deleting.map { sync.isSynced($0.id) } ?? false }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible, presenting: deleting) { p in
             Button("Remove from this device") { CloudBackup.shared.removeHere(p, store: store) }
             Button("Delete everywhere", role: .destructive) { CloudBackup.shared.deleteEverywhere(p, store: store) }
@@ -270,7 +315,7 @@ struct HomeView: View {
             Text("Remove from this device keeps it in iCloud and on your other devices. Delete everywhere removes it from all your devices; you can still get it back for 30 days in Settings > iCloud > Recently deleted.")
         }
         .confirmationDialog(String.localizedStringWithFormat(loc("Delete %lld projects?"), selected.count),
-                            isPresented: Binding(get: { confirmDeleteSelected && CloudBackup.enabled },
+                            isPresented: Binding(get: { confirmDeleteSelected && anySelectedSynced },
                                                  set: { if !$0 { confirmDeleteSelected = false } }),
                             titleVisibility: .visible) {
             Button("Remove from this device") { deleteSelected(everywhere: false) }
@@ -281,9 +326,13 @@ struct HomeView: View {
         }
     }
 
+    private var anySelectedSynced: Bool { selected.contains { sync.isSynced($0) } }
+
     private func deleteSelected(everywhere: Bool) {
         for p in store.projects where selected.contains(p.id) {
-            if everywhere { CloudBackup.shared.deleteEverywhere(p, store: store) } else { CloudBackup.shared.removeHere(p, store: store) }
+            if !sync.isSynced(p.id) {
+                store.delete(p)
+            } else if everywhere { CloudBackup.shared.deleteEverywhere(p, store: store) } else { CloudBackup.shared.removeHere(p, store: store) }
         }
         selected = []
         selecting = false
@@ -443,7 +492,7 @@ struct HomeView: View {
     /// Opens a project; with Sync projects on, only after a quick look at iCloud (deleted or newer on another
     /// device).
     private func open(_ p: Project) {
-        guard CloudBackup.enabled else {
+        guard sync.isSynced(p.id) else {
             openProject = p
             return
         }
@@ -504,16 +553,12 @@ private struct ProjectRow: View {
     let project: Project
     var selecting = false
     var selected = false
+    /// The red cloud was tapped.
+    var trouble: () -> Void = {}
     @ObservedObject private var thumbs = ThumbnailCache.shared
 
-    /// Space the project's videos take on the phone (a video shared by several clips counts once).
     private var size: String {
-        let files = project.mediaFiles
-        let bytes = files.reduce(Int64(0)) { sum, f in
-            let a = try? FileManager.default.attributesOfItem(atPath: Paths.mediaURL(f).path)
-            return sum + ((a?[.size] as? NSNumber)?.int64Value ?? 0)
-        }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: ProjectSort.bytes(project), countStyle: .file)
     }
 
     /// Clips and size; how many of its videos aren't on this device yet, when some aren't.
@@ -547,7 +592,10 @@ private struct ProjectRow: View {
                 Text(project.name).font(.body.weight(.semibold)).lineLimit(1)
                 Text(Fmt.duration(project.duration))
                     .font(.footnote.weight(.semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.85))
-                detail.font(.footnote)
+                HStack(spacing: 7) {
+                    detail.font(.footnote)
+                    SyncBadge(project: project, trouble: trouble)
+                }
             }
             Spacer()
             if !selecting { Image(systemName: "chevron.right").foregroundStyle(Theme.muted) }
@@ -556,5 +604,112 @@ private struct ProjectRow: View {
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 2))
         .contentShape(Rectangle())
+    }
+}
+
+/// How Home lists the projects (the menu next to PROJECTS).
+enum ProjectSort: String, CaseIterable, Identifiable {
+    case name, size, modified, created
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .size: return "Size"
+        case .modified: return "Last modified"
+        case .created: return "Date created"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .name: return "textformat"
+        case .size: return "internaldrive"
+        case .modified: return "pencil"
+        case .created: return "calendar"
+        }
+    }
+
+    /// Name A to Z, the biggest first, the newest first.
+    func sorted(_ projects: [Project]) -> [Project] {
+        switch self {
+        case .name:
+            return projects.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .size:
+            let sizes = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, Self.bytes($0)) })
+            return projects.sorted { (sizes[$0.id] ?? 0) > (sizes[$1.id] ?? 0) }
+        case .modified:
+            return projects.sorted { $0.modified > $1.modified }
+        case .created:
+            return projects.sorted { $0.created > $1.created }
+        }
+    }
+
+    /// Space the project's videos take here (a video shared by several clips counts once).
+    static func bytes(_ p: Project) -> Int64 {
+        p.mediaFiles.reduce(Int64(0)) { sum, f in
+            let a = try? FileManager.default.attributesOfItem(atPath: Paths.mediaURL(f).path)
+            return sum + ((a?[.size] as? NSNumber)?.int64Value ?? 0)
+        }
+    }
+}
+
+/// A project's sync state on its row: grey dotted cloud (not synced), the top bar's spinning wheel (syncing),
+/// lime cloud with a check (in iCloud), red cloud (something's wrong, tap says what).
+private struct SyncBadge: View {
+    let project: Project
+    var trouble: () -> Void
+    @ObservedObject private var sync = CloudBackup.shared
+
+    var body: some View {
+        Group {
+            switch sync.state(of: project) {
+            case .off:
+                DottedCloud()
+                    .stroke(Theme.muted, style: StrokeStyle(lineWidth: 1.3, lineCap: .round, dash: [1.6, 2.2]))
+                    .frame(width: 19, height: 13)
+                    .accessibilityLabel(loc("Not synced"))
+            case .syncing:
+                SyncWheel(size: 16)
+                    .accessibilityLabel(loc("Syncing…"))
+            case .synced:
+                Image(systemName: "checkmark.icloud.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityLabel(loc("Synced"))
+            case .failed:
+                Image(systemName: "exclamationmark.icloud.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .frame(width: 30, height: 24)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: trouble)
+                    .padding(.horizontal, -6)
+                    .accessibilityLabel(loc("Sync problem"))
+            }
+        }
+        .frame(height: 16)
+    }
+}
+
+/// A cloud outline (for the dotted "not synced" cloud): three bumps on a flat bottom.
+struct DottedCloud: Shape {
+    func path(in rect: CGRect) -> Path {
+        // drawn in a 24 x 17 box, then fitted
+        let box = CGRect(x: 0, y: 0, width: 24, height: 17)
+        let parts: [CGPath] = [
+            CGPath(ellipseIn: CGRect(x: 2.5, y: 7.5, width: 9, height: 9), transform: nil),
+            CGPath(ellipseIn: CGRect(x: 7, y: 2, width: 12, height: 12), transform: nil),
+            CGPath(ellipseIn: CGRect(x: 13.5, y: 6.5, width: 10, height: 10), transform: nil),
+            CGPath(rect: CGRect(x: 7, y: 11.5, width: 11.5, height: 5), transform: nil),
+        ]
+        var outline = parts[0]
+        for p in parts.dropFirst() { outline = outline.union(p) }
+        let k = min(rect.width / box.width, rect.height / box.height)
+        let dx = rect.midX - box.midX * k
+        let dy = rect.midY - box.midY * k
+        let t = CGAffineTransform(a: k, b: 0, c: 0, d: k, tx: dx, ty: dy)
+        return Path(outline).applying(t)
     }
 }

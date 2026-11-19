@@ -25,6 +25,10 @@ import UIKit
 /// it's been unneeded for a day (`orphans`), and only when every note is on this device.
 /// This device remembers each project's `modified` at its last sync (`done`): changed here = it's different now,
 /// changed elsewhere = the note says something else.
+/// Which projects sync: all of them while Sync projects (`enabled`, "automatic") is on. With it off, only the ones
+/// picked one by one (Home, hold a project: Sync), on every device: a project syncs while its note is live.
+/// Stop syncing (one project, or all of them when the switch goes off) leaves a small "stopped" note, so every
+/// device stops too and keeps its own copy; the clips leave iCloud like any unneeded file.
 @MainActor
 final class CloudBackup: ObservableObject {
     static let shared = CloudBackup()
@@ -39,6 +43,8 @@ final class CloudBackup: ObservableObject {
     private static let removedKey = "icloud.removedHere"
     /// Cloud file → when this device first saw no note needing it.
     private static let orphansKey = "icloud.orphans"
+    /// Projects picked to sync on this device (switch off) whose note isn't up yet.
+    private static let wantedKey = "icloud.wanted"
     /// The container layout this device has moved to (2 = notes + one shared media folder).
     private static let layoutKey = "icloud.layout"
     /// Deleted everywhere: kept this long (Settings > iCloud > Recently deleted).
@@ -56,6 +62,41 @@ final class CloudBackup: ObservableObject {
     /// What sync keeps in iCloud, as of the last look (Storage): projects, and the size of their files (each once).
     @Published private(set) var cloudProjects = 0
     @Published private(set) var cloudBytes: Int64?
+    /// Projects that sync (a live note in iCloud, as of the last look). With the switch on every project syncs.
+    @Published private(set) var synced: Set<UUID> = []
+    /// Projects waiting to go up or going up now.
+    @Published private(set) var busy: Set<UUID> = []
+    /// Projects whose files iCloud is still sending (written here, not in iCloud yet).
+    @Published private(set) var inFlight: Set<UUID> = []
+    /// Why a project couldn't go up: sending it failed here, or iCloud refused it (full).
+    @Published private(set) var pushFailed: [UUID: String] = [:]
+    @Published private(set) var cloudFailed: [UUID: String] = [:]
+    /// iCloud refuses files (full): said in Settings > iCloud.
+    @Published private(set) var cloudProblem: String?
+    /// No iCloud account / iCloud Drive off while something should sync.
+    @Published private(set) var accountMissing = false
+
+    /// A project's sync state, for its row on Home.
+    enum State { case off, syncing, synced, failed }
+
+    func state(of p: Project) -> State {
+        guard isSynced(p.id) else { return .off }
+        if accountMissing || failure(p.id) != nil { return .failed }
+        if busy.contains(p.id) || inFlight.contains(p.id) || changedIDs.contains(p.id) || needsUpload(p) { return .syncing }
+        return .synced
+    }
+
+    /// Why the project's red cloud is red.
+    func failure(_ id: UUID) -> String? {
+        if accountMissing { return loc("Sign in to iCloud and turn on iCloud Drive to sync projects.") }
+        return cloudFailed[id] ?? pushFailed[id]
+    }
+
+    /// Whether this project syncs: every one with the switch on, the picked ones with it off (synced before and
+    /// not stopped since, or picked here and on its way up).
+    func isSynced(_ id: UUID) -> Bool {
+        Self.enabled || synced.contains(id) || Self.done[id.uuidString] != nil || Self.wanted.contains(id.uuidString)
+    }
 
     struct Incoming: Identifiable, Equatable {
         var id: UUID
@@ -72,11 +113,16 @@ final class CloudBackup: ObservableObject {
         var id: UUID
         var force = false
     }
-    private var queue: [Job] = []
+    private var queue: [Job] = [] { didSet { refreshBusy() } }
+    private var current: UUID? { didSet { refreshBusy() } }
+    /// Projects to stop syncing everywhere (a "stopped" note), and all of them (the switch went off).
+    private var stops: Set<UUID> = []
+    private var stopEverything = false
+    private var check: Task<Void, Never>?
     private var wantSync = false
     private var worker: Task<Void, Never>?
     private var soon: Task<Void, Never>?
-    private var changedIDs: Set<UUID> = []
+    @Published private var changedIDs: Set<UUID> = []
     private var background: UIBackgroundTaskIdentifier = .invalid
     private var query: NSMetadataQuery?
     private var observers: [NSObjectProtocol] = []
@@ -98,6 +144,30 @@ final class CloudBackup: ObservableObject {
         var luts: [String]
         /// Reversed clips, remade from their source after it's in.
         var reversed: [ProjectFile.ReverseRef]
+        /// Not synced any more (every device keeps its own copy). The note keeps nothing else.
+        var stopped: Date? = nil
+        /// Deleted for good from Recently deleted: the note keeps nothing else, so every device knows.
+        var purged: Date? = nil
+
+        var live: Bool { deleted == nil && stopped == nil }
+
+        /// Only what every device needs to know: the files it held can leave iCloud.
+        mutating func slim() {
+            var empty = Project(name: name)
+            empty.id = id
+            empty.modified = modified
+            project = empty
+            media = [:]
+            fonts = []
+            luts = []
+            reversed = []
+        }
+    }
+
+    private func refreshBusy() {
+        var b = Set(queue.map(\.id))
+        if let current { b.insert(current) }
+        if b != busy { busy = b }
     }
 
     // MARK: - Starting, switching
@@ -106,15 +176,25 @@ final class CloudBackup: ObservableObject {
     func start(_ store: ProjectStore) {
         self.store = store
         retryMissing()
-        guard Self.enabled else { return }
         watch()
         sync()
     }
 
-    /// Turned on or off in Settings / the iCloud page.
+    /// Turned on or off in Settings / the iCloud page. Off here = every project stops syncing (on every device,
+    /// each keeps its own copy).
     func setEnabled(_ on: Bool, store: ProjectStore) {
         self.store = store
+        let was = Self.enabled
         setEnabled(on)
+        if on { stopEverything = false }
+        if was && !on {
+            UserDefaults.standard.removeObject(forKey: Self.wantedKey)
+            queue = []
+            changedIDs = []
+            soon?.cancel()
+            stopEverything = true
+            pump()
+        }
     }
 
     /// Turned on or off here or on another device (`CloudSwitches`).
@@ -122,33 +202,64 @@ final class CloudBackup: ObservableObject {
         UserDefaults.standard.set(on, forKey: Self.enabledKey)
         CloudSwitches.chosen(Self.enabledKey, on)
         problem = nil
-        if on {
-            watch()
-            sync()
-        } else {
-            queue = []
-            wantSync = false
-            soon?.cancel()
-            incoming = []
-            unwatch()
-        }
+        watch()
+        sync()
     }
 
     /// The app is in front again: what changed elsewhere comes down.
     func becameActive() {
         retryMissing()
-        guard Self.enabled else { return }
         watch()
         sync()
+    }
+
+    // MARK: - One project at a time (switch off)
+
+    /// Hold a project on Home: Sync. It goes up, and shows up on the other devices.
+    func startSyncing(_ ids: [UUID]) {
+        var w = Self.wanted
+        for id in ids { w.insert(id.uuidString) }
+        UserDefaults.standard.set(Array(w), forKey: Self.wantedKey)
+        stops.subtract(ids)
+        objectWillChange.send()
+        enqueue(ids.map { Job(id: $0, force: true) })
+    }
+
+    /// Hold a project on Home: Stop syncing. It stops on every device first, each keeps its own copy.
+    func stopSyncing(_ ids: [UUID]) {
+        var w = Self.wanted
+        for id in ids { w.remove(id.uuidString) }
+        UserDefaults.standard.set(Array(w), forKey: Self.wantedKey)
+        queue.removeAll { ids.contains($0.id) }
+        changedIDs.subtract(ids)
+        for id in ids { forget(id) }
+        stops.formUnion(ids)
+        pump()
+    }
+
+    /// This device stops treating the project as synced (its copy stays as it is).
+    private func forget(_ id: UUID) {
+        var d = Self.done
+        d.removeValue(forKey: id.uuidString)
+        UserDefaults.standard.set(d, forKey: Self.doneKey)
+        synced.remove(id)
+        inFlight.remove(id)
+        pushFailed.removeValue(forKey: id)
+        cloudFailed.removeValue(forKey: id)
+    }
+
+    private static var wanted: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: wantedKey) ?? [])
     }
 
     /// The app goes to the background: what changed goes up now (iOS gives it a little time).
     func wentToBackground() {
         unwatch()
-        guard Self.enabled, let store else { return }
+        check?.cancel()
+        guard let store else { return }
         soon?.cancel()
         changedIDs = []
-        enqueue(store.projects.filter(needsUpload).map { Job(id: $0.id) })
+        enqueue(store.projects.filter { isSynced($0.id) && needsUpload($0) }.map { Job(id: $0.id) })
         guard worker != nil, background == .invalid else { return }
         background = UIApplication.shared.beginBackgroundTask(withName: "Sync projects") { [weak self] in
             Task { @MainActor in self?.endBackground() }
@@ -165,7 +276,7 @@ final class CloudBackup: ObservableObject {
 
     /// A project was saved: it goes up after a little quiet (edits come in bursts).
     func changed(_ id: UUID) {
-        guard Self.enabled else { return }
+        guard isSynced(id) else { return }
         changedIDs.insert(id)
         soon?.cancel()
         soon = Task { [weak self] in
@@ -181,7 +292,6 @@ final class CloudBackup: ObservableObject {
     func backUpSoon(_ store: ProjectStore) {
         self.store = store
         retryMissing()
-        guard Self.enabled else { return }
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             backUp(store.projects)
@@ -191,8 +301,7 @@ final class CloudBackup: ObservableObject {
 
     /// Queues projects changed since their last sync (`force`: all of them, Sync now).
     func backUp(_ projects: [Project], force: Bool = false) {
-        guard Self.enabled else { return }
-        enqueue(projects.filter { force || needsUpload($0) }.map { Job(id: $0.id, force: force) })
+        enqueue(projects.filter { isSynced($0.id) && (force || needsUpload($0)) }.map { Job(id: $0.id, force: force) })
     }
 
     /// Something was just exported: whatever changed goes up.
@@ -221,7 +330,6 @@ final class CloudBackup: ObservableObject {
 
     /// Compares this device with iCloud (see the type's notes).
     func sync() {
-        guard Self.enabled else { return }
         wantSync = true
         pump()
     }
@@ -247,12 +355,13 @@ final class CloudBackup: ObservableObject {
     /// Newer on another device with every file already here: that version opens. Waits a few seconds at most
     /// (offline: what's here opens, the sync sorts it out later).
     func beforeOpening(_ p: Project) async -> Project? {
-        guard Self.enabled, let store else { return p }
+        guard isSynced(p.id), let store else { return p }
         guard let root = await Task.detached(operation: { Self.root() }).value,
               let n = await Task.detached(priority: .userInitiated, operation: { Self.quickNote(p.id, root: root) }).value
         else { return p }
         let base = Self.done[p.id.uuidString]
         let changedHere = base.map { !Self.same(p.modified.timeIntervalSince1970, $0) } ?? true
+        if n.stopped != nil, n.deleted == nil { return p }
         if n.deleted != nil {
             guard !changedHere else { return p }
             store.delete(p)
@@ -328,6 +437,23 @@ final class CloudBackup: ObservableObject {
         }
     }
 
+    /// Deleted for good from Recently deleted: the note stops holding the project (every device knows it's gone)
+    /// and its clips leave iCloud with the next clean up.
+    func deleteForGood(_ notes: [Note]) {
+        let ids = Set(notes.map(\.id))
+        var r = Self.removed
+        for id in ids { r.remove(id.uuidString) }
+        UserDefaults.standard.set(Array(r), forKey: Self.removedKey)
+        recentlyDeleted.removeAll { ids.contains($0.id) }
+        Task {
+            guard let root = await Task.detached(operation: { Self.root() }).value else { return }
+            await Task.detached(priority: .utility) {
+                for id in ids { Self.purge(id, root: root) }
+            }.value
+            sync()
+        }
+    }
+
     /// The project's `modified` at its last sync is this.
     func markBackedUp(_ p: Project) {
         var d = Self.done
@@ -352,7 +478,7 @@ final class CloudBackup: ObservableObject {
     // MARK: - The worker (one thing at a time)
 
     private func pump() {
-        guard worker == nil, Self.enabled, wantSync || !queue.isEmpty else {
+        guard worker == nil, wantSync || !queue.isEmpty || !stops.isEmpty || stopEverything else {
             if worker == nil { endBackground() }
             return
         }
@@ -368,11 +494,17 @@ final class CloudBackup: ObservableObject {
         working = true
         defer { working = false }
         guard let root = await Task.detached(operation: { Self.root() }).value else {
-            problem = loc("Sign in to iCloud and turn on iCloud Drive to sync projects.")
+            // nothing to sync without iCloud: only a problem when something should
+            let should = Self.enabled || !Self.wanted.isEmpty || !synced.isEmpty
+            accountMissing = should
+            problem = should ? loc("Sign in to iCloud and turn on iCloud Drive to sync projects.") : nil
             queue = []
+            stops = []
+            stopEverything = false
             wantSync = false
             return
         }
+        accountMissing = false
         problem = nil
         // once: the backups of the first 1.2 test builds (light .bbc files) make way for this layout
         if UserDefaults.standard.integer(forKey: Self.layoutKey) < 2 {
@@ -381,8 +513,30 @@ final class CloudBackup: ObservableObject {
             UserDefaults.standard.set(2, forKey: Self.layoutKey)
             wantSync = true
         }
-        while Self.enabled {
-            if wantSync {
+        while true {
+            if stopEverything {
+                stopEverything = false
+                await Task.detached(priority: .utility) { Self.stopAll(root) }.value
+                UserDefaults.standard.removeObject(forKey: Self.doneKey)
+                synced = []
+                inFlight = []
+                pushFailed = [:]
+                cloudFailed = [:]
+                cloudProblem = nil
+            } else if !stops.isEmpty {
+                let ids = stops
+                stops = []
+                await Task.detached(priority: .utility) {
+                    for id in ids {
+                        Self.edit(id, root: root) { n in
+                            guard n.live else { return false }
+                            n.stopped = Date()
+                            n.slim()
+                            return true
+                        }
+                    }
+                }.value
+            } else if wantSync {
                 wantSync = false
                 await reconcile(root)
             } else if !queue.isEmpty {
@@ -394,19 +548,32 @@ final class CloudBackup: ObservableObject {
     }
 
     private func upload(_ job: Job, root: URL) async {
-        guard let store, let p = store.projects.first(where: { $0.id == job.id }) else { return }
+        guard let store, let p = store.projects.first(where: { $0.id == job.id }), isSynced(p.id) else { return }
         guard job.force || needsUpload(p) else { return }
         let base = Self.done[p.id.uuidString]
         let device = Self.device
+        // a new note only with the switch on or picked here; otherwise only a live one is updated
+        let create = Self.enabled || Self.wanted.contains(p.id.uuidString)
+        current = p.id
+        defer { current = nil }
         do {
             let result = try await Task.detached(priority: .utility) {
-                try Self.push(p, root: root, base: base, device: device)
+                try Self.push(p, root: root, base: base, device: device, create: create)
             }.value
             switch result {
             case .done:
                 markBackedUp(p)
+                synced.insert(p.id)
+                inFlight.insert(p.id)
+                pushFailed.removeValue(forKey: p.id)
+                var w = Self.wanted
+                if w.remove(p.id.uuidString) != nil { UserDefaults.standard.set(Array(w), forKey: Self.wantedKey) }
                 last = Date()
                 UserDefaults.standard.set(last, forKey: Self.lastKey)
+                checkSoon(1)
+            case .stopped:
+                // stopped on another device meanwhile
+                forget(p.id)
             case .compare:
                 // iCloud holds a change this device hasn't seen (or its note isn't here yet): compare first
                 Task { [weak self] in
@@ -416,7 +583,74 @@ final class CloudBackup: ObservableObject {
             }
         } catch {
             problem = String(format: loc("“%@” couldn't be synced: %@"), p.name, error.localizedDescription)
+            pushFailed[p.id] = Self.reason(error)
         }
+    }
+
+    /// What the red cloud says.
+    nonisolated private static func reason(_ error: Error) -> String {
+        let e = error as NSError
+        if e.domain == NSCocoaErrorDomain && e.code == CocoaError.Code.ubiquitousFileNotUploadedDueToQuota.rawValue {
+            return loc("iCloud is full. Free up iCloud space and syncing goes on by itself.")
+        }
+        if e.domain == NSCocoaErrorDomain && e.code == CocoaError.Code.fileWriteOutOfSpace.rawValue {
+            return loc("Not enough space on this device to sync.")
+        }
+        return error.localizedDescription
+    }
+
+    // MARK: - Is it really in iCloud?
+
+    /// Looks again in a moment whether iCloud has taken the synced projects' files (spinner until then, red cloud
+    /// when it refuses them, iCloud full above all).
+    private func checkSoon(_ seconds: Double) {
+        check?.cancel()
+        check = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.checkUploads()
+        }
+    }
+
+    private func checkUploads() async {
+        guard let store, UIApplication.shared.applicationState != .background,
+              let root = await Task.detached(operation: { Self.root() }).value else { return }
+        let items = store.projects.filter { synced.contains($0.id) && !busy.contains($0.id) }
+            .map { (id: $0.id, files: Array($0.mediaFiles)) }
+        let found = await Task.detached(priority: .utility) {
+            items.map { (id: $0.id, status: Self.uploadStatus($0.id, files: $0.files, root: root)) }
+        }.value
+        var flying = Set<UUID>()
+        var refused: [UUID: String] = [:]
+        for f in found {
+            switch f.status {
+            case .uploaded: break
+            case .uploading: flying.insert(f.id)
+            case .failed(let why): refused[f.id] = why
+            }
+        }
+        inFlight = flying
+        cloudFailed = refused
+        cloudProblem = refused.values.first
+        if !flying.isEmpty || !refused.isEmpty { checkSoon(refused.isEmpty ? 4 : 15) }
+    }
+
+    enum Upload { case uploaded, uploading, failed(String) }
+
+    /// The project's note and clips in iCloud: all sent, still going, or refused.
+    nonisolated private static func uploadStatus(_ id: UUID, files: [String], root: URL) -> Upload {
+        var urls = [notesDir(root).appendingPathComponent(id.uuidString + ".json")]
+        urls += files.filter(ProjectFile.safeName).map { mediaDir(root).appendingPathComponent($0) }
+        var going = false
+        for url in urls {
+            var u = url
+            u.removeAllCachedResourceValues()
+            guard let v = try? u.resourceValues(forKeys: [.ubiquitousItemIsUploadedKey, .ubiquitousItemIsUploadingKey,
+                                                          .ubiquitousItemUploadingErrorKey]) else { continue }
+            if let e = v.ubiquitousItemUploadingError { return .failed(reason(e)) }
+            if v.ubiquitousItemIsUploaded == false { going = true }
+        }
+        return going ? .uploading : .uploaded
     }
 
     private func reconcile(_ root: URL) async {
@@ -424,24 +658,30 @@ final class CloudBackup: ObservableObject {
         let read = await Task.detached(priority: .utility) { Self.readNotes(root) }.value
         let notes = read.notes
         let removed = Self.removed
-        recentlyDeleted = notes.values.filter { $0.deleted != nil }
+        recentlyDeleted = notes.values.filter { $0.deleted != nil && $0.purged == nil }
             .sorted { ($0.deleted ?? .distantPast) > ($1.deleted ?? .distantPast) }
         var sizes: [String: Int64] = [:]
         for n in notes.values { sizes.merge(n.media) { max($0, $1) } }
         cloudBytes = sizes.values.reduce(0, +)
-        cloudProjects = notes.values.filter { $0.deleted == nil }.count
+        let live = Set(notes.values.filter(\.live).map(\.id))
+        cloudProjects = live.count
+        synced = live.union(synced.intersection(read.unknown))
+        let auto = Self.enabled
+        let wanted = Self.wanted
 
         for p in store.projects where p.id != editing && !read.unknown.contains(p.id) {
             let base = Self.done[p.id.uuidString]
-            guard let n = notes[p.id] else {
-                enqueue([Job(id: p.id)])
+            let mine = auto || wanted.contains(p.id.uuidString)
+            guard let n = notes[p.id], n.deleted != nil || n.stopped == nil else {
+                // no note, or a stopped one: goes up when it should sync, otherwise this device lets it go too
+                if mine { enqueue([Job(id: p.id, force: true)]) } else if base != nil { forget(p.id) }
                 continue
             }
             if n.deleted != nil {
                 // deleted on another device: goes here too, unless it was changed here since
                 if let base, Self.same(p.modified.timeIntervalSince1970, base) {
                     store.delete(p)
-                } else {
+                } else if mine || base != nil {
                     enqueue([Job(id: p.id, force: true)])
                 }
                 continue
@@ -470,9 +710,10 @@ final class CloudBackup: ObservableObject {
         // only in iCloud: added here (not the ones removed from this device)
         let onDevice = Set(store.projects.map(\.id))
         for n in notes.values.sorted(by: { $0.modified < $1.modified })
-        where n.deleted == nil && !onDevice.contains(n.id) && !removed.contains(n.id.uuidString) && n.id != editing {
+        where n.live && !onDevice.contains(n.id) && !removed.contains(n.id.uuidString) && n.id != editing {
             await bringDown(n, root: root, copyNextTo: nil)
         }
+        checkSoon(0.5)
 
         // files no note needs leave iCloud (only when every note is here: one not downloaded may need them)
         if read.unknown.isEmpty {
@@ -539,6 +780,7 @@ final class CloudBackup: ObservableObject {
             if editing == n.id { return false }
             store.save(project)
             markBackedUp(project)
+            synced.insert(project.id)
             store.cleanupMedia()
         }
         return true
@@ -551,7 +793,7 @@ final class CloudBackup: ObservableObject {
     // MARK: - Watching iCloud for changes from other devices
 
     private func watch() {
-        guard query == nil, Self.enabled else { return }
+        guard query == nil else { return }
         let q = NSMetadataQuery()
         q.searchScopes = [NSMetadataQueryUbiquitousDataScope]
         q.predicate = NSPredicate(format: "%K LIKE '*.json'", NSMetadataItemFSNameKey)
@@ -584,7 +826,7 @@ final class CloudBackup: ObservableObject {
 
     // MARK: - Files (off the main thread)
 
-    enum Wrote { case done, compare }
+    enum Wrote { case done, compare, stopped }
 
     /// The app's iCloud container. Nil without iCloud Drive.
     nonisolated static func root() -> URL? {
@@ -659,7 +901,7 @@ final class CloudBackup: ObservableObject {
                 unknown.insert(id)
                 continue
             }
-            if let d = note.deleted, Date().timeIntervalSince(d) > keepDeleted {
+            if let d = note.deleted ?? note.stopped, Date().timeIntervalSince(d) > keepDeleted {
                 remove(url)
                 continue
             }
@@ -714,17 +956,22 @@ final class CloudBackup: ObservableObject {
 
     /// Sends the project: the media / fonts / LUTs iCloud doesn't have yet, then its note. Unless iCloud holds a
     /// change this device hasn't seen (`compare`).
-    nonisolated private static func push(_ p: Project, root: URL, base: Double?, device: String) throws -> Wrote {
+    /// `create`: may start syncing it (switch on, or picked here); otherwise only a live note is updated.
+    nonisolated private static func push(_ p: Project, root: URL, base: Double?, device: String, create: Bool) throws -> Wrote {
         let fm = FileManager.default
         let dir = notesDir(root)
         let noteURL = dir.appendingPathComponent(p.id.uuidString + ".json")
         let placeholder = dir.appendingPathComponent("." + p.id.uuidString + ".json.icloud")
         if fm.fileExists(atPath: noteURL.path) || fm.fileExists(atPath: placeholder.path) {
             guard isCurrent(noteURL) else { return .compare }
-            if let n = readNote(noteURL), n.deleted == nil, !same(n.modified, p.modified),
-               !(base.map { same(n.modified.timeIntervalSince1970, $0) } ?? false) {
-                return .compare
+            if let n = readNote(noteURL) {
+                if n.deleted == nil, n.stopped != nil, !create { return .stopped }
+                if n.live, !same(n.modified, p.modified), !(base.map { same(n.modified.timeIntervalSince1970, $0) } ?? false) {
+                    return .compare
+                }
             }
+        } else if !create {
+            return .stopped
         }
         let parts = ProjectFile.contents(of: p)
         let remade = Set(parts.reversed.map(\.file))
@@ -752,10 +999,40 @@ final class CloudBackup: ObservableObject {
 
     /// Deleted everywhere (date) or back (nil): the note says so.
     nonisolated private static func mark(_ id: UUID, deleted: Date?, root: URL) {
+        edit(id, root: root) { $0.deleted = deleted; return true }
+    }
+
+    /// Changes a note in iCloud (waits for it to be here first).
+    /// `change` says whether it changed anything (nothing is written otherwise).
+    nonisolated private static func edit(_ id: UUID, root: URL, _ change: (inout Note) -> Bool) {
         let url = notesDir(root).appendingPathComponent(id.uuidString + ".json")
-        guard (try? wait(url)) != nil, var n = readNote(url) else { return }
-        n.deleted = deleted
+        guard (try? wait(url)) != nil, var n = readNote(url), change(&n) else { return }
         try? writeNote(n, root: root)
+    }
+
+    /// Deleted for good: the note keeps only that.
+    nonisolated private static func purge(_ id: UUID, root: URL) {
+        edit(id, root: root) { n in
+            if n.deleted == nil { n.deleted = Date() }
+            n.purged = Date()
+            n.slim()
+            return true
+        }
+    }
+
+    /// The switch went off: every live note becomes a stopped one.
+    nonisolated private static func stopAll(_ root: URL) {
+        let dir = notesDir(root)
+        for n in (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [] {
+            let name = cleanName(n)
+            guard name.hasSuffix(".json"), let id = UUID(uuidString: String(name.dropLast(5))) else { continue }
+            edit(id, root: root) { note in
+                guard note.live else { return false }
+                note.stopped = Date()
+                note.slim()
+                return true
+            }
+        }
     }
 
     /// Takes one media file from iCloud into the app's Media folder.

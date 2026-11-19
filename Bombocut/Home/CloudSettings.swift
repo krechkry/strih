@@ -96,14 +96,19 @@ struct CloudSettings: View {
                     projects = CloudBackup.enabled
                     files = CloudFiles.enabled
                 }
-            if projects {
+            if !projects {
+                Text("With this off, you can still sync single projects: hold one on Home and tap Sync.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if projects || !backup.synced.isEmpty || !backup.recentlyDeleted.isEmpty {
                 HStack(spacing: 8) {
-                    if backup.working && backup.problem == nil {
+                    if backup.working && trouble == nil {
                         ProgressView().controlSize(.small).tint(Theme.accent)
                     }
                     Text(verbatim: status)
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(backup.problem == nil ? Theme.muted : .orange)
+                        .foregroundStyle(trouble == nil ? Theme.muted : .red)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 HStack(spacing: 10) {
@@ -120,8 +125,10 @@ struct CloudSettings: View {
         }
     }
 
+    private var trouble: String? { backup.problem ?? backup.cloudProblem }
+
     private var status: String {
-        if let p = backup.problem { return p }
+        if let p = trouble { return p }
         if backup.working { return loc("Syncing…") }
         if let last = backup.last {
             let when = last.formatted(.relative(presentation: .named))
@@ -142,6 +149,10 @@ struct CloudSettings: View {
 /// Projects deleted everywhere in the last 30 days: tap one to bring it back on all devices.
 struct RecentlyDeletedView: View {
     @ObservedObject private var backup = CloudBackup.shared
+    /// The project tapped: Bring back or Delete permanently (a tap never does either right away, so a stray tap
+    /// while scrolling changes nothing).
+    @State private var picked: CloudBackup.Note?
+    @State private var confirmAll = false
 
     var body: some View {
         ScrollView {
@@ -152,10 +163,10 @@ struct RecentlyDeletedView: View {
                         .padding(.top, 20)
                 }
                 ForEach(backup.recentlyDeleted) { note in
-                    Button { backup.bringBack(note) } label: { row(note) }
+                    Button { picked = note } label: { row(note) }
                         .buttonStyle(.plain)
                 }
-                Text("Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.")
+                Text("Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices or delete it permanently.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
@@ -165,6 +176,28 @@ struct RecentlyDeletedView: View {
         .background(Theme.bg)
         .navigationTitle(loc("Recently deleted"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !backup.recentlyDeleted.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(loc("Delete all"), role: .destructive) { confirmAll = true }
+                        .tint(.red)
+                }
+            }
+        }
+        .confirmationDialog(picked?.name ?? "", isPresented: Binding(get: { picked != nil }, set: { if !$0 { picked = nil } }),
+                            titleVisibility: .visible, presenting: picked) { note in
+            Button("Bring back") { backup.bringBack(note) }
+            Button("Delete permanently", role: .destructive) { backup.deleteForGood([note]) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Bring back puts it on all your devices again. Delete permanently can't be undone.")
+        }
+        .alert("Delete all permanently?", isPresented: $confirmAll) {
+            Button("Delete permanently", role: .destructive) { backup.deleteForGood(backup.recentlyDeleted) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They can't be brought back. Their clips leave iCloud within a day.")
+        }
         .onAppear { backup.sync() }
     }
 
@@ -176,7 +209,7 @@ struct RecentlyDeletedView: View {
                 Text(verbatim: detail(note)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             Spacer()
-            Image(systemName: "arrow.uturn.backward.circle").foregroundStyle(Theme.muted)
+            Image(systemName: "ellipsis.circle").foregroundStyle(Theme.muted)
         }
         .padding(14)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))

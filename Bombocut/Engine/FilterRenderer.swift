@@ -62,7 +62,11 @@ enum FilterRenderer {
         }
         out.vignette = max(out.vignette, o.vignette * k)
         out.aberration = max(out.aberration, o.aberration * k)
-        out.halation = max(out.halation, o.halation * k)
+        if o.halation * k > out.halation {
+            out.halation = o.halation * k
+            out.halationSize = o.halationSize
+            out.halationThreshold = o.halationThreshold
+        }
         out.clarity = min(max(out.clarity + o.clarity * k, -1), 1)
         out.texture = min(max(out.texture + o.texture * k, -1), 1)
         return out

@@ -1350,6 +1350,26 @@
         }
       }
     },
+    "Bring back": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrátit zpět"
+          }
+        }
+      }
+    },
+    "Bring back puts it on all your devices again. Delete permanently can't be undone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrátit zpět ho dá znovu na všechna tvá zařízení. Smazání natrvalo už nejde vrátit."
+          }
+        }
+      }
+    },
     "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are.": {
       "localizations": {
         "cs": {
@@ -2110,6 +2130,16 @@
         }
       }
     },
+    "Date created": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datum vytvoření"
+          }
+        }
+      }
+    },
     "DeepFilterNet3": {
       "localizations": {
         "cs": {
@@ -2184,12 +2214,32 @@
         }
       }
     },
+    "Delete all": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat vše"
+          }
+        }
+      }
+    },
     "Delete all captions": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Smazat všechny titulky"
+          }
+        }
+      }
+    },
+    "Delete all permanently?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat vše natrvalo?"
           }
         }
       }
@@ -2240,6 +2290,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat keyframe"
+          }
+        }
+      }
+    },
+    "Delete permanently": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat natrvalo"
           }
         }
       }
@@ -2364,12 +2424,12 @@
         }
       }
     },
-    "Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices.": {
+    "Deleted everywhere. Each one stays here for 30 days; tap it to bring it back on all your devices or delete it permanently.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smazané všude. Každý tu zůstane 30 dní, klepnutím ho vrátíš na všechna svá zařízení."
+            "value": "Smazané všude. Každý tu zůstane 30 dní, klepnutím ho vrátíš na všechna svá zařízení nebo ho smažeš natrvalo."
           }
         }
       }
@@ -3858,6 +3918,26 @@
         }
       }
     },
+    "Halation radius": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poloměr halace"
+          }
+        }
+      }
+    },
+    "Halation threshold": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Práh halace"
+          }
+        }
+      }
+    },
     "Handwritten": {
       "localizations": {
         "cs": {
@@ -4294,6 +4374,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tyhle dva jazyky umí. Rychlé a nic se nestahuje."
+          }
+        }
+      }
+    },
+    "Last modified": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naposledy upraveno"
           }
         }
       }
@@ -5078,12 +5168,32 @@
         }
       }
     },
+    "Not enough space on this device to sync.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na tomhle zařízení není dost místa na synchronizaci."
+          }
+        }
+      }
+    },
     "Not everything came in": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Něco se nenaimportovalo"
+          }
+        }
+      }
+    },
+    "Not synced": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesynchronizováno"
           }
         }
       }
@@ -5878,6 +5988,16 @@
         }
       }
     },
+    "Radius": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poloměr"
+          }
+        }
+      }
+    },
     "Reading audio": {
       "localizations": {
         "cs": {
@@ -6134,6 +6254,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Resetovat"
+          }
+        }
+      }
+    },
+    "Reset all adjustments": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resetovat všechny úpravy"
           }
         }
       }
@@ -6978,6 +7108,16 @@
         }
       }
     },
+    "Sort by": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řadit podle"
+          }
+        }
+      }
+    },
     "Sound": {
       "localizations": {
         "cs": {
@@ -7158,6 +7298,16 @@
         }
       }
     },
+    "Stop syncing": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přestat synchronizovat"
+          }
+        }
+      }
+    },
     "Storage": {
       "localizations": {
         "cs": {
@@ -7288,6 +7438,16 @@
         }
       }
     },
+    "Sync": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizovat"
+          }
+        }
+      }
+    },
     "Sync imported fonts and LUTs": {
       "localizations": {
         "cs": {
@@ -7318,12 +7478,32 @@
         }
       }
     },
+    "Sync problem": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problém se synchronizací"
+          }
+        }
+      }
+    },
     "Sync projects": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Synchronizovat projekty"
+          }
+        }
+      }
+    },
+    "Synced": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronizováno"
           }
         }
       }
@@ -7814,6 +7994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pak ho jednou koupíš, nebo ne."
+          }
+        }
+      }
+    },
+    "They can't be brought back. Their clips leave iCloud within a day.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Už je nepůjde vrátit. Jejich klipy zmizí z iCloudu do jednoho dne."
           }
         }
       }
@@ -8638,6 +8828,16 @@
         }
       }
     },
+    "With this off, you can still sync single projects: hold one on Home and tap Sync.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I když je tohle vypnuté, můžeš synchronizovat jednotlivé projekty: podrž prst na projektu v seznamu a klepni na Synchronizovat."
+          }
+        }
+      }
+    },
     "Word by word": {
       "localizations": {
         "cs": {
@@ -8864,6 +9064,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "iCloud"
+          }
+        }
+      }
+    },
+    "iCloud is full. Free up iCloud space and syncing goes on by itself.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud je plný. Uvolni v něm místo a synchronizace bude pokračovat sama."
           }
         }
       }

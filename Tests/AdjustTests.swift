@@ -66,6 +66,27 @@ final class AdjustTests: XCTestCase {
         XCTAssertTrue(a.hasColor)
         XCTAssertTrue(a.hasCanvasFX)
     }
+
+    /// Halation radius / threshold: old projects get the original look, the defaults draw the old curve, and
+    /// a higher threshold leaves more of the picture alone.
+    func testHalationRadiusAndThreshold() throws {
+        let old = try JSONDecoder().decode(Effects.self, from: #"{"halation":0.6}"#.data(using: .utf8)!)
+        XCTAssertEqual(old.halationSize, LookParam.halationSize.neutral)
+        XCTAssertEqual(old.halationThreshold, LookParam.halationThreshold.neutral)
+        let knee = EffectsRenderer.halationKnee(0.5)
+        XCTAssertEqual(Double(knee[0]), 0.55, accuracy: 1e-9)
+        XCTAssertEqual(Double(knee[1]), 0.75, accuracy: 1e-9)
+        XCTAssertEqual(Double(knee[2]), 0.9, accuracy: 1e-9)
+        for t in [0.0, 0.3, 1.0] {
+            let k = EffectsRenderer.halationKnee(t)
+            XCTAssertTrue(k[0] < k[1] && k[1] < k[2] && k[2] < 1)
+        }
+        XCTAssertLessThan(EffectsRenderer.halationKnee(0.2)[0], EffectsRenderer.halationKnee(0.8)[0])
+        var l = Look()
+        LookTab.effects.reset(&l)
+        XCTAssertEqual(l.effects.halationThreshold, 0.5)
+        XCTAssertEqual(LookParam.halation.subParams, [.halationSize, .halationThreshold])
+    }
 }
 
 final class CaptionTranslateTests: XCTestCase {

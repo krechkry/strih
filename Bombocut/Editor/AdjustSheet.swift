@@ -19,15 +19,7 @@ struct AdjustSheet: View {
                 tabButton("Advanced", 1)
                 tabButton("Effects", 2)
                 Spacer(minLength: 4)
-                Button { model.resetLookTab(LookTab(rawValue: tab) ?? .basic) } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(width: 36, height: 36)
-                        .background(Theme.panel2, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(loc("Reset this tab"))
+                resetButton
             }
 
             HStack(spacing: 8) {
@@ -56,6 +48,26 @@ struct AdjustSheet: View {
         .panelMenu(isPresented: $savingFilter, height: panelHeight) {
             SaveFilterMenu(model: model, look: MyFilter.look(model.adjustLook().effects))
         }
+    }
+
+    /// Tap: resets this tab. Hold: Reset all adjustments (all three tabs, one undo step).
+    private var resetButton: some View {
+        Menu {
+            Button(role: .destructive) { model.resetLookTabs([.basic, .advanced, .effects]) } label: {
+                Label(loc("Reset all adjustments"), systemImage: "arrow.counterclockwise")
+            }
+        } label: {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(width: 36, height: 36)
+                .background(Theme.panel2, in: Circle())
+        } primaryAction: {
+            model.resetLookTab(LookTab(rawValue: tab) ?? .basic)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Reset this tab"))
     }
 
     /// Opens the Save as filter menu (dimmed while nothing is changed).
@@ -128,7 +140,7 @@ struct AdjustSheet: View {
         })
         .keyed(keyed)
         .doubleTapReset { model.resetParam(param) }
-        // the effect's own extra controls (Bloom: size, threshold; Grain: size)
+        // the effect's own extra controls (Bloom: size, threshold; Halation: radius, threshold; Grain: size)
         ForEach(param.subParams) { sub in subSlider(sub) }
     }
 
