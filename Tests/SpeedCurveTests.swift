@@ -66,3 +66,18 @@ final class SpeedCurveTests: XCTestCase {
         XCTAssertGreaterThan(SpeedSheet.position(1) - SpeedSheet.position(0.5), 0.15)
     }
 }
+
+/// Text layers wrap like a text box (2026-11-21).
+final class TextWrapTests: XCTestCase {
+    func testWrapsAtSpacesWithinTheWidth() {
+        // every letter 10 wide
+        let w: (String) -> CGFloat = { CGFloat($0.count * 10) }
+        let lines = CaptionRenderer.wrapped("When i have nothing in the clipboard", maxWidth: 120, width: w)
+        XCTAssertGreaterThan(lines.count, 1)
+        XCTAssertTrue(lines.allSatisfy { w($0) <= 120 })
+        XCTAssertEqual(lines.joined(separator: " "), "When i have nothing in the clipboard")
+        // a word longer than the box keeps its own line
+        XCTAssertEqual(CaptionRenderer.wrapped("a supercalifragilistic b", maxWidth: 50, width: w),
+                       ["a", "supercalifragilistic", "b"])
+    }
+}

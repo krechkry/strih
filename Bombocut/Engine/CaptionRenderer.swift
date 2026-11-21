@@ -115,7 +115,7 @@ final class CaptionRenderer: @unchecked Sendable {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return nil }
         let cue = CaptionCue(start: 0, end: 1, text: t, words: [])
-        return render(cue, style: style, canvas: canvas, active: nil, visibleWords: nil, visibleFraction: nil)
+        return render(cue, style: style, canvas: canvas, active: nil, visibleWords: nil, visibleFraction: nil, wrap: true)
     }
 
     /// The style's font: a font that comes with the app when one is picked, else the built-in kind.
@@ -165,27 +165,61 @@ final class CaptionRenderer: @unchecked Sendable {
         return path.isEmpty ? nil : path
     }
 
+    /// One line broken into lines no wider than `maxWidth`, at spaces (a word longer than that keeps its own line).
+    static func wrapped(_ line: String, maxWidth: CGFloat, width: (String) -> CGFloat) -> [String] {
+        let words = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard !words.isEmpty else { return [] }
+        var out: [String] = []
+        var current = ""
+        for w in words {
+            let next = current.isEmpty ? w : current + " " + w
+            if current.isEmpty || width(next) <= maxWidth {
+                current = next
+            } else {
+                out.append(current)
+                current = w
+            }
+        }
+        out.append(current)
+        return out
+    }
+
     private func color(_ c: RGBA) -> UIColor { UIColor(red: c.r, green: c.g, blue: c.b, alpha: c.a) }
 
     /// Renders the text block (all lines, optional box per line) to a CIImage, origin at 0,0.
+    /// `wrap` (text layers): the text is a box as wide as the frame (less a margin): long lines wrap onto the next
+    /// line and Size makes the letters bigger, only a single word wider than the box shrinks. Without it
+    /// (captions, cut into lines already) a line too wide shrinks the whole text.
     private func render(_ cue: CaptionCue, style: CaptionStyle, canvas: CGSize, active: Int?, visibleWords: Int?,
-                        visibleFraction: Double?) -> CIImage? {
+                        visibleFraction: Double?, wrap: Bool = false) -> CIImage? {
         let short = min(canvas.width, canvas.height)
         var fontSize = CGFloat(style.size) * short
         let maxWidth = canvas.width * 0.88
-        let raw = style.caps ? cue.text.uppercased() : cue.text
-        let lines = raw.components(separatedBy: "\n").filter { !$0.isEmpty }
+        let raw0 = style.caps ? cue.text.uppercased() : cue.text
+        var lines = raw0.components(separatedBy: "\n").filter { !$0.isEmpty }
         guard !lines.isEmpty else { return nil }
 
-        // shrink to fit the widest line
         var font = Self.uiFont(style, size: fontSize)
-        let widest = lines.map {
-            ($0 as NSString).size(withAttributes: [.font: font, .kern: CGFloat(style.tracking) * fontSize]).width
-        }.max() ?? 0
-        if widest > maxWidth {
-            fontSize *= maxWidth / widest
-            font = Self.uiFont(style, size: fontSize)
+        func width(_ s: String) -> CGFloat {
+            (s as NSString).size(withAttributes: [.font: font, .kern: CGFloat(style.tracking) * fontSize]).width
         }
+        if wrap {
+            // a word never breaks: only one wider than the box shrinks the text
+            let widestWord = lines.flatMap { $0.split(separator: " ").map { width(String($0)) } }.max() ?? 0
+            if widestWord > maxWidth {
+                fontSize *= maxWidth / widestWord
+                font = Self.uiFont(style, size: fontSize)
+            }
+            lines = lines.flatMap { Self.wrapped($0, maxWidth: maxWidth, width: width) }
+        } else {
+            // shrink to fit the widest line
+            let widest = lines.map(width).max() ?? 0
+            if widest > maxWidth {
+                fontSize *= maxWidth / widest
+                font = Self.uiFont(style, size: fontSize)
+            }
+        }
+        let raw = lines.joined(separator: "\n")
 
         let padX = style.box ? fontSize * 0.35 : fontSize * 0.15
         let padY = style.box ? fontSize * 0.12 : fontSize * 0.05

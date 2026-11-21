@@ -510,6 +510,16 @@
         }
       }
     },
+    "Album": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album"
+          }
+        }
+      }
+    },
     "All": {
       "localizations": {
         "cs": {
@@ -546,6 +556,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Všechna překrytí"
+          }
+        }
+      }
+    },
+    "All photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny fotky"
           }
         }
       }
@@ -2130,6 +2150,16 @@
         }
       }
     },
+    "Date added": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datum přidání"
+          }
+        }
+      }
+    },
     "Date created": {
       "localizations": {
         "cs": {
@@ -2780,6 +2810,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Duplikovat"
+          }
+        }
+      }
+    },
+    "Duration": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka"
           }
         }
       }
@@ -3570,6 +3610,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Písma z Google Fonts, ve videích je můžeš klidně použít."
+          }
+        }
+      }
+    },
+    "For new clips. Sped up or slowed down, voices sound the same.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro nové klipy. Zrychlené i zpomalené hlasy zní pořád stejně."
           }
         }
       }
@@ -7188,6 +7238,16 @@
         }
       }
     },
+    "Speed curves stick to frames": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křivky rychlosti drží na snímcích"
+          }
+        }
+      }
+    },
     "Speed curves, smooth slow motion and motion blur": {
       "localizations": {
         "cs": {
@@ -7294,6 +7354,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sledovat"
+          }
+        }
+      }
+    },
+    "Stick to frames": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Držet na snímcích"
           }
         }
       }
@@ -7628,12 +7698,12 @@
         }
       }
     },
-    "Tap the line to add · drag to scrub": {
+    "Tap the line to add · slide to scrub": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klepnutím na čáru přidáš bod · tažením se posouváš"
+            "value": "Klepnutím na čáru přidáš bod · posunem do strany se posouváš"
           }
         }
       }
@@ -7764,6 +7834,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klipy se mezitím změnily. Zkus to znovu."
+          }
+        }
+      }
+    },
+    "The curve stretches with the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křivka se natáhne s klipem"
           }
         }
       }
@@ -7994,6 +8074,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pak ho jednou koupíš, nebo ne."
+          }
+        }
+      }
+    },
+    "There isn't enough free space for this video (it needs about %@). Free up some space or pick a lower bitrate, then try again.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na tohle video není dost volného místa (potřebuje asi %@). Uvolni trochu místa nebo zvol nižší datový tok a zkus to znovu."
           }
         }
       }
@@ -8464,6 +8554,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Průhledné video"
+          }
+        }
+      }
+    },
+    "Trimming a clip keeps its speed points on their frames. Off: the curve stretches with the clip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Při zkrácení nebo prodloužení klipu zůstanou body rychlosti na svých snímcích. Vypnuto: křivka se natáhne s klipem."
+          }
+        }
+      }
+    },
+    "Trimming keeps the points on their frames": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Při zkrácení zůstanou body na svých snímcích"
           }
         }
       }

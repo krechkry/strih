@@ -30,6 +30,10 @@ struct MediaPicker: View {
     }
 
     @AppStorage("pickerFilter") private var filter = Filter.all
+    /// The album shown ("" = the whole library) and the order (user, 2026-11-21: clips for an edit go in one album).
+    @AppStorage("pickerAlbum") private var albumID = ""
+    @AppStorage("pickerSort") private var sort = GallerySort.created
+    @State private var albums: [PHAssetCollection] = []
     @State private var status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
     @State private var fetch: PHFetchResult<PHAsset>?
     @State private var picked: [String] = []                // local identifiers, in the order picked
@@ -62,6 +66,10 @@ struct MediaPicker: View {
                         .tint(.white)
                         .accessibilityLabel(loc("Cancel"))
                 }
+                if status == .authorized || status == .limited {
+                    ToolbarItem(placement: .principal) { albumMenu }
+                    ToolbarItem(placement: .topBarTrailing) { sortMenu }
+                }
             }
             .safeAreaInset(edge: .top, spacing: 0) { if status == .authorized || status == .limited { filters } }
             // floats over the grid (as a bar it pushed the whole grid up when it appeared)
@@ -77,9 +85,58 @@ struct MediaPicker: View {
             load()
         }
         .onChange(of: filter) { load() }
+        .onChange(of: albumID) { load() }
+        .onChange(of: sort) { load() }
     }
 
     // MARK: Parts
+
+    /// The title: which album, tap to pick another (the whole library first).
+    private var albumMenu: some View {
+        Menu {
+            Picker(selection: $albumID) {
+                Label(loc("All photos"), systemImage: "photo.on.rectangle").tag("")
+                ForEach(albums, id: \.localIdentifier) { a in
+                    Text(verbatim: a.localizedTitle ?? "").tag(a.localIdentifier)
+                }
+            } label: { EmptyView() }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 5) {
+                Text(verbatim: albumTitle)
+                    .font(.headline.weight(.bold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down").font(.caption.weight(.heavy))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: 230)
+        }
+        .accessibilityLabel(loc("Album"))
+    }
+
+    private var albumTitle: String {
+        if !albumID.isEmpty, let a = albums.first(where: { $0.localIdentifier == albumID }) {
+            return a.localizedTitle ?? loc(title)
+        }
+        return loc(title)
+    }
+
+    /// Same icon and look as Home's project sorting.
+    private var sortMenu: some View {
+        Menu {
+            Picker(selection: $sort) {
+                ForEach(GallerySort.allCases) { o in
+                    Label(loc(o.title), systemImage: o.icon).tag(o)
+                }
+            } label: { EmptyView() }
+            .pickerStyle(.inline)
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+        }
+        .accessibilityLabel(loc("Sort by"))
+    }
 
     private var filters: some View {
         HStack(spacing: 6) {
@@ -164,7 +221,7 @@ struct MediaPicker: View {
                 }
                 .scrollDisabled(painting)
                 .defaultScrollAnchor(.bottom)
-                .id(filter)
+                .id("\(filter.rawValue)|\(albumID)|\(sort.rawValue)")
             }
         } else {
             ProgressView().tint(Theme.accent)
@@ -297,8 +354,19 @@ struct MediaPicker: View {
 
     private func load() {
         guard status == .authorized || status == .limited else { return }
+        if albums.isEmpty {
+            var list: [PHAssetCollection] = []
+            PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: nil)
+                .enumerateObjects { c, _, _ in list.append(c) }
+            albums = list
+        }
         let o = PHFetchOptions()
-        o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        // newest / longest nearest the thumb: the grid opens at its bottom
+        switch sort {
+        case .created: o.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        case .added: break      // Photos' own order: in an album, the order things were put in
+        case .duration: o.sortDescriptors = [NSSortDescriptor(key: "duration", ascending: true)]
+        }
         switch filter {
         case .all:
             o.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d", PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
@@ -308,7 +376,10 @@ struct MediaPicker: View {
             o.predicate = NSPredicate(format: "favorite == YES && (mediaType == %d || mediaType == %d)",
                                       PHAssetMediaType.video.rawValue, PHAssetMediaType.image.rawValue)
         }
-        let f = PHAsset.fetchAssets(with: o)
+        let album = albumID.isEmpty ? nil
+            : PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [albumID], options: nil).firstObject
+        if album == nil && !albumID.isEmpty { albumID = "" }
+        let f = album.map { PHAsset.fetchAssets(in: $0, options: o) } ?? PHAsset.fetchAssets(with: o)
         fetch = f
         // where the picked items sit in this list (the ones filtered out keep their place in the order)
         var ix: [String: Int] = [:]
@@ -574,5 +645,28 @@ enum PhotosMedia {
     /// The file is one remembered for a Photos video (so it may be in other projects).
     static func isShared(_ url: URL) -> Bool {
         table.values.contains { $0.hasPrefix(url.lastPathComponent + "|") }
+    }
+}
+
+/// Gallery order (the menu next to the album).
+enum GallerySort: String, CaseIterable, Identifiable {
+    case added, created, duration
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .added: return "Date added"
+        case .created: return "Date created"
+        case .duration: return "Duration"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .added: return "plus.square.on.square"
+        case .created: return "calendar"
+        case .duration: return "timer"
+        }
     }
 }
