@@ -1,0 +1,90 @@
+name: Inspect Sidon model
+
+# Restore voice (Sidon, Core ML): reads the model's inputs / outputs, checks the layout of sidon_fbank.bin against
+# the upstream feature extractor (w2v-BERT 2.0), and prints reference features for a test signal the Swift tests
+# rebuild exactly. Everything comes out as annotations (readable through the API).
+on:
+  push:
+    paths: [".github/workflows/sidon-inspect.yml"]
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Tools
+        run: pip install -q numpy coremltools "transformers>=4.40" huggingface_hub
+
+      - name: Download and inspect
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, numpy as np
+          repo = "seanll95/sidon-coreml"
+          info = json.load(urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}"))
+          print("sha", info.get("sha"))
+          tree = json.load(urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}/tree/main?recursive=true"))
+          lines = [f"revision {info.get('sha')}"]
+          for f in tree:
+              if f["type"] != "file": continue
+              size = (f.get("lfs") or {}).get("size") or f.get("size")
+              lines.append(f"{f['path']} {size}")
+              dest = os.path.join("sidon", f["path"])
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              urllib.request.urlretrieve(f"https://huggingface.co/{repo}/resolve/main/{f['path']}", dest)
+          print("\n".join(lines))
+          print("::notice title=Files::" + "%0A".join(lines))
+
+          import coremltools as ct
+          for name in ["sidon_encoder_ane.mlpackage", "sidon_decoder_ane.mlpackage"]:
+              p = os.path.join("sidon", name)
+              if not os.path.exists(p): continue
+              spec = ct.utils.load_spec(p)
+              out = [f"{name} type={spec.WhichOneof('Type')} spec={spec.specificationVersion}"]
+              for kind, arr in (("in", spec.description.input), ("out", spec.description.output)):
+                  for x in arr:
+                      t = x.type
+                      which = t.WhichOneof("Type")
+                      if which == "multiArrayType":
+                          m = t.multiArrayType
+                          rng = m.WhichOneof("ShapeFlexibility")
+                          out.append(f"{kind} {x.name} shape={list(m.shape)} dtype={ct.proto.FeatureTypes_pb2.ArrayFeatureType.ArrayDataType.Name(m.dataType)} flex={rng}")
+                      else:
+                          out.append(f"{kind} {x.name} {which}")
+              print("\n".join(out))
+              print("::notice title=" + name + "::" + "%0A".join(out))
+
+          # fbank.bin against the upstream extractor
+          from transformers import SeamlessM4TFeatureExtractor
+          fe = SeamlessM4TFeatureExtractor.from_pretrained("facebook/w2v-bert-2.0")
+          win = np.asarray(fe.window, dtype=np.float32)
+          mel = np.asarray(fe.mel_filters, dtype=np.float32)
+          cfg = f"window {win.shape} mel {mel.shape} stride {fe.stride} pad {fe.padding_value} sr {fe.sampling_rate} bins {fe.num_mel_bins}"
+          rep = [cfg]
+          fb = os.path.join("sidon", "sidon_fbank.bin")
+          if os.path.exists(fb):
+              raw = np.fromfile(fb, dtype="<f4")
+              rep.append(f"fbank floats {raw.size}")
+              if raw.size == 400 + 257 * 80:
+                  a_w, a_m = raw[:400], raw[400:]
+                  b_m, b_w = raw[:257 * 80], raw[257 * 80:]
+                  rep.append(f"window first: win diff {np.abs(a_w - win).max():.3g} mel(257x80) diff {np.abs(a_m.reshape(257, 80) - mel).max():.3g} mel(80x257).T diff {np.abs(a_m.reshape(80, 257).T - mel).max():.3g}")
+                  rep.append(f"window last: win diff {np.abs(b_w - win).max():.3g} mel(257x80) diff {np.abs(b_m.reshape(257, 80) - mel).max():.3g} mel(80x257).T diff {np.abs(b_m.reshape(80, 257).T - mel).max():.3g}")
+          rep.append(f"win[0:3] {win[:3].tolist()} win[200] {win[200]}")
+
+          # reference features for a signal the Swift test makes the same way
+          n = 48123
+          t = np.arange(n, dtype=np.float64) / 16000.0
+          state = 12345
+          noise = np.empty(n)
+          for i in range(n):
+              state = (state * 1103515245 + 12345) % 2147483648
+              noise[i] = state / 2147483648.0 * 2 - 1
+          x = (0.3 * np.sin(2 * np.pi * 220 * t) + 0.2 * np.sin(2 * np.pi * (500 + 300 * t) * t) + 0.05 * noise).astype(np.float32)
+          f = fe(x, sampling_rate=16000, return_tensors="np")["input_features"][0]
+          rep.append(f"features {f.shape} sum {float(f.astype(np.float64).sum()):.6f} abs {float(np.abs(f.astype(np.float64)).sum()):.6f}")
+          for (r, c) in [(0, 0), (0, 79), (0, 80), (0, 159), (10, 5), (75, 100), (148, 40), (149, 0), (149, 80), (149, 159)]:
+              rep.append(f"f[{r},{c}] = {float(f[r, c]):.6f}")
+          print("\n".join(rep))
+          print("::notice title=Front end::" + "%0A".join(rep))
+          PY
