@@ -751,6 +751,8 @@ struct EditorView: View {
                     ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
                     ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
+                } else if model.selectedOverlayIndex.map({ model.project.overlays[$0].isAdjustment }) == true {
+                    adjustmentTools
                 } else if let oi = model.selectedOverlayIndex {
                     let o = model.project.overlays[oi]
                     ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
@@ -860,6 +862,9 @@ struct EditorView: View {
                     ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
                     if pro {
                         ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
+                        ToolButton(icon: "camera.aperture", label: "Adjustment") {
+                            model.pause(); model.addAdjustment(); sheet = .adjust
+                        }
                     }
                     Menu {
                         Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; filesForLUTs = false; showAudioFiles = true }
@@ -876,6 +881,17 @@ struct EditorView: View {
         }
         // a new selection starts the bar from its left end, never where the last one was scrolled to
         .id(toolbarKey)
+    }
+
+    /// A selected adjustment layer: what it does to everything under it, and the layer itself.
+    @ViewBuilder
+    private var adjustmentTools: some View {
+        ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
+        ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
+        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
+        ToolButton(icon: "circle.lefthalf.filled", label: "Fade in / out") { openOverlay(.animation) }
+        ToolButton(icon: "circle.dotted", label: "Opacity") { openOverlay(.blend) }
+        ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
     }
 
     /// What the bottom bar is showing tools for.

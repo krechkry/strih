@@ -50,12 +50,16 @@ enum OverlayKind: Codable, Hashable {
     case text(String)
     case image(file: String)
     case video(file: String, sourceDuration: Double, inPoint: Double)
+    /// Shows nothing itself: its Adjust and filter change everything drawn under it (the clips and the lower rows)
+    /// while it runs. Builds from before it can't open a project that has one (the case doesn't decode there).
+    case adjustment
 
     var isVideo: Bool { if case .video = self { return true }; return false }
+    var isAdjustment: Bool { if case .adjustment = self { return true }; return false }
 
     var mediaFile: String? {
         switch self {
-        case .text: return nil
+        case .text, .adjustment: return nil
         case .image(let f): return f
         case .video(let f, _, _): return f
         }
@@ -101,8 +105,14 @@ struct Overlay: Codable, Hashable, Identifiable {
 
     var end: Double { start + duration }
 
-    /// Pictures and videos (texts have no mask or speed).
-    var isMedia: Bool { !isText }
+    /// Pictures and videos (texts and adjustment layers have no mask, crop or speed).
+    var isMedia: Bool { !isText && !isAdjustment }
+
+    /// An adjustment layer: no picture of its own, it changes what is under it.
+    var isAdjustment: Bool { kind.isAdjustment }
+
+    /// Takes a look from the Filters gallery: pictures, videos and adjustment layers.
+    var takesFilter: Bool { !isText }
 
     /// Source seconds of a video overlay at timeline time `now`.
     func sourceTime(at now: Double) -> Double {
@@ -136,6 +146,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         case .text(let t): return t.isEmpty ? "Text" : t
         case .image: return "Picture"
         case .video: return "Video"
+        case .adjustment: return "Adjustment"
         }
     }
 
@@ -149,6 +160,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         case .text: return "textformat"
         case .image: return "photo"
         case .video: return "film"
+        case .adjustment: return "camera.aperture"
         }
     }
 

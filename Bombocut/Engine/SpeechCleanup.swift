@@ -71,7 +71,7 @@ final class SpeechCleanup: ObservableObject {
     /// Identifies a clip's cleaned sound: the media file and the speech settings.
     nonisolated static func key(_ c: Clip) -> String? {
         guard let fx = c.speech, fx.isActive else { return nil }
-        let s = String(format: "%@|%.2f|%d|%@|%.2f|v1", c.mediaFile, fx.denoise, fx.enhance ? 1 : 0,
+        let s = String(format: "%@|%.2f|%d|%@|%.2f|v2", c.mediaFile, fx.denoise, fx.enhance ? 1 : 0,
                        fx.mix?.rawValue ?? "-", fx.mixIntensity)
         let h = SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
         return String(h.prefix(24))
@@ -146,10 +146,26 @@ final class SpeechCleanup: ObservableObject {
     nonisolated static func render(file: URL, fx: SpeechFX, to out: URL,
                                    progress: @escaping @Sendable (Double) -> Void) async throws {
         let asset = AVURLAsset(url: file)
-        var mix: AVAudioMix?
-        if let style = fx.mix { mix = await spatialMix(asset, style: style, intensity: fx.mixIntensity) }
-        progress(0.05)
-        var (l, r) = try await decode(asset, mix: mix)
+        var l: [Float], r: [Float]
+        if let style = fx.mix, let sm = await spatialMix(asset, style: style, intensity: fx.mixIntensity) {
+            // Apple's Audio Mix reads ONLY the spatial track: iPhone 16 videos also carry a plain stereo track of the
+            // same sound, and mixing both in kept the original under the processed sound (user's export, 2026-11-21:
+            // the original at full level plus the mix about 343 ms late). The mix is then lined up with the stereo
+            // track, so it lands exactly where the original was.
+            progress(0.05)
+            (l, r) = try await decode(asset, tracks: [sm.track], mix: sm.mix)
+            progress(0.2)
+            if let plain = await AudioPick.track(asset), plain != sm.track {
+                let ref = try await decode(asset, tracks: [plain], mix: nil)
+                let lag = AudioAlign.lag(of: vDSPMean(l, r), to: vDSPMean(ref.0, ref.1), sampleRate: sampleRate)
+                AudioAlign.shift(&l, by: -lag, count: ref.0.count)
+                AudioAlign.shift(&r, by: -lag, count: ref.0.count)
+            }
+        } else {
+            progress(0.05)
+            guard let plain = await AudioPick.track(asset) else { throw AudioExtract.err("This video has no sound.") }
+            (l, r) = try await decode(asset, tracks: [plain], mix: nil)
+        }
         guard !l.isEmpty else { throw AudioExtract.err("This video has no sound.") }
         progress(0.3)
 
@@ -178,9 +194,8 @@ final class SpeechCleanup: ObservableObject {
     }
 
     /// The whole sound track as 48 kHz stereo floats, padded at the start so index 0 is source time 0.
-    nonisolated static func decode(_ asset: AVURLAsset, mix: AVAudioMix?) async throws -> ([Float], [Float]) {
-        let tracks = try await asset.loadTracks(withMediaType: .audio)
-        guard let first = tracks.first else { return ([], []) }
+    nonisolated static func decode(_ asset: AVURLAsset, tracks: [AVAssetTrack], mix: AVAudioMix?) async throws -> ([Float], [Float]) {
+        guard !tracks.isEmpty else { return ([], []) }
         let reader = try AVAssetReader(asset: asset)
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
@@ -191,7 +206,7 @@ final class SpeechCleanup: ObservableObject {
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false,
         ]
-        let output = AVAssetReaderAudioMixOutput(audioTracks: mix != nil ? tracks : [first], audioSettings: settings)
+        let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: settings)
         output.audioMix = mix
         output.alwaysCopiesSampleData = false
         reader.add(output)
@@ -267,7 +282,9 @@ final class SpeechCleanup: ObservableObject {
         return false
     }
 
-    nonisolated private static func spatialMix(_ asset: AVURLAsset, style: SpatialMixStyle, intensity: Double) async -> AVAudioMix? {
+    /// Apple's mix and the spatial track it has to be read from (never together with the stereo track).
+    nonisolated private static func spatialMix(_ asset: AVURLAsset, style: SpatialMixStyle,
+                                               intensity: Double) async -> (mix: AVAudioMix, track: AVAssetTrack)? {
         #if canImport(Cinematic)
         if #available(iOS 26.0, *) {
             guard let info = try? await CNAssetSpatialAudioInfo(asset: asset) else { return nil }
@@ -277,7 +294,7 @@ final class SpeechCleanup: ObservableObject {
             case .studio: s = .studio
             case .cinematic: s = .cinematic
             }
-            return info.audioMix(effectIntensity: Float(min(max(intensity, 0), 1)), renderingStyle: s)
+            return (info.audioMix(effectIntensity: Float(min(max(intensity, 0), 1)), renderingStyle: s), info.defaultSpatialAudioTrack)
         }
         #endif
         return nil
@@ -400,5 +417,66 @@ enum VoiceChain {
             l[k] = a * lim
             r[k] = b * lim
         }
+    }
+}
+
+/// Lines one recording of a sound up with another (Apple's Audio Mix comes out of its decoder late).
+enum AudioAlign {
+    /// How many samples `x` is late against `ref` (negative: early), searched within `maxSeconds`.
+    /// Coarse on a 1 kHz envelope first, then exact on the samples around it.
+    nonisolated static func lag(of x: [Float], to ref: [Float], sampleRate: Double, maxSeconds: Double = 1) -> Int {
+        let n = min(x.count, ref.count)
+        guard n > 2048 else { return 0 }
+        let step = max(1, Int(sampleRate / 1000))
+        func envelope(_ a: [Float]) -> [Float] {
+            stride(from: 0, to: n - step, by: step).map { i in
+                var s: Float = 0
+                for k in i..<(i + step) { s += abs(a[k]) }
+                return s / Float(step)
+            }
+        }
+        let ex = envelope(x), er = envelope(ref)
+        let maxE = min(Int(maxSeconds * 1000), ex.count / 2)
+        func corr(_ a: [Float], _ b: [Float], _ d: Int, from: Int, to: Int) -> Float {
+            var s: Float = 0, na: Float = 0, nb: Float = 0
+            var i = max(from, d), j = max(from, d) - d
+            while i < to && j < b.count && i < a.count {
+                s += a[i] * b[j]; na += a[i] * a[i]; nb += b[j] * b[j]
+                i += 1; j += 1
+            }
+            return na > 0 && nb > 0 ? s / (na * nb).squareRoot() : 0
+        }
+        // the envelopes with their mean taken off, so loudness alone doesn't line them up
+        let mx = ex.reduce(0, +) / Float(max(ex.count, 1)), mr = er.reduce(0, +) / Float(max(er.count, 1))
+        let cx = ex.map { $0 - mx }, cr = er.map { $0 - mr }
+        // up to a minute around the middle is plenty to find it (and keeps long clips quick)
+        let mid = cx.count / 2, half = 30_000
+        let lo = max(0, mid - half), hi = min(cx.count, mid + half)
+        var best = (0, -Float.infinity)
+        for d in -maxE...maxE {
+            let c = corr(cx, cr, d, from: lo, to: hi)
+            if c > best.1 { best = (d, c) }
+        }
+        guard best.1 > 0.3 else { return 0 }   // not the same sound: leave it
+        // exact: samples around the coarse lag, on a stretch of up to 4 s from the middle
+        let coarse = best.0 * step
+        let from = max(0, n / 2 - Int(2 * sampleRate)), to = min(n, n / 2 + Int(2 * sampleRate))
+        var fine = (coarse, -Float.infinity)
+        for d in (coarse - 2 * step)...(coarse + 2 * step) {
+            let c = corr(x, ref, d, from: from, to: to)
+            if c > fine.1 { fine = (d, c) }
+        }
+        return fine.0
+    }
+
+    /// Moves the samples by `d` (positive: later), padding with silence, and makes the result `count` long.
+    nonisolated static func shift(_ a: inout [Float], by d: Int, count: Int) {
+        if d > 0 {
+            a.insert(contentsOf: repeatElement(0, count: d), at: 0)
+        } else if d < 0 {
+            a.removeFirst(min(-d, a.count))
+        }
+        if a.count > count { a.removeLast(a.count - count) }
+        else if a.count < count { a.append(contentsOf: repeatElement(0, count: count - a.count)) }
     }
 }

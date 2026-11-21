@@ -436,7 +436,7 @@ struct PreviewArea: View {
     private func overlayBox(_ canvas: CGSize) -> some View {
         if let i = model.selectedOverlayIndex, !model.isPlaying {
             let o = model.project.overlays[i]
-            if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 {
+            if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 && !o.isAdjustment {
                 let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
                 let t = OverlayStore.shared.shown(o, at: model.currentTime)
                 let bw = base.width * t.scale, bh = base.height * t.scale

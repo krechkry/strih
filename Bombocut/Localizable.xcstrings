@@ -490,6 +490,16 @@
         }
       }
     },
+    "Adjustment": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrstva úprav"
+          }
+        }
+      }
+    },
     "Advanced": {
       "localizations": {
         "cs": {
@@ -1606,6 +1616,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nejdřív něco změň v Úpravách."
+          }
+        }
+      }
+    },
+    "Changes everything under it: the clips and the layers in the rows below. Layers above it stay as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mění všechno pod sebou: klipy a vrstvy v řádcích pod ní. Vrstvy nad ní zůstanou, jak jsou."
           }
         }
       }
@@ -3270,6 +3290,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fade in"
+          }
+        }
+      }
+    },
+    "Fade in / out": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztmívání"
           }
         }
       }

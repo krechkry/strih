@@ -150,6 +150,11 @@ final class OverlayRenderer: @unchecked Sendable {
         for o in list where t >= o.start && t < o.end {
             if let b = behindOnly, o.behindSubject != b { continue }
             if o.id == hide { continue }
+            if o.isAdjustment {
+                // no picture of its own: it changes everything drawn so far (the clips and the rows under it)
+                out = adjusted(out, o, at: t, size: size, preview: preview)
+                continue
+            }
             guard var img = layer(o, at: t, size: size, canvasAspect: A, preview: preview, video: video) else { continue }
             let a = o.anim.pose(local: t - o.start, length: o.duration)
             let opacity = o.pose(at: t).opacity * a.opacity
@@ -163,6 +168,23 @@ final class OverlayRenderer: @unchecked Sendable {
             }
         }
         return out
+    }
+
+    /// An adjustment layer on what is under it: Adjust color, then its filter, then the canvas effects (vignette,
+    /// grain, glow...) on the whole frame, mixed with the untouched frame by its opacity and its fades.
+    func adjusted(_ under: CIImage, _ o: Overlay, at t: Double, size: CGSize, preview: Bool = false) -> CIImage {
+        if preview && LookStore.shared.bypassEffects { return under }
+        let frame = CGRect(origin: .zero, size: size)
+        let a = o.anim.fadesOnly.pose(local: t - o.start, length: o.duration)
+        let k = min(max(o.pose(at: t).opacity * a.opacity, 0), 1)
+        guard k > 0.001 else { return under }
+        let fx = FilterRenderer.effects(o.effects, o.filter)
+        guard fx.hasColor || fx.hasCanvasFX || o.filter != nil else { return under }
+        var img = FilterRenderer.apply(EffectsRenderer.color(under, o.effects), o.filter)
+        img = EffectsRenderer.canvas(img, fx, size: size, frame: Int((t * 30).rounded())).cropped(to: frame)
+        guard k < 0.999 else { return img }
+        return under.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: img, kCIInputTimeKey: k])
+            .cropped(to: frame)
     }
 
     /// The overlay as an image placed on the canvas (Core Image, y-up), before blending.
@@ -183,6 +205,8 @@ final class OverlayRenderer: @unchecked Sendable {
         case .video:
             guard let (frame, pref) = video(o.id) else { return nil }
             img = frame.oriented(FrameCompositor.orientation(for: pref))
+        case .adjustment:
+            return nil   // drawn by `adjusted`, never as a placed picture
         }
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
@@ -321,6 +345,8 @@ final class OverlayRenderer: @unchecked Sendable {
             guard let img = text(s, style: o.style, size: out) else { return .zero }
             let k = canvas.width / out.width
             return CGSize(width: img.extent.width * k, height: img.extent.height * k)
+        case .adjustment:
+            return canvas   // the whole frame (it is never grabbed on the preview)
         default:
             let b = o.baseFraction(canvasAspect: A)
             return CGSize(width: b.width * canvas.width, height: b.height * canvas.height)

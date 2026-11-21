@@ -44,6 +44,13 @@ enum MotionAnim: String, Codable, CaseIterable, Hashable {
 
 /// An animation in and an animation out, with their lengths.
 struct AnimPair: Codable, Hashable {
+    /// Only fades kept (adjustment layers have no picture to slide or zoom): any other way in / out becomes a fade.
+    var fadesOnly: AnimPair {
+        var a = self
+        if a.inAnim != .none { a.inAnim = .fade }
+        if a.outAnim != .none { a.outAnim = .fade }
+        return a
+    }
     var inAnim = MotionAnim.none
     var outAnim = MotionAnim.none
     var inDur = 0.4

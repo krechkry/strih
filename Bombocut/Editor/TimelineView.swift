@@ -1412,19 +1412,35 @@ struct OverlayLane: View {
     private static let textTint = Color(red: 0.55, green: 0.35, blue: 1)
     private static let mediaTint = Color(red: 0.3, green: 0.52, blue: 1)
 
+    /// Adjustment layers: grey with diagonal stripes, so they never read as a picture or a text.
+    private static let adjustTint = Color(white: 0.3)
+
+    @ViewBuilder
+    private func blockFill(_ o: Overlay, selected: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 5)
+        if o.isAdjustment {
+            let ink: Color = selected ? .black.opacity(0.16) : .white.opacity(0.1)
+            shape.fill(selected ? Theme.accent : Self.adjustTint)
+                .overlay { DiagonalStripes(gap: 7).stroke(ink, lineWidth: 2.5).clipShape(shape) }
+        } else {
+            shape.fill(selected ? Theme.accent : (o.isText ? Self.textTint : Self.mediaTint).opacity(0.45))
+        }
+    }
+
     private func block(_ o: Overlay, px: CGFloat, row: Int, rows: Int) -> some View {
         // picking what to apply settings to: nothing can be trimmed or moved meanwhile
         let selected = o.id == model.selectedOverlayID && model.pick == nil
         let w = max(10, CGFloat(o.duration) * px)
         return HStack(spacing: 4) {
             Image(systemName: o.icon).font(.system(size: 9, weight: .bold))
-            Text(o.title.replacingOccurrences(of: "\n", with: " ")).font(.system(size: 9, weight: .bold)).lineLimit(1)
+            // a text shows its words; the others their kind, in the app's language
+            Text(o.isText ? o.title.replacingOccurrences(of: "\n", with: " ") : loc(o.title))
+                .font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
         .foregroundStyle(selected ? .black : .white)
         .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background(selected ? Theme.accent : (o.isText ? Self.textTint : Self.mediaTint).opacity(0.45),
-                    in: RoundedRectangle(cornerRadius: 5))
+        .background { blockFill(o, selected: selected) }
         .clipped()
         .overlay(alignment: .leading) {
             // keyframes
@@ -1975,5 +1991,22 @@ struct SwipeUp: UIGestureRecognizerRepresentable {
             changed(.changed, context.coordinator.start, .zero)
             changed(.ended, context.coordinator.start, .zero)
         }
+    }
+}
+
+/// Diagonal lines across a rect (the adjustment layer's timeline block).
+struct DiagonalStripes: Shape {
+    var gap: CGFloat = 7
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let h = rect.height
+        var x = rect.minX - h
+        while x < rect.maxX {
+            p.move(to: CGPoint(x: x, y: rect.maxY))
+            p.addLine(to: CGPoint(x: x + h, y: rect.minY))
+            x += gap
+        }
+        return p
     }
 }

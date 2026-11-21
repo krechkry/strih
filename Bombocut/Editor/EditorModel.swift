@@ -2838,10 +2838,10 @@ final class EditorModel: ObservableObject {
         switch kind {
         case .overlayAdjust:
             o.effects = s.effects
-            if o.isMedia { o.filter = s.filter }
+            if o.takesFilter { o.filter = s.filter }
             return
         case .overlayFilter:
-            if o.isMedia { o.filter = s.filter }
+            if o.takesFilter { o.filter = s.filter }
             return
         case .overlayMask:
             guard o.isMedia else { return }
@@ -2863,11 +2863,11 @@ final class EditorModel: ObservableObject {
             st.rotation = o.style.rotation
             o.style = st
         }
-        o.blend = s.blend
+        if !o.isAdjustment { o.blend = s.blend }
         o.opacity = s.opacity
         for k in o.keys.indices { o.keys[k].opacity = s.opacity }
-        o.behindSubject = s.behindSubject
-        o.anim = s.anim
+        if !o.isAdjustment { o.behindSubject = s.behindSubject }
+        o.anim = o.isAdjustment ? s.anim.fadesOnly : s.anim
     }
 
     private func applyOverlays(_ kind: ApplyKind, from id: UUID, to ids: Set<UUID>) {
@@ -3018,6 +3018,18 @@ final class EditorModel: ObservableObject {
         }
         selectOverlay(o.id)
         openOverlayPanel = text == nil
+    }
+
+    /// Adjustment layer at the playhead (Defaults.layerLength), on top of whatever it covers, panel open on Adjust.
+    func addAdjustment() {
+        let start = onFrame(min(currentTime, max(0, duration - 0.5)))
+        let o = Overlay(kind: .adjustment, start: start, duration: min(Defaults.layerLength, max(0.5, duration - start)))
+        mutateLook { p in
+            var n = o
+            p.placeNewOverlay(&n)
+            p.overlays.append(n)
+        }
+        selectOverlay(o.id)
     }
 
     /// Picture or video from Photos, placed at the playhead.
@@ -3199,6 +3211,7 @@ final class EditorModel: ObservableObject {
     private func overlayTransformBegan() -> Bool {
         guard let i = selectedOverlayIndex else { return false }
         let o = project.overlays[i]
+        guard !o.isAdjustment else { return false }   // no picture to move: fingers work the view as usual
         guard currentTime >= o.start - 0.01, currentTime < o.end + 0.01 else { return false }
         pause()
         overlayStart = OverlayStore.shared.shown(o, at: currentTime)
@@ -3276,7 +3289,7 @@ final class EditorModel: ObservableObject {
     /// The overlay or captions under a point of the preview (canvas points), topmost first.
     func hit(_ p: CGPoint, canvas: CGSize) -> PreviewHit? {
         guard canvas.width > 0, !project.clips.isEmpty else { return nil }
-        for o in project.overlays.reversed() where currentTime >= o.start - 0.01 && currentTime < o.end + 0.01 {
+        for o in project.overlays.reversed() where currentTime >= o.start - 0.01 && currentTime < o.end + 0.01 && !o.isAdjustment {
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
             let c = CGPoint(x: canvas.width / 2 + o.transform.x * canvas.width, y: canvas.height / 2 + o.transform.y * canvas.height)
             if Self.inside(p, center: c, size: CGSize(width: base.width * o.transform.scale, height: base.height * o.transform.scale),
@@ -4831,7 +4844,7 @@ extension EditorModel {
     /// Filters work on the selected clip, Stack, or picture / video layer.
     var filterTarget: Bool {
         if selectedStackIndex != nil { return true }
-        if let oi = selectedOverlayIndex { return project.overlays[oi].isMedia }
+        if let oi = selectedOverlayIndex { return project.overlays[oi].takesFilter }
         return selectedIndex != nil
     }
 
@@ -4845,7 +4858,7 @@ extension EditorModel {
         if let k = selectedStackIndex {
             p.stacks[k].filter = f
         } else if let oi = selectedOverlayIndex {
-            guard p.overlays[oi].isMedia else { return }
+            guard p.overlays[oi].takesFilter else { return }
             p.overlays[oi].filter = f
         } else if let i = selectedIndex {
             p.clips[i].filter = f
@@ -4907,7 +4920,7 @@ extension EditorModel {
     var filterApplyKind: ApplyKind? {
         if selectedStackIndex != nil { return nil }
         if let oi = selectedOverlayIndex {
-            return project.overlays[oi].isMedia && project.overlays.filter(\.isMedia).count > 1 ? .overlayFilter : nil
+            return project.overlays[oi].takesFilter && project.overlays.filter(\.takesFilter).count > 1 ? .overlayFilter : nil
         }
         return selectedIndex != nil && project.clips.count > 1 ? .filter : nil
     }
@@ -4924,6 +4937,11 @@ extension EditorModel {
             case .image(let f): file = f; still = true
             case .video(let f, _, _): file = f; time = o.sourceTime(at: currentTime)
             case .text: return nil
+            case .adjustment:
+                // what it changes: the clip under the playhead
+                guard let i = project.clipIndex(at: currentTime)?.index else { return nil }
+                file = project.clips[i].mediaFile
+                time = sourceTime(i)
             }
         } else if let i = selectedIndex ?? (selectedStackIndex != nil ? project.clipIndex(at: currentTime)?.index : nil) {
             file = project.clips[i].mediaFile

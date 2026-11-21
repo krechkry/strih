@@ -38,6 +38,16 @@ struct OverlaySheet: View {
         }
     }
 
+    /// An adjustment layer's two parts have their own names (its only transition is a fade).
+    private func title(_ t: Tab, _ o: Overlay) -> String {
+        guard o.isAdjustment else { return t.title }
+        switch t {
+        case .animation: return "Fade in / out"
+        case .blend: return "Opacity"
+        default: return t.title
+        }
+    }
+
     /// The overlay toolbar asked for a tab (Speed).
     private func takeRequestedTab() {
         guard let raw = model.overlayTab else { return }
@@ -57,7 +67,7 @@ struct OverlaySheet: View {
                         DoneCheck(size: 32) { typing = false }
                     } else {
                         if tabs(o).count == 1 {
-                            Text(loc(shown.title)).font(.title3.weight(.heavy))
+                            Text(loc(title(shown, o))).font(.title3.weight(.heavy))
                             Spacer()
                         } else {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -203,17 +213,37 @@ struct OverlaySheet: View {
 
     @ViewBuilder
     private func animationTab(_ o: Overlay) -> some View {
-        AnimEditor(anim: o.anim, maxLength: o.duration,
+        AnimEditor(anim: o.isAdjustment ? o.anim.fadesOnly : o.anim, maxLength: o.duration,
                    set: { a in model.setOverlay { $0.anim = a } },
                    live: { a in model.editOverlay { $0.anim = a } },
                    began: { model.liveEditBegan() }, ended: { model.liveEditEnded() },
-                   preview: { model.previewOverlayAnim() })
+                   preview: { model.previewOverlayAnim() },
+                   choices: o.isAdjustment ? [.none, .fade] : MotionAnim.animations)
     }
 
     // MARK: Blend
 
     @ViewBuilder
     private func blendTab(_ o: Overlay) -> some View {
+        if o.isAdjustment { adjustmentStrength(o) } else { layerBlend(o) }
+    }
+
+    /// An adjustment layer: how much of its change shows (keyframes work like a layer's opacity).
+    @ViewBuilder
+    private func adjustmentStrength(_ o: Overlay) -> some View {
+        slider("Opacity", value: o.pose(at: model.currentTime).opacity, def: 1, in: 0...1,
+               keyed: model.isKeyed(.opacity)) { v in model.editOverlayOpacity(v) }
+        Text("Changes everything under it: the clips and the layers in the rows below. Layers above it stay as they are.")
+            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 10) {
+            pill("Duplicate", on: false) { model.duplicateOverlay() }
+            pill("Delete", on: false) { model.deleteOverlay(); close() }
+        }
+    }
+
+    @ViewBuilder
+    private func layerBlend(_ o: Overlay) -> some View {
         section("Blend") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -352,6 +382,8 @@ struct AnimEditor: View {
     let preview: () -> Void
     /// Only the way in (true) or only the way out (false); nil shows both.
     var only: Bool? = nil
+    /// The ways in / out to pick from.
+    var choices: [MotionAnim] = MotionAnim.animations
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -378,7 +410,7 @@ struct AnimEditor: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(MotionAnim.animations, id: \.self) { a in
+                    ForEach(choices, id: \.self) { a in
                         Button { pick(a) } label: {
                             VStack(spacing: 5) {
                                 Image(systemName: a.icon).font(.system(size: 17, weight: .semibold))
