@@ -616,7 +616,7 @@ struct Project: Identifiable, Codable, Hashable {
     /// Every imported file the project needs (clips and overlays).
     var mediaFiles: Set<String> {
         Set(clips.flatMap(\.allMediaFiles))
-            .union(overlays.compactMap(\.kind.mediaFile)).union(audio.map(\.file))
+            .union(overlays.compactMap(\.kind.mediaFile)).union(audio.flatMap { [$0.file] + ($0.reverse.map { [$0.file] } ?? []) })
     }
 
     /// How many of the project's files aren't on this device (they play as a stand-in, see MissingClip).

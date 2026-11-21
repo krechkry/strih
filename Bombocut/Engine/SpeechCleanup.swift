@@ -45,6 +45,21 @@ struct SpeechFX: Codable, Hashable {
     }
 }
 
+/// One sound to clean: a media file and the settings for it (a clip's video, or a sound item's file).
+struct SpeechSource: Hashable, Sendable {
+    var file: String
+    var fx: SpeechFX
+    /// The result is turned round (a sound item playing backwards; the tools always hear it forwards).
+    var reversed = false
+}
+
+extension Clip {
+    var speechSource: SpeechSource? {
+        guard let fx = speech, fx.renders else { return nil }
+        return SpeechSource(file: mediaFile, fx: fx)
+    }
+}
+
 /// The styles of Apple's Audio Mix.
 enum SpatialMixStyle: String, Codable, CaseIterable, Hashable {
     case inFrame, studio, cinematic
@@ -69,7 +84,7 @@ final class SpeechCleanup: ObservableObject {
     /// Keys that failed (not retried until the settings change).
     @Published private(set) var failed: Set<String> = []
 
-    private var queue: [Clip] = []
+    private var queue: [SpeechSource] = []
     private var running = false
     private var done: [() -> Void] = []
 
@@ -85,11 +100,16 @@ final class SpeechCleanup: ObservableObject {
 
     /// Identifies a clip's cleaned sound: the media file and the speech settings (Restore voice only counts once
     /// its model is on the phone, so downloading it makes the sound again).
-    nonisolated static func key(_ c: Clip) -> String? {
-        guard let fx = c.speech, fx.renders else { return nil }
+    nonisolated static func key(_ c: Clip) -> String? { key(c.speechSource) }
+    nonisolated static func key(_ a: AudioItem) -> String? { key(a.speechSource) }
+
+    nonisolated static func key(_ src: SpeechSource?) -> String? {
+        guard let src else { return nil }
+        let fx = src.fx
         let restore = fx.restoreRuns ? fx.restore : 0
-        let s = String(format: "%@|%.2f|%@|%.2f|%.2f|%@|v3", c.mediaFile, fx.denoise, fx.mix?.rawValue ?? "-",
+        var s = String(format: "%@|%.2f|%@|%.2f|%.2f|%@|v3", src.file, fx.denoise, fx.mix?.rawValue ?? "-",
                        fx.mixIntensity, restore, restore > 0 ? VoiceRestore.version : "-")
+        if src.reversed { s += "|rev" }
         let h = SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
         return String(h.prefix(24))
     }
@@ -97,30 +117,57 @@ final class SpeechCleanup: ObservableObject {
     nonisolated static func url(forKey k: String) -> URL { folder.appendingPathComponent(k + ".wav") }
 
     /// The cleaned sound for this clip, if it has been made.
-    nonisolated static func readyURL(_ c: Clip) -> URL? {
-        guard let k = key(c) else { return nil }
+    nonisolated static func readyURL(_ c: Clip) -> URL? { readyURL(c.speechSource) }
+    /// The cleaned sound for this sound item, if it has been made.
+    nonisolated static func readyURL(_ a: AudioItem) -> URL? { readyURL(a.speechSource) }
+
+    nonisolated static func readyURL(_ src: SpeechSource?) -> URL? {
+        guard let k = key(src) else { return nil }
         let u = url(forKey: k)
         return FileManager.default.fileExists(atPath: u.path) ? u : nil
     }
 
-    func needsWork(_ c: Clip) -> Bool {
-        guard let k = Self.key(c) else { return false }
-        return Self.readyURL(c) == nil && !failed.contains(k)
+    func needsWork(_ c: Clip) -> Bool { needsWork(c.speechSource) }
+    func needsWork(_ a: AudioItem) -> Bool { needsWork(a.speechSource) }
+
+    func needsWork(_ src: SpeechSource?) -> Bool {
+        guard let k = Self.key(src) else { return false }
+        return Self.readyURL(src) == nil && !failed.contains(k)
     }
 
     func isWorking(_ c: Clip) -> Double? { Self.key(c).flatMap { progress[$0] } }
+    func isWorking(_ a: AudioItem) -> Double? { Self.key(a).flatMap { progress[$0] } }
+
+    /// Everything in the project that still has to be made: clips and sound items.
+    func missing(in p: Project) -> [SpeechSource] {
+        (p.clips.map(\.speechSource) + p.audio.map(\.speechSource)).compactMap { $0 }.filter { needsWork($0) }
+    }
 
     // MARK: Work
 
     /// Makes what is missing for these clips (one at a time), then calls `then`.
     func process(_ clips: [Clip], then: @escaping () -> Void) {
-        for c in clips where needsWork(c) {
+        process(sources: clips.compactMap(\.speechSource), then: then)
+    }
+
+    /// Makes what is missing for these sounds (one at a time), then calls `then`.
+    func process(sources: [SpeechSource], then: @escaping () -> Void) {
+        for c in sources where needsWork(c) {
             guard let k = Self.key(c), progress[k] == nil, !queue.contains(where: { Self.key($0) == k }) else { continue }
             queue.append(c)
             progress[k] = 0
         }
         done.append(then)
         if !running { Task { await runQueue() } }
+    }
+
+    /// Makes this one sound (if it isn't there yet) and waits for it: its file, or nil when it failed.
+    func make(_ src: SpeechSource) async -> URL? {
+        if let u = Self.readyURL(src) { return u }
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            process(sources: [src]) { c.resume() }
+        }
+        return Self.readyURL(src)
     }
 
     private func runQueue() async {
@@ -130,10 +177,11 @@ final class SpeechCleanup: ObservableObject {
             guard let k = Self.key(c) else { continue }
             do {
                 let out = Self.url(forKey: k)
-                let fx = c.speech ?? SpeechFX()
-                let file = Paths.mediaURL(c.mediaFile)
+                let fx = c.fx
+                let rev = c.reversed
+                let file = Paths.mediaURL(c.file)
                 try await Task.detached(priority: .userInitiated) {
-                    try await Self.render(file: file, fx: fx, to: out) { p in
+                    try await Self.render(file: file, fx: fx, reversed: rev, to: out) { p in
                         Task { @MainActor in if SpeechCleanup.shared.progress[k] != nil { SpeechCleanup.shared.progress[k] = p } }
                     }
                 }.value
@@ -152,17 +200,18 @@ final class SpeechCleanup: ObservableObject {
 
     /// Export: makes everything the project needs and waits for it.
     func prepare(_ project: Project) async {
-        let missing = project.clips.filter { needsWork($0) }
-        guard !missing.isEmpty else { return }
+        let todo = missing(in: project)
+        guard !todo.isEmpty else { return }
         await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
-            process(missing) { c.resume() }
+            process(sources: todo) { c.resume() }
         }
     }
 
     // MARK: Rendering (off the main thread)
 
-    /// Decodes the sound, cleans it and writes a 48 kHz stereo WAV with the source's timing.
-    nonisolated static func render(file: URL, fx: SpeechFX, to out: URL,
+    /// Decodes the sound, cleans it and writes a 48 kHz stereo WAV with the source's timing
+    /// (`reversed`: turned round at the end, matching `AudioReverser`'s copy sample for sample).
+    nonisolated static func render(file: URL, fx: SpeechFX, reversed: Bool = false, to out: URL,
                                    progress: @escaping @Sendable (Double) -> Void) async throws {
         let asset = AVURLAsset(url: file)
         var l: [Float], r: [Float]
@@ -201,6 +250,7 @@ final class SpeechCleanup: ObservableObject {
             mixIn(voice, strength: fx.restore, into: &l, &r)
         }
         progress(0.95)
+        if reversed { l.reverse(); r.reverse() }
         try write(l, r, to: out)
         progress(1)
     }
@@ -410,5 +460,22 @@ enum AudioAlign {
         }
         if a.count > count { a.removeLast(a.count - count) }
         else if a.count < count { a.append(contentsOf: repeatElement(0, count: count - a.count)) }
+    }
+}
+
+/// A sound played backwards: the whole file decoded (like the speech tools read it), turned round and written
+/// next to the original in the Media folder.
+enum AudioReverser {
+    /// The reversed copy's file name and length.
+    nonisolated static func reverse(_ file: String) async throws -> (file: String, duration: Double) {
+        let asset = AVURLAsset(url: Paths.mediaURL(file))
+        guard let track = await AudioPick.track(asset) else { throw AudioExtract.err("This file has no sound.") }
+        var (l, r) = try await SpeechCleanup.decode(asset, tracks: [track], mix: nil)
+        guard !l.isEmpty else { throw AudioExtract.err("This file has no sound.") }
+        l.reverse(); r.reverse()
+        Paths.ensure()
+        let name = UUID().uuidString + ".wav"
+        try SpeechCleanup.write(l, r, to: Paths.mediaURL(name))
+        return (name, Double(l.count) / SpeechCleanup.sampleRate)
     }
 }

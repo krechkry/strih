@@ -300,6 +300,16 @@
         }
       }
     },
+    "AI Models": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI modely"
+          }
+        }
+      }
+    },
     "AI rebuilds the voice as if it was recorded up close on a good mic: no room echo, clearer and fuller.": {
       "localizations": {
         "cs": {
@@ -896,6 +906,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Automaticky"
+          }
+        }
+      }
+    },
+    "Automatic Captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatické titulky"
           }
         }
       }
@@ -2220,6 +2240,16 @@
         }
       }
     },
+    "Delete %@?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat %@?"
+          }
+        }
+      }
+    },
     "Delete %lld projects?": {
       "localizations": {
         "cs": {
@@ -2380,6 +2410,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat dočasné soubory?"
+          }
+        }
+      }
+    },
+    "Delete the %@ model?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat model %@?"
           }
         }
       }
@@ -2550,6 +2590,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jazyk %@ neumí."
+          }
+        }
+      }
+    },
+    "Don't show this again": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Už neukazovat"
           }
         }
       }
@@ -2830,6 +2880,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Body táhni nahoru nebo dolů. Dvojím klepnutím na graf ho narovnáš."
+          }
+        }
+      }
+    },
+    "Drag the sound to pick the part that plays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhni zvuk a vyber část, která hraje"
           }
         }
       }
@@ -4438,6 +4498,16 @@
         }
       }
     },
+    "Keep the original": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechat originál"
+          }
+        }
+      }
+    },
     "Keep the outside instead.": {
       "localizations": {
         "cs": {
@@ -5118,6 +5188,16 @@
         }
       }
     },
+    "No": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne"
+          }
+        }
+      }
+    },
     "No new fonts in those files.": {
       "localizations": {
         "cs": {
@@ -5244,6 +5324,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pro %@ zatím není k dispozici."
+          }
+        }
+      }
+    },
+    "Not available yet": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatím není k dispozici"
           }
         }
       }
@@ -5498,6 +5588,16 @@
         }
       }
     },
+    "Or translate now with Apple's translator": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebo přelož hned překladačem od Applu"
+          }
+        }
+      }
+    },
     "Orange": {
       "localizations": {
         "cs": {
@@ -5574,6 +5674,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí s volbou „Za objektem“ jsou mezi pozadím a objektem."
+          }
+        }
+      }
+    },
+    "Overwrite": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přepsat"
           }
         }
       }
@@ -5794,6 +5904,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat překrytí"
+          }
+        }
+      }
+    },
+    "Pick the languages you speak in your videos. It's only a preference: they come first when you make captions, and you can still use any of the 25. One speech model covers them all, offline on your iPhone.": {
+      "localizations": {
+        "cs": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vyber jazyky, kterými ve videích mluvíš. Je to jen preference: při tvorbě titulků budou nahoře a dál můžeš použít kterýkoli z 25. Jeden hlasový model zvládne všechny, offline v iPadu."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Vyber jazyky, kterými ve videích mluvíš. Je to jen preference: při tvorbě titulků budou nahoře a dál můžeš použít kterýkoli z 25. Jeden hlasový model zvládne všechny, offline v iPhonu."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "device": {
+              "ipad": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pick the languages you speak in your videos. It's only a preference: they come first when you make captions, and you can still use any of the 25. One speech model covers them all, offline on your iPad."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Pick the languages you speak in your videos. It's only a preference: they come first when you make captions, and you can still use any of the 25. One speech model covers them all, offline on your iPhone."
+                }
+              }
+            }
           }
         }
       }
@@ -8628,12 +8778,32 @@
         }
       }
     },
+    "Translates captions offline": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překládá titulky offline"
+          }
+        }
+      }
+    },
     "Translating %lld %%": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "Překládám %lld %%"
+          }
+        }
+      }
+    },
+    "Translation languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jazyky překladu"
           }
         }
       }
@@ -8744,6 +8914,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nepoužitá videa"
+          }
+        }
+      }
+    },
+    "Up to %lld, in this order. Hold a tool and drag it onto a spot, or tap to add or remove. Tap a selected clip again to open the menu.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Až %lld v tomhle pořadí. Podrž nástroj a přetáhni ho na místo, nebo ho klepnutím přidej či odeber. Dalším klepnutím na vybraný klip otevřeš menu."
           }
         }
       }
@@ -8914,6 +9094,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Čekám na internet · %lld %%"
+          }
+        }
+      }
+    },
+    "Wanna translate the subs?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chceš titulky přeložit?"
           }
         }
       }
@@ -9134,6 +9324,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Originálů ve Fotkách se nic nedotkne. Co tu smažeš, je pryč navždy, koš tu není."
+          }
+        }
+      }
+    },
+    "Your preferred languages": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tvoje preferované jazyky"
           }
         }
       }

@@ -222,6 +222,9 @@ struct EditorView: View {
     /// Converting old camera files: the question first, then what didn't make it (kept apart so the compiler can check the body quickly).
     private func importDialogs<V: View>(_ v: V) -> some View {
         v
+        // right after making captions: translate them?
+        .overlay { if model.offerTranslate { TranslatePrompt(model: model) } }
+        .animation(.easeOut(duration: 0.2), value: model.offerTranslate)
         .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
                isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
             Button("Proceed") {
@@ -244,8 +247,8 @@ struct EditorView: View {
         .onChange(of: model.openAudioPanel) { _, open in
             if open { model.openAudioPanel = false; sheet = .audio }
         }
-        .onChange(of: model.selectedAudioID) { _, id in
-            if id == nil && sheet == .audio { sheet = nil }
+        .onChange(of: model.selectedAudioID) { old, id in
+            if id == nil && (sheet == .audio || (sheet == .speech && old != nil)) { sheet = nil }
         }
         .fileImporter(isPresented: $showAudioFiles, allowedContentTypes: importTypes,
                       allowsMultipleSelection: filesForClips || filesForLUTs) { result in
@@ -746,11 +749,8 @@ struct EditorView: View {
                     slipBar
                 } else if let pk = model.pick {
                     pickBar(pk)
-                } else if model.selectedAudioIndex != nil {
-                    ToolButton(icon: "scissors", label: "Split") { model.splitAudio() }
-                    ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
-                    ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
-                    ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
+                } else if let ai = model.selectedAudioIndex {
+                    soundTools(model.project.audio[ai])
                 } else if model.selectedOverlayIndex.map({ model.project.overlays[$0].isAdjustment }) == true {
                     adjustmentTools
                 } else if let oi = model.selectedOverlayIndex {
@@ -853,18 +853,20 @@ struct EditorView: View {
                         ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
                     }
                 } else {
-                    Menu { addMenuItems } label: { ToolLabel(icon: "plus", label: "Add") }
-                    // nothing selected: everything under the playhead (not the captions)
+                    // nothing selected: everything under the playhead (not the captions).
+                    // Adding clips lives on the timeline's big + only.
                     ToolButton(icon: "scissors", label: "Split") { model.splitAll() }
+                    if pro {
+                        ToolButton(icon: ToolLabel.adjustmentLayer, label: "Adjustment") {
+                            model.pause(); model.addAdjustment(); sheet = .adjust
+                        }
+                    }
+                    ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
                     if pro && model.project.clips.count > 1 {
                         ToolButton(icon: "square.stack.3d.up", label: "Stack") { sheet = nil; model.startStackPick() }
                     }
-                    ToolButton(icon: "textformat", label: "Text") { model.pause(); model.addText() }
                     if pro {
                         ToolButton(icon: "square.on.square", label: "Overlay") { model.pause(); pickOverlay = true }
-                        ToolButton(icon: "camera.aperture", label: "Adjustment") {
-                            model.pause(); model.addAdjustment(); sheet = .adjust
-                        }
                     }
                     Menu {
                         Button("From Files", systemImage: "folder") { model.pause(); filesForClips = false; filesForLUTs = false; showAudioFiles = true }
@@ -881,6 +883,22 @@ struct EditorView: View {
         }
         // a new selection starts the bar from its left end, never where the last one was scrolled to
         .id(toolbarKey)
+    }
+
+    /// A selected sound on the sound lane.
+    @ViewBuilder
+    private func soundTools(_ a: AudioItem) -> some View {
+        ToolButton(icon: "scissors", label: "Split") { model.splitAudio() }
+        ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
+        ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
+        ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
+        if model.canSlip {
+            ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
+        }
+        ToolButton(icon: a.reverse == nil ? "backward" : "backward.fill",
+                   label: a.reverse == nil ? "Reverse" : "Forward") { model.reverseAudio() }
+            .opacity(model.reversingAudio ? 0.4 : 1)
+        ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
     }
 
     /// A selected adjustment layer: what it does to everything under it, and the layer itself.
@@ -1065,7 +1083,8 @@ struct EditorView: View {
                     .frame(width: 46, height: 46).background(Theme.panel2, in: Circle())
             }
             .accessibilityLabel(loc("Cancel"))
-            Text("Drag the clip to pick the part that plays")
+            Text(model.slip?.audio == true ? LocalizedStringKey("Drag the sound to pick the part that plays")
+                                           : LocalizedStringKey("Drag the clip to pick the part that plays"))
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -1457,14 +1476,41 @@ struct ToolLabel: View {
     var tint: Color = .white
     @Environment(\.isEnabled) private var enabled
 
+    /// Not an SF Symbol: the Adjust sliders between two clip edge handles (an adjustment layer).
+    static let adjustmentLayer = "bombo.adjustmentLayer"
+
     var body: some View {
         VStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 20, weight: .medium))
+            if icon == Self.adjustmentLayer {
+                AdjustmentLayerIcon()
+            } else {
+                Image(systemName: icon).font(.system(size: 20, weight: .medium))
+            }
             Text(loc(label)).font(.caption2.weight(.semibold))
         }
         .foregroundStyle(tint.opacity(enabled ? 1 : 0.3))
         .frame(width: 66, height: 60)
         .contentShape(Rectangle())
+    }
+}
+
+/// Toolbar icon for adding an adjustment layer: the Adjust sliders held between
+/// a clip's two trim handles, so it reads as "a layer you can stretch".
+struct AdjustmentLayerIcon: View {
+    var body: some View {
+        HStack(spacing: 2.5) {
+            handle("chevron.left")
+            Image(systemName: "slider.horizontal.3").font(.system(size: 17, weight: .medium))
+            handle("chevron.right")
+        }
+        .frame(height: 24)
+    }
+
+    private func handle(_ chevron: String) -> some View {
+        RoundedRectangle(cornerRadius: 2.5)
+            .stroke(lineWidth: 1.6)
+            .frame(width: 8, height: 22)
+            .overlay { Image(systemName: chevron).font(.system(size: 7, weight: .heavy)) }
     }
 }
 

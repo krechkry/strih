@@ -381,19 +381,17 @@ struct SpeechSheet: View {
     var body: some View {
         ScrollView {
             PanelStack(spacing: 16, span: 1) {
-                if let i = model.selectedIndex ?? model.stackFirstIndex {
-                    let c = model.project.clips[i]
-                    let fx = c.speech ?? SpeechFX()
+                if let fx = currentFX {
                     HStack {
                         Text("Speech").font(.title3.weight(.heavy))
                         Spacer()
-                        status(c)
+                        statusView
                     }
                     card {
                         VStack(alignment: .leading, spacing: 12) {
                             OnOffRow(title: "Remove noise", subtitle: "Wind, traffic, hum and room echo out, the voice stays.",
                                      isOn: fx.denoise > 0.001) { on in
-                                var f = fx; f.denoise = on ? 0.85 : 0; model.setSpeech(f)
+                                var f = fx; f.denoise = on ? 0.85 : 0; set(f)
                             }
                             if fx.denoise > 0.001 {
                                 HStack {
@@ -404,31 +402,31 @@ struct SpeechSheet: View {
                                 }
                                 BSlider(value: Binding(get: { strength ?? fx.denoise }, set: { strength = $0 }), in: 0.1...1,
                                        onEditingChanged: { e in
-                                    if !e, let v = strength { var f = fx; f.denoise = v; model.setSpeech(f); strength = nil }
+                                    if !e, let v = strength { var f = fx; f.denoise = v; set(f); strength = nil }
                                 })
                                 .tint(Theme.accent)
-                                .doubleTapReset { var f = fx; f.denoise = 0.85; model.setSpeech(f); strength = nil }
+                                .doubleTapReset { var f = fx; f.denoise = 0.85; set(f); strength = nil }
                             }
                         }
                     }
                     card { restoreCard(fx) }
                     PanelBreak()
-                    if spatial || fx.mix != nil {
+                    if !forSound && (spatial || fx.mix != nil) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Audio Mix").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
                             HStack(spacing: 8) {
-                                chip("Off", on: fx.mix == nil) { var f = fx; f.mix = nil; model.setSpeech(f) }
+                                chip("Off", on: fx.mix == nil) { var f = fx; f.mix = nil; set(f) }
                                 ForEach(SpatialMixStyle.allCases, id: \.self) { st in
-                                    chip(st.title, on: fx.mix == st) { var f = fx; f.mix = st; model.setSpeech(f) }
+                                    chip(st.title, on: fx.mix == st) { var f = fx; f.mix = st; set(f) }
                                 }
                             }
                             if fx.mix != nil {
                                 BSlider(value: Binding(get: { intensity ?? fx.mixIntensity }, set: { intensity = $0 }), in: 0...1,
                                        onEditingChanged: { e in
-                                    if !e, let v = intensity { var f = fx; f.mixIntensity = v; model.setSpeech(f); intensity = nil }
+                                    if !e, let v = intensity { var f = fx; f.mixIntensity = v; set(f); intensity = nil }
                                 })
                                 .tint(Theme.accent)
-                                .doubleTapReset { var f = fx; f.mixIntensity = SpeechFX().mixIntensity; model.setSpeech(f); intensity = nil }
+                                .doubleTapReset { var f = fx; f.mixIntensity = SpeechFX().mixIntensity; set(f); intensity = nil }
                             }
                             Text("Apple's voice isolation, for videos recorded with spatial audio on iPhone 16 and newer.")
                                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -438,7 +436,9 @@ struct SpeechSheet: View {
                     Text("Everything runs on your iPhone. The cleaned sound is made once and kept, so playback and export use it right away.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                    if model.selectedStackIndex == nil {
+                    if forSound {
+                        // a sound: nothing to copy to
+                    } else if model.selectedStackIndex == nil {
                         ApplyRow(model: model, kind: .speech)
                     } else {
                         Text("Goes to every clip in the stack.")
@@ -451,7 +451,7 @@ struct SpeechSheet: View {
         .scrollIndicators(.hidden)
         .task(id: model.selectedClipID) {
             spatial = false
-            guard let i = model.selectedIndex else { return }
+            guard !forSound, let i = model.selectedIndex else { return }
             spatial = await SpeechCleanup.hasSpatialAudio(Paths.mediaURL(model.project.clips[i].mediaFile))
         }
         // the model just arrived: clips waiting for it get their restored sound
@@ -470,7 +470,7 @@ struct SpeechSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             OnOffRow(title: "Enhance voice",
                      subtitle: "AI rebuilds the voice as if it was recorded up close on a good mic: no room echo, clearer and fuller.",
-                     isOn: fx.restore > 0.001) { on in var f = fx; f.restore = on ? 1 : 0; model.setSpeech(f) }
+                     isOn: fx.restore > 0.001) { on in var f = fx; f.restore = on ? 1 : 0; set(f) }
             if fx.restore > 0.001 {
                 if voice.isReady {
                     HStack {
@@ -481,10 +481,10 @@ struct SpeechSheet: View {
                     }
                     BSlider(value: Binding(get: { restoreStrength ?? fx.restore }, set: { restoreStrength = $0 }), in: 0.1...1,
                            onEditingChanged: { e in
-                        if !e, let v = restoreStrength { var f = fx; f.restore = v; model.setSpeech(f); restoreStrength = nil }
+                        if !e, let v = restoreStrength { var f = fx; f.restore = v; set(f); restoreStrength = nil }
                     })
                     .tint(Theme.accent)
-                    .doubleTapReset { var f = fx; f.restore = 1; model.setSpeech(f); restoreStrength = nil }
+                    .doubleTapReset { var f = fx; f.restore = 1; set(f); restoreStrength = nil }
                 } else {
                     restoreDownload
                 }
@@ -544,17 +544,42 @@ struct SpeechSheet: View {
         }
     }
 
+    /// A sound on the sound lane is selected (no Audio Mix: that needs a video's spatial track).
+    private var forSound: Bool { model.selectedAudioIndex != nil }
+
+    /// The settings shown: the selected sound's, or the selected clip's (a Stack: its first clip's).
+    private var currentFX: SpeechFX? {
+        if let ai = model.selectedAudioIndex { return model.project.audio[ai].speech ?? SpeechFX() }
+        guard let i = model.selectedIndex ?? model.stackFirstIndex else { return nil }
+        return model.project.clips[i].speech ?? SpeechFX()
+    }
+
+    private func set(_ f: SpeechFX) {
+        if forSound { model.setAudioSpeech(f) } else { model.setSpeech(f) }
+    }
+
     @ViewBuilder
-    private func status(_ c: Clip) -> some View {
-        if let p = cleanup.isWorking(c) {
+    private var statusView: some View {
+        if let ai = model.selectedAudioIndex {
+            let a = model.project.audio[ai]
+            status(working: cleanup.isWorking(a), key: SpeechCleanup.key(a), ready: SpeechCleanup.readyURL(a) != nil)
+        } else if let i = model.selectedIndex ?? model.stackFirstIndex {
+            let c = model.project.clips[i]
+            status(working: cleanup.isWorking(c), key: SpeechCleanup.key(c), ready: SpeechCleanup.readyURL(c) != nil)
+        }
+    }
+
+    @ViewBuilder
+    private func status(working: Double?, key: String?, ready: Bool) -> some View {
+        if let p = working {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small).tint(Theme.accent)
                 Text("\(Int(p * 100)) %").font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
             }
-        } else if let k = SpeechCleanup.key(c), cleanup.failed.contains(k) {
+        } else if let k = key, cleanup.failed.contains(k) {
             Label(loc("Could not clean up"), systemImage: "exclamationmark.triangle.fill")
                 .font(.footnote.weight(.bold)).foregroundStyle(.orange)
-        } else if SpeechCleanup.readyURL(c) != nil {
+        } else if ready {
             Label(loc("Ready"), systemImage: "checkmark.circle.fill")
                 .font(.footnote.weight(.bold)).foregroundStyle(Theme.accent)
         }

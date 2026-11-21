@@ -46,6 +46,7 @@ struct SlipState: Equatable {
     var id: UUID
     var dragFrom: Double          // in point (source seconds) when the current drag began
     var atLimit = false
+    var audio = false             // a sound on the sound lane, not a clip
 }
 
 /// What the preview shows while slipping: the new first and last frame, and how far the content moved.
@@ -367,9 +368,9 @@ final class EditorModel: ObservableObject {
 
     func rebuild() {
         // speech settings without their cleaned sound yet: make it, then build again with it
-        let speechWork = project.clips.filter { SpeechCleanup.shared.needsWork($0) }
+        let speechWork = SpeechCleanup.shared.missing(in: project)
         if !speechWork.isEmpty {
-            SpeechCleanup.shared.process(speechWork) { [weak self] in self?.rebuild() }
+            SpeechCleanup.shared.process(sources: speechWork) { [weak self] in self?.rebuild() }
         }
         buildTask?.cancel()
         builtNeighbours = neighbourSet
@@ -1202,6 +1203,8 @@ final class EditorModel: ObservableObject {
     }
     @Published private(set) var captionJob: CaptionJob?
     @Published var captionsReady = false
+    /// Captions were just made for the whole video: the "translate them?" popup is up.
+    @Published var offerTranslate = false
     @Published var openCaptions = false
     private var captionTask: Task<Void, Never>?
 
@@ -1316,6 +1319,10 @@ final class EditorModel: ObservableObject {
                 setCaptions(caps)
                 captionJob = nil
                 captionsReady = true
+                // the whole video's captions: offer to translate them (unless turned off in the popup)
+                if only == nil && (UserDefaults.standard.object(forKey: "offerCaptionTranslation") as? Bool ?? true) {
+                    offerTranslate = true
+                }
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
                 if !Task.isCancelled { captionJob = CaptionJob(phase: .preparingAudio, error: error.localizedDescription) }
@@ -2562,14 +2569,11 @@ final class EditorModel: ObservableObject {
         audioBusy = true
         defer { audioBusy = false }
         do {
-            // a speed curve: the sound comes out already retimed along it (a sound item plays at one speed)
-            let file: String, d: Double
-            if c.hasCurve {
-                (file, d) = try await AudioExtract.extractRetimed(c)
-            } else {
-                (file, d) = try await AudioExtract.extract(from: Paths.mediaURL(c.mediaFile), range: c.inPoint...c.outPoint)
-            }
+            // a speed curve: the sound comes out already retimed along it (a sound item plays at one speed);
+            // the clip's speech settings come along with it
+            let (file, d, speech) = try await AudioExtract.clipSound(c)
             var a = AudioItem(file: file, name: loc("Clip sound"), sourceDuration: d, start: start, duration: c.duration)
+            a.speech = speech
             a.speed = c.hasCurve ? 1 : c.rate
             a.duration = c.hasCurve ? min(d, c.duration) : c.duration
             a.volume = c.volume
@@ -2689,6 +2693,56 @@ final class EditorModel: ObservableObject {
         guard let i = selectedIndex else { return }
         if let fin { project.clips[i].fadeIn = fin < 0.05 ? 0 : fin }
         if let fout { project.clips[i].fadeOut = fout < 0.05 ? 0 : fout }
+    }
+
+    /// Speech settings of the selected sound (the cleaned sound is made in the background).
+    func setAudioSpeech(_ fx: SpeechFX) {
+        guard let i = selectedAudioIndex else { return }
+        let v: SpeechFX? = fx.isActive ? fx : nil
+        guard project.audio[i].speech != v else { return }
+        mutate { $0.audio[i].speech = v }
+    }
+
+    /// Making the reversed copy of a sound.
+    @Published private(set) var reversingAudio = false
+
+    /// Reverse for a sound: the same stretch of it plays backwards (a reversed copy of the file stands in), or
+    /// forwards again. Its place, length, speed, fades and speech settings stay.
+    func reverseAudio() {
+        guard let i = selectedAudioIndex, !reversingAudio else { return }
+        let a = project.audio[i]
+        let span = a.duration * a.speed
+        if let fwd = a.reverse {
+            // the part that plays, mirrored back onto the forward file
+            let back = a.sourceDuration - (a.inPoint + span)
+            mutate { p in
+                p.audio[i].file = fwd.file
+                p.audio[i].sourceDuration = fwd.sourceDuration
+                p.audio[i].inPoint = min(max(0, back), max(0, fwd.sourceDuration - span))
+                p.audio[i].reverse = nil
+            }
+            return
+        }
+        pause()
+        reversingAudio = true
+        Task {
+            defer { reversingAudio = false }
+            do {
+                let (file, length) = try await AudioReverser.reverse(a.file)
+                guard let k = project.audio.firstIndex(where: { $0.id == a.id }) else { return }
+                let cur = project.audio[k]
+                let flipped = length - (cur.inPoint + cur.duration * cur.speed)
+                mutate { p in
+                    p.audio[k].reverse = AudioReverse(file: cur.file, sourceDuration: cur.sourceDuration)
+                    p.audio[k].file = file
+                    p.audio[k].sourceDuration = length
+                    p.audio[k].inPoint = min(max(0, flipped), max(0, length - cur.duration * cur.speed))
+                }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } catch {
+                audioError = error.localizedDescription
+            }
+        }
     }
 
     func deleteAudio() {
@@ -4198,12 +4252,24 @@ extension EditorModel {
 
     /// Room to slip: footage before or after the part that plays.
     var canSlip: Bool {
+        if let i = selectedAudioIndex { return Self.canSlip(project.audio[i]) }
         guard let i = selectedIndex else { return false }
         let c = project.clips[i]
         return !c.still && c.sourceDuration - (c.outPoint - c.inPoint) > 0.05
     }
 
+    /// A sound with more of its file before or after the part that plays.
+    static func canSlip(_ a: AudioItem) -> Bool { a.sourceDuration - a.duration * a.speed > 0.05 }
+
     func startSlip() {
+        if let i = selectedAudioIndex {
+            let a = project.audio[i]
+            guard Self.canSlip(a) else { return }
+            pause()
+            slipSnapshot = project
+            slip = SlipState(id: a.id, dragFrom: a.inPoint, audio: true)
+            return
+        }
         guard let i = selectedIndex, canSlip else { return }
         pause()
         let c = project.clips[i]
@@ -4216,6 +4282,7 @@ extension EditorModel {
     /// The finger moved `dx` points along the timeline since this drag began (dragging left brings later footage
     /// into the clip, like pulling the film through); `done` = finger lifted.
     func slipDrag(_ dx: CGFloat, done: Bool) {
+        if slip?.audio == true { slipAudio(dx, done: done); return }
         guard var st = slip, let i = project.clips.firstIndex(where: { $0.id == st.id }),
               let c0 = slipSnapshot?.clips.first(where: { $0.id == st.id }) else { return }
         let len = c0.outPoint - c0.inPoint
@@ -4240,6 +4307,22 @@ extension EditorModel {
         slip = st
     }
 
+    /// Slip on a sound: its file slides under the block (same place, same length), the waveform shows the new part.
+    private func slipAudio(_ dx: CGFloat, done: Bool) {
+        guard var st = slip, let i = project.audio.firstIndex(where: { $0.id == st.id }),
+              let a0 = slipSnapshot?.audio.first(where: { $0.id == st.id }) else { return }
+        let span = a0.duration * a0.speed
+        let want = st.dragFrom - Double(dx / max(pxPerSec, 1)) * a0.speed
+        let most = max(0, a0.sourceDuration - span)
+        let newIn = min(max(0, want), most)
+        let limit = want < 0 || want > most
+        if limit && !st.atLimit { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
+        st.atLimit = limit
+        project.audio[i].inPoint = newIn
+        if done { st.dragFrom = newIn }
+        slip = st
+    }
+
     private func grabSlip(_ c: Clip) {
         slipFirst.grab(file: c.mediaFile, at: c.inPoint) { [weak self] img in self?.slipView?.first = img }
         slipLast.grab(file: c.mediaFile, at: max(c.inPoint, c.outPoint - 0.04)) { [weak self] img in self?.slipView?.last = img }
@@ -4255,7 +4338,7 @@ extension EditorModel {
         slipLast.reset()
         if apply && snap != project {
             pushUndo(snap)
-            followFootage(from: snap)
+            if snap.clips != project.clips { followFootage(from: snap) }
             commit()
         } else {
             project = snap
@@ -4671,6 +4754,7 @@ extension EditorModel {
         switch a {
         case .split: split()
         case .adjust: panel(.adjust)
+        case .filters: panel(.filters)
         case .speed: panel(.speed)
         case .slip: requestedPanel = nil; startSlip()
         case .crop: pause(); playheadIntoSelected(); requestedPanel = .crop

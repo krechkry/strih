@@ -356,13 +356,9 @@ extension EditorModel {
             let c = project.clips[i]
             guard !c.still, c.volume > 0.001 else { continue }
             do {
-                let file: String, d: Double
-                if c.hasCurve {
-                    (file, d) = try await AudioExtract.extractRetimed(c)
-                } else {
-                    (file, d) = try await AudioExtract.extract(from: Paths.mediaURL(c.mediaFile), range: c.inPoint...c.outPoint)
-                }
+                let (file, d, speech) = try await AudioExtract.clipSound(c)
                 var a = AudioItem(file: file, name: loc("Clip sound"), sourceDuration: d, start: starts[i], duration: c.duration)
+                a.speech = speech
                 a.speed = c.hasCurve ? 1 : c.rate
                 a.duration = c.hasCurve ? min(d, c.duration) : c.duration
                 a.volume = c.volume * st.volume

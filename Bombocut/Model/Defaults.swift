@@ -52,7 +52,7 @@ enum Defaults {
 
 /// One tool of the clip toolbar, for the quick menu.
 enum QuickAction: String, CaseIterable, Identifiable {
-    case split, adjust, speed, slip, crop, autoZoom, captions, track, mask, stabilize, motionBlur
+    case split, adjust, filters, speed, slip, crop, autoZoom, captions, track, mask, stabilize, motionBlur
     case transition, freeze, reverse, fill, duplicate, copyAsOverlay, soundFromVideo, speech, volume, delete
 
     var id: String { rawValue }
@@ -63,6 +63,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
         switch self {
         case .split: return "scissors"
         case .adjust: return "slider.horizontal.3"
+        case .filters: return "camera.filters"
         case .speed: return "speedometer"
         case .slip: return "arrow.left.and.line.vertical.and.arrow.right"
         case .crop: return "crop"
@@ -89,6 +90,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
         switch self {
         case .split: return "Split"
         case .adjust: return "Adjust"
+        case .filters: return "Filters"
         case .speed: return "Speed"
         case .slip: return "Slip"
         case .crop: return "Crop"

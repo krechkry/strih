@@ -1648,17 +1648,28 @@ struct AudioLane: View {
     }
 
     private func block(_ a: AudioItem, px: CGFloat) -> some View {
-        let selected = a.id == model.selectedAudioID && model.pick == nil
+        let slipping = model.slip?.id == a.id
+        let selected = a.id == model.selectedAudioID && model.pick == nil && !slipping
         let w = max(10, CGFloat(a.duration) * px)
         return HStack(spacing: 4) {
             Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "waveform").font(.system(size: 10, weight: .bold))
+            if a.reverse != nil { Image(systemName: "backward.fill").font(.system(size: 8, weight: .bold)) }
+            if a.speech != nil { Image(systemName: "person.wave.2.fill").font(.system(size: 8, weight: .bold)) }
             Text(a.name).font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
         .foregroundStyle(.black)
         .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background { soundBlock(a, selected: selected, width: w, px: px) }
+        .background { soundBlock(a, selected: selected || slipping, width: w, px: px) }
         .clipped()
+        .overlay {
+            // slipping: the file slides under the block (red at either end of the file)
+            if slipping {
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(model.slip?.atLimit == true ? Color.red : Color.white, lineWidth: 2.5)
+                    .allowsHitTesting(false)
+            }
+        }
         .overlay(alignment: .leading) {
             if selected {
                 HStack(spacing: 0) {

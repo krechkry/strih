@@ -435,7 +435,8 @@ enum CompositionBuilder {
 
         // Sound on the audio lane: one track each (own volume), cut at the end of the video.
         for a in project.audio where a.start < contentEnd.seconds - 0.02 && a.volume > 0.001 {
-            let asset = AVURLAsset(url: Paths.mediaURL(a.file))
+            // cleaned speech (same timing as the file) when the sound has it and it's made
+            let asset = AVURLAsset(url: SpeechCleanup.readyURL(a) ?? Paths.mediaURL(a.file))
             guard let src = await AudioPick.track(asset),
                   let range = try? await src.load(.timeRange),
                   let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)

@@ -250,6 +250,34 @@ final class TranslationPacks: ObservableObject {
         BergamotEngine.shared.unload()
         refreshInstalled()
     }
+
+    /// One downloaded direction ("csen") off the phone.
+    func delete(_ direction: String) {
+        try? FileManager.default.removeItem(at: Self.folder.appendingPathComponent(direction))
+        BergamotEngine.shared.unload()
+        refreshInstalled()
+    }
+
+    /// What a downloaded direction takes on the phone (counted on disk, the list may not know it).
+    func size(of direction: String) -> Int64 {
+        let dir = Self.folder.appendingPathComponent(direction)
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        let disk = names.reduce(Int64(0)) { sum, n in
+            let a = try? FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent(n).path)
+            return sum + ((a?[.size] as? NSNumber)?.int64Value ?? 0)
+        }
+        return disk > 0 ? disk : (catalog?[direction]?.size ?? 0)
+    }
+
+    /// "Czech → English" for "csen" (the two codes split where the English side is).
+    static func title(_ direction: String) -> String {
+        let (a, b): (String, String)
+        if direction.hasPrefix("en") { (a, b) = ("en", String(direction.dropFirst(2))) }
+        else if direction.hasSuffix("en") { (a, b) = (String(direction.dropLast(2)), "en") }
+        else { return direction }
+        func name(_ c: String) -> String { TranslateLanguage.localName(c == "zh-Hans" ? "zh" : c == "nb" ? "no" : c) }
+        return "\(name(a)) → \(name(b))"
+    }
 }
 
 /// gzip files from the model service (raw deflate inside a small header).

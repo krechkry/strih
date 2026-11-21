@@ -7,32 +7,45 @@ struct TranslateSheet: View {
     @ObservedObject var model: EditorModel
     /// Inside the captions panel (its tab): no title or padding of its own.
     var embedded = false
+    /// The popup right after captions are made: its own title and No / Translate buttons; called when it closes.
+    var prompt: (() -> Void)? = nil
     @AppStorage("translateTarget") private var translateTarget = "en"
     @ObservedObject private var packs = TranslationPacks.shared
     /// Apple's translator: what it can do for the picked pair, and the run it is asked for.
     @State private var appleStatus: LanguageAvailability.Status?
     @State private var appleConfig: TranslationSession.Configuration?
     @State private var appleTarget = ""
-    @State private var confirmDelete = false
+    /// The popup started a translation (it closes when that is done).
+    @State private var started = false
     /// Translate into a new caption track (both languages on screen) instead of replacing these captions.
     @AppStorage("translateAsNewTrack") private var asNewTrack = true
+    /// Off: the popup after making captions doesn't come up any more.
+    @AppStorage("offerCaptionTranslation") private var offer = true
 
     var body: some View {
         Group {
             if let caps = model.project.captions {
                 VStack(alignment: .leading, spacing: 12) {
-                    if !embedded { Text("Translate captions").font(.title3.weight(.heavy)) }
+                    if prompt != nil {
+                        Text("Wanna translate the subs?").font(.title3.weight(.heavy))
+                    } else if !embedded {
+                        Text("Translate captions").font(.title3.weight(.heavy))
+                    }
                     translator(caps)
                 }
             } else {
                 Text("Make captions first.").foregroundStyle(Theme.muted)
             }
         }
-        .padding(.horizontal, embedded ? 0 : 20)
-        .padding(.top, embedded ? 0 : 12)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, embedded || prompt != nil ? 0 : 20)
+        .padding(.top, embedded || prompt != nil ? 0 : 12)
+        .frame(maxHeight: prompt == nil ? .infinity : nil, alignment: .top)
         .onAppear { model.dismissTranslateError() }
         .task { await packs.loadCatalog() }
+        .onChange(of: model.translateJob) { _, job in
+            // the popup's translation is done: it goes away
+            if started && job == nil { started = false; prompt?() }
+        }
         .translationTask(appleConfig) { session in
             let target = appleTarget
             await model.translateCaptions(to: target, asNewTrack: asNewTrack) { texts, progress in
@@ -56,9 +69,6 @@ struct TranslateSheet: View {
                 return out
             }
         }
-        .confirmationDialog("Delete the downloaded languages?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) { packs.deleteAll() }
-        }
     }
 
     // MARK: Translate
@@ -77,155 +87,168 @@ struct TranslateSheet: View {
         let usePacks = dirs.map { packs.isInstalled($0) } ?? false
         let appleCan = appleStatus == .installed || appleStatus == .supported
         let busy = model.translateJob != nil && model.translateJob?.error == nil
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        let content = VStack(alignment: .leading, spacing: 12) {
+            languageWheel(target: target, dirs: dirs, ready: usePacks, appleCan: appleCan, busy: busy)
+
+            HStack(spacing: 8) {
+                modeChip(prompt != nil ? "Keep the original" : "Add as a new track", "captions.bubble", on: asNewTrack) { asNewTrack = true }
+                modeChip(prompt != nil ? "Overwrite" : "Replace", "arrow.triangle.2.circlepath", on: !asNewTrack) { asNewTrack = false }
+            }
+            .disabled(busy)
+
+            jobStatus(usePacks: usePacks)
+
+            if prompt != nil {
                 HStack(spacing: 8) {
-                    Text(String(format: loc("From %@ to"), TranslateLanguage.localName(caps.language)))
-                        .font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                    Spacer()
-                }
-                Picker("", selection: Binding(get: { target }, set: { translateTarget = $0 })) {
-                    ForEach(targets) { l in
-                        Text(verbatim: "\(l.flag)  \(TranslateLanguage.localName(l.code))").tag(l.code)
+                    Button { model.cancelTranslation(); prompt?() } label: {
+                        Text("No").font(.headline.weight(.bold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, minHeight: 54)
+                            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
                     }
+                    .buttonStyle(.plain)
+                    translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
+                                    title: loc("Translate"))
                 }
-                .pickerStyle(.wheel)
-                .frame(height: 150)
-                .clipped()
-                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
-                .disabled(busy)
-
-                engineCard(dirs: dirs, usePacks: usePacks, appleCan: appleCan, source: caps.language, target: target)
-
-                HStack(spacing: 8) {
-                    modeChip("Add as a new track", "captions.bubble", on: asNewTrack) { asNewTrack = true }
-                    modeChip("Replace", "arrow.triangle.2.circlepath", on: !asNewTrack) { asNewTrack = false }
+                Toggle(isOn: Binding(get: { !offer }, set: { offer = !$0 })) {
+                    Text("Don't show this again").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                 }
-                .disabled(busy)
-
-                if let job = model.translateJob {
-                    if let e = job.error {
-                        Text(e).font(.footnote.weight(.semibold)).foregroundStyle(.red)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } else {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(String(format: loc("Translating %lld %%"), Int(job.progress * 100)))
-                                    .font(.subheadline.weight(.bold))
-                                Spacer()
-                                if usePacks {
-                                    Button(loc("Cancel")) { model.cancelTranslation() }
-                                        .font(.subheadline.weight(.bold)).tint(.white)
-                                }
-                            }
-                            ProgressView(value: max(job.progress, 0.02)).tint(Theme.accent)
-                        }
-                        .padding(14)
-                        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-                    }
-                }
-
-                Button {
-                    model.pause()
-                    model.dismissTranslateError()
-                    if usePacks, let dirs {
-                        model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
-                    } else {
-                        appleTarget = target
-                        let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
-                                                                   target: Locale.Language(identifier: target))
-                        if appleConfig == cfg { appleConfig?.invalidate() } else { appleConfig = cfg }
-                    }
-                } label: {
-                    Label(String(format: loc("Translate to %@"), TranslateLanguage.localName(target)),
-                          systemImage: "character.bubble.fill")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity, minHeight: 54)
-                        .background(Theme.accent.opacity(usePacks || appleCan ? 1 : 0.35), in: RoundedRectangle(cornerRadius: 16))
-                }
-                .buttonStyle(.plain)
-                .disabled(busy || !(usePacks || appleCan))
-
+                .tint(Theme.accent)
+            } else {
+                translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
+                                title: String(format: loc("Translate to %@"), TranslateLanguage.localName(target)))
                 Text(asNewTrack
                      ? "The translation becomes a second captions track, a line above these, with its own style. Both stay editable."
                      : "The translation replaces the captions, with the same style and timing. Undo brings the original back.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.bottom, 30)
         }
         .task(id: caps.language + ">" + target) {
             appleStatus = nil
             appleStatus = await LanguageAvailability().status(from: Locale.Language(identifier: caps.language),
                                                               to: Locale.Language(identifier: target))
         }
-    }
-
-    /// Which translator does the work: the downloaded language (offline), or Apple's built-in one.
-    @ViewBuilder
-    private func engineCard(dirs: [String]?, usePacks: Bool, appleCan: Bool, source: String, target: String) -> some View {
-        let pair = "\(TranslateLanguage.localName(source)) → \(TranslateLanguage.localName(target))"
-        VStack(alignment: .leading, spacing: 12) {
-            if usePacks {
-                engineRow(icon: "checkmark.circle.fill", tint: Theme.accent, title: "Downloaded",
-                          detail: String(format: loc("%@ translates offline, on your iPhone."), pair)) {
-                    Menu {
-                        Button(role: .destructive) { confirmDelete = true } label: {
-                            Label(String(format: loc("Delete downloaded languages (%@)"), TranslationPacks.sizeLabel(packs.installedSize)),
-                                  systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis").font(.system(size: 15, weight: .bold))
-                            .frame(width: 34, height: 34).background(Theme.panel, in: Circle())
-                    }
-                    .tint(.white)
-                }
+        return Group {
+            if prompt != nil {
+                content
             } else {
-                // works right now, without a download?
-                engineRow(icon: appleCan ? "checkmark.circle.fill" : "xmark.circle.fill",
-                          tint: appleCan ? Theme.accent : .orange,
-                          title: "Apple's built-in translator",
-                          detail: appleStatus == nil ? loc("Checking…")
-                            : appleCan ? loc("Knows this language pair. Quick, nothing to download.")
-                            : String(format: loc("Doesn't know %@."), TranslateLanguage.localName(appleKnowsEnglishOnly(source) ? target : source))) { EmptyView() }
-                Divider().overlay(Theme.line)
-                // or download the language
-                if let p = packs.progress {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(String(format: loc("Downloading %@ %lld %%"), pair, Int(p * 100))).font(.subheadline.weight(.bold))
-                            Spacer()
-                            Button(loc("Cancel")) { packs.cancel() }.font(.subheadline.weight(.bold)).tint(.white)
-                        }
-                        ProgressView(value: max(p, 0.01)).tint(Theme.accent)
-                    }
-                } else if let dirs {
-                    let size = TranslationPacks.sizeLabel(packs.downloadSize(dirs))
-                    engineRow(icon: "arrow.down.circle", tint: .white, title: "Offline translation",
-                              detail: String(format: loc("Download %@ once (%@), then it translates without internet."), pair, size)) { EmptyView() }
-                    Button { packs.download(dirs) } label: {
-                        Label(String(format: loc("Download (%@)"), size), systemImage: "arrow.down.circle.fill")
-                            .font(.subheadline.weight(.bold)).foregroundStyle(.black)
-                            .padding(.horizontal, 14).frame(height: 38)
-                            .background(Color.white, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                } else if packs.catalog == nil {
-                    engineRow(icon: "arrow.down.circle", tint: Theme.muted, title: "Offline translation",
-                              detail: packs.catalogError ?? loc("Checking…")) { EmptyView() }
-                } else {
-                    engineRow(icon: "arrow.down.circle", tint: Theme.muted, title: "Offline translation",
-                              detail: String(format: loc("Not available for %@ yet."), pair)) { EmptyView() }
-                }
-                if let e = packs.downloadError {
-                    Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
-                }
+                ScrollView { content.padding(.bottom, 30) }.scrollIndicators(.hidden)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// The language wheel. A language that isn't on the phone yet is greyed out under its download, right on the
+    /// wheel (a downloaded one shows nothing extra).
+    private func languageWheel(target: String, dirs: [String]?, ready: Bool, appleCan: Bool, busy: Bool) -> some View {
+        Picker("", selection: Binding(get: { target }, set: { translateTarget = $0 })) {
+            ForEach(targets) { l in
+                Text(verbatim: "\(l.flag)  \(TranslateLanguage.localName(l.code))").tag(l.code)
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(height: prompt != nil ? 120 : 136)
+        .clipped()
+        .opacity(ready ? 1 : 0.35)
+        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
+        .overlay { if !ready { downloadBadge(dirs: dirs, appleCan: appleCan) } }
+        .disabled(busy)
+    }
+
+    /// Over the wheel's middle row: download the language (its size), the download running, or why it can't.
+    @ViewBuilder
+    private func downloadBadge(dirs: [String]?, appleCan: Bool) -> some View {
+        VStack(spacing: 4) {
+            if let p = packs.progress {
+                HStack(spacing: 10) {
+                    ProgressView(value: max(p, 0.01)).tint(.black).frame(width: 70)
+                    Text("\(Int(p * 100)) %").font(.subheadline.weight(.bold).monospacedDigit())
+                    Button { packs.cancel() } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .heavy))
+                    }
+                    .accessibilityLabel(loc("Cancel"))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 16).frame(height: 40)
+                .background(Theme.accent, in: Capsule())
+            } else if let dirs {
+                Button { packs.download(dirs) } label: {
+                    Label(String(format: loc("Download (%@)"), TranslationPacks.sizeLabel(packs.downloadSize(dirs))),
+                          systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .padding(.horizontal, 16).frame(height: 40)
+                        .background(Theme.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(packs.catalog == nil ? (packs.catalogError ?? loc("Checking…")) : loc("Not available yet"))
+                    .font(.footnote.weight(.bold)).foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(Theme.panel, in: Capsule())
+            }
+            if let e = packs.downloadError {
+                Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
+            } else if appleCan && packs.progress == nil {
+                // it still translates without it, with Apple's translator
+                Text("Or translate now with Apple's translator").font(.caption.weight(.semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Theme.panel.opacity(0.85), in: Capsule())
+            }
+        }
+        .padding(.horizontal, 10)
+    }
+
+    /// Translating: how far, or what went wrong.
+    @ViewBuilder
+    private func jobStatus(usePacks: Bool) -> some View {
+        if let job = model.translateJob {
+            if let e = job.error {
+                Text(e).font(.footnote.weight(.semibold)).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(String(format: loc("Translating %lld %%"), Int(job.progress * 100)))
+                            .font(.subheadline.weight(.bold))
+                        Spacer()
+                        if usePacks {
+                            Button(loc("Cancel")) { model.cancelTranslation() }
+                                .font(.subheadline.weight(.bold)).tint(.white)
+                        }
+                    }
+                    ProgressView(value: max(job.progress, 0.02)).tint(Theme.accent)
+                }
+                .padding(14)
+                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
+            }
+        }
+    }
+
+    private func translateButton(_ caps: Captions, target: String, dirs: [String]?, usePacks: Bool, appleCan: Bool,
+                                 busy: Bool, title: String) -> some View {
+        Button {
+            model.pause()
+            model.dismissTranslateError()
+            started = prompt != nil
+            if usePacks, let dirs {
+                model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
+            } else {
+                appleTarget = target
+                let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
+                                                           target: Locale.Language(identifier: target))
+                if appleConfig == cfg { appleConfig?.invalidate() } else { appleConfig = cfg }
+            }
+        } label: {
+            Label(title, systemImage: "character.bubble.fill")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.black)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(Theme.accent.opacity(usePacks || appleCan ? 1 : 0.35), in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy || !(usePacks || appleCan))
     }
 
     private func modeChip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
@@ -240,21 +263,25 @@ struct TranslateSheet: View {
         .buttonStyle(.plain)
     }
 
-    /// Apple has no Czech or Slovak: name the language it is missing (the source, or else the target).
-    private func appleKnowsEnglishOnly(_ source: String) -> Bool { !["cs", "sk"].contains(source) }
+}
 
-    private func engineRow<T: View>(icon: String, tint: Color, title: String, detail: String,
-                                    @ViewBuilder trailing: () -> T) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(tint).frame(width: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(loc(title)).font(.subheadline.weight(.bold))
-                Text(detail).font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 4)
-            trailing()
+/// The popup that comes up when captions are ready: pick a language, keep or overwrite, Translate or No.
+struct TranslatePrompt: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea()
+                .onTapGesture { if model.translateJob == nil { close() } }
+            TranslateSheet(model: model, prompt: close)
+                .padding(20)
+                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 26))
+                .overlay { RoundedRectangle(cornerRadius: 26).strokeBorder(Theme.line, lineWidth: 1) }
+                .frame(maxWidth: 460)
+                .padding(.horizontal, 16)
         }
+        .transition(.opacity)
     }
 
+    private func close() { model.offerTranslate = false }
 }

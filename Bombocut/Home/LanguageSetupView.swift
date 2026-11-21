@@ -25,7 +25,7 @@ struct LanguageSetupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Text(firstLaunch ? "Your languages" : "Captions").font(.title2.weight(.heavy))
+                Text(firstLaunch ? "Your preferred languages" : "Captions").font(.title2.weight(.heavy))
                 Spacer()
                 if !firstLaunch {
                     Button { dismiss() } label: {
@@ -36,7 +36,7 @@ struct LanguageSetupView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Which languages do you speak in your videos? One speech model covers all 25. Captions then run on your iPhone, offline.")
+            Text("Pick the languages you speak in your videos. It's only a preference: they come first when you make captions, and you can still use any of the 25. One speech model covers them all, offline on your iPhone.")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.muted)
 
@@ -121,7 +121,7 @@ struct LanguageSetupView: View {
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(Theme.accent)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Speech model: \(model.title)").font(.subheadline.weight(.bold))
+                Text(verbatim: model.title).font(.subheadline.weight(.bold))
                 Group {
                     switch speech.state(model) {
                     case .ready: Text("On your iPhone")

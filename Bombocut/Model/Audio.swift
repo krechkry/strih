@@ -15,8 +15,18 @@ struct AudioItem: Codable, Hashable, Identifiable {
     /// Seconds the sound rises from silence at its start / sinks to silence at its end (nil: none).
     var fadeIn: Double?
     var fadeOut: Double?
+    /// Remove noise / Enhance voice on this sound (carried over from the clip it came from, or set on it).
+    /// Apple's Audio Mix needs the video's spatial track, so it is already in the file when a clip had it.
+    var speech: SpeechFX?
+    /// Playing backwards: `file` is a reversed copy, this is the original it was made from.
+    var reverse: AudioReverse?
 
     var end: Double { start + duration }
+    /// The sound as the speech tools see it: always the forward file (the result is turned round for a reversed one).
+    var speechSource: SpeechSource? {
+        guard let fx = speech, fx.renders else { return nil }
+        return SpeechSource(file: reverse?.file ?? file, fx: fx, reversed: reverse != nil)
+    }
     /// The fades as they play: never longer than the sound, and the two never overlap.
     var fades: (in: Double, out: Double) { Fade.fit(fadeIn ?? 0, fadeOut ?? 0, length: duration) }
 
@@ -27,6 +37,12 @@ struct AudioItem: Codable, Hashable, Identifiable {
         self.start = start
         self.duration = duration
     }
+}
+
+/// The forward sound a reversed sound item was made from (back to it on Forward).
+struct AudioReverse: Codable, Hashable {
+    var file: String
+    var sourceDuration: Double
 }
 
 /// Fade in / out lengths that fit a stretch of `length` seconds (each at most half of it).
@@ -98,8 +114,7 @@ enum AudioExtract {
 
     /// The sound of a clip with a speed curve, retimed along the curve (pitch kept unless the clip turns
     /// that off), so it lines up with the clip as it plays. A sound item can only play at one speed.
-    static func extractRetimed(_ c: Clip) async throws -> (file: String, duration: Double) {
-        let url = SpeechCleanup.readyURL(c) ?? Paths.mediaURL(c.mediaFile)
+    static func extractRetimed(_ c: Clip, from url: URL) async throws -> (file: String, duration: Double) {
         let asset = AVURLAsset(url: url)
         guard let src = await AudioPick.track(asset) else { throw err("This video has no sound.") }
         let range = try await src.load(.timeRange)
@@ -136,6 +151,32 @@ enum AudioExtract {
         try await session.export(to: out, as: .m4a)
         let d = try await AVURLAsset(url: out).load(.duration).seconds
         return (name, d)
+    }
+
+    /// "Sound from video": the clip's part of its sound as a new file, and the speech settings the sound item
+    /// takes over from the clip (Remove noise, Enhance voice). Apple's Audio Mix can only be made from the video's
+    /// spatial track, so when the clip has it, the sound comes out of the mixed version (it is in the file).
+    @MainActor
+    static func clipSound(_ c: Clip) async throws -> (file: String, duration: Double, speech: SpeechFX?) {
+        var url = Paths.mediaURL(c.mediaFile)
+        var carried = c.speech
+        if let fx = c.speech, let style = fx.mix {
+            var mixOnly = SpeechFX()
+            mixOnly.mix = style
+            mixOnly.mixIntensity = fx.mixIntensity
+            if let mixed = await SpeechCleanup.shared.make(SpeechSource(file: c.mediaFile, fx: mixOnly)) {
+                url = mixed
+                carried?.mix = nil
+            }
+        }
+        if carried?.isActive != true { carried = nil }
+        let out: (file: String, duration: Double)
+        if c.hasCurve {
+            out = try await extractRetimed(c, from: url)
+        } else {
+            out = try await extract(from: url, range: c.inPoint...c.outPoint)
+        }
+        return (out.file, out.duration, carried)
     }
 
     /// Copies an audio file in (or takes the sound out of a video file).

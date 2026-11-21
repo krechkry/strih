@@ -11,7 +11,7 @@ enum SpeechModel: String, CaseIterable {
 
     static let version: AsrModelVersion = .ultra
 
-    var title: String { loc("25 languages") }
+    var title: String { loc("Automatic Captions") }
     var sizeLabel: String { loc("about 650 MB") }
 
     static func needed(for languages: Set<String>) -> SpeechModel { .parakeet }

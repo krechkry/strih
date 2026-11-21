@@ -6,6 +6,7 @@ struct StorageView: View {
     @ObservedObject private var speech = SpeechModels.shared
     @ObservedObject private var voice = VoiceRestoreModel.shared
     @ObservedObject private var cloud = CloudBackup.shared
+    @ObservedObject private var packs = TranslationPacks.shared
     @Environment(\.dismiss) private var dismiss
     @State private var report = StorageReport()
     @State private var confirm: Confirm?
@@ -14,11 +15,12 @@ struct StorageView: View {
     @State private var pendingVoice = false
 
     enum Confirm: Identifiable {
-        case model(SpeechModel), voice, leftovers, temp, caches, optimized, unused
+        case model(SpeechModel), voice, translation(String), leftovers, temp, caches, optimized, unused
         var id: String {
             switch self {
             case .model(let m): return m.rawValue
             case .voice: return "voice"
+            case .translation(let d): return "translation-" + d
             case .leftovers: return "leftovers"
             case .temp: return "temp"
             case .caches: return "caches"
@@ -33,12 +35,20 @@ struct StorageView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     total
-                    section("Voice models") {
+                    section("AI Models") {
                         ForEach(SpeechModel.allCases, id: \.self) { m in modelRow(m) }
                         voiceRow
                         if report.leftovers > 0 {
                             row(icon: "shippingbox", title: "Unfinished downloads", detail: "Leftovers from stopped downloads",
                                 bytes: report.leftovers) { confirm = .leftovers }
+                        }
+                    }
+                    if !packs.installed.isEmpty {
+                        section("Translation languages") {
+                            ForEach(packs.installed.sorted { TranslationPacks.title($0) < TranslationPacks.title($1) }, id: \.self) { d in
+                                row(icon: "character.bubble", title: TranslationPacks.title(d), detail: "Translates captions offline",
+                                    bytes: packs.size(of: d)) { confirm = .translation(d) }
+                            }
                         }
                     }
                     section("Clean up") {
@@ -269,8 +279,9 @@ struct StorageView: View {
 
     private func title(_ c: Confirm) -> String {
         switch c {
-        case .model(let m): return String(format: loc("Delete the %@ voice model?"), loc(m.title))
+        case .model(let m): return String(format: loc("Delete the %@ model?"), loc(m.title))
         case .voice: return "Delete the Enhance voice model?"
+        case .translation(let d): return String(format: loc("Delete %@?"), TranslationPacks.title(d))
         case .leftovers: return "Delete unfinished downloads?"
         case .temp: return "Delete temporary files?"
         case .caches: return "Clear caches?"
@@ -290,6 +301,8 @@ struct StorageView: View {
                 speech.delete(m)
             case .voice:
                 VoiceRestore.remove()
+            case .translation(let d):
+                packs.delete(d)
             case .unused:
                 store.cleanupMedia()
             default:
@@ -323,7 +336,7 @@ struct StorageView: View {
         report = await Task.detached {
             var r = StorageReport.scan(models: ready, usedMedia: used, modelBase: base)
             r.voice = StorageReport.folderSize(VoiceRestore.folder)
-            r.total += r.voice
+            r.total += r.voice + StorageReport.folderSize(TranslationPacks.folder)
             return r
         }.value
     }

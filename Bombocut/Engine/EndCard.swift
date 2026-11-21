@@ -2,11 +2,12 @@ import AVFoundation
 import SwiftUI
 
 /// The Bombocut end card, added after the last clip when exporting (switch on the export page).
-/// It is a video file: the app's own outro once it is in the app (EndCard.mov or EndCard.mp4 in the
-/// bundle); until then a generated card with the camera blob and "Made with Bombocut".
+/// It is a video file: the app's own outro (Resources/EndCard.mp4: 1 s, the green guy says "Bombocut",
+/// "Made with BOMBOCUT" under him, 9:16, fitted into the canvas); if that is ever missing, a generated card.
 enum EndCard {
     static let clipID = UUID(uuidString: "B0B0CA7D-0000-4000-8000-00000000E0DC")!
-    static let length = 2.0
+    /// The bundled card's length (the export size estimate; the real length is read from the file).
+    static let length = 1.0
     private static let side = 720
     private static let fps: Int32 = 30
 
