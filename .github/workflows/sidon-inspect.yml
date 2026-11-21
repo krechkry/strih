@@ -69,11 +69,22 @@ jobs:
           for fb in ["sidon/sidon_fbank.bin", "sidon/v4/sidon_fbank.bin"]:
               raw = np.fromfile(fb, dtype="<f4")
               rep.append(f"{fb}: {raw.size} floats")
-              if raw.size == 400 + 257 * 80:
-                  a_w, a_m = raw[:400], raw[400:]
-                  b_m, b_w = raw[:257 * 80], raw[257 * 80:]
-                  rep.append(f"  window first: win {np.abs(a_w - win).max():.3g} mel257x80 {np.abs(a_m.reshape(257, 80) - mel).max():.3g} mel80x257T {np.abs(a_m.reshape(80, 257).T - mel).max():.3g}")
-                  rep.append(f"  window last: win {np.abs(b_w - win).max():.3g} mel257x80 {np.abs(b_m.reshape(257, 80) - mel).max():.3g} mel80x257T {np.abs(b_m.reshape(80, 257).T - mel).max():.3g}")
+              rep.append(f"  head {raw[:6].tolist()} tail {raw[-6:].tolist()}")
+              best = []
+              for h in range(0, 8):
+                  for tail in (False, True):
+                      body = raw[h:] if not tail else raw[:raw.size - h]
+                      if body.size < 400 + 257 * 80: continue
+                      body = body[:400 + 257 * 80] if not tail else body[body.size - (400 + 257 * 80):]
+                      for wfirst in (True, False):
+                          w = body[:400] if wfirst else body[-400:]
+                          m = body[400:] if wfirst else body[:-400]
+                          for lay in ("257x80", "80x257T"):
+                              mm = m.reshape(257, 80) if lay == "257x80" else m.reshape(80, 257).T
+                              d = max(np.abs(w - win).max(), np.abs(mm - mel).max())
+                              best.append((float(d), h, tail, wfirst, lay))
+              best.sort()
+              for b in best[:4]: rep.append(f"  diff {b[0]:.3g} skip {b[1]} {'from end' if b[2] else 'from start'} window {'first' if b[3] else 'last'} mel {b[4]}")
           rep.append(f"win[0:3] {win[:3].tolist()} win[200] {win[200]}")
 
           # reference features for a signal the Swift test makes the same way
