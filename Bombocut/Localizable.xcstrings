@@ -2394,12 +2394,12 @@
         }
       }
     },
-    "Delete the Restore voice model?": {
+    "Delete the Enhance voice model?": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smazat model pro opravu hlasu?"
+            "value": "Smazat model pro vylepšení hlasu?"
           }
         }
       }
@@ -3000,6 +3000,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Koncová karta"
+          }
+        }
+      }
+    },
+    "Enhance voice": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vylepšit hlas"
           }
         }
       }
@@ -6428,16 +6438,6 @@
         }
       }
     },
-    "Restore voice": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Oprava hlasu"
-          }
-        }
-      }
-    },
     "Resume download": {
       "localizations": {
         "cs": {
@@ -7878,32 +7878,32 @@
         }
       }
     },
-    "The Restore voice model is %@. Wi-Fi is better.": {
+    "The Enhance voice model is %@. Wi-Fi is better.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Model pro opravu hlasu má %@. Lepší je Wi-Fi."
+            "value": "Model pro vylepšení hlasu má %@. Lepší je Wi-Fi."
           }
         }
       }
     },
-    "The Restore voice model is broken.": {
+    "The Enhance voice model is broken.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Model pro opravu hlasu je poškozený."
+            "value": "Model pro vylepšení hlasu je poškozený."
           }
         }
       }
     },
-    "The Restore voice model isn't downloaded.": {
+    "The Enhance voice model isn't downloaded.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Model pro opravu hlasu není stažený."
+            "value": "Model pro vylepšení hlasu není stažený."
           }
         }
       }

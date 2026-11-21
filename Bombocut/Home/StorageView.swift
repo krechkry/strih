@@ -96,7 +96,7 @@ struct StorageView: View {
                 Button("Download anyway") { voice.start() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(String(format: loc("The Restore voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
+                Text(String(format: loc("The Enhance voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
             }
         }
     }
@@ -179,7 +179,7 @@ struct StorageView: View {
             default: return .start { if NetworkWatch.shared.onMobileData { pendingVoice = true } else { voice.start() } }
             }
         }()
-        return row(icon: "waveform.and.person.filled", title: "Restore voice", detail: detail,
+        return row(icon: "waveform.and.person.filled", title: "Enhance voice", detail: detail,
                    bytes: voice.isReady ? report.voice : nil, action: voice.isReady ? { confirm = .voice } : nil,
                    download: download)
     }
@@ -270,7 +270,7 @@ struct StorageView: View {
     private func title(_ c: Confirm) -> String {
         switch c {
         case .model(let m): return String(format: loc("Delete the %@ voice model?"), loc(m.title))
-        case .voice: return "Delete the Restore voice model?"
+        case .voice: return "Delete the Enhance voice model?"
         case .leftovers: return "Delete unfinished downloads?"
         case .temp: return "Delete temporary files?"
         case .caches: return "Clear caches?"

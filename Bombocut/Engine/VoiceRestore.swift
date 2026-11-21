@@ -158,7 +158,7 @@ final class VoiceRestorer: @unchecked Sendable {
 
     private func load() throws -> (MLModel, MLModel, SidonFrontEnd) {
         if let encoder, let decoder, let front { return (encoder, decoder, front) }
-        guard VoiceRestore.available else { throw AudioExtract.err("The Restore voice model isn't downloaded.") }
+        guard VoiceRestore.available else { throw AudioExtract.err("The Enhance voice model isn't downloaded.") }
         let cfg = MLModelConfiguration()
         cfg.computeUnits = .cpuAndNeuralEngine
         let e = try MLModel(contentsOf: VoiceRestore.encoderURL, configuration: cfg)
@@ -260,14 +260,14 @@ final class VoiceRestorer: @unchecked Sendable {
 
     private static func io(_ m: MLModel) throws -> IO {
         guard let first = m.modelDescription.inputDescriptionsByName.first,
-              let c = first.value.multiArrayConstraint else { throw AudioExtract.err("The Restore voice model is broken.") }
+              let c = first.value.multiArrayConstraint else { throw AudioExtract.err("The Enhance voice model is broken.") }
         return IO(name: first.key, shape: c.shape.map(\.intValue))
     }
 
     /// The model's (only) output as contiguous floats (float16 outputs and padded strides included).
     private static func floats(_ out: MLFeatureProvider, _ m: MLModel) throws -> [Float] {
         guard let name = m.modelDescription.outputDescriptionsByName.keys.first,
-              let a = out.featureValue(for: name)?.multiArrayValue else { throw AudioExtract.err("The Restore voice model is broken.") }
+              let a = out.featureValue(for: name)?.multiArrayValue else { throw AudioExtract.err("The Enhance voice model is broken.") }
         return MLShapedArray<Float>(converting: a).scalars
     }
 }
@@ -359,12 +359,12 @@ struct SidonFrontEnd {
     static func load(_ url: URL) throws -> SidonFrontEnd {
         let d = try Data(contentsOf: url)
         let header = 3 * 4
-        guard d.count == header + (frameLength + bins * mels) * 4 else { throw AudioExtract.err("The Restore voice model is broken.") }
+        guard d.count == header + (frameLength + bins * mels) * 4 else { throw AudioExtract.err("The Enhance voice model is broken.") }
         let words = d.withUnsafeBytes { raw in
             (0..<(d.count / 4)).map { UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: $0 * 4, as: UInt32.self)) }
         }
         guard words.prefix(3).map({ Int32(bitPattern: $0) }) == [Int32(frameLength), Int32(bins), Int32(mels)]
-        else { throw AudioExtract.err("The Restore voice model is broken.") }
+        else { throw AudioExtract.err("The Enhance voice model is broken.") }
         let floats = words.dropFirst(3).map { Float(bitPattern: $0) }
         return SidonFrontEnd(window: Array(floats.prefix(frameLength)), filters: Array(floats.dropFirst(frameLength)))
     }

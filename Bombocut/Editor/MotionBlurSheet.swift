@@ -460,7 +460,7 @@ struct SpeechSheet: View {
             Button("Download anyway") { voice.start() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(String(format: loc("The Restore voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
+            Text(String(format: loc("The Enhance voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
         }
     }
 
@@ -468,7 +468,7 @@ struct SpeechSheet: View {
     @ViewBuilder
     private func restoreCard(_ fx: SpeechFX) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            OnOffRow(title: "Restore voice",
+            OnOffRow(title: "Enhance voice",
                      subtitle: "AI rebuilds the voice as if it was recorded up close on a good mic: no room echo, clearer and fuller.",
                      isOn: fx.restore > 0.001) { on in var f = fx; f.restore = on ? 1 : 0; model.setSpeech(f) }
             if fx.restore > 0.001 {
