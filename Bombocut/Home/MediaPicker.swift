@@ -67,7 +67,6 @@ struct MediaPicker: View {
                         .accessibilityLabel(loc("Cancel"))
                 }
                 if status == .authorized || status == .limited {
-                    ToolbarItem(placement: .principal) { albumMenu }
                     ToolbarItem(placement: .topBarTrailing) { sortMenu }
                 }
             }
@@ -91,9 +90,11 @@ struct MediaPicker: View {
 
     // MARK: Parts
 
-    /// The title: which album, tap to pick another (the whole library first).
-    private var albumMenu: some View {
-        Menu {
+    /// The last chip of the filter row: which album (the whole library first). Lime while an album is picked
+    /// (user, 2026-11-21: in the row, not as the title).
+    private var albumChip: some View {
+        let picked = !albumID.isEmpty
+        return Menu {
             Picker(selection: $albumID) {
                 Label(loc("All photos"), systemImage: "photo.on.rectangle").tag("")
                 ForEach(albums, id: \.localIdentifier) { a in
@@ -104,24 +105,26 @@ struct MediaPicker: View {
         } label: {
             HStack(spacing: 5) {
                 Text(verbatim: albumTitle)
-                    .font(.headline.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .lineLimit(1)
                 Image(systemName: "chevron.down").font(.caption.weight(.heavy))
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: 230)
+            .foregroundStyle(picked ? .black : .white)
+            .padding(.horizontal, 14).frame(height: 34)
+            .frame(maxWidth: 180)
+            .background(picked ? Theme.accent : Theme.panel2, in: Capsule())
         }
         .accessibilityLabel(loc("Album"))
     }
 
     private var albumTitle: String {
         if !albumID.isEmpty, let a = albums.first(where: { $0.localIdentifier == albumID }) {
-            return a.localizedTitle ?? loc(title)
+            return a.localizedTitle ?? loc("Album")
         }
-        return loc(title)
+        return loc("Album")
     }
 
-    /// Same icon and look as Home's project sorting.
+    /// Same icon and size as Home's project sorting.
     private var sortMenu: some View {
         Menu {
             Picker(selection: $sort) {
@@ -131,29 +134,46 @@ struct MediaPicker: View {
             } label: { EmptyView() }
             .pickerStyle(.inline)
         } label: {
+            // the size of Home's sort icon, white like the close button next to it
             Image(systemName: "arrow.up.arrow.down")
-                .font(.body.weight(.bold))
+                .font(.footnote.weight(.bold))
                 .foregroundStyle(.white)
         }
         .accessibilityLabel(loc("Sort by"))
     }
 
+    /// All / Videos / Photos / favorites (a heart) and the album chip, one row.
     private var filters: some View {
-        HStack(spacing: 6) {
-            ForEach(Filter.allCases, id: \.self) { f in
-                Button { filter = f } label: {
-                    Text(loc(f.title)).font(.subheadline.weight(.bold))
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                        .foregroundStyle(filter == f ? .black : .white)
-                        .padding(.horizontal, 14).frame(height: 34)
-                        .background(filter == f ? Theme.accent : Theme.panel2, in: Capsule())
+        ScrollView(.horizontal) {
+            HStack(spacing: 6) {
+                ForEach(Filter.allCases, id: \.self) { f in
+                    Button { filter = f } label: { filterLabel(f) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(loc(f.title))
                 }
-                .buttonStyle(.plain)
+                albumChip
             }
-            Spacer(minLength: 0)
+            .padding(.horizontal, 12).padding(.vertical, 8)
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .scrollIndicators(.hidden)
         .background(Theme.bg)
+    }
+
+    @ViewBuilder
+    private func filterLabel(_ f: Filter) -> some View {
+        let on = filter == f
+        Group {
+            if f == .favorites {
+                Image(systemName: on ? "heart.fill" : "heart").font(.subheadline.weight(.bold))
+                    .frame(width: 22)
+            } else {
+                Text(loc(f.title)).font(.subheadline.weight(.bold))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+        }
+        .foregroundStyle(on ? .black : .white)
+        .padding(.horizontal, 14).frame(height: 34)
+        .background(on ? Theme.accent : Theme.panel2, in: Capsule())
     }
 
     private var addBar: some View {

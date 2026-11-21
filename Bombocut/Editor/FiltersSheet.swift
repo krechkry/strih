@@ -91,11 +91,14 @@ struct FiltersSheet: View {
             ApplyRow(model: model, kind: kind, title: false)
                 .padding(.horizontal, 20)
                 .padding(.top, 26)
-                .padding(.bottom, 14)
+                .padding(.bottom, 8)
+                // the fade runs down to the screen's edge: tiles used to show through the home indicator's strip
+                // under the buttons (user, 2026-11-21: "weird gap at the bottom")
                 .background(
                     LinearGradient(stops: [.init(color: Theme.panel.opacity(0), location: 0),
                                            .init(color: Theme.panel, location: 0.4)],
                                    startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea(edges: .bottom)
                         .allowsHitTesting(false)
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))

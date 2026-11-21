@@ -35,24 +35,42 @@ jobs:
           print("\n".join(lines))
           print("::notice title=Files::" + "%0A".join(lines))
 
-          import coremltools as ct
-          for name in ["sidon_encoder_ane.mlpackage", "sidon_decoder_ane.mlpackage"]:
-              p = os.path.join("sidon", name)
-              if not os.path.exists(p): continue
-              spec = ct.utils.load_spec(p)
-              out = [f"{name} type={spec.WhichOneof('Type')} spec={spec.specificationVersion}"]
-              for kind, arr in (("in", spec.description.input), ("out", spec.description.output)):
-                  for x in arr:
-                      t = x.type
-                      which = t.WhichOneof("Type")
-                      if which == "multiArrayType":
-                          m = t.multiArrayType
-                          rng = m.WhichOneof("ShapeFlexibility")
-                          out.append(f"{kind} {x.name} shape={list(m.shape)} dtype={ct.proto.FeatureTypes_pb2.ArrayFeatureType.ArrayDataType.Name(m.dataType)} flex={rng}")
-                      else:
-                          out.append(f"{kind} {x.name} {which}")
-              print("\n".join(out))
-              print("::notice title=" + name + "::" + "%0A".join(out))
+          def note(title, lines):
+              text = "\n".join(lines)
+              print(text)
+              for k in range(0, len(text), 3000):
+                  print(f"::notice title={title} {k // 3000}::" + text[k:k + 3000].replace("%", "%25").replace("\n", "%0A"))
+
+          readme = open("sidon/README.md").read()
+          note("README", [readme])
+
+          import traceback
+          try:
+              import coremltools as ct
+              from coremltools.proto import FeatureTypes_pb2
+              for pre in ["", "v2/", "v3/", "v4/"]:
+                  for name in ["sidon_encoder_ane.mlpackage", "sidon_decoder_ane.mlpackage"]:
+                      p = os.path.join("sidon", pre + name)
+                      if not os.path.exists(p): continue
+                      try:
+                          spec = ct.utils.load_spec(p)
+                          out = [f"{pre}{name} type={spec.WhichOneof('Type')} spec={spec.specificationVersion}"]
+                          for kind, arr in (("in", spec.description.input), ("out", spec.description.output)):
+                              for x in arr:
+                                  t = x.type
+                                  which = t.WhichOneof("Type")
+                                  if which == "multiArrayType":
+                                      m = t.multiArrayType
+                                      out.append(f"{kind} {x.name} shape={list(m.shape)} dtype={FeatureTypes_pb2.ArrayFeatureType.ArrayDataType.Name(m.dataType)} flex={m.WhichOneof('ShapeFlexibility')}")
+                                  else:
+                                      out.append(f"{kind} {x.name} {which}")
+                          meta = spec.description.metadata
+                          out.append(f"meta {meta.shortDescription} | {dict(meta.userDefined)}")
+                      except Exception:
+                          out = [f"{pre}{name} failed", traceback.format_exc()[-1500:]]
+                      note(pre + name, out)
+          except Exception:
+              note("coremltools", [traceback.format_exc()[-2000:]])
 
           # fbank.bin against the upstream extractor
           from transformers import SeamlessM4TFeatureExtractor
@@ -61,8 +79,9 @@ jobs:
           mel = np.asarray(fe.mel_filters, dtype=np.float32)
           cfg = f"window {win.shape} mel {mel.shape} stride {fe.stride} pad {fe.padding_value} sr {fe.sampling_rate} bins {fe.num_mel_bins}"
           rep = [cfg]
-          fb = os.path.join("sidon", "sidon_fbank.bin")
-          if os.path.exists(fb):
+          for pre in ["", "v4/"]:
+            fb = os.path.join("sidon", pre + "sidon_fbank.bin")
+            if os.path.exists(fb):
               raw = np.fromfile(fb, dtype="<f4")
               rep.append(f"fbank floats {raw.size}")
               if raw.size == 400 + 257 * 80:
@@ -85,6 +104,5 @@ jobs:
           rep.append(f"features {f.shape} sum {float(f.astype(np.float64).sum()):.6f} abs {float(np.abs(f.astype(np.float64)).sum()):.6f}")
           for (r, c) in [(0, 0), (0, 79), (0, 80), (0, 159), (10, 5), (75, 100), (148, 40), (149, 0), (149, 80), (149, 159)]:
               rep.append(f"f[{r},{c}] = {float(f[r, c]):.6f}")
-          print("\n".join(rep))
-          print("::notice title=Front end::" + "%0A".join(rep))
+          note("Front end", rep)
           PY
