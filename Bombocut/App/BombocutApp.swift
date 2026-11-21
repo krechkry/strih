@@ -43,6 +43,7 @@ struct BombocutApp: App {
                     if Demo.mode == nil { SpeechEngine.warmUp() }
                     // a speech model download that was running (not paused) when the app closed carries on
                     ModelDownload.shared.resumeIfWanted()
+                    ModelDownload.voice.resumeIfWanted()
                 }
         }
         // keyboard shortcuts in the editor (iPad menu bar, ⌘ held shows them)

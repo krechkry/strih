@@ -366,13 +366,17 @@ struct FadeSliders: View {
     }
 }
 
-/// Speech of the selected clip: remove noise, voice enhancer, and Apple's Audio Mix for spatial recordings.
+/// Speech of the selected clip: remove noise, Restore voice (an optional AI model), and Apple's Audio Mix for
+/// spatial recordings.
 struct SpeechSheet: View {
     @ObservedObject var model: EditorModel
     @ObservedObject private var cleanup = SpeechCleanup.shared
+    @ObservedObject private var voice = VoiceRestoreModel.shared
     @State private var strength: Double?
+    @State private var restoreStrength: Double?
     @State private var intensity: Double?
     @State private var spatial = false
+    @State private var askMobile = false
 
     var body: some View {
         ScrollView {
@@ -407,10 +411,7 @@ struct SpeechSheet: View {
                             }
                         }
                     }
-                    card {
-                        OnOffRow(title: "Voice enhancer", subtitle: "Clearer, fuller voice at an even loudness.",
-                                 isOn: fx.enhance) { on in var f = fx; f.enhance = on; model.setSpeech(f) }
-                    }
+                    card { restoreCard(fx) }
                     PanelBreak()
                     if spatial || fx.mix != nil {
                         VStack(alignment: .leading, spacing: 10) {
@@ -452,6 +453,94 @@ struct SpeechSheet: View {
             spatial = false
             guard let i = model.selectedIndex else { return }
             spatial = await SpeechCleanup.hasSpatialAudio(Paths.mediaURL(model.project.clips[i].mediaFile))
+        }
+        // the model just arrived: clips waiting for it get their restored sound
+        .onChange(of: voice.isReady) { _, ready in if ready { model.rebuild() } }
+        .alert("Download on mobile data?", isPresented: $askMobile) {
+            Button("Download anyway") { voice.start() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(String(format: loc("The Restore voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
+        }
+    }
+
+    /// Restore voice: on / off, then the model download (size first) or the strength.
+    @ViewBuilder
+    private func restoreCard(_ fx: SpeechFX) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            OnOffRow(title: "Restore voice",
+                     subtitle: "AI rebuilds the voice as if it was recorded up close on a good mic: no room echo, clearer and fuller.",
+                     isOn: fx.restore > 0.001) { on in var f = fx; f.restore = on ? 1 : 0; model.setSpeech(f) }
+            if fx.restore > 0.001 {
+                if voice.isReady {
+                    HStack {
+                        Text("Strength").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                        Spacer()
+                        Text("\(Int(((restoreStrength ?? fx.restore) * 100).rounded())) %")
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                    }
+                    BSlider(value: Binding(get: { restoreStrength ?? fx.restore }, set: { restoreStrength = $0 }), in: 0.1...1,
+                           onEditingChanged: { e in
+                        if !e, let v = restoreStrength { var f = fx; f.restore = v; model.setSpeech(f); restoreStrength = nil }
+                    })
+                    .tint(Theme.accent)
+                    .doubleTapReset { var f = fx; f.restore = 1; model.setSpeech(f); restoreStrength = nil }
+                } else {
+                    restoreDownload
+                }
+                Text("It rebuilds the voice, so it can sound a little different. Music and other sounds in the clip go too.")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// The model isn't on the phone yet: its size, then progress with pause / resume.
+    @ViewBuilder
+    private var restoreDownload: some View {
+        switch voice.state {
+        case .downloading(let f), .paused(let f):
+            let paused: Bool = { if case .paused = voice.state { return true }; return false }()
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(paused ? String(format: loc("Paused at %lld %%"), Int(f * 100))
+                         : voice.waitingForNetwork ? String(format: loc("Waiting for the network · %lld %%"), Int(f * 100))
+                         : String(format: loc("Downloading %lld %%"), Int(f * 100)))
+                        .font(.subheadline.weight(.bold)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    ProgressView(value: f).tint(Theme.accent)
+                }
+                Button { paused ? voice.start() : voice.pause() } label: {
+                    Image(systemName: paused ? "play.fill" : "pause.fill").font(.subheadline.weight(.heavy))
+                        .foregroundStyle(paused ? .black : .white)
+                        .frame(width: 36, height: 36)
+                        .background(paused ? Theme.accent : Theme.panel, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc(paused ? "Resume download" : "Pause download"))
+            }
+        case .preparing:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small).tint(Theme.accent)
+                Text("Preparing the model…").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+        default:
+            Button {
+                if NetworkWatch.shared.onMobileData { askMobile = true } else { voice.start() }
+            } label: {
+                Label(String(format: loc("Download the model (%@)"), VoiceRestore.sizeLabel), systemImage: "arrow.down")
+                    .font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            if voice.state == .failed {
+                Text("Download failed. Tap to try again, it continues where it stopped.")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 

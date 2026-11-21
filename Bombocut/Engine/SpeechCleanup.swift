@@ -6,27 +6,42 @@ import Foundation
 import Cinematic
 #endif
 
-/// Speech settings of a clip: noise removal (DeepFilterNet3, on the Neural Engine), a voice enhancer
-/// (EQ, compression, even loudness) and, for videos recorded with spatial audio on iPhone 16 and newer,
-/// Apple's own Audio Mix (the voice isolation of the Photos app).
+/// Speech settings of a clip, applied in this order: Apple's own Audio Mix (the voice isolation of the Photos app,
+/// for videos recorded with spatial audio on iPhone 16 and newer), noise removal (DeepFilterNet3, bundled, on the
+/// Neural Engine), then Restore voice (Sidon, an optional download, see `VoiceRestore`).
 struct SpeechFX: Codable, Hashable {
     var denoise = 0.0              // 0 = off, up to 1 = only the cleaned voice
-    var enhance = false
+    var restore = 0.0              // Restore voice: 0 = off, up to 1 = only the restored voice
     var mix: SpatialMixStyle?      // Apple Audio Mix (spatial audio recordings only)
     var mixIntensity = 0.6
 
-    var isActive: Bool { denoise > 0.001 || enhance || mix != nil }
+    /// Something is set (kept on the clip even while Restore voice waits for its model).
+    var isActive: Bool { denoise > 0.001 || restore > 0.001 || mix != nil }
+    /// Restore voice is set and its model is on the phone.
+    var restoreRuns: Bool { restore > 0.001 && VoiceRestore.available }
+    /// Something that is actually rendered now.
+    var renders: Bool { denoise > 0.001 || mix != nil || restoreRuns }
 
-    enum CodingKeys: String, CodingKey { case denoise, enhance, mix, mixIntensity }
+    /// `enhance` is the old voice enhancer (EQ and compression, removed 2026-11-21): read as Restore voice.
+    enum CodingKeys: String, CodingKey { case denoise, restore, enhance, mix, mixIntensity }
 
     init() {}
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         denoise = (try? c.decodeIfPresent(Double.self, forKey: .denoise)) ?? 0
-        enhance = (try? c.decodeIfPresent(Bool.self, forKey: .enhance)) ?? false
+        let enhance = (try? c.decodeIfPresent(Bool.self, forKey: .enhance)) ?? false
+        restore = (try? c.decodeIfPresent(Double.self, forKey: .restore)) ?? (enhance ? 1 : 0)
         mix = try? c.decodeIfPresent(SpatialMixStyle.self, forKey: .mix)
         mixIntensity = (try? c.decodeIfPresent(Double.self, forKey: .mixIntensity)) ?? 0.6
+    }
+
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(denoise, forKey: .denoise)
+        if restore > 0.001 { try c.encode(restore, forKey: .restore) }
+        try c.encodeIfPresent(mix, forKey: .mix)
+        try c.encode(mixIntensity, forKey: .mixIntensity)
     }
 }
 
@@ -68,11 +83,13 @@ final class SpeechCleanup: ObservableObject {
         return d
     }
 
-    /// Identifies a clip's cleaned sound: the media file and the speech settings.
+    /// Identifies a clip's cleaned sound: the media file and the speech settings (Restore voice only counts once
+    /// its model is on the phone, so downloading it makes the sound again).
     nonisolated static func key(_ c: Clip) -> String? {
-        guard let fx = c.speech, fx.isActive else { return nil }
-        let s = String(format: "%@|%.2f|%d|%@|%.2f|v2", c.mediaFile, fx.denoise, fx.enhance ? 1 : 0,
-                       fx.mix?.rawValue ?? "-", fx.mixIntensity)
+        guard let fx = c.speech, fx.renders else { return nil }
+        let restore = fx.restoreRuns ? fx.restore : 0
+        let s = String(format: "%@|%.2f|%@|%.2f|%.2f|%@|v3", c.mediaFile, fx.denoise, fx.mix?.rawValue ?? "-",
+                       fx.mixIntensity, restore, restore > 0 ? VoiceRestore.version : "-")
         let h = SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
         return String(h.prefix(24))
     }
@@ -126,6 +143,8 @@ final class SpeechCleanup: ObservableObject {
             progress[k] = nil
         }
         running = false
+        // Restore voice holds about 600 MB of weights: let go of them until the next job
+        VoiceRestorer.shared.unload()
         let calls = done
         done = []
         calls.forEach { $0() }
@@ -168,22 +187,32 @@ final class SpeechCleanup: ObservableObject {
         }
         guard !l.isEmpty else { throw AudioExtract.err("This video has no sound.") }
         progress(0.3)
+        let restore = fx.restoreRuns
 
         if fx.denoise > 0.001 {
             let mono = vDSPMean(l, r)
             let clean = try DeepFilter.shared.enhance(mono)
-            let s = Float(min(max(fx.denoise, 0), 1))
-            let n = min(clean.count, l.count)
-            for i in 0..<n {
-                l[i] = s * clean[i] + (1 - s) * l[i]
-                r[i] = s * clean[i] + (1 - s) * r[i]
-            }
+            mixIn(clean, strength: fx.denoise, into: &l, &r)
         }
-        progress(0.8)
-        if fx.enhance { VoiceChain.process(&l, &r, sampleRate: sampleRate) }
-        progress(0.9)
+        progress(restore ? 0.4 : 0.9)
+        if restore {
+            // the restored voice is mono: it goes to both sides, mixed with what was there by the strength
+            let voice = try VoiceRestorer.shared.restore(vDSPMean(l, r)) { p in progress(0.4 + 0.5 * p) }
+            mixIn(voice, strength: fx.restore, into: &l, &r)
+        }
+        progress(0.95)
         try write(l, r, to: out)
         progress(1)
+    }
+
+    /// `s` of `voice` and `1 - s` of what is there, on both sides.
+    nonisolated private static func mixIn(_ voice: [Float], strength: Double, into l: inout [Float], _ r: inout [Float]) {
+        let s = Float(min(max(strength, 0), 1))
+        let n = min(voice.count, l.count)
+        for i in 0..<n {
+            l[i] = s * voice[i] + (1 - s) * l[i]
+            r[i] = s * voice[i] + (1 - s) * r[i]
+        }
     }
 
     nonisolated private static func vDSPMean(_ a: [Float], _ b: [Float]) -> [Float] {
@@ -320,103 +349,6 @@ final class DeepFilter: @unchecked Sendable {
         var out = try enhancer!.enhanceChunked(audio: mono, sampleRate: 48_000)
         if out.count < mono.count { out.append(contentsOf: repeatElement(0, count: mono.count - out.count)) }
         return out
-    }
-}
-
-/// Voice enhancer: tidy EQ (no rumble, less mud, more presence and air), gentle compression, then an even
-/// loudness for phones and social apps with a safety limiter.
-enum VoiceChain {
-    static func process(_ l: inout [Float], _ r: inout [Float], sampleRate fs: Double) {
-        guard !l.isEmpty else { return }
-        let sections: [[Double]] = [
-            highPass(80, q: 0.707, fs: fs),
-            peak(300, gainDB: -3, q: 1.0, fs: fs),
-            peak(3500, gainDB: 3.5, q: 0.9, fs: fs),
-            highShelf(10_000, gainDB: 2, fs: fs),
-        ]
-        l = biquad(l, sections)
-        r = biquad(r, sections)
-        compress(&l, &r, fs: fs)
-        normalize(&l, &r, fs: fs)
-    }
-
-    // RBJ cookbook biquads, normalized to [b0, b1, b2, a1, a2]
-    static func highPass(_ f: Double, q: Double, fs: Double) -> [Double] {
-        let w = 2 * Double.pi * f / fs, a = sin(w) / (2 * q), c = cos(w)
-        let a0 = 1 + a
-        return [(1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0, -2 * c / a0, (1 - a) / a0]
-    }
-
-    static func peak(_ f: Double, gainDB: Double, q: Double, fs: Double) -> [Double] {
-        let A = pow(10, gainDB / 40), w = 2 * Double.pi * f / fs, a = sin(w) / (2 * q), c = cos(w)
-        let a0 = 1 + a / A
-        return [(1 + a * A) / a0, -2 * c / a0, (1 - a * A) / a0, -2 * c / a0, (1 - a / A) / a0]
-    }
-
-    static func highShelf(_ f: Double, gainDB: Double, fs: Double) -> [Double] {
-        let A = pow(10, gainDB / 40), w = 2 * Double.pi * f / fs, c = cos(w)
-        let a = sin(w) / 2 * sqrt(2.0), sq = 2 * sqrt(A) * a
-        let a0 = (A + 1) - (A - 1) * c + sq
-        return [A * ((A + 1) + (A - 1) * c + sq) / a0, -2 * A * ((A - 1) + (A + 1) * c) / a0,
-                A * ((A + 1) + (A - 1) * c - sq) / a0, 2 * ((A - 1) - (A + 1) * c) / a0,
-                ((A + 1) - (A - 1) * c - sq) / a0]
-    }
-
-    static func biquad(_ x: [Float], _ sections: [[Double]]) -> [Float] {
-        let coefs = sections.flatMap { $0 }
-        guard let setup = vDSP_biquad_CreateSetup(coefs, vDSP_Length(sections.count)) else { return x }
-        defer { vDSP_biquad_DestroySetup(setup) }
-        var delay = [Float](repeating: 0, count: 2 * sections.count + 2)
-        var y = [Float](repeating: 0, count: x.count)
-        vDSP_biquad(setup, &delay, x, 1, &y, 1, vDSP_Length(x.count))
-        return y
-    }
-
-    /// 3:1 above -24 dBFS, 5 ms attack, 150 ms release, linked stereo.
-    static func compress(_ l: inout [Float], _ r: inout [Float], fs: Double) {
-        let threshold: Float = pow(10, -24 / 20), ratio: Float = 3
-        let att = Float(exp(-1 / (0.005 * fs))), rel = Float(exp(-1 / (0.150 * fs)))
-        var env: Float = 0
-        for i in 0..<l.count {
-            let x = max(abs(l[i]), abs(r[i]))
-            env = x > env ? att * env + (1 - att) * x : rel * env + (1 - rel) * x
-            var g: Float = 1
-            if env > threshold {
-                let over = env / threshold
-                g = pow(over, 1 / ratio - 1)
-            }
-            l[i] *= g
-            r[i] *= g
-        }
-    }
-
-    /// Speech at an even -16 dBFS (loudness of the voiced parts), never louder than -1 dBFS peaks.
-    static func normalize(_ l: inout [Float], _ r: inout [Float], fs: Double) {
-        let block = Int(0.4 * fs)
-        var powers: [Float] = []
-        var i = 0
-        while i + block <= l.count {
-            var s: Float = 0
-            for j in i..<(i + block) { let m = (l[j] + r[j]) / 2; s += m * m }
-            let p = s / Float(block)
-            if p > 1e-5 { powers.append(p) }     // skip silence (below about -50 dBFS)
-            i += block
-        }
-        guard !powers.isEmpty else { return }
-        let rms = sqrt(powers.reduce(0, +) / Float(powers.count))
-        let target: Float = pow(10, -16 / 20)
-        let gain = min(target / max(rms, 1e-6), pow(10, 18 / 20))
-        let ceiling: Float = pow(10, -1 / 20)
-        let rel = Float(exp(-1 / (0.05 * fs)))
-        var lim: Float = 1
-        for k in 0..<l.count {
-            let a = l[k] * gain, b = r[k] * gain
-            let peak = max(abs(a), abs(b))
-            let need: Float = peak > ceiling ? ceiling / peak : 1
-            lim = need < lim ? need : rel * lim + (1 - rel) * need
-            l[k] = a * lim
-            r[k] = b * lim
-        }
     }
 }
 

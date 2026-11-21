@@ -4,18 +4,21 @@ import SwiftUI
 struct StorageView: View {
     @EnvironmentObject private var store: ProjectStore
     @ObservedObject private var speech = SpeechModels.shared
+    @ObservedObject private var voice = VoiceRestoreModel.shared
     @ObservedObject private var cloud = CloudBackup.shared
     @Environment(\.dismiss) private var dismiss
     @State private var report = StorageReport()
     @State private var confirm: Confirm?
     @State private var busy = false
     @State private var pendingDownload: SpeechModel?
+    @State private var pendingVoice = false
 
     enum Confirm: Identifiable {
-        case model(SpeechModel), leftovers, temp, caches, optimized, unused
+        case model(SpeechModel), voice, leftovers, temp, caches, optimized, unused
         var id: String {
             switch self {
             case .model(let m): return m.rawValue
+            case .voice: return "voice"
             case .leftovers: return "leftovers"
             case .temp: return "temp"
             case .caches: return "caches"
@@ -32,6 +35,7 @@ struct StorageView: View {
                     total
                     section("Voice models") {
                         ForEach(SpeechModel.allCases, id: \.self) { m in modelRow(m) }
+                        voiceRow
                         if report.leftovers > 0 {
                             row(icon: "shippingbox", title: "Unfinished downloads", detail: "Leftovers from stopped downloads",
                                 bytes: report.leftovers) { confirm = .leftovers }
@@ -87,12 +91,19 @@ struct StorageView: View {
                 Text("The speech model is about 650 MB. Wi-Fi is better.")
             }
             .onChange(of: readyModels) { Task { await refresh() } }
+            .onChange(of: voice.isReady) { Task { await refresh() } }
+            .alert("Download on mobile data?", isPresented: $pendingVoice) {
+                Button("Download anyway") { voice.start() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(String(format: loc("The Restore voice model is %@. Wi-Fi is better."), VoiceRestore.sizeLabel))
+            }
         }
     }
 
     /// While the voice model downloads (or waits paused), nothing here can be deleted: its pieces and resume data
     /// live in the temporary and cache folders, and pulling them away mid-download left the screen stuck.
-    private var locked: Bool { SpeechModel.allCases.contains { speech.inProgress($0) } }
+    private var locked: Bool { SpeechModel.allCases.contains { speech.inProgress($0) } || voice.inProgress }
 
     private var readyModels: [String] {
         SpeechModel.allCases.filter { speech.isReady($0) }.map(\.rawValue)
@@ -143,6 +154,34 @@ struct StorageView: View {
         }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
                    action: ready ? { confirm = .model(m) } : nil, download: download)
+    }
+
+    /// Restore voice's model (Speech panel), downloaded on its own.
+    private var voiceRow: some View {
+        let detail: String = {
+            switch voice.state {
+            case .ready: return "Downloaded"
+            case .downloading(let f):
+                return voice.waitingForNetwork ? String(format: loc("Waiting for the network · %lld %%"), Int(f * 100))
+                    : String(format: loc("Downloading %lld %%"), Int(f * 100))
+            case .preparing: return "Preparing the model…"
+            case .paused(let f): return String(format: loc("Paused at %lld %%"), Int(f * 100))
+            case .failed: return "Download failed. Tap to try again, it continues where it stopped."
+            case .missing: return String(format: loc("Not downloaded (%@)"), VoiceRestore.sizeLabel)
+            }
+        }()
+        let download: Download? = {
+            switch voice.state {
+            case .ready: return nil
+            case .downloading: return .pause { voice.pause() }
+            case .paused: return .resume { voice.start() }
+            case .preparing: return .busy
+            default: return .start { if NetworkWatch.shared.onMobileData { pendingVoice = true } else { voice.start() } }
+            }
+        }()
+        return row(icon: "waveform.and.person.filled", title: "Restore voice", detail: detail,
+                   bytes: voice.isReady ? report.voice : nil, action: voice.isReady ? { confirm = .voice } : nil,
+                   download: download)
     }
 
     enum Download {
@@ -231,6 +270,7 @@ struct StorageView: View {
     private func title(_ c: Confirm) -> String {
         switch c {
         case .model(let m): return String(format: loc("Delete the %@ voice model?"), loc(m.title))
+        case .voice: return "Delete the Restore voice model?"
         case .leftovers: return "Delete unfinished downloads?"
         case .temp: return "Delete temporary files?"
         case .caches: return "Clear caches?"
@@ -248,6 +288,8 @@ struct StorageView: View {
             case .model(let m):
                 await SpeechEngine.shared.unload()
                 speech.delete(m)
+            case .voice:
+                VoiceRestore.remove()
             case .unused:
                 store.cleanupMedia()
             default:
@@ -278,7 +320,12 @@ struct StorageView: View {
         })
         let used = Set(store.projects.flatMap { $0.mediaFiles })
         let base = SpeechModels.base
-        report = await Task.detached { StorageReport.scan(models: ready, usedMedia: used, modelBase: base) }.value
+        report = await Task.detached {
+            var r = StorageReport.scan(models: ready, usedMedia: used, modelBase: base)
+            r.voice = StorageReport.folderSize(VoiceRestore.folder)
+            r.total += r.voice
+            return r
+        }.value
     }
 
     static func size(_ b: Int64) -> String {
@@ -289,6 +336,7 @@ struct StorageView: View {
 /// Sizes of everything in the app's folders.
 struct StorageReport: Sendable {
     var models: [SpeechModel: Int64] = [:]
+    var voice: Int64 = 0                 // Restore voice's model (and its download in progress)
     var leftovers: Int64 = 0
     var leftoverFiles: [URL] = []
     var temp: Int64 = 0

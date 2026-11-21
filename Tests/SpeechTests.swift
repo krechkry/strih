@@ -17,15 +17,18 @@ final class SpeechTests: XCTestCase {
         XCTAssertLessThan(rms(clean), rms(noise) * 0.4, "plain noise is mostly removed")
     }
 
-    func testVoiceChainEvensOutLoudness() {
-        let fs = 48_000.0
-        var l = (0..<96_000).map { Float(0.05 * sin(2 * Double.pi * 1000 * Double($0) / fs)) }
-        var r = l
-        VoiceChain.process(&l, &r, sampleRate: fs)
-        let level = rms(l)
-        XCTAssertGreaterThan(level, 0.1, "quiet speech is brought up to about -16 dBFS")
-        XCTAssertLessThan(level, 0.3)
-        XCTAssertLessThanOrEqual(l.map(abs).max() ?? 0, 0.95, "peaks stay under the ceiling")
+    func testOldVoiceEnhancerReadsAsRestoreVoice() throws {
+        let old = try JSONDecoder().decode(SpeechFX.self, from: Data(#"{"denoise":0.85,"enhance":true}"#.utf8))
+        XCTAssertEqual(old.restore, 1)
+        XCTAssertEqual(old.denoise, 0.85)
+        let none = try JSONDecoder().decode(SpeechFX.self, from: Data(#"{"denoise":0.5}"#.utf8))
+        XCTAssertEqual(none.restore, 0)
+        // round trip keeps the strength, and never writes the old key
+        var fx = SpeechFX()
+        fx.restore = 0.6
+        let data = try JSONEncoder().encode(fx)
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("enhance"))
+        XCTAssertEqual(try JSONDecoder().decode(SpeechFX.self, from: data).restore, 0.6)
     }
 
     private func media() throws -> String {
@@ -46,7 +49,6 @@ final class SpeechTests: XCTestCase {
         var clip = Clip(mediaFile: file, sourceDuration: 2)
         var fx = SpeechFX()
         fx.denoise = 0.85
-        fx.enhance = true
         clip.speech = fx
         if let u = SpeechCleanup.readyURL(clip) { try? FileManager.default.removeItem(at: u) }
         var p = Project(name: "speech")

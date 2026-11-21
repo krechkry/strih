@@ -300,6 +300,16 @@
         }
       }
     },
+    "AI rebuilds the voice as if it was recorded up close on a good mic: no room echo, clearer and fuller.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI hlas vytvoří znovu, jako by byl nahraný zblízka na dobrý mikrofon: bez ozvěny místnosti, čistší a plnější."
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "cs": {
@@ -1710,16 +1720,6 @@
         }
       }
     },
-    "Clearer, fuller voice at an even loudness.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Čistší a plnější hlas s vyrovnanou hlasitostí."
-          }
-        }
-      }
-    },
     "Clip missing": {
       "localizations": {
         "cs": {
@@ -2390,6 +2390,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Smazat hlasový model %@?"
+          }
+        }
+      }
+    },
+    "Delete the Restore voice model?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat model pro opravu hlasu?"
           }
         }
       }
@@ -4298,6 +4308,16 @@
         }
       }
     },
+    "It rebuilds the voice, so it can sound a little different. Music and other sounds in the clip go too.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlas se vytváří znovu, takže může znít trochu jinak. Zmizí i hudba a ostatní zvuky v klipu."
+          }
+        }
+      }
+    },
     "Italic": {
       "localizations": {
         "cs": {
@@ -5888,6 +5908,16 @@
         }
       }
     },
+    "Preparing the model…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuju model…"
+          }
+        }
+      }
+    },
     "Preparing voice model · %@": {
       "localizations": {
         "cs": {
@@ -6394,6 +6424,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Obnovit nákup"
+          }
+        }
+      }
+    },
+    "Restore voice": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oprava hlasu"
           }
         }
       }
@@ -7838,6 +7878,36 @@
         }
       }
     },
+    "The Restore voice model is %@. Wi-Fi is better.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model pro opravu hlasu má %@. Lepší je Wi-Fi."
+          }
+        }
+      }
+    },
+    "The Restore voice model is broken.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model pro opravu hlasu je poškozený."
+          }
+        }
+      }
+    },
+    "The Restore voice model isn't downloaded.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model pro opravu hlasu není stažený."
+          }
+        }
+      }
+    },
     "The captions are in %@.": {
       "localizations": {
         "cs": {
@@ -8788,16 +8858,6 @@
         }
       }
     },
-    "Voice enhancer": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vylepšení hlasu"
-          }
-        }
-      }
-    },
     "Voice model failed. Tap to retry": {
       "localizations": {
         "cs": {
@@ -9154,6 +9214,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přiblíženo o %lld %%, aby nebyly vidět okraje. Víc přiblížení odstraní i větší otřesy."
+          }
+        }
+      }
+    },
+    "about 585 MB": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "asi 585 MB"
           }
         }
       }

@@ -8,10 +8,19 @@ import UIKit
 ///   and even after the system closes the app;
 /// - big files come in 8 MB pieces (HTTP ranges): a dropped connection costs one piece, never the whole file;
 /// - Pause / Resume, and automatic retries (the moment the network is back, or a few seconds later).
-/// Finished files land exactly where FluidAudio keeps the model, so it loads them like its own download.
+/// Finished files land exactly where the model is loaded from (FluidAudio's own folder for the speech model).
+/// Two downloads use it: the speech model (`shared`) and the Restore voice model (`voice`).
 @MainActor
 final class ModelDownload: NSObject, ObservableObject {
-    static let shared = ModelDownload()
+    static let shared = ModelDownload(spec: .parakeet)
+    static let voice = ModelDownload(spec: .sidon)
+
+    /// The download that owns a background session (iOS hands its events to the app by session id).
+    static func forSession(_ id: String) -> ModelDownload? {
+        if id == DownloadSpec.parakeet.sessionID { return shared }
+        if id == DownloadSpec.sidon.sessionID { return voice }
+        return nil
+    }
 
     enum Phase: Equatable {
         case idle, listing, running, paused, waitingForNetwork, finishing, done
@@ -24,18 +33,12 @@ final class ModelDownload: NSObject, ObservableObject {
     /// iOS woke the app for finished background downloads: call once everything is handled.
     var backgroundCompletion: (() -> Void)?
 
-    private static let sessionID = "cz.krechler.bombocut.models"
     private static let piece: Int64 = 8 << 20
-    private static let repo = Repo.parakeetUltra
-    /// What FluidAudio needs for Parakeet Ultra: the compiled models and the vocabulary.
-    private static var required: Set<String> {
-        ModelNames.ASR.requiredModelsV3().union([ModelNames.ASR.vocabularyFile])
-    }
-    /// Where the finished model lives (FluidAudio's own folder for it).
-    private var target: URL { SpeechModel.parakeet.folder }
+    let spec: DownloadSpec
+    /// Where the finished model lives.
+    private var target: URL { spec.target }
     /// Pieces, resume data and the file list, outside the model folder (Storage never calls it a leftover).
-    nonisolated static let staging = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("ModelDownload", isDirectory: true)
+    private var staging: URL { spec.staging }
 
     struct RemoteFile: Codable, Hashable {
         var path: String
@@ -65,21 +68,16 @@ final class ModelDownload: NSObject, ObservableObject {
     /// partial file iOS keeps elsewhere, and if that file is gone (cleared caches, iOS tidying up) handing the data
     /// back raises an exception that crashed every start. A lost piece costs at most 8 MB.
     private var resumeData: [String: Data] = [:]
-    private var wantedKey = ModelDownload.wantedDefaultsKey
-    private var pausedKey = "modelDownloadPaused"
-    nonisolated static let wantedDefaultsKey = "modelDownloadWanted"
+    private var wantedKey: String { spec.wantedKey }
+    private var pausedKey: String { spec.pausedKey }
 
-    /// A download was started and hasn't finished (or been deleted). Finished files land in the model folder one
-    /// by one, so until then that folder holds only part of the model and must never be loaded: after the app was
-    /// force-quit mid-download it looked complete, the launch warm-up loaded it, and Core ML crashed on every start.
-    nonisolated static var unfinished: Bool {
-        UserDefaults.standard.bool(forKey: wantedDefaultsKey)
-            || FileManager.default.fileExists(atPath: staging.appendingPathComponent("files.json").path)
-    }
+    /// The speech model's download hasn't finished (see `DownloadSpec.unfinished`).
+    nonisolated static var unfinished: Bool { DownloadSpec.parakeet.unfinished }
 
-    private override init() {
+    private init(spec: DownloadSpec) {
+        self.spec = spec
         super.init()
-        let c = URLSessionConfiguration.background(withIdentifier: Self.sessionID)
+        let c = URLSessionConfiguration.background(withIdentifier: spec.sessionID)
         c.sessionSendsLaunchEvents = true
         c.isDiscretionary = false
         c.allowsCellularAccess = true
@@ -89,7 +87,7 @@ final class ModelDownload: NSObject, ObservableObject {
         c.timeoutIntervalForRequest = 60
         session = URLSession(configuration: c, delegate: self, delegateQueue: .main)
         // resume data written by older builds: never handed back (see `resumeData`)
-        for u in StorageReport.children(of: Self.staging) where u.pathExtension == "resume" { try? FileManager.default.removeItem(at: u) }
+        for u in StorageReport.children(of: staging) where u.pathExtension == "resume" { try? FileManager.default.removeItem(at: u) }
         // the plan from before a restart: pieces iOS finished while the app was closed still find their place
         restoreProgress()
         if UserDefaults.standard.bool(forKey: pausedKey) && !files.isEmpty { phase = .paused }
@@ -153,7 +151,7 @@ final class ModelDownload: NSObject, ObservableObject {
     func discard() {
         retry?.cancel()
         session.getAllTasks { tasks in tasks.forEach { $0.cancel() } }
-        try? FileManager.default.removeItem(at: Self.staging)
+        try? FileManager.default.removeItem(at: staging)
         UserDefaults.standard.set(false, forKey: wantedKey)
         UserDefaults.standard.set(false, forKey: pausedKey)
         files = []
@@ -178,7 +176,7 @@ final class ModelDownload: NSObject, ObservableObject {
 
     private func prepareAndLaunch() async {
         do {
-            try FileManager.default.createDirectory(at: Self.staging, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
             if files.isEmpty { files = try await loadFileList() }
             planPieces()
             restoreProgress()
@@ -195,12 +193,12 @@ final class ModelDownload: NSObject, ObservableObject {
 
     /// The file list from Hugging Face (kept on disk, so a restart after a pause doesn't need the network for it).
     private func loadFileList() async throws -> [RemoteFile] {
-        let saved = Self.staging.appendingPathComponent("files.json")
+        let saved = staging.appendingPathComponent("files.json")
         if let d = try? Data(contentsOf: saved), let f = try? JSONDecoder().decode([RemoteFile].self, from: d), !f.isEmpty {
             return f
         }
         var out: [RemoteFile] = []
-        try await listTree("", into: &out)
+        try await listTree(spec.root, into: &out)
         guard !out.isEmpty else { throw DownloadIssue.server }
         out.sort { $0.size > $1.size }   // the big weights first
         try? JSONEncoder().encode(out).write(to: saved, options: .atomic)
@@ -216,8 +214,8 @@ final class ModelDownload: NSObject, ObservableObject {
             let size: Int64?
             let lfs: LFS?
         }
-        let api = path.isEmpty ? "tree/\(Self.repo.revision)" : "tree/\(Self.repo.revision)/\(path)"
-        var next: URL? = try ModelRegistry.apiModels(Self.repo.remotePath, api)
+        let api = path.isEmpty ? "tree/\(spec.revision)" : "tree/\(spec.revision)/\(path)"
+        var next: URL? = try ModelRegistry.apiModels(spec.repo, api)
         var seen: Set<URL> = []
         while let url = next, seen.insert(url).inserted {
             var req = URLRequest(url: url)
@@ -225,8 +223,7 @@ final class ModelDownload: NSObject, ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { throw DownloadIssue.server }
             for item in try JSONDecoder().decode([Item].self, from: data) {
-                let top = String(item.path.split(separator: "/").first ?? "")
-                guard Self.required.contains(top) else { continue }
+                guard spec.include(item.path) else { continue }
                 if item.type == "directory" {
                     try await listTree(item.path, into: &out)
                 } else if item.type == "file" {
@@ -269,7 +266,7 @@ final class ModelDownload: NSObject, ObservableObject {
     /// What is already on disk: finished files in the model folder, finished pieces in staging.
     private func restoreProgress() {
         if files.isEmpty,
-           let d = try? Data(contentsOf: Self.staging.appendingPathComponent("files.json")),
+           let d = try? Data(contentsOf: staging.appendingPathComponent("files.json")),
            let f = try? JSONDecoder().decode([RemoteFile].self, from: d) {
             files = f
             planPieces()
@@ -280,7 +277,7 @@ final class ModelDownload: NSObject, ObservableObject {
             finishedFiles.insert(i)
         }
         for p in pieces.values where !finishedFiles.contains(p.file) {
-            if Self.size(of: Self.partURL(p.key)) == expectedLength(p) { done.insert(p.key) }
+            if Self.size(of: partURL(p.key)) == expectedLength(p) { done.insert(p.key) }
         }
         updateFraction()
     }
@@ -309,7 +306,7 @@ final class ModelDownload: NSObject, ObservableObject {
     private func request(_ p: Piece) -> URLRequest? {
         let f = files[p.file]
         let path = f.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f.path
-        guard let url = try? ModelRegistry.resolveModel(Self.repo.remotePath, path, revision: Self.repo.revision) else { return nil }
+        guard let url = try? ModelRegistry.resolveModel(spec.repo, path, revision: spec.revision) else { return nil }
         var r = URLRequest(url: url)
         if let range = p.range { r.setValue("bytes=\(range.lowerBound)-\(range.upperBound)", forHTTPHeaderField: "Range") }
         return r
@@ -325,7 +322,7 @@ final class ModelDownload: NSObject, ObservableObject {
             resumeData[key] = nil
             return   // didCompleteWithError follows with no error: treated as a failed piece there
         }
-        let part = Self.partURL(key)
+        let part = partURL(key)
         try? FileManager.default.removeItem(at: part)
         do {
             try FileManager.default.moveItem(at: tmp, to: part)
@@ -355,7 +352,7 @@ final class ModelDownload: NSObject, ObservableObject {
         assembling.insert(i)
         let file = files[i]
         let dest = destination(file)
-        let parts = mine.map { Self.partURL($0.key) }
+        let parts = mine.map { partURL($0.key) }
         let bg = UIApplication.shared.beginBackgroundTask(withName: "model-assemble")
         Task.detached(priority: .utility) {
             let ok = Self.assemble(parts, into: dest, size: file.size, sha256: file.sha256)
@@ -416,12 +413,12 @@ final class ModelDownload: NSObject, ObservableObject {
         await finish()
     }
 
-    /// Everything is on disk: FluidAudio checks the folder (and fetches the vocabulary if it's somehow missing).
+    /// Everything is on disk: the model's own last step (FluidAudio checks its folder; Restore voice compiles).
     private func finish() async {
         phase = .finishing
         do {
-            _ = try await AsrModels.download(version: SpeechModel.version)
-            try? FileManager.default.removeItem(at: Self.staging)
+            try await spec.finish()
+            try? FileManager.default.removeItem(at: staging)
             UserDefaults.standard.set(false, forKey: wantedKey)
             phase = .done
             fraction = 1
@@ -503,7 +500,7 @@ final class ModelDownload: NSObject, ObservableObject {
         fraction = min(1, Double(have) / Double(total))
     }
 
-    nonisolated static func partURL(_ key: String) -> URL { staging.appendingPathComponent("\(key).part") }
+    private func partURL(_ key: String) -> URL { staging.appendingPathComponent("\(key).part") }
 
     nonisolated static func size(of u: URL) -> Int64 {
         ((try? FileManager.default.attributesOfItem(atPath: u.path))?[.size] as? NSNumber)?.int64Value ?? -1
@@ -515,8 +512,8 @@ extension ModelDownload: URLSessionDownloadDelegate {
         // the file at `location` is gone once this returns: move it right here
         guard let key = downloadTask.taskDescription else { return }
         let status = (downloadTask.response as? HTTPURLResponse)?.statusCode ?? 0
-        let keep = Self.staging.appendingPathComponent("\(key).arrived")
-        try? FileManager.default.createDirectory(at: Self.staging, withIntermediateDirectories: true)
+        let keep = spec.staging.appendingPathComponent("\(key).arrived")
+        try? FileManager.default.createDirectory(at: spec.staging, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: keep)
         guard (try? FileManager.default.moveItem(at: location, to: keep)) != nil else { return }
         MainActor.assumeIsolated { self.pieceArrived(key, tmp: keep, status: status) }
@@ -556,7 +553,63 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
         MainActor.assumeIsolated {
-            ModelDownload.shared.backgroundCompletion = completionHandler
+            if let d = ModelDownload.forSession(identifier) {
+                d.backgroundCompletion = completionHandler
+            } else {
+                completionHandler()
+            }
         }
     }
+}
+
+/// What one model download fetches and where it puts it.
+struct DownloadSpec: Sendable {
+    let sessionID: String
+    /// Hugging Face repo and revision.
+    let repo: String
+    let revision: String
+    /// The folder of the repo to list ("" = everything) and which paths (folders and files) to keep.
+    let root: String
+    let include: @Sendable (String) -> Bool
+    let target: URL
+    let staging: URL
+    let wantedKey: String
+    let pausedKey: String
+    /// The last step once every file is on disk.
+    let finish: @MainActor @Sendable () async throws -> Void
+
+    private static var support: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+
+    /// A download was started and hasn't finished (or been deleted). Finished files land in the model folder one
+    /// by one, so until then that folder holds only part of the model and must never be loaded: after the app was
+    /// force-quit mid-download it looked complete, the launch warm-up loaded it, and Core ML crashed on every start.
+    var unfinished: Bool {
+        UserDefaults.standard.bool(forKey: wantedKey)
+            || FileManager.default.fileExists(atPath: staging.appendingPathComponent("files.json").path)
+    }
+
+    /// Parakeet Ultra for captions: the compiled models and the vocabulary, in FluidAudio's own folder.
+    static let parakeet: DownloadSpec = {
+        let required = ModelNames.ASR.requiredModelsV3().union([ModelNames.ASR.vocabularyFile])
+        return DownloadSpec(
+            sessionID: "cz.krechler.bombocut.models",
+            repo: Repo.parakeetUltra.remotePath, revision: Repo.parakeetUltra.revision, root: "",
+            include: { path in required.contains(String(path.split(separator: "/").first ?? "")) },
+            target: SpeechModel.parakeet.folder,
+            staging: support.appendingPathComponent("ModelDownload", isDirectory: true),
+            wantedKey: "modelDownloadWanted", pausedKey: "modelDownloadPaused",
+            finish: { _ = try await AsrModels.download(version: SpeechModel.version) })
+    }()
+
+    /// Sidon for Restore voice (`VoiceRestore`): the v4 encoder and decoder packages and the front-end constants.
+    static let sidon = DownloadSpec(
+        sessionID: "cz.krechler.bombocut.voice-model",
+        repo: VoiceRestore.repo, revision: VoiceRestore.revision, root: VoiceRestore.version,
+        include: { path in path == VoiceRestore.version || path.hasPrefix(VoiceRestore.version + "/sidon_") },
+        target: VoiceRestore.downloads,
+        staging: support.appendingPathComponent("VoiceModelDownload", isDirectory: true),
+        wantedKey: "voiceModelDownloadWanted", pausedKey: "voiceModelDownloadPaused",
+        finish: { try await VoiceRestore.install() })
 }
