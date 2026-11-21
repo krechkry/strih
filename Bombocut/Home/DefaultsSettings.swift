@@ -6,6 +6,8 @@ struct DefaultsSettings: View {
     @State private var still = Defaults.stillLength
     @State private var layer = Defaults.layerLength
     @State private var fill = Defaults.fillNewClips
+    @State private var pitch = Defaults.keepPitch
+    @State private var stick = Defaults.stickSpeedCurve
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,6 +25,14 @@ struct DefaultsSettings: View {
             line
             OnOffRow(title: "New clips fill the frame", subtitle: "Off: they fit inside it, with borders where the shapes differ.",
                      isOn: fill) { v in fill = v; Defaults.fillNewClips = v }
+                .padding(.vertical, 10)
+            line
+            OnOffRow(title: "Keep pitch", subtitle: "For new clips. Sped up or slowed down, voices sound the same.",
+                     isOn: pitch) { v in pitch = v; Defaults.keepPitch = v }
+                .padding(.vertical, 10)
+            line
+            OnOffRow(title: "Speed curves stick to frames", subtitle: "Trimming a clip keeps its speed points on their frames. Off: the curve stretches with the clip.",
+                     isOn: stick) { v in stick = v; Defaults.stickSpeedCurve = v }
                 .padding(.vertical, 10)
         }
         .padding(.horizontal, 14)

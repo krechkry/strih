@@ -81,10 +81,10 @@ final class MaskExporter: @unchecked Sendable {
         var readerDone = false
 
         for n in 0..<max(total, 1) {
-            if cancelled { reader.cancelReading(); writer.cancelWriting(); throw CancellationError() }
+            if cancelled { reader.cancelReading(); writer.cancelSafely(); throw CancellationError() }
             while !input.isReadyForMoreMediaData {
                 try await Task.sleep(for: .milliseconds(5))
-                if cancelled { reader.cancelReading(); writer.cancelWriting(); throw CancellationError() }
+                if cancelled { reader.cancelReading(); writer.cancelSafely(); throw CancellationError() }
             }
             let local = Double(n) / fps
             let srcT = rt.source(atLocal: local)
@@ -168,8 +168,8 @@ final class MaskExporter: @unchecked Sendable {
             progress(min(1, Double(n + 1) / Double(max(total, 1))))
         }
         reader.cancelReading()
-        input.markAsFinished()
-        await writer.finishWriting()
+        input.finish(in: writer)
+        await writer.finishSafely()
         if writer.status != .completed { throw writer.error ?? err("Could not write the file.") }
         return url
     }

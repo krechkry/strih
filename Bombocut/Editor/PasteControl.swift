@@ -4,6 +4,9 @@ import UniformTypeIdentifiers
 
 /// What is on the clipboard, found without reading it: the has-checks and the type list never bring up
 /// iOS's "Allow paste?" prompt. Checked again whenever the clipboard changes or the app comes back.
+/// iOS keeps the last copied thing forever, so the clipboard is hardly ever empty: Paste only shows for
+/// something copied in the last few minutes (`fresh`) that hasn't been pasted yet (user, 2026-11-21: "I see it
+/// all the time"). The clipboard's change count survives app launches, so it's kept in UserDefaults.
 @MainActor
 final class ClipboardWatch: ObservableObject {
     static let shared = ClipboardWatch()
@@ -11,6 +14,12 @@ final class ClipboardWatch: ObservableObject {
     @Published private(set) var hasContent = false
     private var count = -1
     private var observers: [NSObjectProtocol] = []
+    private var expiry: Task<Void, Never>?
+    /// How long something copied counts as "just copied".
+    private static let fresh: TimeInterval = 10 * 60
+    private static let seenCountKey = "clipboard.seenCount"
+    private static let seenAtKey = "clipboard.seenAt"
+    private static let pastedKey = "clipboard.pastedCount"
 
     private init() {
         let nc = NotificationCenter.default
@@ -25,9 +34,36 @@ final class ClipboardWatch: ObservableObject {
 
     func check() {
         let pb = UIPasteboard.general
-        guard pb.changeCount != count else { return }
-        count = pb.changeCount
-        hasContent = pb.hasStrings || pb.hasImages || pb.hasURLs || Self.hasMovie(pb)
+        let d = UserDefaults.standard
+        let now = Date().timeIntervalSince1970
+        if pb.changeCount != d.integer(forKey: Self.seenCountKey) || d.object(forKey: Self.seenCountKey) == nil {
+            // copied since we last looked: new
+            d.set(pb.changeCount, forKey: Self.seenCountKey)
+            d.set(now, forKey: Self.seenAtKey)
+        }
+        let age = now - d.double(forKey: Self.seenAtKey)
+        let pasted = d.object(forKey: Self.pastedKey) != nil && d.integer(forKey: Self.pastedKey) == pb.changeCount
+        let usable = age < Self.fresh && !pasted
+        if pb.changeCount != count || !usable {
+            count = pb.changeCount
+            hasContent = usable && (pb.hasStrings || pb.hasImages || pb.hasURLs || Self.hasMovie(pb))
+        }
+        // hide by itself when it's no longer new
+        expiry?.cancel()
+        if hasContent {
+            let left = Self.fresh - age
+            expiry = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(max(1, left) * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                self?.check()
+            }
+        }
+    }
+
+    /// Pasted: the same clipboard doesn't offer itself again.
+    func used() {
+        UserDefaults.standard.set(UIPasteboard.general.changeCount, forKey: Self.pastedKey)
+        hasContent = false
     }
 
     private static func hasMovie(_ pb: UIPasteboard) -> Bool {
@@ -109,6 +145,7 @@ struct PasteControl: View {
         Button {
             let providers = UIPasteboard.general.itemProviders
             if !providers.isEmpty { action(providers) }
+            ClipboardWatch.shared.used()
         } label: {
             Image(systemName: "doc.on.clipboard")
                 .font(.system(size: size * 0.4, weight: .bold))

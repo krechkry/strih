@@ -13,6 +13,8 @@ struct SpeedSheet: View {
     @State private var fingerAt: CGPoint?
     @State private var snapped = false
     @State private var snappedHead = false
+    /// Where the playhead was when a point was grabbed (the playhead then follows the point, so snapping uses this).
+    @State private var dragHead: Double?
     @State private var loaded = false
     /// This panel's own undo / redo: only the speed of this clip, not the whole timeline.
     private struct Snap: Equatable { var tab: Int; var speed: Double; var points: [SpeedPoint] }
@@ -65,6 +67,22 @@ struct SpeedSheet: View {
                 }
                 .padding(.horizontal, 14).frame(height: 50)
                 Divider().overlay(Theme.line)
+                if tab == 1 {
+                    HStack {
+                        Image(systemName: "pin").font(.body.weight(.semibold)).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Stick to frames").font(.body.weight(.semibold))
+                            Text(loc(clip?.sticksCurve ?? false ? "Trimming keeps the points on their frames" : "The curve stretches with the clip"))
+                                .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                                .lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(get: { clip?.sticksCurve ?? false }, set: { model.setCurveSticks($0) }))
+                            .labelsHidden()
+                    }
+                    .padding(.horizontal, 14).frame(height: 56)
+                    Divider().overlay(Theme.line)
+                }
                 HStack {
                     Image(systemName: "wand.and.rays").font(.body.weight(.semibold)).frame(width: 24)
                     VStack(alignment: .leading, spacing: 1) {
@@ -170,7 +188,22 @@ struct SpeedSheet: View {
     // MARK: Constant
 
     private static let ticks: [Double] = [0.1, 0.25, 0.5, 1, 2, 4, 10, 25, 100]
-    private static let lo = log10(0.1), hi = log10(100.0)
+
+    // Slider position 0...1: 0.1x to 1x on the first third, 1x to 100x on the rest. Below 1x the scale is
+    // stretched (power 0.5 on the log), so 0.5x sits about halfway between 0.1x and 1x, well apart from 1x.
+    private static let below = 1.0 / 3, bend = 0.5
+
+    static func position(_ v: Double) -> Double {
+        let v = min(max(v, 0.1), 100)
+        if v >= 1 { return below + (1 - below) * log10(v) / 2 }
+        return below * (1 - pow(-log10(v), bend))
+    }
+
+    static func speed(at pos: Double) -> Double {
+        let p = min(max(pos, 0), 1)
+        if p >= below { return pow(10, (p - below) / (1 - below) * 2) }
+        return pow(10, -pow(1 - p / below, 1 / bend))
+    }
 
     private var constantView: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -182,16 +215,16 @@ struct SpeedSheet: View {
                 durationLine(newDuration: originalDuration / max(speed, 0.01))
             }
             BSlider(value: Binding(
-                get: { log10(max(speed, 0.1)) },
+                get: { Self.position(speed) },
                 set: { v in
-                    var s = pow(10, v)
+                    var s = Self.speed(at: v)
                     var hit = false
-                    for t in Self.ticks where abs(log10(t) - v) < 0.025 { s = t; hit = true }
+                    for t in Self.ticks where abs(Self.position(t) - v) < 0.0125 { s = t; hit = true }
                     if hit && !snapped { UISelectionFeedbackGenerator().selectionChanged() }
                     snapped = hit
                     speed = s >= 10 ? s.rounded() : (s * 100).rounded() / 100
                 }
-            ), in: Self.lo...Self.hi, onEditingChanged: { editing in
+            ), in: 0...1, onEditingChanged: { editing in
                 if !editing { commitSpeed(speed) }
             })
             .doubleTapReset { speed = 1; commitSpeed(1) }
@@ -201,7 +234,7 @@ struct SpeedSheet: View {
                         .font(.caption.weight(.bold).monospacedDigit())
                         .foregroundStyle(abs(speed - t) < 0.001 ? Theme.accent : Theme.muted)
                         .fixedSize()
-                        .position(x: 14 + (g.size.width - 28) * CGFloat((log10(t) - Self.lo) / (Self.hi - Self.lo)), y: 8)
+                        .position(x: 14 + (g.size.width - 28) * CGFloat(Self.position(t)), y: 8)
                 }
             }
             .frame(height: 16)
@@ -218,14 +251,14 @@ struct SpeedSheet: View {
         }()
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Tap the line to add · drag to scrub")
+                Text("Tap the line to add · slide to scrub")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
                 Spacer()
                 durationLine(newDuration: preview)
             }
             GeometryReader { g in
-                curveGraph(size: g.size)
+                curveGraph(size: g.size, origin: g.frame(in: .global).origin)
             }
             .frame(height: 190)
             HStack(spacing: 10) {
@@ -267,14 +300,33 @@ struct SpeedSheet: View {
     }
 
     // Graph mapping: x = position in clip's source (0...1), y = speed on a log scale, 15x at top, 0.05x at bottom.
+    // Below 1x the scale is stretched (power `graphBend` on the log): 0.5x sits where 0.25x used to, so the
+    // slow motion range gets more room (user, 2026-11-21).
     private static let logTop = log10(SpeedCurve.maxV), logBottom = log10(SpeedCurve.minV)
-    private func y(for v: Double, h: CGFloat) -> CGFloat {
-        CGFloat((Self.logTop - log10(max(v, 1e-6))) / (Self.logTop - Self.logBottom)) * h
+    private static let graphBend = 0.53
+    /// Where 1x is, from the top (0...1).
+    private static var oneAt: Double { logTop / (logTop - logBottom) }
+
+    static func graphY(_ v: Double) -> Double {
+        let l = log10(max(v, 1e-6))
+        if l >= 0 { return (logTop - l) / (logTop - logBottom) }
+        let f = pow(min(-l / -logBottom, 1), graphBend)
+        return oneAt + f * (1 - oneAt)
     }
-    private func v(for y: CGFloat, h: CGFloat) -> Double {
-        let l = Self.logTop - Double(y / max(h, 1)) * (Self.logTop - Self.logBottom)
+
+    static func graphValue(_ y: Double) -> Double {
+        let y = min(max(y, 0), 1)
+        let l: Double
+        if y <= oneAt {
+            l = logTop - y * (logTop - logBottom)
+        } else {
+            l = -pow((y - oneAt) / (1 - oneAt), 1 / graphBend) * -logBottom
+        }
         return min(max(pow(10, l), SpeedCurve.minV), SpeedCurve.maxV)
     }
+
+    private func y(for v: Double, h: CGFloat) -> CGFloat { CGFloat(Self.graphY(v)) * h }
+    private func v(for y: CGFloat, h: CGFloat) -> Double { Self.graphValue(Double(y / max(h, 1))) }
 
     private static func label(_ v: Double) -> String {
         String(format: v < 1 ? "%.2fx" : "%.1fx", v)
@@ -310,13 +362,13 @@ struct SpeedSheet: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    private func curveGraph(size: CGSize) -> some View {
+    private func curveGraph(size: CGSize, origin: CGPoint) -> some View {
         let w = size.width, h = size.height
         let head = playheadU
         return ZStack {
             RoundedRectangle(cornerRadius: 14).fill(Theme.panel2)
             SwiftUI.Canvas { ctx, _ in
-                for (v, label) in [(15.0, "15x"), (4.0, "4x"), (1.0, "1x"), (0.25, "0.25x"), (0.05, "0.05x")] {
+                for (v, label) in [(15.0, "15x"), (4.0, "4x"), (1.0, "1x"), (0.5, "0.5x"), (0.25, "0.25x"), (0.1, "0.1x")] {
                     let yy = min(max(y(for: v, h: h), 1), h - 1)
                     var line = Path()
                     line.move(to: CGPoint(x: 0, y: yy))
@@ -367,66 +419,91 @@ struct SpeedSheet: View {
             }
         }
         .contentShape(Rectangle())
-        // high priority: the panel scrolls, but a finger on the curve always edits it
-        .highPriorityGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { g in handleDrag(g, w: w, h: h) }
-                .onEnded { g in handleEnd(g, w: w, h: h) }
-        )
+        // a finger on a point or the line edits; anywhere else a sideways slide scrubs and an up / down drag
+        // scrolls the panel (a SwiftUI drag here blocked the scrolling)
+        .gesture(GraphPan(grabs: { at in
+            grabs(CGPoint(x: at.x - origin.x, y: at.y - origin.y), w: w, h: h)
+        }, changed: { start, at in
+            handleDrag(start: start, at: at, w: w, h: h)
+        }, ended: { start, at in
+            handleEnd(start: start, at: at, moved: true, w: w, h: h)
+        }))
+        .onTapGesture { at in
+            dragIndex = nil
+            dragMoved = false
+            handleDrag(start: at, at: at, w: w, h: h)
+            handleEnd(start: at, at: at, moved: false, w: w, h: h)
+        }
+    }
+
+    /// The point near `at`, if any.
+    private func pointAt(_ at: CGPoint, w: CGFloat, h: CGFloat) -> Int? {
+        var best: (Int, CGFloat)?
+        for (i, p) in points.enumerated() {
+            let d = hypot(CGFloat(p.t) * w - at.x, y(for: p.v, h: h) - at.y)
+            if d < 26, d < (best?.1 ?? .infinity) { best = (i, d) }
+        }
+        return best?.0
+    }
+
+    private func onLine(_ at: CGPoint, w: CGFloat, h: CGFloat) -> Bool {
+        let u = Double(at.x / w)
+        let lineY = y(for: SpeedCurve.value(points, at: u), h: h)
+        return abs(lineY - at.y) < 18 && u > 0.02 && u < 0.98
+    }
+
+    /// A drag starting here edits the curve (otherwise only a sideways one scrubs).
+    private func grabs(_ at: CGPoint, w: CGFloat, h: CGFloat) -> Bool {
+        guard at.x >= 0, at.y >= 0, at.x <= w, at.y <= h else { return false }
+        return pointAt(at, w: w, h: h) != nil || onLine(at, w: w, h: h)
     }
 
     /// dragIndex: a point index, -1 = scrubbing, -2 = touched the line (adds a point).
-    private func handleDrag(_ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
+    private func handleDrag(start: CGPoint, at: CGPoint, w: CGFloat, h: CGFloat) {
         if dragIndex == nil {
-            // grab the nearest point within reach
-            var best: (Int, CGFloat)?
-            for (i, p) in points.enumerated() {
-                let d = hypot(CGFloat(p.t) * w - g.startLocation.x, y(for: p.v, h: h) - g.startLocation.y)
-                if d < 26, d < (best?.1 ?? .infinity) { best = (i, d) }
-            }
             dragMoved = false
-            if let i = best?.0 {
+            dragHead = playheadU
+            if let i = pointAt(start, w: w, h: h) {
                 dragIndex = i
                 selected = i
             } else {
-                let u = Double(g.startLocation.x / w)
-                let lineY = y(for: SpeedCurve.value(points, at: u), h: h)
-                dragIndex = abs(lineY - g.startLocation.y) < 18 && u > 0.02 && u < 0.98 ? -2 : -1
+                dragIndex = onLine(start, w: w, h: h) ? -2 : -1
             }
         }
         guard let i = dragIndex else { return }
-        if hypot(g.translation.width, g.translation.height) > 3 { dragMoved = true }
+        if hypot(at.x - start.x, at.y - start.y) > 3 { dragMoved = true }
 
         if i == -2 {
             // touched the line and started dragging: make a point there and carry it
             guard dragMoved else { return }
-            let u = Double(g.startLocation.x / w)
+            let u = Double(start.x / w)
             let p = SpeedPoint(t: u, v: (SpeedCurve.value(points, at: u) * 100).rounded() / 100)
             points.append(p)
             points.sort { $0.t < $1.t }
             let k = points.firstIndex(of: p) ?? 0
             dragIndex = k
             selected = k
-            move(k, g, w: w, h: h)
+            move(k, at, w: w, h: h)
             return
         }
         if i == -1 {
-            scrub(toU: Double(g.location.x / w))
+            scrub(toU: Double(at.x / w))
             return
         }
         guard dragMoved else { return }
-        move(i, g, w: w, h: h)
+        move(i, at, w: w, h: h)
     }
 
-    private func move(_ i: Int, _ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
-        fingerAt = g.location
+    /// A point follows the finger, and the player shows the frame it sits on, so it can go on an exact moment.
+    private func move(_ i: Int, _ at: CGPoint, w: CGFloat, h: CGFloat) {
+        fingerAt = at
         var p = points[i]
         if i > 0 && i < points.count - 1 {
             let lo = points[i - 1].t + 0.02, hi = points[i + 1].t - 0.02
-            var t = Double(g.location.x / w)
-            // snap to the playhead
+            var t = Double(at.x / w)
+            // snap to where the playhead was when the point was grabbed
             var onHead = false
-            if let head = playheadU, abs(CGFloat(head - t) * w) < 10, head > lo, head < hi {
+            if let head = dragHead, abs(CGFloat(head - t) * w) < 10, head > lo, head < hi {
                 t = head
                 onHead = true
             }
@@ -434,21 +511,25 @@ struct SpeedSheet: View {
             snappedHead = onHead
             p.t = min(max(t, lo), hi)
         }
-        var v = v(for: g.location.y, h: h)
+        var v = v(for: at.y, h: h)
         let near1 = abs(log10(v)) < 0.04
         if near1 { v = 1 }
         if near1 && !snapped { UISelectionFeedbackGenerator().selectionChanged() }
         snapped = near1
         p.v = (v * 100).rounded() / 100
+        let shift = p.t != points[i].t
         points[i] = p
+        if shift || i == 0 || i == points.count - 1 { scrub(toU: p.t) }
     }
 
-    private func handleEnd(_ g: DragGesture.Value, w: CGFloat, h: CGFloat) {
-        defer { dragIndex = nil; dragMoved = false; snappedHead = false; fingerAt = nil }
+    private func handleEnd(start: CGPoint, at: CGPoint, moved: Bool, w: CGFloat, h: CGFloat) {
+        defer { dragIndex = nil; dragMoved = false; snappedHead = false; fingerAt = nil; dragHead = nil }
         guard let i = dragIndex else { return }
+        if moved { dragMoved = true }
         if i == -2 {
             // tap on the line: add a point there (the curve keeps its shape)
-            let u = Double(g.location.x / w)
+            guard !moved else { return }
+            let u = Double(at.x / w)
             guard !points.contains(where: { abs($0.t - u) < 0.03 }) else { return }
             let p = SpeedPoint(t: u, v: (SpeedCurve.value(points, at: u) * 100).rounded() / 100)
             points.append(p)
@@ -457,9 +538,66 @@ struct SpeedSheet: View {
             commitCurve()
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } else if i == -1 {
-            if !dragMoved { scrub(toU: Double(g.location.x / w)) }
+            if !dragMoved { scrub(toU: Double(at.x / w)) }
         } else if dragMoved {
             commitCurve()
+        } else {
+            // a tap on a point selects it and shows its frame
+            scrub(toU: points[i].t)
+        }
+    }
+}
+
+/// The speed graph's finger: a drag that starts on a point or the line edits the curve, a sideways one
+/// elsewhere scrubs; an up / down one elsewhere fails, so the panel scrolls. `grabs` gets window points.
+private struct GraphPan: UIGestureRecognizerRepresentable {
+    let grabs: (CGPoint) -> Bool
+    let changed: (CGPoint, CGPoint) -> Void
+    let ended: (CGPoint, CGPoint) -> Void
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var start = CGPoint.zero
+        var grabs: (CGPoint) -> Bool = { _ in false }
+
+        func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+            guard let p = g as? UIPanGestureRecognizer else { return true }
+            let at = p.location(in: nil)
+            let t = p.translation(in: nil)
+            if grabs(CGPoint(x: at.x - t.x, y: at.y - t.y)) { return true }
+            let v = p.velocity(in: nil)
+            return abs(v.x) > abs(v.y) * 1.2
+        }
+
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            other is UIPanGestureRecognizer && other.view is UIScrollView
+        }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let g = UIPanGestureRecognizer()
+        g.maximumNumberOfTouches = 1
+        g.delegate = context.coordinator
+        context.coordinator.grabs = grabs
+        return g
+    }
+
+    func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.grabs = grabs
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
+        let here = context.converter.localLocation
+        switch g.state {
+        case .began:
+            let t = g.translation(in: g.view)
+            context.coordinator.start = CGPoint(x: here.x - t.x, y: here.y - t.y)
+            changed(context.coordinator.start, here)
+        case .changed:
+            changed(context.coordinator.start, here)
+        default:
+            ended(context.coordinator.start, here)
         }
     }
 }

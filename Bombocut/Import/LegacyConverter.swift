@@ -112,7 +112,7 @@ final class LegacyConverter {
                     while input.isReadyForMoreMediaData {
                         guard writer.status == .writing, let sb = next(), input.append(sb) else {
                             finished = true
-                            input.markAsFinished()
+                            input.finish(in: writer)
                             group.leave()
                             return
                         }
@@ -124,7 +124,7 @@ final class LegacyConverter {
             if let ain, let afeed { pump(ain, DispatchQueue(label: "legacy.audio"), { afeed.next() }) }
             group.notify(queue: .global()) { done.resume() }
         }
-        await writer.finishWriting()
+        await writer.finishSafely()
         guard writer.status == .completed else {
             throw writer.error ?? LegacyImportError(loc("Couldn't write the converted video."))
         }
@@ -224,10 +224,10 @@ final class LegacyConverter {
         }
         await drive(writer, feeds)
         if reader.status == .failed {
-            writer.cancelWriting()
+            writer.cancelSafely()
             throw reader.error ?? failed
         }
-        await writer.finishWriting()
+        await writer.finishSafely()
         guard writer.status == .completed else { throw writer.error ?? failed }
     }
 
@@ -264,7 +264,7 @@ final class LegacyConverter {
                     while input.isReadyForMoreMediaData {
                         if writer.status != .writing || !step() {
                             finished = true
-                            input.markAsFinished()
+                            input.finish(in: writer)
                             group.leave()
                             return
                         }

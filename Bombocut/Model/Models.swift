@@ -170,6 +170,9 @@ struct Clip: Identifiable, Codable, Hashable {
     var speed: Double = 1          // constant speed, used when there is no curve
     var speedCurve: [SpeedPoint]?  // custom curve, overrides constant speed
     var pitchCorrect: Bool = true  // keep pitch when sped up / slowed down
+    /// Speed curve points stay on their frames when the clip is trimmed: a longer clip gets 1x in the new part
+    /// (nil: Settings > Defaults). Off: the curve stretches with the clip.
+    var curveSticks: Bool?
     var transform = ClipTransform()
     var opacity = 1.0
     var effects = Effects()
@@ -259,10 +262,12 @@ struct Clip: Identifiable, Codable, Hashable {
         self.sourceDuration = sourceDuration
         self.inPoint = 0
         self.outPoint = sourceDuration
+        self.pitchCorrect = Defaults.keepPitch
     }
 
     enum CodingKeys: String, CodingKey {
         case id, mediaFile, sourceDuration, inPoint, outPoint, volume, fill, speed
+        case curveSticks
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
         case fadeIn, fadeOut, filter
@@ -280,6 +285,7 @@ struct Clip: Identifiable, Codable, Hashable {
         speed = try c.decodeIfPresent(Double.self, forKey: .speed) ?? 1
         speedCurve = try c.decodeIfPresent([SpeedPoint].self, forKey: .speedCurve)
         pitchCorrect = try c.decodeIfPresent(Bool.self, forKey: .pitchCorrect) ?? true
+        curveSticks = try? c.decodeIfPresent(Bool.self, forKey: .curveSticks)
         transform = try c.decodeIfPresent(ClipTransform.self, forKey: .transform) ?? ClipTransform()
         aspect = try c.decodeIfPresent(Double.self, forKey: .aspect)
         opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
@@ -320,6 +326,30 @@ struct Clip: Identifiable, Codable, Hashable {
         let blur = blurAmount > 0.001
         let slow = smoothSlowMo && retime.segs.contains { $0.outLen > $0.srcLen * 1.05 }
         return blur || slow
+    }
+
+    var sticksCurve: Bool { curveSticks ?? Defaults.stickSpeedCurve }
+
+    /// `o`'s curve on this clip's source range with every point kept on its frame (trims, rolls, slips with
+    /// Stick to frames): a part that's new runs at 1x (the old edge keeps its point), a part cut off is cut
+    /// from the curve (the new edge gets the speed it had there).
+    func stuckCurve(from o: Clip) -> [SpeedPoint]? {
+        guard let pts = o.speedCurve, pts.count >= 2 else { return speedCurve }
+        let a0 = o.inPoint, len0 = o.outPoint - o.inPoint
+        let a1 = inPoint, len1 = outPoint - inPoint
+        guard len0 > 1e-6, len1 > 1e-6 else { return o.speedCurve }
+        let eps = 1e-4
+        func u(_ src: Double) -> Double { (src - a1) / len1 }
+        func old(_ src: Double) -> Double { SpeedCurve.value(pts, at: min(max((src - a0) / len0, 0), 1)) }
+        let headAdded = u(a0) > eps
+        let tailAdded = u(a0 + len0) < 1 - eps
+        var out = [SpeedPoint(t: 0, v: headAdded ? 1 : old(a1))]
+        for p in pts {
+            let t = u(a0 + p.t * len0)
+            if t > eps, t < 1 - eps, t - out[out.count - 1].t > 0.002 { out.append(SpeedPoint(t: t, v: p.v)) }
+        }
+        out.append(SpeedPoint(t: 1, v: tailAdded ? 1 : old(a1 + len1)))
+        return out
     }
 
     /// Part of the curve between normalized positions u0 and u1, renormalized to 0...1 (used by split).

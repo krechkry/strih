@@ -66,9 +66,9 @@ enum StillVideo {
             while !input.isReadyForMoreMediaData { try await Task.sleep(for: .milliseconds(5)) }
             adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(i), timescale: 1))
         }
-        input.markAsFinished()
+        input.finish(in: writer)
         writer.endSession(atSourceTime: CMTime(value: CMTimeValue(frames), timescale: 1))
-        await writer.finishWriting()
+        await writer.finishSafely()
         guard writer.status == .completed else {
             try? FileManager.default.removeItem(at: out)
             throw writer.error ?? CocoaError(.fileWriteUnknown)

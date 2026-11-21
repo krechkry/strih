@@ -65,8 +65,8 @@ enum EndCard {
             CVPixelBufferUnlockBaseAddress(buffer, [])
             adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(i), timescale: fps))
         }
-        input.markAsFinished()
-        await writer.finishWriting()
+        input.finish(in: writer)
+        await writer.finishSafely()
         guard writer.status == .completed else { throw writer.error ?? CompositionBuilder.err("Writing failed.") }
         try? FileManager.default.removeItem(at: out)
         try FileManager.default.moveItem(at: tmp, to: out)

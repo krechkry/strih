@@ -11,6 +11,7 @@ final class Exporter: @unchecked Sendable {
     private var writer: AVAssetWriter?
 
     private var _lowMemory = false
+    private var _lowSpace = false
     /// Ends the wait for the frame pumps; cancel calls it too, because a cancelled writer stops asking for
     /// frames and the pumps would never report back (the export screen stayed stuck after Cancel).
     private var finishWait: (() -> Void)?
@@ -28,6 +29,58 @@ final class Exporter: @unchecked Sendable {
     private static let memoryFloor = 180 * 1024 * 1024
 
     private var stoppedForMemory: Bool { lock.lock(); defer { lock.unlock() }; return _lowMemory }
+    private var stoppedForSpace: Bool { lock.lock(); defer { lock.unlock() }; return _lowSpace }
+
+    /// Not enough free space for the video (checked before it starts, and while it's written): the export stops
+    /// cleanly. Writing on with a full disk made the writer fail and the app crash (1.1.1 crash report).
+    struct NoSpace: LocalizedError {
+        /// What the export needs free (the video, its copy in Photos, some room to spare).
+        var need: Int64
+        var errorDescription: String? {
+            String(format: loc("There isn't enough free space for this video (it needs about %@). Free up some space or pick a lower bitrate, then try again."),
+                   ByteCountFormatter.string(fromByteCount: need, countStyle: .file))
+        }
+    }
+
+    /// Room left free while writing: below this the export stops.
+    private static let spaceFloor: Int64 = 150 * 1024 * 1024
+
+    /// About how big the video will be (the bitrate is an average, so some room on top).
+    static func expectedBytes(duration: Double, mbps: Double, audio: Bool) -> Int64 {
+        let bits = (mbps * 1_000_000 + (audio ? 192_000 : 0)) * duration
+        return Int64(bits / 8 * 1.15) + 2_000_000
+    }
+
+    /// Free space on the phone (what iOS would free up for an important write included).
+    static func freeSpace() -> Int64? {
+        let tmp = FileManager.default.temporaryDirectory
+        return (try? tmp.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage
+    }
+
+    private static func isDiskFull(_ error: Error?) -> Bool {
+        guard let e = error as NSError? else { return false }
+        if e.domain == NSCocoaErrorDomain && e.code == CocoaError.Code.fileWriteOutOfSpace.rawValue { return true }
+        if e.domain == AVFoundationErrorDomain && e.code == AVError.Code.diskFull.rawValue { return true }
+        if e.domain == NSPOSIXErrorDomain && e.code == Int(ENOSPC) { return true }
+        if let under = e.userInfo[NSUnderlyingErrorKey] as? NSError { return isDiskFull(under) }
+        return false
+    }
+
+    private func stopForSpace() {
+        lock.lock(); _lowSpace = true; lock.unlock()
+        cancel()
+    }
+
+    /// Videos from earlier exports (already in Photos or shared) don't need to take space any more.
+    private static func removeOldExports(except keep: URL) {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory
+        for name in (try? fm.contentsOfDirectory(atPath: tmp.path)) ?? []
+        where name.hasPrefix("Bombocut_") && name.hasSuffix(".mp4") && name != keep.lastPathComponent {
+            try? fm.removeItem(at: tmp.appendingPathComponent(name))
+        }
+    }
 
     private func stopForMemory() {
         lock.lock(); _lowMemory = true; lock.unlock()
@@ -40,7 +93,8 @@ final class Exporter: @unchecked Sendable {
         let finish = finishWait
         lock.unlock()
         reader?.cancelReading()
-        writer?.cancelWriting()
+        // a writer that already failed or finished throws an exception on cancel (that ends the app)
+        if let writer, writer.status == .writing { writer.cancelWriting() }
         finish?()
     }
 
@@ -91,6 +145,7 @@ final class Exporter: @unchecked Sendable {
         let out = FileManager.default.temporaryDirectory
             .appendingPathComponent("Bombocut_\(Int(Date().timeIntervalSince1970)).mp4")
         try? FileManager.default.removeItem(at: out)
+        Self.removeOldExports(except: out)
 
         // Reader
         let reader = try AVAssetReader(asset: built.composition)
@@ -156,21 +211,35 @@ final class Exporter: @unchecked Sendable {
             aIn = i
         }
 
+        // will it fit? the video, then its copy in Photos, and room to spare
+        let video = Self.expectedBytes(duration: duration, mbps: settings.bitrateMbps, audio: aOut != nil)
+        let need = video * 2 + Self.spaceFloor
+        if let free = Self.freeSpace(), free < need { throw NoSpace(need: need) }
+
         // cancelled while the composition was being built
         if cancelled { throw stoppedForMemory ? LowMemory() as Error : CancellationError() }
         self.reader = reader
         self.writer = writer
         guard reader.startReading() else { throw reader.error ?? CompositionBuilder.err("Could not read.") }
-        guard writer.startWriting() else { throw writer.error ?? CompositionBuilder.err("Could not write.") }
+        guard writer.startWriting() else {
+            if Self.isDiskFull(writer.error) { throw NoSpace(need: need) }
+            throw writer.error ?? CompositionBuilder.err("Could not write.")
+        }
         writer.startSession(atSourceTime: .zero)
 
-        // memory guard: stop cleanly instead of being closed by iOS
+        // memory and space guard: stop cleanly instead of being closed by iOS or failing on a full disk
         let watchdog = Task.detached { [weak self] in
+            var tick = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(250))
                 let free = os_proc_available_memory()
                 if free > 0 && free < Self.memoryFloor {
                     self?.stopForMemory()
+                    return
+                }
+                tick += 1
+                if tick % 4 == 0, let disk = Self.freeSpace(), disk < Self.spaceFloor {
+                    self?.stopForSpace()
                     return
                 }
             }
@@ -182,33 +251,45 @@ final class Exporter: @unchecked Sendable {
             setFinishWait { once.fire() }
             if cancelled { once.fire() }
             let group = DispatchGroup()
-            pump(input: vIn, output: vOut, reader: reader, group: group,
+            pump(input: vIn, output: vOut, reader: reader, writer: writer, group: group,
                  queue: DispatchQueue(label: "bombocut.export.video")) { t in progress(min(1, t / duration)) }
             if let aIn, let aOut {
-                pump(input: aIn, output: aOut, reader: reader, group: group,
+                pump(input: aIn, output: aOut, reader: reader, writer: writer, group: group,
                      queue: DispatchQueue(label: "bombocut.export.audio"), onTime: nil)
             }
             group.notify(queue: .global()) { once.fire() }
         }
         setFinishWait(nil)
 
-        if cancelled {
-            writer.cancelWriting()
+        // a writer that failed (full disk above all) can't be finished or cancelled: AVFoundation throws an
+        // Objective-C exception for that, which ends the app
+        if writer.status == .writing && (cancelled || reader.status == .failed) { writer.cancelWriting() }
+        if cancelled || writer.status != .writing {
+            let failed = writer.status == .failed ? writer.error : nil
             try? FileManager.default.removeItem(at: out)
-            throw stoppedForMemory ? LowMemory() as Error : CancellationError()
+            if stoppedForSpace || Self.isDiskFull(failed) { throw NoSpace(need: need) }
+            if stoppedForMemory { throw LowMemory() }
+            if cancelled { throw CancellationError() }
+            throw failed ?? CompositionBuilder.err("Writing failed.")
         }
         if reader.status == .failed {
             writer.cancelWriting()
+            try? FileManager.default.removeItem(at: out)
             throw reader.error ?? CompositionBuilder.err("Reading failed.")
         }
         await writer.finishWriting()
-        guard writer.status == .completed else { throw writer.error ?? CompositionBuilder.err("Writing failed.") }
+        guard writer.status == .completed else {
+            let e = writer.error
+            try? FileManager.default.removeItem(at: out)
+            if Self.isDiskFull(e) { throw NoSpace(need: need) }
+            throw e ?? CompositionBuilder.err("Writing failed.")
+        }
         progress(1)
         return out
     }
 
     private func pump(input: AVAssetWriterInput, output: AVAssetReaderOutput, reader: AVAssetReader,
-                      group: DispatchGroup, queue: DispatchQueue, onTime: ((Double) -> Void)?) {
+                      writer: AVAssetWriter, group: DispatchGroup, queue: DispatchQueue, onTime: ((Double) -> Void)?) {
         group.enter()
         let state = PumpState()
         input.requestMediaDataWhenReady(on: queue) { [weak self] in
@@ -217,7 +298,7 @@ final class Exporter: @unchecked Sendable {
                 // one frame's temporary objects are freed right after it (this loop can run for the
                 // whole export without returning)
                 let goOn: Bool = autoreleasepool {
-                    if self?.cancelled ?? true || reader.status != .reading { return false }
+                    if self?.cancelled ?? true || reader.status != .reading || writer.status != .writing { return false }
                     guard let sample = output.copyNextSampleBuffer() else { return false }
                     onTime?(sample.presentationTimeStamp.seconds)
                     if !input.append(sample) {
@@ -226,7 +307,13 @@ final class Exporter: @unchecked Sendable {
                     }
                     return true
                 }
-                if !goOn { state.done = true; input.markAsFinished(); group.leave(); return }
+                if !goOn {
+                    state.done = true
+                    // only a writer still writing takes this (a failed one throws an exception: the crash)
+                    if writer.status == .writing { input.markAsFinished() }
+                    group.leave()
+                    return
+                }
             }
         }
     }
@@ -242,5 +329,24 @@ final class Exporter: @unchecked Sendable {
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
         }
+    }
+}
+
+/// AVFoundation throws an Objective-C exception (which ends the app) when a writer that already failed, a full
+/// disk above all, is finished or cancelled. These only act while it's still writing; the caller then sees
+/// `status` isn't `.completed` and reports `writer.error`.
+extension AVAssetWriter {
+    func finishSafely() async {
+        if status == .writing { await finishWriting() }
+    }
+
+    func cancelSafely() {
+        if status == .writing { cancelWriting() }
+    }
+}
+
+extension AVAssetWriterInput {
+    func finish(in writer: AVAssetWriter) {
+        if writer.status == .writing { markAsFinished() }
     }
 }

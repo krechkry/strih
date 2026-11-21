@@ -86,13 +86,13 @@ enum Reverser {
                 progress(min(1, (end - segEnd) / total))
             }
         } catch {
-            writer.cancelWriting()
+            writer.cancelSafely()
             try? FileManager.default.removeItem(at: out)
             throw error
         }
-        input.markAsFinished()
+        input.finish(in: writer)
         writer.endSession(atSourceTime: CMTime(seconds: max(lastOut + frame, total), preferredTimescale: 6000))
-        await writer.finishWriting()
+        await writer.finishSafely()
         guard writer.status == .completed else {
             try? FileManager.default.removeItem(at: out)
             throw writer.error ?? Failure()

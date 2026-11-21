@@ -22,6 +22,18 @@ enum Defaults {
         set { store.set(newValue, forKey: "defLayer") }
     }
 
+    /// Keep pitch for new clips (the speed panel's switch remembers the last choice).
+    static var keepPitch: Bool {
+        get { store.object(forKey: "defKeepPitch") as? Bool ?? true }
+        set { store.set(newValue, forKey: "defKeepPitch") }
+    }
+
+    /// Speed curve points stay on their frames when a clip is trimmed (off: the curve stretches with the clip).
+    static var stickSpeedCurve: Bool {
+        get { store.bool(forKey: "defStickCurve") }
+        set { store.set(newValue, forKey: "defStickCurve") }
+    }
+
     /// New clips fill the frame (cropping the edges) instead of fitting inside it.
     static var fillNewClips: Bool {
         get { store.bool(forKey: "defFill") }

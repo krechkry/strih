@@ -2296,9 +2296,19 @@ final class EditorModel: ObservableObject {
         mutate { $0.clips[i].smoothSlowMo = on }
     }
 
+    /// Also remembered for new clips (Settings > Defaults).
     func setPitch(_ on: Bool) {
+        Defaults.keepPitch = on
         guard let i = selectedIndex, project.clips[i].pitchCorrect != on else { return }
         mutate { $0.clips[i].pitchCorrect = on }
+    }
+
+    /// Stick to frames (on) or stretch with the clip (off) for the selected clip's speed curve, remembered as the
+    /// default too.
+    func setCurveSticks(_ on: Bool) {
+        Defaults.stickSpeedCurve = on
+        guard let i = selectedIndex, project.clips[i].sticksCurve != on || project.clips[i].curveSticks == nil else { return }
+        mutate { $0.clips[i].curveSticks = on }
     }
 
     // MARK: Ripple trim
@@ -2342,6 +2352,7 @@ final class EditorModel: ObservableObject {
             c.outPoint = max(min(o.sourceDuration, target), o.inPoint + 0.1)
             hitLimit = target > o.sourceDuration
         }
+        if o.hasCurve && o.sticksCurve { c.speedCurve = c.stuckCurve(from: o) }
         project.clips[i] = c
         if hitLimit && trim?.atLimit == false {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
@@ -2441,6 +2452,8 @@ final class EditorModel: ObservableObject {
         var a = o.left, b = o.right
         a.outPoint = o.left.outPoint + clamped * sa
         b.inPoint = o.right.inPoint + clamped * sb
+        if o.left.hasCurve && o.left.sticksCurve { a.speedCurve = a.stuckCurve(from: o.left) }
+        if o.right.hasCurve && o.right.sticksCurve { b.speedCurve = b.stuckCurve(from: o.right) }
         project.clips[l] = a
         project.clips[r] = b
         roll?.delta = clamped
@@ -4203,6 +4216,7 @@ extension EditorModel {
         let shift = newIn - c0.inPoint
         c.inPoint = newIn
         c.outPoint = newIn + len
+        if c0.hasCurve && c0.sticksCurve { c.speedCurve = c.stuckCurve(from: c0) }
         // keyframes stay where they are in the clip (they are kept in source time)
         c.keyframes = c0.keyframes.map { var k = $0; k.t += shift; return k }
         project.clips[i] = c
