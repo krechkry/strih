@@ -127,6 +127,7 @@ struct FilterDef: Identifiable, Hashable {
     enum Colors: Hashable {
         case builtIn(String)        // FilterLooks formula
         case lut(String)            // file in LUTLibrary.folder
+        case bundled(String)        // .cube that ships in the app (Resources), name without extension
         case own                    // a look saved from Adjust (`LookFilter.own`)
     }
 
@@ -154,11 +155,23 @@ enum FilterLibrary {
         FilterDef(id: "vivid", name: "Vivid Pop", colors: .builtIn("vivid")),
     ]
 
+    /// Grading for iPhone ProRes Log (Apple Log, Rec.2020) footage: each takes the flat log picture to a finished
+    /// Rec.709 one, so they only look right on log clips (their own tab in the gallery). Neutral = Apple Log decoded
+    /// with Apple's published curve, Rec.2020 to Rec.709, a gentle filmic curve (18 % grey to 0.445). Cinematic and
+    /// Film are film emulations made with Spectral Film LUT (Jan Lohse, MIT) from Kodak's published film data:
+    /// Vision3 250D on 2393 print, and Vision3 500T on 2383 print with the app's grain, halation and a little vignette.
+    static let appleLog: [FilterDef] = [
+        FilterDef(id: "logNeutral", name: "Log Neutral", colors: .bundled("LogNeutral")),
+        FilterDef(id: "logCinematic", name: "Log Cinematic", colors: .bundled("LogCinematic")),
+        FilterDef(id: "logFilm", name: "Log Film", colors: .bundled("LogFilm"),
+                  fx: FilterFX(grain: 0.35, grainSize: 0.4, vignette: 0.15, halation: 0.4)),
+    ]
+
     static func lutID(_ file: String) -> String { "lut:" + file }
 
     /// Any filter by its key (an imported LUT whose file is gone: nil, the picture stays as it is).
     static func def(_ id: String) -> FilterDef? {
-        if let d = builtIn.first(where: { $0.id == id }) { return d }
+        if let d = builtIn.first(where: { $0.id == id }) ?? appleLog.first(where: { $0.id == id }) { return d }
         if id.hasPrefix("my:") { return MyFilterStore.filter(id).map(def) }
         guard id.hasPrefix("lut:") else { return nil }
         let file = String(id.dropFirst(4))

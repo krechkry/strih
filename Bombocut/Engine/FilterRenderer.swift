@@ -73,7 +73,7 @@ enum FilterRenderer {
     }
 
     private static func def(_ id: String) -> FilterDef? {
-        FilterLibrary.builtIn.first { $0.id == id } ?? (id.hasPrefix("lut:") ? FilterLibrary.def(id) : nil)
+        id.hasPrefix("my:") ? nil : FilterLibrary.def(id)
     }
 
     /// The LUT of a filter, made or read once and kept.
@@ -89,6 +89,9 @@ enum FilterRenderer {
             case .lut(let file):
                 let url = LUTLibrary.folder.appendingPathComponent(file)
                 if let text = try? String(contentsOf: url, encoding: .utf8) { lut = CubeLUT.parse(text) }
+            case .bundled(let name):
+                if let url = Bundle.main.url(forResource: name, withExtension: "cube"),
+                   let text = try? String(contentsOf: url, encoding: .utf8) { lut = CubeLUT.parse(text) }
             case .own: lut = nil
             }
         }

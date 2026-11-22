@@ -19,7 +19,7 @@ struct FiltersSheet: View {
     @State private var pendingRemove: Task<Void, Never>?
     @State private var source: CIImage?
 
-    private enum Tab: String, CaseIterable { case liked, all, mine, imported }
+    private enum Tab: String, CaseIterable { case liked, all, log, mine, imported }
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .all }
     private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
@@ -111,6 +111,7 @@ struct FiltersSheet: View {
         HStack(spacing: 6) {
             tabButton(.liked) { Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
             tabButton(.all) { Text("All").font(.footnote.weight(.bold)).lineLimit(1) }
+            tabButton(.log) { Text(verbatim: "Apple Log").font(.footnote.weight(.bold)).lineLimit(1) }
             tabButton(.mine) { Image(systemName: "person.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
             tabButton(.imported) { Image(systemName: "folder.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
         }
@@ -125,7 +126,8 @@ struct FiltersSheet: View {
                 .background(on ? Color.white : Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(loc(t == .liked ? "Liked" : t == .imported ? "Imported" : t == .mine ? "Mine" : "All"))
+        .accessibilityLabel(t == .log ? "Apple Log"
+                            : loc(t == .liked ? "Liked" : t == .imported ? "Imported" : t == .mine ? "Mine" : "All"))
     }
 
     // MARK: Tiles
@@ -145,6 +147,11 @@ struct FiltersSheet: View {
             grid {
                 ForEach(mine) { tile(FilterLibrary.def($0)) }
                 ForEach(FilterLibrary.builtIn) { tile($0) }
+            }
+        case .log:
+            VStack(alignment: .leading, spacing: 12) {
+                grid { ForEach(FilterLibrary.appleLog) { tile($0) } }
+                note("For clips shot in ProRes Log (Apple Log) on iPhone 15 Pro and newer: they turn the flat log picture into a finished one. On other clips they look too dark and contrasty.")
             }
         case .mine:
             if mine.isEmpty {

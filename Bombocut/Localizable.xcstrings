@@ -3704,6 +3704,16 @@
         }
       }
     },
+    "For clips shot in ProRes Log (Apple Log) on iPhone 15 Pro and newer: they turn the flat log picture into a finished one. On other clips they look too dark and contrasty.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro klipy natočené v ProRes Log (Apple Log) na iPhonu 15 Pro a novějším: z plochého log obrazu udělají hotový. Na ostatních klipech budou moc tmavé a kontrastní."
+          }
+        }
+      }
+    },
     "For new clips. Sped up or slowed down, voices sound the same.": {
       "localizations": {
         "cs": {
@@ -4734,6 +4744,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamčeno na objektu: obraz se posouvá tak, aby objekt stál, a všechno ostatní se hýbe kolem něj."
+          }
+        }
+      }
+    },
+    "Log Cinematic": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log Filmový"
+          }
+        }
+      }
+    },
+    "Log Film": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log Kinofilm"
+          }
+        }
+      }
+    },
+    "Log Neutral": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log Neutrální"
           }
         }
       }
