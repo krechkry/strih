@@ -3,7 +3,8 @@ import SwiftUI
 /// Crop of the selected clip, Stack or picture / video layer, in tabs: Rectangle (drag the lime edges on the
 /// preview; softness, rounded corners), Ellipse (drag it, its handles or pinch on the preview) and Curve (tap the
 /// video to add points, drag them). Ellipse and Curve have a soft edge and can keep the outside instead. It works
-/// on the picture itself (before stabilization, tracking and masks).
+/// on the picture itself (before stabilization, tracking and masks). Mirror (left to right, upside down) sits on
+/// top: it is stored with the crop and flips the picture as it is placed, so the crop stays on the same footage.
 struct CropSheet: View {
     @ObservedObject var model: EditorModel
 
@@ -23,6 +24,7 @@ struct CropSheet: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(loc("Reset"))
                 }
+                mirrorRow(c)
                 tabs(c)
                 switch c.kind {
                 case .rect:
@@ -42,6 +44,42 @@ struct CropSheet: View {
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Mirror the picture left to right or upside down (each a switch; both = turned half way round).
+    private func mirrorRow(_ c: CropRect) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc("Mirror")).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            HStack(spacing: 6) {
+                mirrorChip("Horizontal", "arrow.left.and.right.righttriangle.left.righttriangle.right", on: c.flipX) {
+                    var n = c
+                    n.flipX.toggle()
+                    model.setCropShape(n)
+                }
+                mirrorChip("Vertical", "arrow.up.and.down.righttriangle.up.righttriangle.down", on: c.flipY) {
+                    var n = c
+                    n.flipY.toggle()
+                    model.setCropShape(n)
+                }
+            }
+        }
+    }
+
+    private func mirrorChip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 13, weight: .bold))
+                Text(loc(title)).font(.subheadline.weight(.bold))
+            }
+            .foregroundStyle(on ? .black : .white)
+            .lineLimit(1).minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, minHeight: 36)
+            .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func tabs(_ c: CropRect) -> some View {
@@ -86,7 +124,13 @@ struct CropSheet: View {
     private func reset(_ c: CropRect) {
         var n = c
         switch c.kind {
-        case .rect: model.setCrop(nil); return
+        case .rect:
+            // the shape starts over, the mirror stays
+            var m = CropRect()
+            m.flipX = c.flipX
+            m.flipY = c.flipY
+            model.setCrop(m)
+            return
         case .ellipse: n.ellipse = nil
         case .curve: n.points = []
         }

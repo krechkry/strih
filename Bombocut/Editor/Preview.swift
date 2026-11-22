@@ -165,7 +165,8 @@ struct PreviewArea: View {
     @ViewBuilder
     private func cropLayer(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, model.playheadInSelectedStack {
-            layer(canvas) { cropEditor(canvas, toCanvas: Self.stackMap(model.stackTransformNow(st), canvas), crop: st.crop ?? CropRect()) }
+            layer(canvas) { cropEditor(canvas, toCanvas: Self.stackMap(model.stackTransformNow(st), canvas, flip: st.crop.flipScale),
+                                       crop: st.crop ?? CropRect()) }
         } else if let i = model.selectedIndex, model.playheadInSelected {
             layer(canvas) { cropEditor(canvas, toCanvas: model.sourceToCanvas(i, canvas: canvas),
                                        crop: model.project.clips[i].crop ?? CropRect()) }
@@ -459,8 +460,10 @@ struct PreviewArea: View {
         let t = OverlayStore.shared.shown(o, at: model.currentTime)
         let bw = base.width * t.scale, bh = base.height * t.scale
         let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+        let flip = o.crop.flipScale
         return CGAffineTransform(scaleX: bw, y: bh)
             .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
+            .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))
             .concatenating(CGAffineTransform(rotationAngle: t.rotation))
             .concatenating(CGAffineTransform(translationX: cx, y: cy))
     }
@@ -636,10 +639,11 @@ struct PreviewArea: View {
     // MARK: Stacks
 
     /// Normalized canvas points (top-left origin) to preview points through a Stack's placement.
-    static func stackMap(_ t: ClipTransform, _ canvas: CGSize) -> CGAffineTransform {
+    static func stackMap(_ t: ClipTransform, _ canvas: CGSize, flip: (x: CGFloat, y: CGFloat) = (1, 1)) -> CGAffineTransform {
         let W = canvas.width, H = canvas.height
         return CGAffineTransform(scaleX: W, y: H)
             .concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
+            .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))
             .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
             .concatenating(CGAffineTransform(rotationAngle: t.rotation))
             .concatenating(CGAffineTransform(translationX: W / 2 + t.x * W, y: H / 2 + t.y * H))
@@ -1392,6 +1396,7 @@ struct LiveFrame: View {
             Image(uiImage: image)
                 .resizable()
                 .frame(width: base.width * canvas.width, height: base.height * canvas.height)
+                .scaleEffect(x: live.flip.x, y: live.flip.y)
                 .scaleEffect(live.t.scale)
                 .rotationEffect(.radians(live.t.rotation))
                 .offset(x: live.t.x * canvas.width, y: live.t.y * canvas.height)

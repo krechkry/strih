@@ -210,6 +210,7 @@ struct PinPath {
         let m = FrameCompositor.placement(source: src, fill: state.fill, transform: tr,
                                           stab: state.stab.map { $0.pose(at: s) },
                                           follow: state.track.map { $0.follow(at: s) },
+                                          flip: state.crop.flipScale,
                                           in: canvas)
         func onCanvas(_ u: Double, _ v: Double) -> CGPoint {
             let q = CGPoint(x: u * src.width, y: (1 - v) * src.height).applying(m.stab).applying(m.place)

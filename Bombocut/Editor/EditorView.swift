@@ -86,7 +86,7 @@ struct EditorView: View {
         case .speech: return 470
         case .easing: return 330
         case .autoZoom: return 470
-        case .crop: return 430
+        case .crop: return 500
         case .filters: return 500
         case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
@@ -754,7 +754,7 @@ struct EditorView: View {
                     let o = model.project.overlays[oi]
                     ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
                     if o.isText {
-                        ToolButton(icon: "textformat", label: "Text") { openOverlay(.text) }
+                        ToolButton(icon: "text.cursor", label: "Edit") { openOverlay(.text) }
                     }
                     ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
                     ToolButton(icon: "square.on.square.intersection.dashed", label: "Composite") { openOverlay(.blend) }

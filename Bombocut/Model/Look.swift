@@ -617,8 +617,20 @@ struct CropRect: Codable, Hashable {
     var points: [CropPoint] = []
     var feather = 0.0           // 0...1 soft edge of the ellipse / curve
     var invert = false          // ellipse / curve: keep the outside instead
+    /// Mirrored left to right / upside down. Lives with the crop (same panel, same picture coordinates): the crop
+    /// stays on the footage's own pixels and the mirror is the first step of placing the picture on the canvas.
+    var flipX = false
+    var flipY = false
 
-    var isEmpty: Bool {
+    var mirrored: Bool { flipX || flipY }
+    /// Placement scale for the mirror (-1 on a flipped axis).
+    var flipScale: (x: CGFloat, y: CGFloat) { (flipX ? -1 : 1, flipY ? -1 : 1) }
+
+    /// Nothing to keep: no shape and no mirror.
+    var isEmpty: Bool { keepsAll && !mirrored }
+
+    /// The shape keeps the whole picture (a mirror alone draws no crop mask).
+    var keepsAll: Bool {
         switch kind {
         case .rect: return left < 0.0005 && top < 0.0005 && right < 0.0005 && bottom < 0.0005 && softness < 0.001 && radius < 0.001
         case .ellipse: return false
@@ -639,7 +651,7 @@ struct CropRect: Codable, Hashable {
 
     init() {}
 
-    enum CodingKeys: String, CodingKey { case left, top, right, bottom, softness, radius, kind, ellipse, points, feather, invert }
+    enum CodingKeys: String, CodingKey { case left, top, right, bottom, softness, radius, kind, ellipse, points, feather, invert, flipX, flipY }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -654,7 +666,14 @@ struct CropRect: Codable, Hashable {
         points = (try? c.decodeIfPresent([CropPoint].self, forKey: .points)) ?? []
         feather = (try? c.decodeIfPresent(Double.self, forKey: .feather)) ?? 0
         invert = (try? c.decodeIfPresent(Bool.self, forKey: .invert)) ?? false
+        flipX = (try? c.decodeIfPresent(Bool.self, forKey: .flipX)) ?? false
+        flipY = (try? c.decodeIfPresent(Bool.self, forKey: .flipY)) ?? false
     }
+}
+
+extension Optional where Wrapped == CropRect {
+    /// Placement scale for the mirror of an optional crop.
+    var flipScale: (x: CGFloat, y: CGFloat) { self?.flipScale ?? (1, 1) }
 }
 
 enum CropKind: String, Codable, CaseIterable {

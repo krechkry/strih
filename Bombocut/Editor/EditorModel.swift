@@ -68,6 +68,7 @@ struct LiveTransform {
     var aspect: Double
     var guides: Set<Guide> = []
     var active = true
+    var flip: (x: CGFloat, y: CGFloat) = (1, 1)   // its mirror (the grabbed frame is the raw footage)
 }
 
 /// Everything the editor screen works with: the project, playback, selection, undo.
@@ -1896,6 +1897,7 @@ final class EditorModel: ObservableObject {
         let p = FrameCompositor.placement(source: src, fill: c.fill, transform: look.transform,
                                           stab: st.stab.map { $0.pose(at: s) },
                                           follow: st.track.map { $0.follow(at: s) },
+                                          flip: st.crop.flipScale,
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
         let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
@@ -3561,7 +3563,7 @@ final class EditorModel: ObservableObject {
         lastGuides = []
         let keepFrame = live?.clipID == c.id ? live?.frame : nil
         live = LiveTransform(clipID: c.id, frame: keepFrame, t: look.transform, fill: c.fill,
-                             aspect: c.aspect ?? project.canvas.aspect)
+                             aspect: c.aspect ?? project.canvas.aspect, flip: c.crop.flipScale)
         gestureSnapshot = project
         liveSource = src
         liveGrabber.grab(file: c.mediaFile, at: src) { [weak self] img in

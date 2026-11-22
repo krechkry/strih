@@ -215,7 +215,7 @@ final class OverlayRenderer: @unchecked Sendable {
         let src = CGSize(width: w, height: h)
         // the crop (the Crop panel open on it: the whole picture stays faintly visible around the crop)
         let editingCrop = preview && o.isMedia && LookStore.shared.cropEditClip == o.id
-        if o.isMedia, let c = o.crop ?? (editingCrop ? CropRect() : nil), !c.isEmpty || editingCrop {
+        if o.isMedia, let c = o.crop ?? (editingCrop ? CropRect() : nil), !c.keepsAll || editingCrop {
             let kept = FrameCompositor.cropped(img, c, src)
             // the rest of the picture faint and see-through, so the video and layers under it show to line it up
             img = editingCrop
@@ -245,8 +245,10 @@ final class OverlayRenderer: @unchecked Sendable {
         tr.x += a.dx
         tr.y += a.dy
         tr.scale *= a.scale
+        let flip = o.crop.flipScale   // only pictures and videos have a crop
         var m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
+            .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
             .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
             .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
             .concatenating(CGAffineTransform(translationX: size.width / 2 + tr.x * size.width,

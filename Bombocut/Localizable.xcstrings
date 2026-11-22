@@ -4178,6 +4178,16 @@
         }
       }
     },
+    "Horizontal": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vodorovně"
+          }
+        }
+      }
+    },
     "How much do you want to see?": {
       "localizations": {
         "cs": {
@@ -4944,6 +4954,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moje"
+          }
+        }
+      }
+    },
+    "Mirror": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrcadlit"
           }
         }
       }
@@ -8974,6 +8994,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Použít systémový výběr"
+          }
+        }
+      }
+    },
+    "Vertical": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svisle"
           }
         }
       }

@@ -319,6 +319,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                  follow: state.track.map { $0.follow(at: srcT) },
                                  crop: upright ? nil : (state.crop ?? (editingCrop ? CropRect() : nil)),
                                  cropEditing: !upright && editingCrop,
+                                 flip: state.crop.flipScale,
                                  in: size)
             if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                 let cx = size.width / 2, cy = size.height / 2
@@ -395,7 +396,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             var out = Self.place(src, prefTransform: .identity, fill: false, transform: tr,
                                  stab: l.stab.map { $0.pose(at: local) },
                                  follow: l.track.map { $0.follow(at: local) },
-                                 crop: s.crop ?? (editingCrop ? CropRect() : nil), cropEditing: editingCrop, in: size)
+                                 crop: s.crop ?? (editingCrop ? CropRect() : nil), cropEditing: editingCrop,
+                                 flip: s.crop.flipScale, in: size)
             if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                 let cx = size.width / 2, cy = size.height / 2
                 out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)
@@ -485,12 +487,13 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                       stab: StabPose? = nil,
                       follow: Follow? = nil,
                       crop: CropRect? = nil, cropEditing: Bool = false,
+                      flip: (x: CGFloat, y: CGFloat) = (1, 1),
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
         let e = img.extent
         img = img.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
         let w = e.width, h = e.height
-        if let crop, !crop.isEmpty || cropEditing {
+        if let crop, !crop.keepsAll || cropEditing {
             let kept = cropped(img, crop, CGSize(width: w, height: h))
             // editing it: the whole picture stays faintly visible around the crop (its softness and corners show)
             img = cropEditing
@@ -500,7 +503,8 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     "inputBVector": CIVector(x: 0, y: 0, z: 0.3, w: 0)]))
                 : kept
         }
-        let p = placement(source: CGSize(width: w, height: h), fill: fill, transform: t, stab: stab, follow: follow, in: size)
+        let p = placement(source: CGSize(width: w, height: h), fill: fill, transform: t, stab: stab, follow: follow,
+                          flip: flip, in: size)
         if stab != nil {
             img = img.transformed(by: p.stab).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
         }
@@ -542,6 +546,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     static func placement(source: CGSize, fill: Bool, transform t: ClipTransform,
                           stab: StabPose?,
                           follow: Follow?,
+                          flip: (x: CGFloat, y: CGFloat) = (1, 1),
                           in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
         let w = source.width, h = source.height
         // stabilization: undo the shake (zoom, turn, shift around the frame's center), then zoom in just
@@ -561,6 +566,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
         let m = CGAffineTransform(scaleX: s, y: s)
             .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
+            .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
             .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
             .concatenating(CGAffineTransform(rotationAngle: -t.rotation))
             .concatenating(CGAffineTransform(translationX: size.width / 2 + t.x * size.width,

@@ -90,6 +90,7 @@ extension EditorModel {
         let p = FrameCompositor.placement(source: src, fill: false, transform: tr,
                                           stab: layer?.stab.map { $0.pose(at: local) },
                                           follow: layer?.track.map { $0.follow(at: local) },
+                                          flip: st.crop.flipScale,
                                           in: canvas)
         let toPx = CGAffineTransform(a: src.width, b: 0, c: 0, d: -src.height, tx: 0, ty: src.height)
         let flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: canvas.height)
