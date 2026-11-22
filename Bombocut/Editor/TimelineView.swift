@@ -1429,7 +1429,8 @@ struct OverlayLane: View {
 
     private func block(_ o: Overlay, px: CGFloat, row: Int, rows: Int) -> some View {
         // picking what to apply settings to: nothing can be trimmed or moved meanwhile
-        let selected = o.id == model.selectedOverlayID && model.pick == nil
+        let slipping = model.slip?.id == o.id
+        let selected = o.id == model.selectedOverlayID && model.pick == nil && model.slip == nil
         let w = max(10, CGFloat(o.duration) * px)
         return HStack(spacing: 4) {
             Image(systemName: o.icon).font(.system(size: 9, weight: .bold))
@@ -1437,10 +1438,18 @@ struct OverlayLane: View {
             Text(o.isText ? o.title.replacingOccurrences(of: "\n", with: " ") : loc(o.title))
                 .font(.system(size: 9, weight: .bold)).lineLimit(1)
         }
-        .foregroundStyle(selected ? .black : .white)
+        .foregroundStyle(selected || slipping ? .black : .white)
         .padding(.horizontal, 5)
         .frame(width: w, height: Self.rowHeight, alignment: .leading)
-        .background { blockFill(o, selected: selected) }
+        .background { blockFill(o, selected: selected || slipping) }
+        .overlay {
+            // slipping: the file slides under the block (red at either end of the file)
+            if slipping {
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(model.slip?.atLimit == true ? Color.red : Color.white, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
         .clipped()
         .overlay(alignment: .leading) {
             // keyframes

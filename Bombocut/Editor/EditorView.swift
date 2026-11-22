@@ -786,6 +786,11 @@ struct EditorView: View {
                             model.pause(); sheet = .volume
                         }
                         ToolButton(icon: "speedometer", label: "Speed") { openOverlay(.speed) }
+                        if model.canSlip {
+                            ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") {
+                                sheet = nil; model.startSlip()
+                            }
+                        }
                     }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if o.isMedia {
@@ -1098,6 +1103,12 @@ struct EditorView: View {
         .containerRelativeFrame(.horizontal) { w, _ in w - 20 }
     }
 
+    private var slipHint: LocalizedStringKey {
+        if model.slip?.audio == true { return "Drag the sound to pick the part that plays" }
+        if model.slip?.layer == true { return "Drag the layer to pick the part that plays" }
+        return "Drag the clip to pick the part that plays"
+    }
+
     /// Slip: ✕ puts the clip back, ✓ keeps the new part.
     private var slipBar: some View {
         HStack(spacing: 10) {
@@ -1106,8 +1117,7 @@ struct EditorView: View {
                     .frame(width: 46, height: 46).background(Theme.panel2, in: Circle())
             }
             .accessibilityLabel(loc("Cancel"))
-            Text(model.slip?.audio == true ? LocalizedStringKey("Drag the sound to pick the part that plays")
-                                           : LocalizedStringKey("Drag the clip to pick the part that plays"))
+            Text(slipHint)
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)

@@ -47,6 +47,7 @@ struct SlipState: Equatable {
     var dragFrom: Double          // in point (source seconds) when the current drag began
     var atLimit = false
     var audio = false             // a sound on the sound lane, not a clip
+    var layer = false             // a video layer, not a clip
 }
 
 /// What the preview shows while slipping: the new first and last frame, and how far the content moved.
@@ -4337,6 +4338,7 @@ extension EditorModel {
     /// Room to slip: footage before or after the part that plays.
     var canSlip: Bool {
         if let i = selectedAudioIndex { return Self.canSlip(project.audio[i]) }
+        if let o = selectedOverlayIndex { return Self.canSlip(project.overlays[o]) }
         guard let i = selectedIndex else { return false }
         let c = project.clips[i]
         return !c.still && c.sourceDuration - (c.outPoint - c.inPoint) > 0.05
@@ -4345,6 +4347,12 @@ extension EditorModel {
     /// A sound with more of its file before or after the part that plays.
     static func canSlip(_ a: AudioItem) -> Bool { a.sourceDuration - a.duration * a.speed > 0.05 }
 
+    /// A video layer with more of its file before or after the part that plays (not on a speed curve).
+    static func canSlip(_ o: Overlay) -> Bool {
+        guard case .video(_, let srcDur, _) = o.kind, o.curveRetime == nil else { return false }
+        return srcDur - o.duration * o.speed > 0.05
+    }
+
     func startSlip() {
         if let i = selectedAudioIndex {
             let a = project.audio[i]
@@ -4352,6 +4360,16 @@ extension EditorModel {
             pause()
             slipSnapshot = project
             slip = SlipState(id: a.id, dragFrom: a.inPoint, audio: true)
+            return
+        }
+        if let i = selectedOverlayIndex {
+            let o = project.overlays[i]
+            guard Self.canSlip(o), case .video(_, _, let inPoint) = o.kind else { return }
+            pause()
+            slipSnapshot = project
+            slip = SlipState(id: o.id, dragFrom: inPoint, layer: true)
+            slipView = SlipView()
+            grabSlip(o)
             return
         }
         guard let i = selectedIndex, canSlip else { return }
@@ -4367,6 +4385,7 @@ extension EditorModel {
     /// into the clip, like pulling the film through); `done` = finger lifted.
     func slipDrag(_ dx: CGFloat, done: Bool) {
         if slip?.audio == true { slipAudio(dx, done: done); return }
+        if slip?.layer == true { slipLayer(dx, done: done); return }
         guard var st = slip, let i = project.clips.firstIndex(where: { $0.id == st.id }),
               let c0 = slipSnapshot?.clips.first(where: { $0.id == st.id }) else { return }
         let len = c0.outPoint - c0.inPoint
@@ -4405,6 +4424,33 @@ extension EditorModel {
         project.audio[i].inPoint = newIn
         if done { st.dragFrom = newIn }
         slip = st
+    }
+
+    /// Slip on a video layer: its file slides under the block (same place, same length, keyframes stay on the
+    /// block); the preview shows the new first and last frame, the video is rebuilt on ✓.
+    private func slipLayer(_ dx: CGFloat, done: Bool) {
+        guard var st = slip, let i = project.overlays.firstIndex(where: { $0.id == st.id }),
+              let o0 = slipSnapshot?.overlays.first(where: { $0.id == st.id }),
+              case .video(let file, let srcDur, let in0) = o0.kind else { return }
+        let span = o0.duration * o0.speed
+        let want = st.dragFrom - Double(dx / max(pxPerSec, 1)) * o0.speed
+        let most = max(0, srcDur - span)
+        let newIn = min(max(0, want), most)
+        let limit = want < 0 || want > most
+        if limit && !st.atLimit { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
+        st.atLimit = limit
+        project.overlays[i].kind = .video(file: file, sourceDuration: srcDur, inPoint: newIn)
+        slipView?.delta = newIn - in0
+        grabSlip(project.overlays[i])
+        if done { st.dragFrom = newIn }
+        slip = st
+    }
+
+    private func grabSlip(_ o: Overlay) {
+        guard case .video(let file, _, let inPoint) = o.kind else { return }
+        let end = inPoint + o.duration * o.speed
+        slipFirst.grab(file: file, at: inPoint) { [weak self] img in self?.slipView?.first = img }
+        slipLast.grab(file: file, at: max(inPoint, end - 0.04)) { [weak self] img in self?.slipView?.last = img }
     }
 
     private func grabSlip(_ c: Clip) {

@@ -2894,6 +2894,16 @@
         }
       }
     },
+    "Drag the layer to pick the part that plays": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posuň vrstvu a vyber, která část se přehraje"
+          }
+        }
+      }
+    },
     "Drag the lime edges on the preview, or inside the frame to move it.": {
       "localizations": {
         "cs": {
