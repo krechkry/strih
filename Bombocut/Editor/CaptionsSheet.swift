@@ -15,6 +15,8 @@ struct CaptionsSheet: View {
     @State private var templateName = ""
     @State private var askCellular = false
     @State private var askedCellular = false
+    /// The Translate tab's lime outline after captions are made (0 = none).
+    @State private var translateGlow = 0.0
     @FocusState private var focusedCue: UUID?
     @Environment(\.panelCompact) private var compact
     @Environment(\.closePanel) private var close
@@ -249,23 +251,23 @@ struct CaptionsSheet: View {
                         tabButton("Text", 0)
                         tabButton("Style", 1)
                         tabButton("Presets", 4)
-                        if model.captionScope == nil { tabButton("Translate", 3) }
-                        if model.captionScope != nil {
-                            // this clip only: listen again, keeping everything else
-                            Button { model.captionsGenerator = true } label: {
-                                Label("Regenerate", systemImage: "arrow.clockwise")
-                                    .font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                                    .padding(.horizontal, 14).frame(height: 36)
-                                    .background(Theme.panel2, in: Capsule())
+                        tabButton("Translate", 3)
+                            .overlay {
+                                Capsule().strokeBorder(Theme.accent, lineWidth: 2)
+                                    .opacity(translateGlow)
+                                    .allowsHitTesting(false)
                             }
-                            .buttonStyle(.plain)
-                        }
                     }
                 }
             }
+            .onAppear { glowTranslate() }
+            .onChange(of: model.hintTranslate) { glowTranslate() }
             }
             if model.captionScope != nil && (tab == 1 || tab == 4) {
                 Text("Style and animation apply to the whole captions track.")
+                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            } else if model.captionScope != nil && tab == 3 {
+                Text("Translation covers the whole captions track.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             }
             switch tab {
@@ -274,6 +276,18 @@ struct CaptionsSheet: View {
             case 4: presets(caps)
             default: TranslateSheet(model: model, embedded: true)
             }
+        }
+    }
+
+    /// Captions were just made: the Translate tab's outline fades in quickly, then out slowly. Once.
+    private func glowTranslate() {
+        guard model.hintTranslate else { return }
+        model.hintTranslate = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation(.easeIn(duration: 0.25)) { translateGlow = 1 }
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.easeOut(duration: 2.4)) { translateGlow = 0 }
         }
     }
 

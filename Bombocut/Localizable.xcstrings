@@ -2594,16 +2594,6 @@
         }
       }
     },
-    "Don't show this again": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Už neukazovat"
-          }
-        }
-      }
-    },
     "Done": {
       "localizations": {
         "cs": {
@@ -4498,16 +4488,6 @@
         }
       }
     },
-    "Keep the original": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nechat originál"
-          }
-        }
-      }
-    },
     "Keep the outside instead.": {
       "localizations": {
         "cs": {
@@ -5188,16 +5168,6 @@
         }
       }
     },
-    "No": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ne"
-          }
-        }
-      }
-    },
     "No new fonts in those files.": {
       "localizations": {
         "cs": {
@@ -5674,16 +5644,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Překrytí s volbou „Za objektem“ jsou mezi pozadím a objektem."
-          }
-        }
-      }
-    },
-    "Overwrite": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přepsat"
           }
         }
       }
@@ -8798,6 +8758,16 @@
         }
       }
     },
+    "Translation covers the whole captions track.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Překlad platí pro celou stopu titulků."
+          }
+        }
+      }
+    },
     "Translation languages": {
       "localizations": {
         "cs": {
@@ -9094,16 +9064,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Čekám na internet · %lld %%"
-          }
-        }
-      }
-    },
-    "Wanna translate the subs?": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chceš titulky přeložit?"
           }
         }
       }

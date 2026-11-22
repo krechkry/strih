@@ -7,28 +7,20 @@ struct TranslateSheet: View {
     @ObservedObject var model: EditorModel
     /// Inside the captions panel (its tab): no title or padding of its own.
     var embedded = false
-    /// The popup right after captions are made: its own title and No / Translate buttons; called when it closes.
-    var prompt: (() -> Void)? = nil
     @AppStorage("translateTarget") private var translateTarget = "en"
     @ObservedObject private var packs = TranslationPacks.shared
     /// Apple's translator: what it can do for the picked pair, and the run it is asked for.
     @State private var appleStatus: LanguageAvailability.Status?
     @State private var appleConfig: TranslationSession.Configuration?
     @State private var appleTarget = ""
-    /// The popup started a translation (it closes when that is done).
-    @State private var started = false
     /// Translate into a new caption track (both languages on screen) instead of replacing these captions.
     @AppStorage("translateAsNewTrack") private var asNewTrack = true
-    /// Off: the popup after making captions doesn't come up any more.
-    @AppStorage("offerCaptionTranslation") private var offer = true
 
     var body: some View {
         Group {
             if let caps = model.project.captions {
                 VStack(alignment: .leading, spacing: 12) {
-                    if prompt != nil {
-                        Text("Wanna translate the subs?").font(.title3.weight(.heavy))
-                    } else if !embedded {
+                    if !embedded {
                         Text("Translate captions").font(.title3.weight(.heavy))
                     }
                     translator(caps)
@@ -37,15 +29,11 @@ struct TranslateSheet: View {
                 Text("Make captions first.").foregroundStyle(Theme.muted)
             }
         }
-        .padding(.horizontal, embedded || prompt != nil ? 0 : 20)
-        .padding(.top, embedded || prompt != nil ? 0 : 12)
-        .frame(maxHeight: prompt == nil ? .infinity : nil, alignment: .top)
+        .padding(.horizontal, embedded ? 0 : 20)
+        .padding(.top, embedded ? 0 : 12)
+        .frame(maxHeight: .infinity, alignment: .top)
         .onAppear { model.dismissTranslateError() }
         .task { await packs.loadCatalog() }
-        .onChange(of: model.translateJob) { _, job in
-            // the popup's translation is done: it goes away
-            if started && job == nil { started = false; prompt?() }
-        }
         .translationTask(appleConfig) { session in
             let target = appleTarget
             await model.translateCaptions(to: target, asNewTrack: asNewTrack) { texts, progress in
@@ -90,51 +78,26 @@ struct TranslateSheet: View {
         let content = VStack(alignment: .leading, spacing: 12) {
             languageWheel(target: target, dirs: dirs, ready: usePacks, appleCan: appleCan, busy: busy)
 
-            HStack(spacing: 8) {
-                modeChip(prompt != nil ? "Keep the original" : "Add as a new track", "captions.bubble", on: asNewTrack) { asNewTrack = true }
-                modeChip(prompt != nil ? "Overwrite" : "Replace", "arrow.triangle.2.circlepath", on: !asNewTrack) { asNewTrack = false }
-            }
-            .disabled(busy)
+            ModeToggle(newTrack: $asNewTrack)
+                .disabled(busy)
+                .opacity(busy ? 0.5 : 1)
 
             jobStatus(usePacks: usePacks)
 
-            if prompt != nil {
-                HStack(spacing: 8) {
-                    Button { model.cancelTranslation(); prompt?() } label: {
-                        Text("No").font(.headline.weight(.bold)).foregroundStyle(.white)
-                            .frame(maxWidth: .infinity, minHeight: 54)
-                            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                    .buttonStyle(.plain)
-                    translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
-                                    title: loc("Translate"))
-                }
-                Toggle(isOn: Binding(get: { !offer }, set: { offer = !$0 })) {
-                    Text("Don't show this again").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                }
-                .tint(Theme.accent)
-            } else {
-                translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
-                                title: String(format: loc("Translate to %@"), TranslateLanguage.localName(target)))
-                Text(asNewTrack
-                     ? "The translation becomes a second captions track, a line above these, with its own style. Both stay editable."
-                     : "The translation replaces the captions, with the same style and timing. Undo brings the original back.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
+                            title: String(format: loc("Translate to %@"), TranslateLanguage.localName(target)))
+            Text(asNewTrack
+                 ? "The translation becomes a second captions track, a line above these, with its own style. Both stay editable."
+                 : "The translation replaces the captions, with the same style and timing. Undo brings the original back.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .task(id: caps.language + ">" + target) {
             appleStatus = nil
             appleStatus = await LanguageAvailability().status(from: Locale.Language(identifier: caps.language),
                                                               to: Locale.Language(identifier: target))
         }
-        return Group {
-            if prompt != nil {
-                content
-            } else {
-                ScrollView { content.padding(.bottom, 30) }.scrollIndicators(.hidden)
-            }
-        }
+        return ScrollView { content.padding(.bottom, 30) }.scrollIndicators(.hidden)
     }
 
     /// The language wheel. A language that isn't on the phone yet is greyed out under its download, right on the
@@ -146,7 +109,7 @@ struct TranslateSheet: View {
             }
         }
         .pickerStyle(.wheel)
-        .frame(height: prompt != nil ? 120 : 136)
+        .frame(height: 136)
         .clipped()
         .opacity(ready ? 1 : 0.35)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
@@ -230,7 +193,6 @@ struct TranslateSheet: View {
         Button {
             model.pause()
             model.dismissTranslateError()
-            started = prompt != nil
             if usePacks, let dirs {
                 model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
             } else {
@@ -251,37 +213,48 @@ struct TranslateSheet: View {
         .disabled(busy || !(usePacks || appleCan))
     }
 
-    private func modeChip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+}
+
+/// Add as a new track / Replace: one big two-sided switch. The lime pill slides to the picked side,
+/// the other side is dimmed. Tap a side to pick it.
+private struct ModeToggle: View {
+    @Binding var newTrack: Bool
+    private let inset: CGFloat = 4
+    private let height: CGFloat = 42
+
+    var body: some View {
+        GeometryReader { g in
+            let half: CGFloat = (g.size.width - inset * 2) / 2
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 11)
+                    .fill(Theme.accent)
+                    .frame(width: half, height: height)
+                    .offset(x: newTrack ? 0 : half)
+                HStack(spacing: 0) {
+                    side("Add as a new track", "captions.bubble", on: newTrack, width: half) { newTrack = true }
+                    side("Replace", "arrow.triangle.2.circlepath", on: !newTrack, width: half) { newTrack = false }
+                }
+            }
+            .padding(inset)
+        }
+        .frame(height: height + inset * 2)
+        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 15))
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: newTrack)
+        .sensoryFeedback(.selection, trigger: newTrack)
+    }
+
+    private func side(_ title: String, _ icon: String, on: Bool, width: CGFloat,
+                      _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(loc(title), systemImage: icon)
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(on ? .black : .white)
-                .lineLimit(1).minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, minHeight: 42)
-                .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 13))
+                .foregroundStyle(on ? Color.black : Color.white.opacity(0.4))
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .padding(.horizontal, 6)
+                .frame(width: width, height: height)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
-
-}
-
-/// The popup that comes up when captions are ready: pick a language, keep or overwrite, Translate or No.
-struct TranslatePrompt: View {
-    @ObservedObject var model: EditorModel
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-                .onTapGesture { if model.translateJob == nil { close() } }
-            TranslateSheet(model: model, prompt: close)
-                .padding(20)
-                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 26))
-                .overlay { RoundedRectangle(cornerRadius: 26).strokeBorder(Theme.line, lineWidth: 1) }
-                .frame(maxWidth: 460)
-                .padding(.horizontal, 16)
-        }
-        .transition(.opacity)
-    }
-
-    private func close() { model.offerTranslate = false }
 }

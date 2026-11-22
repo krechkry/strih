@@ -391,7 +391,7 @@ struct SpeechSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             OnOffRow(title: "Remove noise", subtitle: "Wind, traffic, hum and room echo out, the voice stays.",
                                      isOn: fx.denoise > 0.001) { on in
-                                var f = fx; f.denoise = on ? 0.85 : 0; set(f)
+                                var f = fx; f.denoise = on ? 1 : 0; set(f)
                             }
                             if fx.denoise > 0.001 {
                                 HStack {
@@ -405,7 +405,7 @@ struct SpeechSheet: View {
                                     if !e, let v = strength { var f = fx; f.denoise = v; set(f); strength = nil }
                                 })
                                 .tint(Theme.accent)
-                                .doubleTapReset { var f = fx; f.denoise = 0.85; set(f); strength = nil }
+                                .doubleTapReset { var f = fx; f.denoise = 1; set(f); strength = nil }
                             }
                         }
                     }

@@ -222,9 +222,6 @@ struct EditorView: View {
     /// Converting old camera files: the question first, then what didn't make it (kept apart so the compiler can check the body quickly).
     private func importDialogs<V: View>(_ v: V) -> some View {
         v
-        // right after making captions: translate them?
-        .overlay { if model.offerTranslate { TranslatePrompt(model: model) } }
-        .animation(.easeOut(duration: 0.2), value: model.offerTranslate)
         .alert("BOMBOCUT needs to convert your old ass files to a usable format, proceed?",
                isPresented: Binding(get: { confirmConvert != nil }, set: { if !$0 { confirmConvert = nil } })) {
             Button("Proceed") {

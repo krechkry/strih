@@ -1203,8 +1203,8 @@ final class EditorModel: ObservableObject {
     }
     @Published private(set) var captionJob: CaptionJob?
     @Published var captionsReady = false
-    /// Captions were just made for the whole video: the "translate them?" popup is up.
-    @Published var offerTranslate = false
+    /// Captions were just made: the captions panel's Translate tab glows once (lime outline) to show it's there.
+    @Published var hintTranslate = false
     @Published var openCaptions = false
     private var captionTask: Task<Void, Never>?
 
@@ -1319,10 +1319,7 @@ final class EditorModel: ObservableObject {
                 setCaptions(caps)
                 captionJob = nil
                 captionsReady = true
-                // the whole video's captions: offer to translate them (unless turned off in the popup)
-                if only == nil && (UserDefaults.standard.object(forKey: "offerCaptionTranslation") as? Bool ?? true) {
-                    offerTranslate = true
-                }
+                hintTranslate = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
                 if !Task.isCancelled { captionJob = CaptionJob(phase: .preparingAudio, error: error.localizedDescription) }
