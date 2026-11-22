@@ -366,19 +366,54 @@ final class EditorModel: ObservableObject {
     private var builtNeighbours: Set<UUID> = []
     private var neighbourSet: Set<UUID> { Set(project.clips.filter(\.needsNeighbours).map(\.id)) }
 
+    /// What a preview build plays: the project without its Speech settings, plus which cleaned sound each
+    /// clip and sound actually plays (a setting whose sound isn't made yet changes nothing you see or hear).
+    private struct BuildKey: Equatable {
+        var project: Project
+        var sounds: [String?]
+        var size: CGSize
+    }
+    private var builtKey: BuildKey?
+    private var builtProject: Project?
+    private var building = false
+
+    private func buildKey(_ p: Project, size: CGSize) -> BuildKey {
+        var q = p
+        var sounds: [String?] = []
+        for i in q.clips.indices {
+            sounds.append(SpeechCleanup.readyURL(q.clips[i])?.lastPathComponent)
+            q.clips[i].speech = nil
+        }
+        for i in q.audio.indices {
+            sounds.append(SpeechCleanup.readyURL(q.audio[i])?.lastPathComponent)
+            q.audio[i].speech = nil
+        }
+        return BuildKey(project: q, sounds: sounds, size: size)
+    }
+
     func rebuild() {
         // speech settings without their cleaned sound yet: make it, then build again with it
         let speechWork = SpeechCleanup.shared.missing(in: project)
         if !speechWork.isEmpty {
             SpeechCleanup.shared.process(sources: speechWork) { [weak self] in self?.rebuild() }
         }
-        buildTask?.cancel()
-        builtNeighbours = neighbourSet
         let p = project
         let size = previewSize
+        let key = buildKey(p, size: size)
+        // only Speech settings changed and none of them plays anything new yet (Enhance voice switched on while
+        // its sound is still being made): keep the player as it is, no swap, no jump. The build comes when the
+        // cleaned sound is ready.
+        if !building, buildError == nil, player.currentItem != nil, p != builtProject, key == builtKey {
+            builtProject = p
+            return
+        }
+        buildTask?.cancel()
+        builtNeighbours = neighbourSet
         let keep = currentTime
         let scrubs = scrubCount
+        building = true
         buildTask = Task {
+            defer { if !Task.isCancelled { building = false } }
             guard !p.clips.isEmpty else {
                 player.replaceCurrentItem(with: nil)
                 currentTime = 0
@@ -392,14 +427,18 @@ final class EditorModel: ObservableObject {
                 item.audioMix = built.audioMix
                 item.audioTimePitchAlgorithm = .spectral
                 let wasPlaying = isPlaying
+                // playing: carry on from where it is now (it kept going while this built), not from where it was
+                let now = currentTime
                 player.replaceCurrentItem(with: item)
                 buildError = nil
+                builtKey = key
+                builtProject = p
                 while item.status == .unknown && !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(15))
                 }
                 if Task.isCancelled { return }
                 // the playhead was put somewhere new while this built (a moved clip lands on its start): stay there
-                let t = scrubCount != scrubs ? currentTime : keep
+                let t = scrubCount != scrubs ? currentTime : (wasPlaying ? now : keep)
                 scrub(to: min(t, max(0, built.duration - 0.001)))
                 if wasPlaying { player.play() }
                 // A committed transform keeps its live overlay until the new frame is on screen.

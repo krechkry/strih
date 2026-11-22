@@ -9,7 +9,7 @@ struct DeadpanStage: Equatable {
     var bar: CGRect = .zero
 }
 
-/// The export screen's Deadpan, there to be played with while the render runs. The first two times
+/// The export screen's guy (the one from the end card), there to be played with while the render runs. The first two times
 /// someone tries to move him he only leans and stumbles; the third time he comes loose: a rigid body
 /// with jointed arms and legs that can be grabbed anywhere, swung and thrown, and lands on the percent
 /// text, the progress bar or the screen edges. His face only ever follows the export progress.
@@ -843,9 +843,9 @@ final class DeadpanRagdoll {
     }
 
     private func body(_ context: GraphicsContext, color: Color, blink: Bool) {
-        let layer = MemeCache.shared.layers(.deadpan)[0]
+        // blink timing from the old Deadpan drawing, so he blinks as before
         let t = blink ? Date().timeIntervalSince(started) : 0
-        let shut = layer.state(at: t).blink
+        let shut = MemeCache.shared.layers(.deadpan)[0].state(at: t).blink
         let mood = self.mood
         let g = context
         g.drawLayer { lc in
@@ -853,17 +853,88 @@ final class DeadpanRagdoll {
             c.translateBy(x: bodyT.x, y: bodyT.y)
             c.rotate(by: .radians(Double(bodyAngle)))
             c.scaleBy(x: s, y: s)
-            // the drawing's own legs stay out: his legs are drawn on the joints
-            c.clip(to: Path(CGRect(x: 0, y: 0, width: 480, height: 320.5)))
-            c.fill(layer.path, with: .color(color), style: FillStyle(eoFill: true))
-            if let m = layer.spec.mouth { MemeView.cutMouth(m, mood: mood, in: c) }
-            if shut > 0 {
-                for eye in layer.spec.eyes {
-                    let hh: CGFloat = 2 * eye.ry * CGFloat(shut)
-                    c.fill(Path(ellipseIn: CGRect(x: eye.x - eye.rx, y: eye.y - hh / 2, width: 2 * eye.rx, height: hh)),
-                           with: .color(color))
-                }
+            Self.drawGuy(&c, color: color, mood: mood, shut: shut)
+        }
+    }
+
+    // MARK: The end card guy (Resources/EndCard.mp4), traced into the rig's 480 x 480 artboard
+
+    private static let ink = Color.black
+    /// The body: a rounded square (superellipse, power 2.6) over the rig's body ellipse, fuller at the eyes.
+    private static let blob: Path = {
+        var p = Path()
+        let n = 2.6
+        for k in 0...96 {
+            let a = Double(k) / 96 * 2 * Double.pi
+            let c = cos(a), sn = sin(a)
+            let x = 240 + 122 * (c < 0 ? -1 : 1) * pow(abs(c), 2 / n)
+            let y = 195 + 125 * (sn < 0 ? -1 : 1) * pow(abs(sn), 2 / n)
+            if k == 0 { p.move(to: CGPoint(x: x, y: y)) } else { p.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        p.closeSubpath()
+        return p
+    }()
+    private static let eyes: [(ring: CGPoint, pupil: CGPoint)] = [
+        (CGPoint(x: 150, y: 158), CGPoint(x: 144, y: 154)),
+        (CGPoint(x: 336, y: 157), CGPoint(x: 330, y: 153)),
+    ]
+
+    /// Lime blob, ring eyes looking up and to the side, the nose, and a mouth that follows `mood`:
+    /// flat (0), a smile (0.6), an open grin (1).
+    static func drawGuy(_ c: inout GraphicsContext, color: Color, mood: Double, shut: Double) {
+        c.fill(blob, with: .color(color))
+        let line = StrokeStyle(lineWidth: 6.6, lineCap: .round, lineJoin: .round)
+
+        // eyes: a ring with the pupil inside, squashed while blinking
+        let open = CGFloat(1 - 0.85 * min(max(shut, 0), 1))
+        for e in eyes {
+            var ring = Path(ellipseIn: CGRect(x: -20.7, y: -20.7, width: 41.4, height: 41.4))
+            ring = ring.applying(CGAffineTransform(translationX: e.ring.x, y: e.ring.y).scaledBy(x: 1, y: open))
+            c.stroke(ring, with: .color(ink), lineWidth: 7)
+            if open > 0.5 {
+                let px: CGFloat = e.pupil.x
+                let py: CGFloat = e.ring.y + (e.pupil.y - e.ring.y) * open
+                c.fill(Path(ellipseIn: CGRect(x: px - 9.4, y: py - 9.4 * open, width: 18.8, height: 18.8 * open)),
+                       with: .color(ink))
             }
+        }
+
+        // nose: two strokes and the nostrils
+        var nose = Path()
+        nose.move(to: CGPoint(x: 223, y: 170)); nose.addLine(to: CGPoint(x: 221.7, y: 196.5))
+        nose.move(to: CGPoint(x: 254, y: 169)); nose.addLine(to: CGPoint(x: 260.7, y: 193.5))
+        nose.move(to: CGPoint(x: 209, y: 195.7))
+        nose.addQuadCurve(to: CGPoint(x: 207.5, y: 215.7), control: CGPoint(x: 194, y: 205))
+        nose.addQuadCurve(to: CGPoint(x: 220.8, y: 213.4), control: CGPoint(x: 214, y: 219))
+        nose.addQuadCurve(to: CGPoint(x: 259.2, y: 213.4), control: CGPoint(x: 240, y: 236))
+        nose.addQuadCurve(to: CGPoint(x: 272.5, y: 217.1), control: CGPoint(x: 265, y: 219))
+        nose.addQuadCurve(to: CGPoint(x: 271, y: 198), control: CGPoint(x: 288, y: 206))
+        c.stroke(nose, with: .color(ink), style: line)
+
+        drawMouth(&c, mood: mood)
+    }
+
+    private static func drawMouth(_ c: inout GraphicsContext, mood: Double) {
+        let smile = CGFloat(min(max(mood / 0.6, 0), 1))
+        let grin = CGFloat(min(max((mood - 0.6) / 0.4, 0), 1))
+        let lift: CGFloat = 6 * smile
+        let a = CGPoint(x: 209, y: 266 - lift)
+        let b = CGPoint(x: 280, y: 260 - lift)
+        let flatY: CGFloat = (a.y + b.y) / 2
+        let lowY: CGFloat = flatY + (292 - flatY) * smile
+        let style = StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round)
+        var m = Path()
+        m.move(to: a)
+        if grin > 0 {
+            // open: a flatter top lip, the smile dropping further into a round grin
+            m.addQuadCurve(to: b, control: CGPoint(x: 243, y: flatY + 14 * grin))
+            m.addQuadCurve(to: a, control: CGPoint(x: 243, y: lowY + 24 * grin))
+            m.closeSubpath()
+            c.fill(m, with: .color(ink))
+            c.stroke(m, with: .color(ink), style: style)
+        } else {
+            m.addQuadCurve(to: b, control: CGPoint(x: 243, y: lowY))
+            c.stroke(m, with: .color(ink), style: style)
         }
     }
 

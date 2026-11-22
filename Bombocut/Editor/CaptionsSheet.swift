@@ -262,6 +262,8 @@ struct CaptionsSheet: View {
             }
             .onAppear { glowTranslate() }
             .onChange(of: model.hintTranslate) { glowTranslate() }
+            .onChange(of: tab) { showCaptionForStyling() }
+            .onChange(of: styleSection) { showCaptionForStyling() }
             }
             if model.captionScope != nil && (tab == 1 || tab == 4) {
                 Text("Style and animation apply to the whole captions track.")
@@ -277,6 +279,19 @@ struct CaptionsSheet: View {
             default: TranslateSheet(model: model, embedded: true)
             }
         }
+    }
+
+    /// Style and Presets change how the captions look, so a caption has to be on screen: if the playhead is
+    /// between lines, it jumps to the middle of the nearest one (in this clip's lines when opened from a clip).
+    private func showCaptionForStyling() {
+        guard tab == 1 || tab == 4, let caps = model.project.captions else { return }
+        let t = model.currentTime
+        let cues = scopedCues(caps)
+        guard !cues.contains(where: { t >= $0.start && t < $0.end }) else { return }
+        func gap(_ c: CaptionCue) -> Double { t < c.start ? c.start - t : t - c.end }
+        guard let near = cues.min(by: { gap($0) < gap($1) }) else { return }
+        model.pause()
+        model.scrub(to: (near.start + near.end) / 2)
     }
 
     /// Captions were just made: the Translate tab's outline fades in quickly, then out slowly. Once.
@@ -310,7 +325,7 @@ struct CaptionsSheet: View {
                     OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
                         .padding(.bottom, 4)
                     ForEach(scopedCues(caps)) { cue in
-                        cueRow(cue, caps)
+                        cueRow(cue, caps, proxy)
                             .id(cue.id)
                     }
                 }
@@ -334,13 +349,16 @@ struct CaptionsSheet: View {
 
     /// One line: Regenerate above its time on the left, the text, delete on the right. The grey circles behind the
     /// two buttons only show while the line is the selected one (at the playhead or being typed in).
-    private func cueRow(_ cue: CaptionCue, _ caps: Captions) -> some View {
+    /// Tapping the line anywhere but on its words selects it (playhead to it, scrolled into view, no keyboard);
+    /// only the words themselves open the keyboard. Regenerate and delete only act on the selected line:
+    /// on another line their first tap just selects it.
+    private func cueRow(_ cue: CaptionCue, _ caps: Captions, _ proxy: ScrollViewProxy) -> some View {
         let on = model.currentTime >= cue.start && model.currentTime < cue.end
         let selected = on || focusedCue == cue.id
         return HStack(alignment: .top, spacing: 10) {
             VStack(spacing: 8) {
-                regenButton(cue, selected: selected)
-                Button { model.seekToCue(cue) } label: {
+                regenButton(cue, selected: selected) { select(cue, proxy) }
+                Button { select(cue, proxy) } label: {
                     Text(Fmt.time(cue.start))
                         .font(.caption.weight(.bold).monospacedDigit())
                         .foregroundStyle(on ? .black : Theme.muted)
@@ -358,6 +376,7 @@ struct CaptionsSheet: View {
             }
             .padding(.top, 4)
             Button {
+                guard selected else { select(cue, proxy); return }
                 model.setCaptions({ var c = caps; c.cues.removeAll { $0.id == cue.id }; return c }())
             } label: {
                 Image(systemName: "xmark").font(.caption.weight(.bold))
@@ -370,7 +389,16 @@ struct CaptionsSheet: View {
         }
         .padding(10)
         .background(on ? Theme.accent.opacity(0.08) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture { select(cue, proxy) }
         .animation(.easeOut(duration: 0.15), value: selected)
+    }
+
+    /// Selects a line without typing: keyboard away, playhead to the line, the line scrolled to the top.
+    private func select(_ cue: CaptionCue, _ proxy: ScrollViewProxy) {
+        focusedCue = nil
+        model.seekToCue(cue)
+        withAnimation { proxy.scrollTo(cue.id, anchor: .top) }
     }
 
     private func cueField(_ cue: CaptionCue) -> some View {
@@ -385,13 +413,28 @@ struct CaptionsSheet: View {
         ), axis: .vertical)
         .font(.body.weight(.semibold))
         .focused($focusedCue, equals: cue.id)
+        // only the words open the keyboard: the field itself takes touches only while typing in it,
+        // a see-through copy of the text (as wide as its words) catches the tap that starts typing
+        .allowsHitTesting(focusedCue == cue.id)
+        .overlay(alignment: .topLeading) {
+            if focusedCue != cue.id {
+                Text(verbatim: cue.text.isEmpty ? " " : cue.text)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.clear)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minWidth: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { focusedCue = cue.id }
+            }
+        }
     }
 
     /// Listen to this line again. Spins while it runs; the others wait.
-    private func regenButton(_ cue: CaptionCue, selected: Bool) -> some View {
+    private func regenButton(_ cue: CaptionCue, selected: Bool, select: @escaping () -> Void) -> some View {
         let running = model.regeneratingCue == cue.id
         let busy = model.regeneratingCue != nil && !running
         return Button {
+            guard selected else { select(); return }
             focusedCue = nil
             model.regenerateCue(cue.id)
         } label: {
