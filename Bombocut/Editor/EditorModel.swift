@@ -1327,6 +1327,49 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    // MARK: One caption line heard again
+
+    /// The line being heard again (its Regenerate button spins).
+    @Published private(set) var regeneratingCue: UUID?
+    /// What went wrong for a line heard again (shown under it until the next try).
+    struct CueNote: Equatable { var id: UUID; var text: String }
+    @Published var cueNote: CueNote?
+
+    /// Listens to one caption line again (a little before and after it, for context) and puts what it heard into
+    /// that line only. Same language and spelling words as the captions; one undo step.
+    func regenerateCue(_ id: UUID) {
+        guard regeneratingCue == nil, captionJob == nil || captionJob?.error != nil,
+              let caps = project.captions, let cue = caps.cues.first(where: { $0.id == id }) else { return }
+        pause()
+        regeneratingCue = id
+        cueNote = nil
+        let snapshot = project
+        let lo = max(0, cue.start - 0.6)
+        let hi = min(max(snapshot.duration, cue.end), cue.end + 0.6)
+        let names = UserDefaults.standard.string(forKey: "captionNames") ?? ""
+        UIApplication.shared.isIdleTimerDisabled = true
+        Task {
+            defer {
+                regeneratingCue = nil
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
+            do {
+                let heard = try await Transcriber.run(project: snapshot, language: caps.language, names: names,
+                                                      range: lo...hi) { _ in }
+                // the timeline moved meanwhile: the times would be off, leave the line alone
+                guard project.timingKey == snapshot.timingKey, var c = project.captions else { return }
+                if c.replaceWords(ofCue: id, with: heard) {
+                    setCaptions(c)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } else {
+                    cueNote = CueNote(id: id, text: loc("No speech found."))
+                }
+            } catch {
+                cueNote = CueNote(id: id, text: error.localizedDescription)
+            }
+        }
+    }
+
     // MARK: Caption translation
 
     struct TranslateJob: Equatable {

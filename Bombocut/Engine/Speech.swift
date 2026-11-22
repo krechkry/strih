@@ -144,7 +144,10 @@ enum Transcriber {
     }
 
     @MainActor
+    /// `range`: listen to just this stretch of the timeline (one caption line heard again); word times stay
+    /// timeline seconds.
     static func run(project: Project, language: String, names: String, accurate: Bool = false,
+                    range: ClosedRange<Double>? = nil,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
         let model = SpeechModel.parakeet
         let models = SpeechModels.shared
@@ -164,7 +167,7 @@ enum Transcriber {
         }
 
         phase(.preparingAudio)
-        let audio = try await exportAudio(project)
+        let audio = try await exportAudio(project, range: range)
         defer { try? FileManager.default.removeItem(at: audio) }
 
         phase(.loadingModel)
@@ -175,6 +178,9 @@ enum Transcriber {
         phase(.listening(0.1))
         let duration = (try? await AVURLAsset(url: audio).load(.duration).seconds) ?? 0
         var words = try await SpeechEngine.shared.transcribe(audio, duration: duration, language: language)
+        if let range {
+            words = words.map { w in var q = w; q.start += range.lowerBound; q.end += range.lowerBound; return q }
+        }
         let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
         words = SpellCheck.applyNames(words, typed)
         words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
@@ -182,13 +188,17 @@ enum Transcriber {
     }
 
     /// Mixes the timeline's audio (trims, speed, volume included) into a temporary m4a.
-    private static func exportAudio(_ project: Project) async throws -> URL {
+    private static func exportAudio(_ project: Project, range: ClosedRange<Double>? = nil) async throws -> URL {
         let built = try await CompositionBuilder.build(project: project, renderSize: CGSize(width: 16, height: 16), fps: 30)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("captions-\(UUID().uuidString).m4a")
         guard let session = AVAssetExportSession(asset: built.composition, presetName: AVAssetExportPresetAppleM4A) else {
             throw CompositionBuilder.err("Could not read the audio.")
         }
         session.audioMix = built.audioMix
+        if let range {
+            session.timeRange = CMTimeRange(start: CMTime(seconds: range.lowerBound, preferredTimescale: 600),
+                                            end: CMTime(seconds: range.upperBound, preferredTimescale: 600))
+        }
         try await session.export(to: url, as: .m4a)
         return url
     }

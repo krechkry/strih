@@ -310,38 +310,8 @@ struct CaptionsSheet: View {
                     OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
                         .padding(.bottom, 4)
                     ForEach(scopedCues(caps)) { cue in
-                        let on = model.currentTime >= cue.start && model.currentTime < cue.end
-                        HStack(alignment: .top, spacing: 10) {
-                            Button { model.seekToCue(cue) } label: {
-                                Text(Fmt.time(cue.start))
-                                    .font(.caption.weight(.bold).monospacedDigit())
-                                    .foregroundStyle(on ? .black : Theme.muted)
-                                    .padding(.horizontal, 6).padding(.vertical, 3)
-                                    .background(on ? Theme.accent : Color.clear, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            TextField("", text: Binding(
-                                get: { cue.text },
-                                set: { t in
-                                    model.liveEditBegan()
-                                    model.editCaptions { c in
-                                        if let i = c.cues.firstIndex(where: { $0.id == cue.id }) { c.cues[i].setText(t) }
-                                    }
-                                }
-                            ), axis: .vertical)
-                            .font(.body.weight(.semibold))
-                            .focused($focusedCue, equals: cue.id)
-                            Button {
-                                model.setCaptions({ var c = caps; c.cues.removeAll { $0.id == cue.id }; return c }())
-                            } label: {
-                                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
-                                    .frame(width: 28, height: 28)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(10)
-                        .background(on ? Theme.accent.opacity(0.08) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-                        .id(cue.id)
+                        cueRow(cue, caps)
+                            .id(cue.id)
                     }
                 }
                 .padding(.bottom, 20)
@@ -360,6 +330,86 @@ struct CaptionsSheet: View {
             .onAppear { focusRequested(proxy) }
             .onChange(of: model.captionFocus) { focusRequested(proxy) }
         }
+    }
+
+    /// One line: Regenerate above its time on the left, the text, delete on the right. The grey circles behind the
+    /// two buttons only show while the line is the selected one (at the playhead or being typed in).
+    private func cueRow(_ cue: CaptionCue, _ caps: Captions) -> some View {
+        let on = model.currentTime >= cue.start && model.currentTime < cue.end
+        let selected = on || focusedCue == cue.id
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(spacing: 8) {
+                regenButton(cue, selected: selected)
+                Button { model.seekToCue(cue) } label: {
+                    Text(Fmt.time(cue.start))
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(on ? .black : Theme.muted)
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(on ? Theme.accent : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                cueField(cue)
+                if let note = model.cueNote, note.id == cue.id {
+                    Text(verbatim: note.text).font(.footnote.weight(.semibold)).foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 4)
+            Button {
+                model.setCaptions({ var c = caps; c.cues.removeAll { $0.id == cue.id }; return c }())
+            } label: {
+                Image(systemName: "xmark").font(.caption.weight(.bold))
+                    .foregroundStyle(selected ? Color.white : Theme.muted)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color.white.opacity(selected ? 0.12 : 0)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(loc("Delete"))
+        }
+        .padding(10)
+        .background(on ? Theme.accent.opacity(0.08) : Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+        .animation(.easeOut(duration: 0.15), value: selected)
+    }
+
+    private func cueField(_ cue: CaptionCue) -> some View {
+        TextField("", text: Binding(
+            get: { cue.text },
+            set: { t in
+                model.liveEditBegan()
+                model.editCaptions { c in
+                    if let i = c.cues.firstIndex(where: { $0.id == cue.id }) { c.cues[i].setText(t) }
+                }
+            }
+        ), axis: .vertical)
+        .font(.body.weight(.semibold))
+        .focused($focusedCue, equals: cue.id)
+    }
+
+    /// Listen to this line again. Spins while it runs; the others wait.
+    private func regenButton(_ cue: CaptionCue, selected: Bool) -> some View {
+        let running = model.regeneratingCue == cue.id
+        let busy = model.regeneratingCue != nil && !running
+        return Button {
+            focusedCue = nil
+            model.regenerateCue(cue.id)
+        } label: {
+            Group {
+                if running {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Image(systemName: "arrow.clockwise").font(.caption.weight(.bold))
+                        .foregroundStyle(selected ? Color.white : Theme.muted)
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(Circle().fill(Color.white.opacity(selected || running ? 0.12 : 0)))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.regeneratingCue != nil)
+        .opacity(busy ? 0.35 : 1)
+        .accessibilityLabel(loc("Regenerate"))
     }
 
     /// Opened from a clip: only the lines on that clip.

@@ -218,6 +218,28 @@ struct Captions: Codable, Hashable {
         cues = CaptionCutter.cues(from: words, style: style)
     }
 
+    /// One line heard again: the words under it are swapped for the new ones that fall inside it, and its text is
+    /// rebuilt from them (same start and end, the other lines stay as they are). False when nothing was heard there.
+    @discardableResult
+    mutating func replaceWords(ofCue id: UUID, with heard: [CaptionWord]) -> Bool {
+        absorbEdits()
+        guard let i = cues.firstIndex(where: { $0.id == id }) else { return false }
+        let lo = cues[i].start - 0.001, hi = cues[i].end + 0.001
+        func inside(_ w: CaptionWord) -> Bool { let m = (w.start + w.end) / 2; return m >= lo && m <= hi }
+        let fresh = heard.filter(inside)
+        guard !fresh.isEmpty else { return false }
+        words = (words.filter { !inside($0) } + fresh).sorted { $0.start < $1.start }
+        let shown = style.punctuation ? fresh : fresh.compactMap { w -> CaptionWord? in
+            var q = w
+            q.text = CaptionCutter.stripPunctuation(w.text)
+            return q.text.isEmpty ? nil : q
+        }
+        cues[i].words = shown
+        cues[i].text = CaptionCutter.wrap(shown.map(\.text).joined(separator: " "),
+                                          maxChars: style.maxChars, lines: max(1, style.lines))
+        return true
+    }
+
     /// The lines are the truth once you touched them: a line whose words no longer match the words under it (text
     /// typed, moved, trimmed) replaces them with its own, and words no line covers any more (a deleted line) go.
     /// Untouched lines keep the full words underneath (with the punctuation a cut may have hidden).
