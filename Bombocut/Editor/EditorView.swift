@@ -904,8 +904,8 @@ struct EditorView: View {
         ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
         ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
         ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
-        ToolButton(icon: "circle.lefthalf.filled", label: "Fade in / out") { openOverlay(.animation) }
-        ToolButton(icon: "circle.dotted", label: "Opacity") { openOverlay(.blend) }
+        ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
+        ToolButton(icon: "circle.lefthalf.filled", label: "Opacity") { openOverlay(.blend) }
         ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
     }
 
@@ -1477,37 +1477,35 @@ struct ToolLabel: View {
     static let adjustmentLayer = "bombo.adjustmentLayer"
 
     var body: some View {
+        // icons sit in one row whatever the label does: same box for every icon, labels hang below it
         VStack(spacing: 6) {
-            if icon == Self.adjustmentLayer {
-                AdjustmentLayerIcon()
-            } else {
-                Image(systemName: icon).font(.system(size: 20, weight: .medium))
+            Group {
+                if icon == Self.adjustmentLayer {
+                    AdjustmentLayerIcon()
+                } else {
+                    Image(systemName: icon).font(.system(size: 20, weight: .medium))
+                }
             }
+            .frame(height: 24)
             Text(loc(label)).font(.caption2.weight(.semibold))
+                .multilineTextAlignment(.center)
         }
+        .padding(.top, 8)
         .foregroundStyle(tint.opacity(enabled ? 1 : 0.3))
-        .frame(width: 66, height: 60)
+        .frame(width: 66, height: 60, alignment: .top)
         .contentShape(Rectangle())
     }
 }
 
-/// Toolbar icon for adding an adjustment layer: the Adjust sliders held between
-/// a clip's two trim handles, so it reads as "a layer you can stretch".
+/// Toolbar icon for adding an adjustment layer: the Adjust sliders with a trim arrow on each side,
+/// so it reads as "a layer you can stretch".
 struct AdjustmentLayerIcon: View {
     var body: some View {
-        HStack(spacing: 2.5) {
-            handle("chevron.left")
-            Image(systemName: "slider.horizontal.3").font(.system(size: 17, weight: .medium))
-            handle("chevron.right")
+        HStack(spacing: 2) {
+            Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold))
+            Image(systemName: "slider.horizontal.3").font(.system(size: 20, weight: .medium))
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
         }
-        .frame(height: 24)
-    }
-
-    private func handle(_ chevron: String) -> some View {
-        RoundedRectangle(cornerRadius: 2.5)
-            .stroke(lineWidth: 1.6)
-            .frame(width: 8, height: 22)
-            .overlay { Image(systemName: chevron).font(.system(size: 7, weight: .heavy)) }
     }
 }
 

@@ -42,7 +42,7 @@ struct OverlaySheet: View {
     private func title(_ t: Tab, _ o: Overlay) -> String {
         guard o.isAdjustment else { return t.title }
         switch t {
-        case .animation: return "Fade in / out"
+        case .animation: return "Transition"
         case .blend: return "Opacity"
         default: return t.title
         }
