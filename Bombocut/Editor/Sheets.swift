@@ -105,7 +105,9 @@ struct VolumeSheet: View {
                            onEditingChanged: { editing in model.volumeEditing(editing) })
                         .doubleTapReset { model.volumeEditing(true); model.setVolume(1, live: true); model.volumeEditing(false) }
                 }
-                if let st = model.selectedStack, let t = model.project.stackTime(st) {
+                if model.selectedVideoLayerIndex != nil {
+                    EmptyView()   // a video layer: just its volume
+                } else if let st = model.selectedStack, let t = model.project.stackTime(st) {
                     FadeSliders(fadeIn: st.fadeIn, fadeOut: st.fadeOut, length: t.end - t.start,
                                 set: { fin, fout in model.setClipFade(in: fin, out: fout) },
                                 done: { model.volumeEditing(false) },
@@ -117,7 +119,9 @@ struct VolumeSheet: View {
                                 done: { model.volumeEditing(false) },
                                 began: { model.volumeEditing(true) })
                 }
-                if UIMode.isPro && model.selectedStackIndex == nil { ApplyRow(model: model, kind: .volume) }
+                if UIMode.isPro && model.selectedStackIndex == nil && model.selectedVideoLayerIndex == nil {
+                    ApplyRow(model: model, kind: .volume)
+                }
             } else {
                 Text("Select a clip first.").foregroundStyle(Theme.muted)
             }

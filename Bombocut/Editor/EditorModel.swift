@@ -1184,7 +1184,16 @@ final class EditorModel: ObservableObject {
         if let target { pause(); scrub(to: target) }
     }
 
+    /// The selected layer when it is a video (it has sound for the Volume panel).
+    var selectedVideoLayerIndex: Int? {
+        selectedOverlayIndex.flatMap { project.overlays[$0].kind.isVideo ? $0 : nil }
+    }
+
     func setVolume(_ v: Double, live: Bool) {
+        if let o = selectedVideoLayerIndex {
+            if live { project.overlays[o].volume = v } else { mutate { $0.overlays[o].volume = v } }
+            return
+        }
         if let k = selectedStackIndex {
             if live { project.stacks[k].volume = v } else { mutate { $0.stacks[k].volume = v } }
             return
@@ -3214,12 +3223,6 @@ final class EditorModel: ObservableObject {
         if video && timing { mutate { $0.overlays[i] = o } } else { mutateLook { $0.overlays[i] = o } }
     }
 
-    /// Video overlay sound changed: the audio mix is rebuilt once the slider is let go.
-    func overlayVolumeEnded() {
-        liveEditEnded()
-        rebuild()
-    }
-
     /// Opacity slider: the fixed value, or the keyframe at the playhead.
     func editOverlayOpacity(_ v: Double) {
         guard let i = selectedOverlayIndex else { return }
@@ -4812,6 +4815,7 @@ extension EditorModel {
     }
 
     var editedVolume: Double? {
+        if let o = selectedVideoLayerIndex { return project.overlays[o].volume }
         if let st = selectedStack { return st.volume }
         return selectedIndex.map { project.clips[$0].volume }
     }

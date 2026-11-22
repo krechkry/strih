@@ -255,18 +255,6 @@ struct OverlaySheet: View {
         }
         slider("Opacity", value: o.pose(at: model.currentTime).opacity, def: 1, in: 0.05...1,
                keyed: model.isKeyed(.opacity)) { v in model.editOverlayOpacity(v) }
-        if o.kind.isVideo {
-            section("Volume") {
-                HStack(spacing: 12) {
-                    Image(systemName: o.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 24)
-                    BSlider(value: Binding(get: { o.volume }, set: { v in model.editOverlay { $0.volume = v } }), in: 0...1,
-                           onEditingChanged: { e in
-                        if e { model.liveEditBegan() } else { model.overlayVolumeEnded() }
-                    })
-                    .doubleTapReset { model.liveEditBegan(); model.editOverlay { $0.volume = 1 }; model.overlayVolumeEnded() }
-                }
-            }
-        }
         PanelBreak()
         OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip below (Mask tool)",
                  isOn: o.behindSubject) { v in model.setOverlay { $0.behindSubject = v } }

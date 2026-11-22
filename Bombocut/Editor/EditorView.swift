@@ -782,6 +782,9 @@ struct EditorView: View {
                     ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
                     ToolButton(icon: "square.on.square.intersection.dashed", label: "Composite") { openOverlay(.blend) }
                     if o.kind.isVideo {
+                        ToolButton(icon: o.volume < 0.01 ? "speaker.slash" : "speaker.wave.2", label: "Volume") {
+                            model.pause(); sheet = .volume
+                        }
                         ToolButton(icon: "speedometer", label: "Speed") { openOverlay(.speed) }
                     }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
