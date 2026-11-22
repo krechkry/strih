@@ -13,6 +13,9 @@ struct PreviewArea: View {
     @State private var pulse: (icon: String, id: Int)?
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @AppStorage("safeZoneAlways") private var safeZoneAlways = false
+    @AppStorage("guidesOn") private var guidesOn = false
+    @AppStorage("guides") private var guideList = "thirds"
+    @AppStorage("guideFrame") private var guideFrame = GuideFrame.off
 
     private enum Grab { case move, corner(Int), draw }
 
@@ -47,6 +50,7 @@ struct PreviewArea: View {
                     layer(canvas) { overlayBox(canvas) }
                     layer(canvas) { trackedBox(canvas) }
                     layer(canvas) { pinnedPoint(canvas) }
+                    layer(canvas) { frameGuides(canvas) }
                     layer(canvas) { safeZoneLayer(canvas) }
                     layer(canvas) { captionBox(canvas) }
                     layer(canvas) { guides(canvas) }
@@ -1316,6 +1320,15 @@ struct PreviewArea: View {
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             .allowsHitTesting(false)
+        }
+    }
+
+    /// Composition guides (Guides panel): under the social layout, hidden in full screen.
+    @ViewBuilder
+    private func frameGuides(_ canvas: CGSize) -> some View {
+        if guidesOn && !model.fullscreen {
+            FrameGuidesView(guides: FrameGuide.parse(guideList), frame: guideFrame, size: canvas)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 

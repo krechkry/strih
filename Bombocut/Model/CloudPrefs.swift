@@ -18,7 +18,7 @@ final class CloudPrefs {
     /// themselves follow the Apple ID even with this off (`CloudSwitches`).
     static let keys: [String] = [
         UIMode.key, FavoriteColors.key, FontPicking.likedKey, "likedFilters", AppLanguage.key, AudioMix.key,
-        "safeZone", "safeZoneAlways",
+        "safeZone", "safeZoneAlways", "guides", "guidesOn", "guideFrame",
         "export.autoBitrate", "export.bitrate", "export.customW", "export.customH", "export.endCard",
         "defTransition", "defStill", "defLayer", "defFill", "quickActions",
         "translateTarget", "translateAsNewTrack", "presetsSeeded",

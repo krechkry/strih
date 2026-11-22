@@ -30,6 +30,7 @@ struct EditorView: View {
     @State private var confirmRemoveCaptions = false
     @AppStorage("safeZone") private var safeZone = SafeZone.reels
     @AppStorage("safeZoneAlways") private var safeZoneAlways = false
+    @AppStorage("guidesOn") private var guidesOn = false
     @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
     private var pro: Bool { uiMode == UIMode.pro.rawValue }
     @State private var renameText = ""
@@ -82,6 +83,7 @@ struct EditorView: View {
         case .motionBlur: return 350
         case .animation: return 400
         case .layout: return 250
+        case .guides: return 420
         case .audio: return 450
         case .speech: return 470
         case .easing: return 330
@@ -186,6 +188,7 @@ struct EditorView: View {
         case .motionBlur: MotionBlurSheet(model: model)
         case .animation: ClipAnimSheet(model: model)
         case .layout: LayoutSheet(model: model)
+        case .guides: GuidesSheet()
         case .audio: AudioSheet(model: model)
         case .speech: SpeechSheet(model: model)
         case .easing: EasingSheet(model: model)
@@ -455,6 +458,7 @@ struct EditorView: View {
             Spacer()
             // the apps' layouts are for vertical videos only
             if pro && SafeZone.fits(aspect: model.project.canvas.aspect) { safeZoneMenu }
+            if pro { guidesMenu }
             Button { model.pause(); sheet = .export } label: {
                 Text("Export")
                     .font(.footnote.weight(.bold))
@@ -489,6 +493,25 @@ struct EditorView: View {
             safeZoneAlways.toggle()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
+    }
+
+    /// Opens the Guides panel (thirds, center, frames for other shapes); lime while guides are on.
+    private var guidesMenu: some View {
+        let on = guidesOn
+        return Image(systemName: "squareshape.split.3x3")
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(on ? .black : .white.opacity(0.85))
+            .frame(width: 34, height: 28)
+            .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+            .contentShape(Capsule())
+            .accessibilityLabel(loc("Guides"))
+            .accessibilityAddTraits(.isButton)
+            // tap: the panel; hold: guides on / off right here
+            .onTapGesture { model.pause(); sheet = sheet == .guides ? nil : .guides }
+            .onLongPressGesture(minimumDuration: 0.22) {
+                guidesOn.toggle()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
     }
 
     /// Top-left status while captions are prepared in the background (you can keep editing).
@@ -1448,7 +1471,7 @@ extension EditorView {
 }
 
 enum EditorSheet: String, Identifiable {
-    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, audio, speech
+    case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, guides, audio, speech
     case easing, autoZoom, crop, trackPick, background, overlayTrack, filters
     var id: String { rawValue }
 }

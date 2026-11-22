@@ -1630,6 +1630,26 @@
         }
       }
     },
+    "Center lines": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Osy středu"
+          }
+        }
+      }
+    },
+    "Center mark": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křížek uprostřed"
+          }
+        }
+      }
+    },
     "Change adds a keyframe at %@": {
       "localizations": {
         "cs": {
@@ -2564,6 +2584,16 @@
         }
       }
     },
+    "Diagonals": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úhlopříčky"
+          }
+        }
+      }
+    },
     "Difference": {
       "localizations": {
         "cs": {
@@ -2580,6 +2610,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jiný poměr stran než plátno (%@). Klipy se do něj vejdou, nebo ho vyplní."
+          }
+        }
+      }
+    },
+    "Dims what a crop to that shape would cut off, the guides fit inside it. Only you see the guides, they never go into the export.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ztmaví, co by ořez na ten tvar uřízl, vodítka se vejdou dovnitř. Vodítka vidíš jen ty, do exportu se nikdy nedostanou."
           }
         }
       }
@@ -3754,6 +3794,16 @@
         }
       }
     },
+    "Frame for": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rámeček pro"
+          }
+        }
+      }
+    },
     "Frame rate": {
       "localizations": {
         "cs": {
@@ -3998,6 +4048,16 @@
         }
       }
     },
+    "Golden ratio": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zlatý řez"
+          }
+        }
+      }
+    },
     "Gone for good in %lld days": {
       "localizations": {
         "cs": {
@@ -4034,6 +4094,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zelená"
+          }
+        }
+      }
+    },
+    "Guides": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vodítka"
           }
         }
       }
@@ -6258,6 +6328,16 @@
         }
       }
     },
+    "Quarters": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čtvrtiny"
+          }
+        }
+      }
+    },
     "Quick menu": {
       "localizations": {
         "cs": {
@@ -6744,6 +6824,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "Safe areas": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezpečné zóny"
           }
         }
       }
@@ -8394,6 +8484,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thin"
+          }
+        }
+      }
+    },
+    "Thirds": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Třetiny"
           }
         }
       }
