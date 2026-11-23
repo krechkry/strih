@@ -93,4 +93,32 @@ final class ColorRoundTripTests: XCTestCase {
     func testColorBarsComeOutUnchanged() async throws {
         try await check("test-colors.mp4", tolerance: 4)
     }
+
+    /// One-off check (2026-11-23): the same tagged frame read the old way (Core Image picks the curve from the
+    /// frame's tags) and the new way (read as Rec. 709), both written as Rec. 709. Passes when the old way
+    /// changes the picture, which is what the fix is about.
+    func testReadingByTagsChangedThePicture() async throws {
+        let file = try media("test-ramp.mp4")
+        let asset = AVURLAsset(url: Paths.mediaURL(file))
+        let track = try await asset.loadTracks(withMediaType: .video)[0]
+        let reader = try AVAssetReader(asset: asset)
+        let out = AVAssetReaderTrackOutput(track: track, outputSettings: Self.bgra)
+        reader.add(out)
+        XCTAssertTrue(reader.startReading())
+        guard let s = out.copyNextSampleBuffer(), let pb = CMSampleBufferGetImageBuffer(s) else { return XCTFail("no frame") }
+        let tags = ["CVImageBufferTransferFunction", "CVImageBufferColorPrimaries", "CVImageBufferYCbCrMatrix"]
+            .map { "\($0.replacingOccurrences(of: "CVImageBuffer", with: "")): \(CVBufferCopyAttachment(pb, $0 as CFString, nil).map { "\($0)" } ?? "none")" }
+        let ctx = CIContext(options: [.workingColorSpace: FrameCompositor.videoSpace])
+        func gray(_ img: CIImage) -> [Int] {
+            var px = [UInt8](repeating: 0, count: 4 * 180 * 320)
+            ctx.render(img, toBitmap: &px, rowBytes: 4 * 180, bounds: CGRect(x: 0, y: 0, width: 180, height: 320),
+                       format: .RGBA8, colorSpace: FrameCompositor.videoSpace)
+            return (0..<8).map { k in Int(px[((20 + 40 * k) * 180 + 90) * 4 + 1]) }   // green, middle of each step
+        }
+        let old = gray(CIImage(cvPixelBuffer: pb))
+        let new = gray(CIImage(video: pb))
+        let worst = zip(old, new).map { abs($0 - $1) }.max() ?? 0
+        XCTAssertGreaterThan(worst, 2, "old way \(old) vs new way \(new), tags \(tags)")
+        reader.cancelReading()
+    }
 }
