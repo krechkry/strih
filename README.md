@@ -66,3 +66,11 @@ Then press ▶ in Xcode.
 
 **Export**
 - 144p to 4K or any custom size, 12 to 120 fps or custom, auto or manual bitrate, H.264 / HEVC, straight to Photos
+
+## License
+
+The code is open source under the [GNU GPL v3](LICENSE). The BOMBOCUT name, icon, the green guy and the rest of the art are not part of that license, see [TRADEMARK.md](TRADEMARK.md). Forks need their own name and art.
+
+The easiest way to get the app is the App Store: one purchase, no subscription, and it supports the work.
+
+Bug reports and ideas are welcome as issues. Pull requests aren't accepted for now.
