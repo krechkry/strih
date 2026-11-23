@@ -102,16 +102,6 @@
         }
       }
     },
-    "%lld chars": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld znaků"
-          }
-        }
-      }
-    },
     "%lld clip": {
       "localizations": {
         "cs": {
@@ -1686,6 +1676,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mění všechno pod sebou: klipy a vrstvy v řádcích pod ní. Vrstvy nad ní zůstanou, jak jsou."
+          }
+        }
+      }
+    },
+    "Characters per line": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Znaků na řádek"
           }
         }
       }
@@ -4918,16 +4918,6 @@
         }
       }
     },
-    "Long": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dlouhé"
-          }
-        }
-      }
-    },
     "Look of the overlay": {
       "localizations": {
         "cs": {
@@ -7324,16 +7314,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sdílení se nepovedlo"
-          }
-        }
-      }
-    },
-    "Short": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Krátké"
           }
         }
       }

@@ -102,33 +102,34 @@ struct FontMenu: View {
 
     var body: some View {
         let cur = FontCatalog.lookup(style.fontName, weight: style.fontWeight)
-        VStack(alignment: .leading, spacing: 18) {
-            section("Font") {
-                Button { browsing = true } label: { bubble(cur) }
-                    .buttonStyle(.plain)
-            }
+        // one row: the font bubble, its thickness next to it, an italic button when the font has italics
+        HStack(spacing: 12) {
+            Button { browsing = true } label: { bubble(cur) }
+                .buttonStyle(.plain)
+                .frame(width: 158)
             thickness(cur)
-            if let cur, cur.family.hasItalic {
-                OnOffRow(title: "Italic", isOn: cur.italic) { v in
-                    let r = cur.family.resolve(weight: cur.weight, italic: v)
-                    pick(FontChoice(font: style.font, name: r.face.ps, weight: r.weight))
-                }
-            }
+            if let cur, cur.family.hasItalic { italicButton(cur) }
         }
         .panelMenu(isPresented: $browsing, height: panelHeight) {
             FontBrowser(style: style, sample: sample, pick: pick)
         }
     }
 
-    private func section<C: View>(_ title: String, value: String? = nil, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(loc(title)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-                Spacer()
-                if let value { Text(value).font(.subheadline.weight(.bold)) }
-            }
-            content()
+    private func italicButton(_ cur: (family: FontFamily, weight: Double, italic: Bool)) -> some View {
+        Button {
+            let r = cur.family.resolve(weight: cur.weight, italic: !cur.italic)
+            pick(FontChoice(font: style.font, name: r.face.ps, weight: r.weight))
+        } label: {
+            Image(systemName: "italic")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(cur.italic ? Color.black : .white)
+                .frame(width: 42, height: 42)
+                .background(cur.italic ? Theme.accent : Theme.panel2, in: Circle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Italic"))
+        .accessibilityAddTraits(cur.italic ? .isSelected : [])
+        .sensoryFeedback(.selection, trigger: cur.italic)
     }
 
     /// The font's name, written in the font, at its thickness and slant.
@@ -138,21 +139,21 @@ struct FontMenu: View {
         if let cur {
             let r = cur.family.resolve(weight: cur.weight, italic: cur.italic)
             title = cur.family.title
-            ui = FontCatalog.font(r.face.ps, weight: r.weight, size: 26) ?? .systemFont(ofSize: 26, weight: .bold)
+            ui = FontCatalog.font(r.face.ps, weight: r.weight, size: 20) ?? .systemFont(ofSize: 20, weight: .bold)
         } else {
             title = loc(FontPicking.builtIn.first { $0.font == style.font }?.title ?? "System")
-            ui = CaptionRenderer.uiFont(style.font, size: 26)
+            ui = CaptionRenderer.uiFont(style.font, size: 20)
         }
-        return HStack(spacing: 10) {
+        return HStack(spacing: 6) {
             Text(verbatim: title)
                 .font(Font(ui as CTFont))
                 .lineLimit(1).minimumScaleFactor(0.5)
-            Spacer(minLength: 6)
-            Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.muted)
+            Spacer(minLength: 2)
+            Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.muted)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity, minHeight: 64)
+        .padding(.leading, 16).padding(.trailing, 12)
+        .frame(maxWidth: .infinity, minHeight: 50)
         .background(Theme.panel2, in: Capsule())
     }
 
@@ -163,7 +164,12 @@ struct FontMenu: View {
         let ws = cur?.family.weights(italic: cur?.italic ?? false) ?? []
         let range: ClosedRange<Double> = (ws.first ?? 0)...max(ws.last ?? 1, (ws.first ?? 0) + 1)
         let usable = cur != nil && ws.count > 1
-        section("Thickness", value: cur.map { loc(FontPicking.weightName(nearestStep($0.weight))) }) {
+        // the weight's name above the slider (Light, Bold...), "Thickness" when the font has only one
+        let label: String = usable ? weightLabel(cur) : loc("Thickness")
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: label)
+                .font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+                .lineLimit(1).minimumScaleFactor(0.7)
             BSlider(value: Binding(get: { cur.map { nearest($0.weight, in: ws) } ?? 0.5 }, set: { w in
                 guard let cur else { return }
                 let snapped = nearest(w, in: ws)
@@ -175,6 +181,11 @@ struct FontMenu: View {
             }), in: range, onEditingChanged: { e in if e { began?() } else { ended?() } })
             .disabled(!usable)
         }
+    }
+
+    private func weightLabel(_ cur: (family: FontFamily, weight: Double, italic: Bool)?) -> String {
+        guard let cur else { return "" }
+        return loc(FontPicking.weightName(nearestStep(cur.weight)))
     }
 
     private func nearest(_ w: Double, in ws: [Double]) -> Double {

@@ -247,7 +247,10 @@ struct TimelineView: View {
                     .padding(.top, LaneLayout.top)
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
-                    .onTapGesture { model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil }
+                    .onTapGesture {
+                        model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil
+                        model.captionsSelected = false
+                    }
                     // slipping: a finger anywhere on the timeline slides the footage (not just on the clip itself)
                     .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
                 }
@@ -1017,7 +1020,9 @@ struct ClipTile: View {
                     holding = false
                     onReorder(.ended, 0, 0)
                 }
-            })
+            },
+            // only a selected clip (or Stack) moves: a slow drag along the timeline must never pick one up
+            enabled: selected)
     }
 
     /// The clip's sound fades as ramps at its ends (none on a muted clip).

@@ -215,46 +215,12 @@ struct TranslateSheet: View {
 
 }
 
-/// Add as a new track / Replace: one big two-sided switch. The lime pill slides to the picked side,
-/// the other side is dimmed. Tap a side to pick it.
+/// Add as a new track / Replace (`TwoSideToggle`).
 private struct ModeToggle: View {
     @Binding var newTrack: Bool
-    private let inset: CGFloat = 4
-    private let height: CGFloat = 42
 
     var body: some View {
-        GeometryReader { g in
-            let half: CGFloat = (g.size.width - inset * 2) / 2
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 11)
-                    .fill(Theme.accent)
-                    .frame(width: half, height: height)
-                    .offset(x: newTrack ? 0 : half)
-                HStack(spacing: 0) {
-                    side("Add as a new track", "captions.bubble", on: newTrack, width: half) { newTrack = true }
-                    side("Replace", "arrow.triangle.2.circlepath", on: !newTrack, width: half) { newTrack = false }
-                }
-            }
-            .padding(inset)
-        }
-        .frame(height: height + inset * 2)
-        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 15))
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: newTrack)
-        .sensoryFeedback(.selection, trigger: newTrack)
-    }
-
-    private func side(_ title: String, _ icon: String, on: Bool, width: CGFloat,
-                      _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(loc(title), systemImage: icon)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(on ? Color.black : Color.white.opacity(0.4))
-                .lineLimit(1).minimumScaleFactor(0.7)
-                .padding(.horizontal, 6)
-                .frame(width: width, height: height)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
+        TwoSideToggle(left: ("Add as a new track", "captions.bubble"), right: ("Replace", "arrow.triangle.2.circlepath"),
+                      leftOn: $newTrack)
     }
 }

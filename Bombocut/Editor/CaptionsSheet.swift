@@ -321,16 +321,6 @@ struct CaptionsSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in
-                        CaptionPrefs.remember(punctuation: v)
-                        setTextSetting { $0.punctuation = v }
-                    }
-                    OnOffRow(title: "Natural line breaks", subtitle: "Lines end where sentences and phrases do",
-                             isOn: caps.style.naturalBreaks) { v in
-                        CaptionPrefs.remember(natural: v)
-                        setTextSetting { $0.naturalBreaks = v }
-                    }
-                    .padding(.bottom, 4)
                     ForEach(scopedCues(caps)) { cue in
                         cueRow(cue, caps, proxy)
                             .id(cue.id)
@@ -548,41 +538,43 @@ struct CaptionsSheet: View {
 
     // MARK: Style sections
 
-    /// Lines and length, size, position, spacing, punctuation, capitals, behind the subject.
+    /// How the words are cut into lines and where they sit: 1 or 2 lines, characters per line, position,
+    /// punctuation, natural breaks, behind the subject.
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
-        HStack(spacing: 8) {
-            pill("1 line", on: s.lines == 1) { setLines(1, s.maxChars) }
-            pill("2 lines", on: s.lines == 2) { setLines(2, s.maxChars) }
-            Spacer(minLength: 4)
-            Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
-                    in: 8...48, step: 2) {
-                Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
-            }
-            .fixedSize()
+        TwoSideToggle(left: ("1 line", "minus"), right: ("2 lines", "equal"),
+                      leftOn: Binding(get: { s.lines == 1 }, set: { one in setLines(one ? 1 : 2, s.maxChars) }))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Characters per line").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+            NumberWheel(values: Array(stride(from: 8, through: 48, by: 2)), value: s.maxChars) { v in setLines(s.lines, v) }
         }
-        HStack(spacing: 8) {
-            ForEach(CaptionLength.allCases, id: \.self) { l in
-                pill(l.title, on: l.matches(s)) { setLines(s.lines, l.maxChars) }
-            }
-        }
-        slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
         PanelBreak()
-        slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
-        slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
-        OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
+        OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in
+            CaptionPrefs.remember(punctuation: v)
+            setTextSetting { $0.punctuation = v }
+        }
+        OnOffRow(title: "Natural line breaks", subtitle: "Lines end where sentences and phrases do",
+                 isOn: s.naturalBreaks) { v in
+            CaptionPrefs.remember(natural: v)
+            setTextSetting { $0.naturalBreaks = v }
+        }
         OnOffRow(title: "Behind subject", subtitle: "Needs a subject mask on the clip (Mask tool)",
                  isOn: s.behindSubject) { v in setStyle { $0.behindSubject = v } }
     }
 
-    /// The font, nothing else.
+    /// The font and how the letters sit: size, spacing, capitals.
     @ViewBuilder
     private func fontSection(_ s: CaptionStyle) -> some View {
         FontMenu(style: s, sample: "Aa", pick: { c in setStyle { c.apply(&$0) } },
                  began: { model.liveEditBegan() },
                  live: { c in model.editCaptions { cap in c.apply(&cap.style); cap.templateID = nil } },
                  ended: { model.liveEditEnded() })
+        slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
+        PanelBreak()
+        slider("Letter spacing", value: s.tracking, def: Self.base.tracking, in: -0.2...1) { v in { $0.tracking = v } }
+        slider("Line spacing", value: s.lineSpacing, def: Self.base.lineSpacing, in: 0.2...4) { v in { $0.lineSpacing = v } }
+        OnOffRow(title: "Capital letters", isOn: s.caps) { v in setStyle { $0.caps = v } }
     }
 
     @ViewBuilder

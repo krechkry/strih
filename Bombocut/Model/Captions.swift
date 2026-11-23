@@ -149,33 +149,13 @@ struct CaptionStyle: Codable, Hashable {
     }
 }
 
-/// How long each caption row is: chips on the Layout tab, next to 1 line / 2 lines (the stepper still
-/// fine-tunes the characters).
-enum CaptionLength: CaseIterable {
-    case short, normal, long
-
-    var maxChars: Int {
-        switch self {
-        case .short: return 18
-        case .normal: return 26
-        case .long: return 32
-        }
-    }
-    var title: String {
-        switch self {
-        case .short: return "Short"
-        case .normal: return "Normal"
-        case .long: return "Long"
-        }
-    }
-    func matches(_ s: CaptionStyle) -> Bool { s.maxChars == maxChars }
-}
-
 /// Caption text settings remembered for the next captions you make (they follow the Apple ID with the
 /// other settings): commas and full stops, natural line breaks.
 enum CaptionPrefs {
     static let punctuationKey = "captionPunctuation"
     static let naturalKey = "captionNaturalBreaks"
+    /// Characters per line of a new captions track on a tall canvas (short, one line).
+    static let shortChars = 18
 
     static var punctuation: Bool { UserDefaults.standard.object(forKey: punctuationKey) as? Bool ?? false }
     static var naturalBreaks: Bool { UserDefaults.standard.object(forKey: naturalKey) as? Bool ?? true }
@@ -193,7 +173,7 @@ enum CaptionPrefs {
         s.naturalBreaks = naturalBreaks
         if canvas.ratioH > canvas.ratioW {
             s.lines = 1
-            s.maxChars = CaptionLength.short.maxChars
+            s.maxChars = shortChars
         }
         return s
     }
