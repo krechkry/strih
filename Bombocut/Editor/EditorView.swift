@@ -810,6 +810,10 @@ struct EditorView: View {
                     ToolButton(icon: "text.cursor", label: "Edit text") {
                         model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
                     }
+                    ToolButton(icon: "scissors", label: "Split") { model.splitCaption() }
+                        .disabled(!model.canSplitCaption)
+                    ToolButton(icon: "arrow.triangle.merge", label: "Merge") { model.mergeCaption() }
+                        .disabled(!model.canMergeCaption)
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
                     ToolButton(icon: "square.grid.2x2", label: "Presets") { model.pause(); model.captionTab = 4; sheet = .captions }
                     ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); model.captionTab = 3; sheet = .captions }
@@ -1861,6 +1865,7 @@ extension EditorView {
     private func splitKey() {
         if model.selectedOverlayIndex != nil { model.splitOverlay() }
         else if model.selectedAudioIndex != nil { model.splitAudio() }
+        else if model.captionsSelected { model.splitCaption() }
         else if model.selectedIndex != nil { model.split() }
         else { model.splitAll() }
     }

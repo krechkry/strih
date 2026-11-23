@@ -1267,6 +1267,7 @@ final class EditorModel: ObservableObject {
     func openClipCaptions() {
         if let st = selectedStack {
             pause()
+            showTrack(of: st.id)
             captionScope = st.id
             captionClips = Set(st.clipIDs)
             let has = clipRange(st.id).map { r in project.captions?.cues.contains { r.contains(($0.start + $0.end) / 2) } ?? false } ?? false
@@ -1277,12 +1278,72 @@ final class EditorModel: ObservableObject {
         }
         guard let id = selectedClipID else { return }
         pause()
+        showTrack(of: id)
         captionScope = id
         captionClips = [id]
         let has = clipRange(id).map { r in project.captions?.cues.contains { r.contains(($0.start + $0.end) / 2) } ?? false } ?? false
         captionsGenerator = !has
         captionTab = 0
         openCaptions = true
+    }
+
+    /// The captions track this clip's lines are on becomes the one the panel works on.
+    private func showTrack(of id: UUID) {
+        guard let k = captionTrack(of: id), k != project.activeCaption else { return }
+        project.activeCaption = k
+        store.save(project)
+    }
+
+    /// The first track with lines on this clip (or Stack).
+    func captionTrack(of id: UUID) -> Int? {
+        guard let r = clipRange(id) else { return nil }
+        return project.captionTracks.indices.first { k in
+            project.captionTracks[k].cues.contains { r.contains(($0.start + $0.end) / 2) }
+        }
+    }
+
+    /// Moves this clip's (or Stack's) caption lines onto another track, or onto a new one (`to` nil) that starts
+    /// with the same look, so they can be styled on their own. Lines already on the target there are replaced.
+    /// One undo step; the target becomes the active track.
+    func moveClipCaptions(_ id: UUID, to target: Int?) {
+        guard let r = clipRange(id), project.captionTracks.indices.contains(project.activeCaption) else { return }
+        let from = project.activeCaption
+        guard target != from else { return }
+        func inRange(_ s: Double, _ e: Double) -> Bool { r.contains((s + e) / 2) }
+        var src = project.captionTracks[from]
+        src.absorbEdits()
+        let cues = src.cues.filter { inRange($0.start, $0.end) }
+        guard !cues.isEmpty else { return }
+        let words = src.words.filter { inRange($0.start, $0.end) }
+        let cuts = (src.cuts ?? []).filter { r.contains($0) }
+        src.cues.removeAll { inRange($0.start, $0.end) }
+        src.words.removeAll { inRange($0.start, $0.end) }
+        src.cuts?.removeAll { r.contains($0) }
+        mutateLook { p in
+            var dst: Captions
+            if let target, p.captionTracks.indices.contains(target) {
+                dst = p.captionTracks[target]
+                dst.absorbEdits()
+                dst.cues.removeAll { inRange($0.start, $0.end) }
+                dst.words.removeAll { inRange($0.start, $0.end) }
+            } else {
+                dst = Captions(language: src.language, words: [], cues: [], style: src.style, templateID: src.templateID)
+            }
+            dst.cues = (dst.cues + cues).sorted { $0.start < $1.start }
+            dst.words = (dst.words + words).sorted { $0.start < $1.start }
+            if !cuts.isEmpty { dst.cuts = ((dst.cuts ?? []) + cuts).sorted() }
+            p.captionTracks[from] = src
+            var to = target ?? p.captionTracks.count
+            if let target, p.captionTracks.indices.contains(target) { p.captionTracks[target] = dst }
+            else { p.captionTracks.append(dst); to = p.captionTracks.count - 1 }
+            // a track left with no lines goes
+            if src.cues.isEmpty {
+                p.captionTracks.remove(at: from)
+                if to > from { to -= 1 }
+            }
+            p.activeCaption = to
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     /// Where a clip sits on the timeline.
@@ -1337,7 +1398,8 @@ final class EditorModel: ObservableObject {
         }
         let snapshot = project
         let old = project.captions
-        let style = project.captions?.style ?? CaptionTemplate.builtIns[0].style
+        let style = project.captions?.style
+            ?? CaptionPrefs.forNewTrack(CaptionTemplate.builtIns[0].style, canvas: project.canvas)
         let tid = project.captions?.templateID ?? CaptionTemplate.builtIns[0].id
         UIApplication.shared.isIdleTimerDisabled = true
         captionTask = Task {
@@ -4550,6 +4612,42 @@ extension EditorModel {
     var tappedCaption: CaptionCue? {
         guard captionsSelected, let id = tappedCue else { return nil }
         return project.captions?.cues.first { $0.id == id }
+    }
+
+    /// The line the caption tools work on: the one under the playhead on the active track, else the one tapped.
+    private var cueForTools: CaptionCue? {
+        guard captionsSelected, let caps = project.captions else { return nil }
+        return caps.cue(at: currentTime) ?? tappedCaption
+    }
+
+    var canSplitCaption: Bool { (cueForTools?.words.count ?? 0) >= 2 }
+    var canMergeCaption: Bool {
+        guard let c = cueForTools else { return false }
+        return project.captions?.next(after: c.id) != nil
+    }
+
+    /// Split (scissors, ⌘B with the captions selected): the line under the playhead is cut in two in the gap
+    /// between the words nearest the playhead. One undo step; the part under the playhead stays selected.
+    func splitCaption() {
+        guard let cue = cueForTools, var caps = project.captions,
+              let keep = caps.splitCue(cue.id, at: currentTime) else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
+        setCaptions(caps)
+        tappedCue = keep
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Merge: the line joins the one after it.
+    func mergeCaption() {
+        guard let cue = cueForTools, var caps = project.captions, caps.mergeCue(cue.id) else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
+        setCaptions(caps)
+        tappedCue = cue.id
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     /// Only this line goes (it stays gone when the captions are cut again).

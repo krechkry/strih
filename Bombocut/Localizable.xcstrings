@@ -230,26 +230,6 @@
         }
       }
     },
-    "1 line": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 řádek"
-          }
-        }
-      }
-    },
-    "2 lines": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2 řádky"
-          }
-        }
-      }
-    },
     "25 languages": {
       "localizations": {
         "cs": {
@@ -4778,6 +4758,16 @@
         }
       }
     },
+    "Lines end where sentences and phrases do": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řádky končí tam, kde věty a fráze"
+          }
+        }
+      }
+    },
     "Listen to": {
       "localizations": {
         "cs": {
@@ -4864,6 +4854,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Log Neutrální"
+          }
+        }
+      }
+    },
+    "Long": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dlouhé"
           }
         }
       }
@@ -5024,6 +5024,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Medium"
+          }
+        }
+      }
+    },
+    "Merge": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spojit"
           }
         }
       }
@@ -5218,6 +5228,16 @@
         }
       }
     },
+    "Natural line breaks": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přirozené konce řádků"
+          }
+        }
+      }
+    },
     "Needs a subject mask on the clip (Mask tool)": {
       "localizations": {
         "cs": {
@@ -5264,6 +5284,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nový projekt"
+          }
+        }
+      }
+    },
+    "New track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nová stopa"
           }
         }
       }
@@ -7218,6 +7248,16 @@
         }
       }
     },
+    "Short": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krátké"
+          }
+        }
+      }
+    },
     "Shows the app's buttons and texts over your video while you edit. The shaded area is what they cover; a title that goes into it lights the layout up orange.": {
       "localizations": {
         "cs": {
@@ -7758,12 +7798,12 @@
         }
       }
     },
-    "Style and animation apply to the whole captions track.": {
+    "Style applies to the whole track. Put this clip's captions on their own track to style them differently.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Styl a animace platí pro celou stopu titulků."
+            "value": "Styl platí pro celou stopu. Dej titulky tohoto klipu na vlastní stopu, ať je můžeš nastylovat jinak."
           }
         }
       }
@@ -8814,6 +8854,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tracking"
+          }
+        }
+      }
+    },
+    "Track %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopa %lld"
           }
         }
       }

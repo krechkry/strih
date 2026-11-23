@@ -1159,12 +1159,9 @@ struct CaptionLane: View {
         let on = model.currentTime >= cue.start && model.currentTime < cue.end
         let tapped = selected && model.tappedCue == cue.id
         let moving = dragStart?.id == cue.id
-        return Text(cue.text.replacingOccurrences(of: "\n", with: " "))
-            .font(.system(size: 9, weight: .bold))
-            .foregroundStyle(on || tapped ? .black : .white.opacity(0.85))
-            .lineLimit(1)
-            .padding(.horizontal, 4)
-            .frame(width: max(4, CGFloat(cue.end - cue.start) * px - 1), height: Self.height, alignment: .leading)
+        let width: CGFloat = max(4, CGFloat(cue.end - cue.start) * px - 1)
+        return label(cue, width: width, on: on, dark: on || tapped, px: px)
+            .frame(width: width, height: Self.height, alignment: .leading)
             .background(on || tapped ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
             .clipped()
@@ -1216,6 +1213,49 @@ struct CaptionLane: View {
             .offset(x: CGFloat(cue.start) * px, y: moving ? lift : 0)
             .shadow(color: .black.opacity(moving ? 0.5 : 0), radius: 6, y: 3)
             .zIndex(moving ? 2 : (tapped ? 1 : 0))
+    }
+
+    /// The whole line when it fits in its block; otherwise, for the line under the playhead, the word being
+    /// said with its neighbours faded on either side, the word sitting on the playhead.
+    @ViewBuilder
+    private func label(_ cue: CaptionCue, width: CGFloat, on: Bool, dark: Bool, px: CGFloat) -> some View {
+        let flat = cue.text.replacingOccurrences(of: "\n", with: " ")
+        if on, cue.words.count > 1, LaneText.width(flat) + 8 > width {
+            spoken(cue, width: width, px: px)
+        } else {
+            Text(flat)
+                .font(LaneText.font)
+                .foregroundStyle(dark ? .black : .white.opacity(0.85))
+                .lineLimit(1)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private func spoken(_ cue: CaptionCue, width: CGFloat, px: CGFloat) -> some View {
+        let t = model.currentTime
+        let ws = cue.words
+        let k = ws.lastIndex { $0.start <= t } ?? 0
+        let prev: String? = k > 0 ? ws[k - 1].text : nil
+        let next: String? = k + 1 < ws.count ? ws[k + 1].text : nil
+        let gap: CGFloat = 3
+        let prevW: CGFloat = prev.map { LaneText.width($0) + gap } ?? 0
+        let curW: CGFloat = LaneText.width(ws[k].text)
+        let nextW: CGFloat = next.map { LaneText.width($0) + gap } ?? 0
+        let total: CGFloat = prevW + curW + nextW
+        let playX: CGFloat = CGFloat(t - cue.start) * px
+        let wanted: CGFloat = playX - prevW - curW / 2
+        let x: CGFloat = max(4, min(wanted, width - total - 4))
+        return HStack(spacing: gap) {
+            if let prev { Text(prev).opacity(0.4) }
+            Text(ws[k].text)
+            if let next { Text(next).opacity(0.4) }
+        }
+        .font(LaneText.font)
+        .foregroundStyle(.black)
+        .lineLimit(1)
+        .fixedSize()
+        .offset(x: x)
+        .frame(width: width, alignment: .leading)
     }
 
     private func edge(_ cue: CaptionCue, leading: Bool, px: CGFloat) -> some View {
@@ -2028,5 +2068,21 @@ struct DiagonalStripes: Shape {
             x += gap
         }
         return p
+    }
+}
+
+/// Caption lane text: one font, widths measured once per string.
+@MainActor
+enum LaneText {
+    static let font = Font.system(size: 9, weight: .bold)
+    private static let uiFont = UIFont.systemFont(ofSize: 9, weight: .bold)
+    private static var cache: [String: CGFloat] = [:]
+
+    static func width(_ s: String) -> CGFloat {
+        if let w = cache[s] { return w }
+        let w = ceil((s as NSString).size(withAttributes: [.font: uiFont]).width)
+        if cache.count > 4000 { cache.removeAll() }
+        cache[s] = w
+        return w
     }
 }

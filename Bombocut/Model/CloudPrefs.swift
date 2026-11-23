@@ -21,7 +21,7 @@ final class CloudPrefs {
         "safeZone", "safeZoneAlways", "guides", "guidesOn", "guideFrame",
         "export.autoBitrate", "export.bitrate", "export.customW", "export.customH", "export.endCard",
         "defTransition", "defStill", "defLayer", "defFill", "quickActions",
-        "translateTarget", "translateAsNewTrack", "presetsSeeded",
+        "translateTarget", "translateAsNewTrack", "presetsSeeded", "captionPunctuation", "captionNaturalBreaks",
     ]
     /// Preset files in Documents, each kept whole under its key.
     static let files: [String: String] = [

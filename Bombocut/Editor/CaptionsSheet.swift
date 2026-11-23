@@ -265,9 +265,8 @@ struct CaptionsSheet: View {
             .onChange(of: tab) { showCaptionForStyling() }
             .onChange(of: styleSection) { showCaptionForStyling() }
             }
-            if model.captionScope != nil && (tab == 1 || tab == 4) {
-                Text("Style and animation apply to the whole captions track.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+            if let scope = model.captionScope, tab == 1 || tab == 4, !scopedCues(caps).isEmpty {
+                trackRow(scope)
             } else if model.captionScope != nil && tab == 3 {
                 Text("Translation covers the whole captions track.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -322,8 +321,16 @@ struct CaptionsSheet: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in setStyle(recut: true) { $0.punctuation = v } }
-                        .padding(.bottom, 4)
+                    OnOffRow(title: "Commas and full stops", isOn: caps.style.punctuation) { v in
+                        CaptionPrefs.remember(punctuation: v)
+                        setTextSetting { $0.punctuation = v }
+                    }
+                    OnOffRow(title: "Natural line breaks", subtitle: "Lines end where sentences and phrases do",
+                             isOn: caps.style.naturalBreaks) { v in
+                        CaptionPrefs.remember(natural: v)
+                        setTextSetting { $0.naturalBreaks = v }
+                    }
+                    .padding(.bottom, 4)
                     ForEach(scopedCues(caps)) { cue in
                         cueRow(cue, caps, proxy)
                             .id(cue.id)
@@ -545,9 +552,10 @@ struct CaptionsSheet: View {
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
         HStack(spacing: 8) {
-            pill("1 line", on: s.lines == 1) { setLines(1, min(s.maxChars, 20)) }
-            pill("2 lines", on: s.lines == 2) { setLines(2, max(s.maxChars, 28)) }
-            Spacer()
+            ForEach(CaptionLength.allCases, id: \.self) { l in
+                pill(l.title, on: l.matches(s)) { setLines(l.lines, l.maxChars) }
+            }
+            Spacer(minLength: 4)
             Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
                     in: 8...48, step: 2) {
                 Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
@@ -640,9 +648,15 @@ struct CaptionsSheet: View {
             model.setCaptions({
                 var c = model.project.captions!
                 let needsRecut = c.style.lines != st.lines || c.style.maxChars != st.maxChars
-                    || c.style.punctuation != st.punctuation
                 let behind = c.style.behindSubject
-                if needsRecut { c.restyle { $0 = st } } else { c.style = st }
+                let punctuation = c.style.punctuation, natural = c.style.naturalBreaks
+                // text settings (commas, natural breaks) are yours, not the template's
+                let applied: (inout CaptionStyle) -> Void = { s in
+                    s = st
+                    s.punctuation = punctuation
+                    s.naturalBreaks = natural
+                }
+                if needsRecut { c.restyle(applied) } else { applied(&c.style) }
                 c.style.behindSubject = behind      // a look, not a placement: templates keep it
                 c.templateID = t.id
                 return c
@@ -707,6 +721,42 @@ struct CaptionsSheet: View {
             TemplateStore.save(templates)
         }
         model.setCaptions(c)
+    }
+
+    /// Commas / natural breaks: the lines are cut again, the template stays picked (not a look).
+    private func setTextSetting(_ change: (inout CaptionStyle) -> Void) {
+        guard var c = model.project.captions else { return }
+        c.restyle(change)
+        model.setCaptions(c)
+    }
+
+    /// Opened from a clip: which captions track this clip's lines are on. Each track has its own style, so
+    /// moving the lines to another track (or a new one) styles them apart from the rest.
+    private func trackRow(_ clip: UUID) -> some View {
+        let tracks = model.project.captionTracks.count
+        let on = model.project.activeCaption
+        return VStack(alignment: .leading, spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(0..<tracks, id: \.self) { k in
+                        pill(String(format: loc("Track %lld"), k + 1), on: k == on) {
+                            model.moveClipCaptions(clip, to: k)
+                        }
+                    }
+                    Button { model.moveClipCaptions(clip, to: nil) } label: {
+                        Label("New track", systemImage: "plus")
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 36)
+                            .background(Theme.panel2, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("Style applies to the whole track. Put this clip's captions on their own track to style them differently.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func setStyle(recut: Bool = false, _ change: (inout CaptionStyle) -> Void) {

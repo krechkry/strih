@@ -103,13 +103,15 @@ struct CaptionStyle: Codable, Hashable {
     var anim = CaptionAnim.fade
     var punctuation = false      // false = no commas and full stops on screen (? and ! stay)
     var behindSubject = false    // captions only: drawn behind the masked subject (when the clip has a mask)
+    /// Lines end where sentences and phrases do (weighed over the whole stretch of speech), not just when full.
+    var naturalBreaks = true
 
     init() {}
 
     enum CodingKeys: String, CodingKey {
         case font, size, text, highlight, stroke, strokeWidth, strokeOutside, tracking, lineSpacing, box, boxColor, boxOpacity
         case shadow, shadowOpacity, shadowBlur, shadowAngle, shadowDistance, caps, y, x, rotation, lines, maxChars, anim, punctuation
-        case behindSubject, fontName, fontWeight
+        case behindSubject, fontName, fontWeight, naturalBreaks
     }
 
     init(from d: Decoder) throws {
@@ -143,6 +145,57 @@ struct CaptionStyle: Codable, Hashable {
         anim = try c.decodeIfPresent(CaptionAnim.self, forKey: .anim) ?? def.anim
         punctuation = try c.decodeIfPresent(Bool.self, forKey: .punctuation) ?? def.punctuation
         behindSubject = try c.decodeIfPresent(Bool.self, forKey: .behindSubject) ?? def.behindSubject
+        naturalBreaks = try c.decodeIfPresent(Bool.self, forKey: .naturalBreaks) ?? def.naturalBreaks
+    }
+}
+
+/// How long caption lines are: chips on the Layout tab (the stepper still fine-tunes the characters).
+enum CaptionLength: CaseIterable {
+    case short, normal, long
+
+    var lines: Int { self == .long ? 2 : 1 }
+    var maxChars: Int {
+        switch self {
+        case .short: return 18
+        case .normal: return 26
+        case .long: return 32
+        }
+    }
+    var title: String {
+        switch self {
+        case .short: return "Short"
+        case .normal: return "Normal"
+        case .long: return "Long"
+        }
+    }
+    func matches(_ s: CaptionStyle) -> Bool { s.lines == lines && s.maxChars == maxChars }
+}
+
+/// Caption text settings remembered for the next captions you make (they follow the Apple ID with the
+/// other settings): commas and full stops, natural line breaks.
+enum CaptionPrefs {
+    static let punctuationKey = "captionPunctuation"
+    static let naturalKey = "captionNaturalBreaks"
+
+    static var punctuation: Bool { UserDefaults.standard.object(forKey: punctuationKey) as? Bool ?? false }
+    static var naturalBreaks: Bool { UserDefaults.standard.object(forKey: naturalKey) as? Bool ?? true }
+
+    static func remember(punctuation: Bool? = nil, natural: Bool? = nil) {
+        if let punctuation { UserDefaults.standard.set(punctuation, forKey: punctuationKey) }
+        if let natural { UserDefaults.standard.set(natural, forKey: naturalKey) }
+    }
+
+    /// A brand new captions track: your remembered text settings, and short one-line captions on a tall canvas
+    /// (Reels, TikTok, Shorts).
+    static func forNewTrack(_ style: CaptionStyle, canvas: Canvas) -> CaptionStyle {
+        var s = style
+        s.punctuation = punctuation
+        s.naturalBreaks = naturalBreaks
+        if canvas.ratioH > canvas.ratioW {
+            s.lines = CaptionLength.short.lines
+            s.maxChars = CaptionLength.short.maxChars
+        }
+        return s
     }
 }
 
@@ -190,6 +243,8 @@ struct Captions: Codable, Hashable {
     var cues: [CaptionCue]
     var style: CaptionStyle
     var templateID: UUID?
+    /// Where you split lines by hand (timeline seconds): a new cut keeps them.
+    var cuts: [Double]? = nil
 
     func cue(at t: Double) -> CaptionCue? {
         var lo = 0, hi = cues.count - 1
@@ -205,7 +260,63 @@ struct Captions: Codable, Hashable {
     /// back into the words first, so the new cues are cut from what you corrected.
     mutating func recut() {
         absorbEdits()
-        cues = CaptionCutter.cues(from: words, style: style)
+        cues = CaptionCutter.cues(from: words, style: style, cuts: cuts ?? [])
+    }
+
+    /// Splits a line in the gap between the two words nearest to `t` (a word is never cut in half). Both parts
+    /// keep their words' real timings; the split is remembered so a new cut keeps it. Returns the id of the part
+    /// at `t`, nil when the line has fewer than two words.
+    @discardableResult
+    mutating func splitCue(_ id: UUID, at t: Double) -> UUID? {
+        guard let i = cues.firstIndex(where: { $0.id == id }) else { return nil }
+        let ws = cues[i].words
+        guard ws.count >= 2 else { return nil }
+        var k = 1
+        var bestD = Double.infinity
+        for j in 1..<ws.count {
+            let g = (ws[j - 1].end + ws[j].start) / 2
+            if abs(g - t) < bestD { bestD = abs(g - t); k = j }
+        }
+        absorbEdits()
+        let cue = cues[i]
+        let at = min(max((ws[k - 1].end + ws[k].start) / 2, cue.start + 0.05), cue.end - 0.05)
+        var a = cue, b = cue
+        b.id = UUID()
+        a.words = Array(ws[..<k])
+        b.words = Array(ws[k...])
+        a.end = at
+        b.start = at
+        a.text = wrapped(a.words)
+        b.text = wrapped(b.words)
+        cues.replaceSubrange(i...i, with: [a, b])
+        cuts = ((cuts ?? []) + [at]).sorted()
+        return t < at ? a.id : b.id
+    }
+
+    /// Joins a line with the one after it (any split you made between them is forgotten).
+    @discardableResult
+    mutating func mergeCue(_ id: UUID) -> Bool {
+        cues.sort { $0.start < $1.start }
+        guard let i = cues.firstIndex(where: { $0.id == id }), i + 1 < cues.count else { return false }
+        absorbEdits()
+        var a = cues[i]
+        let b = cues[i + 1]
+        a.end = max(a.end, b.end)
+        a.words += b.words
+        a.text = wrapped(a.words)
+        cues.replaceSubrange(i...(i + 1), with: [a])
+        cuts?.removeAll { $0 > a.start && $0 < a.end }
+        return true
+    }
+
+    /// The line after this one (for Merge).
+    func next(after id: UUID) -> CaptionCue? {
+        guard let c = cues.first(where: { $0.id == id }) else { return nil }
+        return cues.filter { $0.start > c.start }.min { $0.start < $1.start }
+    }
+
+    private func wrapped(_ ws: [CaptionWord]) -> String {
+        CaptionCutter.wrap(ws.map(\.text).joined(separator: " "), maxChars: style.maxChars, lines: max(1, style.lines))
     }
 
     /// A style change that changes how the lines are cut (lines, length, punctuation). Your edits go into the
@@ -215,7 +326,7 @@ struct Captions: Codable, Hashable {
     mutating func restyle(_ change: (inout CaptionStyle) -> Void) {
         absorbEdits()
         change(&style)
-        cues = CaptionCutter.cues(from: words, style: style)
+        cues = CaptionCutter.cues(from: words, style: style, cuts: cuts ?? [])
     }
 
     /// One line heard again: the words under it are swapped for the new ones that fall inside it, and its text is
@@ -278,13 +389,125 @@ enum CaptionCutter {
         return ",;:–".contains(last)
     }
 
-    static func cues(from words: [CaptionWord], style: CaptionStyle) -> [CaptionCue] {
-        let lines = max(1, style.lines)
-        let limit = style.maxChars * lines
-        let maxDur = lines == 1 ? 2.4 : 6.0
-        let gap = lines == 1 ? 0.5 : 0.8
-        let minDur = lines == 1 ? 0.4 : 1.0
+    // Words that open a new clause or phrase: a good place for a new line to start (cs, sk, en).
+    private static let clauseStart: Set<String> = [
+        "a", "ale", "ani", "nebo", "či", "že", "protože", "proto", "takže", "když", "kdyby", "aby", "jestli", "pokud",
+        "který", "která", "které", "kteří", "kterou", "kterým", "co", "kde", "jak", "až", "než", "však", "pak", "potom",
+        "alebo", "ktorý", "ktorá", "ktoré", "ktorí", "pretože", "lebo", "keď", "keby", "ako",
+        "and", "but", "or", "so", "because", "that", "which", "who", "when", "if", "then", "while", "although",
+        "though", "until", "before", "after", "where",
+    ]
 
+    private struct Limits {
+        let chars: Int, maxDur: Double, gap: Double, minDur: Double
+        init(_ style: CaptionStyle) {
+            let lines = max(1, style.lines)
+            chars = style.maxChars * lines
+            maxDur = lines == 1 ? 2.4 : 6.0
+            gap = lines == 1 ? 0.5 : 0.8
+            minDur = lines == 1 ? 0.4 : 1.0
+        }
+    }
+
+    static func cues(from words: [CaptionWord], style: CaptionStyle, cuts: [Double] = []) -> [CaptionCue] {
+        let lim = Limits(style)
+        var out: [[CaptionWord]] = []
+        for chunk in chunks(words, cuts: cuts) {
+            out += style.naturalBreaks ? naturalGroups(chunk, lim) : greedyGroups(chunk, lim)
+        }
+        return finish(out, style: style, lim)
+    }
+
+    /// Your own splits first: the words on each side of one never share a line.
+    private static func chunks(_ words: [CaptionWord], cuts: [Double]) -> [[CaptionWord]] {
+        guard !cuts.isEmpty else { return [words] }
+        var out: [[CaptionWord]] = []
+        var cur: [CaptionWord] = []
+        var next = 0
+        let sorted = cuts.sorted()
+        for w in words {
+            let mid = (w.start + w.end) / 2
+            var crossed = false
+            while next < sorted.count && sorted[next] < mid { next += 1; crossed = true }
+            if crossed && !cur.isEmpty { out.append(cur); cur = [] }
+            cur.append(w)
+        }
+        if !cur.isEmpty { out.append(cur) }
+        return out
+    }
+
+    private static func length(_ ws: ArraySlice<CaptionWord>) -> Int {
+        ws.reduce(0) { $0 + $1.text.count } + max(0, ws.count - 1)
+    }
+
+    /// Natural breaks: every stretch of speech (between pauses) is cut where it costs least overall: lines end
+    /// on full stops, then commas, then before words like "a", "že", "který", "but"; never after a one-letter
+    /// preposition; a sentence ending mid-line, a lonely last word and lines far from full all cost extra.
+    private static func naturalGroups(_ words: [CaptionWord], _ lim: Limits) -> [[CaptionWord]] {
+        var out: [[CaptionWord]] = []
+        var run: [CaptionWord] = []
+        for w in words {
+            if let last = run.last, w.start - last.end >= lim.gap {
+                out += bestCut(run, lim)
+                run = []
+            }
+            run.append(w)
+        }
+        if !run.isEmpty { out += bestCut(run, lim) }
+        return out
+    }
+
+    /// The cheapest way to cut one stretch of speech into lines (dynamic programming over the gaps).
+    private static func bestCut(_ ws: [CaptionWord], _ lim: Limits) -> [[CaptionWord]] {
+        let n = ws.count
+        guard n > 1 else { return ws.isEmpty ? [] : [ws] }
+        var best = [Double](repeating: .infinity, count: n + 1)
+        var from = [Int](repeating: 0, count: n + 1)
+        best[0] = 0
+        for j in 1...n {
+            for i in stride(from: j - 1, through: 0, by: -1) {
+                guard best[i] < .infinity else { continue }
+                let piece = ws[i..<j]
+                if j - i > 1 && length(piece) > lim.chars { break }   // longer starts only get longer
+                let cost = best[i] + lineCost(piece, all: n, lim) + (j < n ? gapCost(ws, after: j - 1) : 0)
+                if cost < best[j] { best[j] = cost; from[j] = i }
+            }
+        }
+        var groups: [[CaptionWord]] = []
+        var j = n
+        while j > 0 { let i = from[j]; groups.insert(Array(ws[i..<j]), at: 0); j = i }
+        return groups
+    }
+
+    private static func lineCost(_ piece: ArraySlice<CaptionWord>, all: Int, _ lim: Limits) -> Double {
+        let len = Double(length(piece))
+        let limit = Double(lim.chars)
+        let fill = (len - limit * 0.8) / limit
+        var cost = 3 * fill * fill
+        if piece.count == 1 && all > 1 && len < limit * 0.5 { cost += 3 }   // a lonely word
+        else if len < limit * 0.35 { cost += 1.5 }
+        let dur = piece.last!.end - piece.first!.start
+        if piece.count > 1 && dur > lim.maxDur { cost += 8 + 10 * (dur - lim.maxDur) }
+        if dur < lim.minDur * 0.6 { cost += 1 }
+        for w in piece.dropLast() where endsSentence(w.text) { cost += 2.5 }   // a new sentence starts mid-line
+        return cost
+    }
+
+    /// What a new line between word k and k + 1 costs: cheap after a full stop, a comma or a pause, or before
+    /// a word that opens a clause; very expensive after a one-letter preposition or conjunction.
+    private static func gapCost(_ ws: [CaptionWord], after k: Int) -> Double {
+        let w = ws[k].text, next = ws[k + 1]
+        var cost = 2.0
+        if endsSentence(w) { cost = 0 }
+        else if endsSoft(w) { cost = 0.7 }
+        else if clauseStart.contains(next.text.lowercased().trimmingCharacters(in: .punctuationCharacters)) { cost = 1.0 }
+        cost -= min(1, max(0, next.start - ws[k].end - 0.15) * 3)
+        if noEnd.contains(w.lowercased()) { cost += 12 }
+        return max(0, cost)
+    }
+
+    private static func greedyGroups(_ words: [CaptionWord], _ lim: Limits) -> [[CaptionWord]] {
+        let limit = lim.chars, maxDur = lim.maxDur, gap = lim.gap
         var out: [[CaptionWord]] = []
         var cur: [CaptionWord] = []
         var len = 0
@@ -318,7 +541,12 @@ enum CaptionCutter {
             len += (len > 0 ? 1 : 0) + w.text.count
         }
         flush()
+        return out
+    }
 
+    private static func finish(_ out: [[CaptionWord]], style: CaptionStyle, _ lim: Limits) -> [CaptionCue] {
+        let lines = max(1, style.lines)
+        let minDur = lim.minDur
         var cues = out.map { raw -> CaptionCue in
             let ws = style.punctuation ? raw : raw.compactMap { w -> CaptionWord? in
                 var q = w
@@ -359,6 +587,7 @@ enum CaptionCutter {
                 if max(a.count, b.count) > maxChars { score += 1000 }
                 if let l = words[k - 1].last, ",.;:?!…".contains(l) { score -= 6 }
                 if noEnd.contains(words[k - 1].lowercased()) { score += 12 }
+                if clauseStart.contains(words[k].lowercased()) { score -= 3 }
                 if best == nil || score < best!.score { best = (score, a + "\n" + b) }
             }
             return best!.text
@@ -473,6 +702,7 @@ extension Captions {
             cues[i].end = max(cues[i].start + 0.1, cues[i + 1].start - 0.02)
         }
         c.cues = cues
+        c.cuts = cuts?.compactMap { t in map(t - 0.01, t + 0.01).map { $0.0 + 0.01 } }
         return c
     }
 }
