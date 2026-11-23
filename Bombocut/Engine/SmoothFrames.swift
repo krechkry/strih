@@ -112,15 +112,15 @@ final class SmoothFrames: @unchecked Sendable {
     // MARK: Fallbacks (any device)
 
     static func blend(_ a: CVPixelBuffer, _ b: CVPixelBuffer, _ f: Double) -> CIImage {
-        let ia = CIImage(cvPixelBuffer: a), ib = CIImage(cvPixelBuffer: b)
+        let ia = CIImage(video: a), ib = CIImage(video: b)
         return ia.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: ib, kCIInputTimeKey: f])
     }
 
     static func average(_ cur: CVPixelBuffer, _ prev: CVPixelBuffer?, _ next: CVPixelBuffer?, _ s: Double) -> CIImage {
-        var out = CIImage(cvPixelBuffer: cur)
+        var out = CIImage(video: cur)
         let w = min(max(s, 0), 1) * 0.45
-        if let p = prev { out = out.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: CIImage(cvPixelBuffer: p), kCIInputTimeKey: w]) }
-        if let n = next { out = out.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: CIImage(cvPixelBuffer: n), kCIInputTimeKey: w * 0.8]) }
+        if let p = prev { out = out.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: CIImage(video: p), kCIInputTimeKey: w]) }
+        if let n = next { out = out.applyingFilter("CIDissolveTransition", parameters: [kCIInputTargetImageKey: CIImage(video: n), kCIInputTimeKey: w * 0.8]) }
         return out
     }
 
@@ -174,18 +174,19 @@ final class SmoothFrames: @unchecked Sendable {
     @available(iOS 26.0, *)
     private func frame(_ src: CVPixelBuffer, in s: Session, time: CMTime) -> VTFrameProcessorFrame? {
         guard let b = s.buffer(s.inPool) else { return nil }
-        var img = CIImage(cvPixelBuffer: src)
+        var img = CIImage(video: src)
         let sx = CGFloat(CVPixelBufferGetWidth(b)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(b)) / img.extent.height
         if abs(sx - 1) > 0.001 || abs(sy - 1) > 0.001 {
             img = img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
         }
-        ctx.render(img, to: b)
+        ctx.render(img, to: b, bounds: CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(b), height: CVPixelBufferGetHeight(b)),
+                   colorSpace: FrameCompositor.videoSpace)
         return VTFrameProcessorFrame(buffer: b, presentationTimeStamp: time)
     }
 
     /// The engine's output, scaled back to the source size so the rest of the pipeline is unchanged.
     private func back(_ out: CVPixelBuffer, to src: CVPixelBuffer) -> CIImage {
-        let img = CIImage(cvPixelBuffer: out)
+        let img = CIImage(video: out)
         let sx = CGFloat(CVPixelBufferGetWidth(src)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(src)) / img.extent.height
         if abs(sx - 1) < 0.001 && abs(sy - 1) < 0.001 { return img }
         return img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))

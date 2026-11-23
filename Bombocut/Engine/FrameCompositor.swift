@@ -22,7 +22,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
         return CIContext(options: [.workingColorSpace: space])
     }()
-    private let outSpace = CGColorSpace(name: CGColorSpace.itur_709)!
+    /// Every video frame is read and written in this space. The composition hands the compositor Rec. 709 frames
+    /// (iPhone HDR is converted before), so reading them with the very curve the output is written with keeps an
+    /// untouched frame byte for byte the same. Letting Core Image pick the curve from the frame's tags read them
+    /// with a slightly different one: every trip through Bombocut lifted the shadows and paled the colors.
+    static let videoSpace = CGColorSpace(name: CGColorSpace.itur_709)!
+    private let outSpace = FrameCompositor.videoSpace
 
     func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
@@ -120,7 +125,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                            time: srcTime, work: work, preview: info.preview) { img in ready(img) }
             return
         }
-        ready(CIImage(cvPixelBuffer: src))
+        ready(CIImage(video: src))
     }
 
     private static func lightBlur(_ img: CIImage, _ cur: CVPixelBuffer, _ prev: CVPixelBuffer?, _ next: CVPixelBuffer?,
@@ -136,7 +141,7 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let frame = CGRect(origin: .zero, size: size)
             let videoFrame: (UUID) -> (CIImage, CGAffineTransform)? = { id in
                 guard let ot = instr.overlayTracks[id], let pb = request.sourceFrame(byTrackID: ot.trackID) else { return nil }
-                return (CIImage(cvPixelBuffer: pb), ot.prefTransform)
+                return (CIImage(video: pb), ot.prefTransform)
             }
             let bare = clips[0].layer.info.bare
             let hasOverlays = !bare && !OverlayStore.shared.current.overlays.isEmpty
@@ -721,5 +726,12 @@ enum CropShapeMask {
         curves[key] = img
         lock.unlock()
         return img
+    }
+}
+
+extension CIImage {
+    /// A video frame from the composition, read as Rec. 709 (see `FrameCompositor.videoSpace`).
+    convenience init(video pb: CVPixelBuffer) {
+        self.init(cvPixelBuffer: pb, options: [.colorSpace: FrameCompositor.videoSpace])
     }
 }

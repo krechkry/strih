@@ -43,6 +43,13 @@ enum StillVideo {
                 AVVideoMaxKeyFrameIntervalKey: 5,
                 AVVideoAllowFrameReorderingKey: false,
             ],
+            // tagged and drawn in Rec. 709, the space the compositor reads video frames in, so the picture
+            // keeps its exact colors
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+            ],
         ])
         input.expectsMediaDataInRealTime = false
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
@@ -59,7 +66,7 @@ enum StillVideo {
         CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buf)
         guard let pb = buf else { throw CocoaError(.fileWriteUnknown) }
         let ci = CIImage(cgImage: image).transformed(by: CGAffineTransform(scaleX: CGFloat(w) / w0, y: CGFloat(h) / h0))
-        CIContext().render(ci, to: pb, bounds: CGRect(x: 0, y: 0, width: w, height: h), colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+        CIContext().render(ci, to: pb, bounds: CGRect(x: 0, y: 0, width: w, height: h), colorSpace: FrameCompositor.videoSpace)
 
         let frames = Int(length)
         for i in 0...frames {
