@@ -451,5 +451,6 @@ struct StorageReport: Sendable {
             let d = (try? u.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
             if d < cutoff { try? fm.removeItem(at: u) }
         }
+        ThumbnailCache.tidy()
     }
 }

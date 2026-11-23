@@ -79,6 +79,21 @@ struct TimelineView: View {
         return clips.indices.map { CGFloat(model.project.overlap($0)) * model.pxPerSec }
     }
 
+    /// Which clips are on screen or near it (a screen and a half either side of the playhead): only those draw
+    /// filmstrip frames. With every clip drawing (and asking for) its frames on every playback tick, a project
+    /// with 50 clips stuttered. nil: draw them all (the order on screen differs from the project's).
+    private func clipsOnScreen(_ shown: [Clip], half: CGFloat) -> [Bool]? {
+        let clips = model.project.clips
+        guard shown.count == clips.count, zip(shown, clips).allSatisfy({ $0.id == $1.id }) else { return nil }
+        let starts = model.project.clipStarts
+        let reach = Double(half * 3 / max(model.pxPerSec, 0.001))
+        let t = zoomAnchor ?? model.currentTime
+        return clips.indices.map { k in
+            let s = starts[k]
+            return s + clips[k].duration >= t - reach && s <= t + reach
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let half = geo.size.width / 2
@@ -115,6 +130,7 @@ struct TimelineView: View {
                     .opacity(reorder == nil ? 1 : 0)
                     .allowsHitTesting(reorder == nil)
                     let overlaps = overlapsPx(shown)
+                    let onScreen = clipsOnScreen(shown, half: half)
                     HStack(spacing: gap) {
                         ForEach(Array(shown.enumerated()), id: \.element.id) { k, clip in
                             let dragged = reorder?.ids.contains(clip.id) == true
@@ -138,7 +154,8 @@ struct TimelineView: View {
                                      rollAtLimit: model.roll?.atLimit == true,
                                      rollDelta: model.roll?.delta ?? 0,
                                      onRoll: { leading, phase, delta, x in roll(clip.id, leading, phase, delta, x) },
-                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) })
+                                     onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) },
+                                     showFrames: onScreen.map { k < $0.count && $0[k] } ?? true)
                                 .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
                                     // a Stack: several clips in one
@@ -822,6 +839,8 @@ struct ClipTile: View {
     var rollDelta: Double = 0
     var onRoll: (_ leading: Bool, _ phase: TrimPhase, _ delta: Double, _ x: CGFloat) -> Void = { _, _, _, _ in }
     var onReorder: (_ phase: TrimPhase, _ dx: CGFloat, _ fingerX: CGFloat) -> Void = { _, _, _ in }
+    /// Off screen: a plain tile, no filmstrip frames (see `TimelineView.clipsOnScreen`).
+    var showFrames = true
 
     @ObservedObject private var thumbs = ThumbnailCache.shared
     @State private var dragging: Bool? = nil   // which edge is being dragged (true = leading)
@@ -843,7 +862,7 @@ struct ClipTile: View {
         let rt = clip.retime
 
         HStack(spacing: 0) {
-            ForEach(0..<strip.count, id: \.self) { k in
+            ForEach(0..<(showFrames ? strip.count : 0), id: \.self) { k in
                 Group {
                     if let img = thumbs.image(file: clip.mediaFile, at: strip.time(k)) {
                         Image(uiImage: img).resizable().scaledToFill()
@@ -857,6 +876,7 @@ struct ClipTile: View {
         }
         .offset(x: -strip.phase)
         .frame(width: w, height: height, alignment: .leading)
+        .background(Theme.panel2)
         .clipped()
         .overlay(alignment: .topLeading) {
             if w > 44 {

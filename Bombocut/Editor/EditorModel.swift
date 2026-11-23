@@ -79,7 +79,14 @@ final class EditorModel: ObservableObject {
     /// A selected clip being swiped up into an overlay (see `liftBegin`).
     @Published var clipLift: ClipLift?
     @Published var currentTime: Double = 0
-    @Published private(set) var isPlaying = false { didSet { if isPlaying != oldValue { updateFraming() } } }
+    @Published private(set) var isPlaying = false {
+        didSet {
+            if isPlaying != oldValue {
+                updateFraming()
+                ThumbnailCache.shared.playing = isPlaying   // leave the decoders to the player
+            }
+        }
+    }
     @Published var selectedClipID: UUID? {
         didSet {
             if quickMenuClipID != nil && quickMenuClipID != selectedClipID { quickMenuClipID = nil }

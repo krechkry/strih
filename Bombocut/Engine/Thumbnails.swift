@@ -1,7 +1,10 @@
 @preconcurrency import AVFoundation
 import UIKit
 
-/// Filmstrip frames per media file, generated once in the background.
+/// Filmstrip frames per media file. Kept on disk in Caches (small JPEGs), so opening a project again reads them
+/// back instead of decoding every video once more. New ones are made at most two files at a time (one while the
+/// preview plays): 50 clips used to start 50 decoders at once, which starved the player (videos that would not
+/// load or froze until the app was restarted) and could leave files without frames for the rest of the session.
 @MainActor
 final class ThumbnailCache: ObservableObject {
     static let shared = ThumbnailCache()
@@ -12,7 +15,21 @@ final class ThumbnailCache: ObservableObject {
     }
 
     @Published private(set) var frames: [String: [Thumb]] = [:]
+    /// Asked for and not published yet (reading from disk, waiting, being made, or done and about to show).
     private var pending: Set<String> = []
+    /// Waiting to be made, in the order asked for.
+    private var queue: [String] = []
+    private var running = 0
+    /// Done, shown together with others in one update (each update redraws every filmstrip).
+    private var ready: [String: [Thumb]] = [:]
+    private var publishing = false
+    /// Files whose frames could not be made: tried again after a pause, a few times at most.
+    private var failures: [String: (count: Int, at: Date)] = [:]
+
+    /// While the preview plays the player needs the video decoders: one file at a time then.
+    var playing = false {
+        didSet { if playing != oldValue { pump() } }
+    }
 
     func image(file: String, at t: Double) -> UIImage? {
         guard let arr = frames[file], !arr.isEmpty else {
@@ -31,20 +48,81 @@ final class ThumbnailCache: ObservableObject {
 
     func request(_ file: String) {
         guard frames[file] == nil, !pending.contains(file) else { return }
+        if let f = failures[file] {
+            // a file that failed waits a little (longer each time) and gives up after a few tries
+            guard f.count < 4, Date().timeIntervalSince(f.at) > Double(f.count) * 3 else { return }
+        }
         pending.insert(file)
         Task.detached(priority: .utility) {
-            let thumbs = await ThumbnailCache.generate(file)
+            let stored = ThumbnailCache.load(file)
             await MainActor.run {
-                self.frames[file] = thumbs
-                self.pending.remove(file)
+                if let stored { self.finished(file, stored, complete: true) }
+                else { self.queue.append(file); self.pump() }
             }
         }
     }
 
-    nonisolated static func generate(_ file: String) async -> [Thumb] {
+    /// Memory is short: drop the frames in memory (they come back from disk when drawn again).
+    func trim() {
+        for f in ready.keys { pending.remove(f) }
+        frames = [:]
+        ready = [:]
+    }
+
+    private func pump() {
+        let limit = playing ? 1 : 2
+        while running < limit, !queue.isEmpty {
+            let file = queue.removeFirst()
+            running += 1
+            Task.detached(priority: .utility) {
+                let made = await ThumbnailCache.generate(file)
+                if made.complete { ThumbnailCache.save(file, made.thumbs) }
+                await MainActor.run {
+                    self.running -= 1
+                    self.finished(file, made.thumbs, complete: made.complete)
+                    self.pump()
+                }
+            }
+        }
+    }
+
+    private func finished(_ file: String, _ thumbs: [Thumb], complete: Bool) {
+        if complete { failures[file] = nil }
+        else { failures[file] = ((failures[file]?.count ?? 0) + 1, Date()) }
+        if thumbs.isEmpty {
+            // nothing to show: asked again when the strip is drawn again (after the pause above)
+            pending.remove(file)
+            return
+        }
+        ready[file] = thumbs
+        guard !publishing else { return }
+        publishing = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            for (f, t) in self.ready {
+                self.frames[f] = t
+                self.pending.remove(f)
+            }
+            self.ready = [:]
+            self.publishing = false
+        }
+        // a partial strip (frames failed, e.g. the decoders were busy) shows, and is made again a bit later
+        if !complete, let f = failures[file], f.count < 4 {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(Double(f.count) * 3))
+                guard !self.queue.contains(file) else { return }
+                self.queue.append(file)
+                self.pump()
+            }
+        }
+    }
+
+    // MARK: Making them
+
+    nonisolated static func generate(_ file: String) async -> (thumbs: [Thumb], complete: Bool) {
         let asset = AVURLAsset(url: Paths.mediaURL(file))
         let dur = (try? await asset.load(.duration).seconds) ?? 0
-        guard dur > 0 else { return [] }
+        guard dur > 0 else { return ([], false) }
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
         gen.maximumSize = CGSize(width: 180, height: 180)
@@ -60,7 +138,56 @@ final class ThumbnailCache: ObservableObject {
                 out.append(Thumb(time: result.requestedTime.seconds, image: UIImage(cgImage: cg)))
             }
         }
-        return out.sorted { $0.time < $1.time }
+        // most frames made counts as done (a few can fail near the very end of a file)
+        return (out.sorted { $0.time < $1.time }, out.count >= count * 8 / 10)
+    }
+
+    // MARK: On disk
+
+    private struct Stored: Codable {
+        var version = 1
+        var times: [Double]
+        var jpegs: [Data]
+    }
+
+    nonisolated private static var folder: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("Thumbs", isDirectory: true)
+    }
+
+    nonisolated private static func url(_ file: String) -> URL { folder.appendingPathComponent(file + ".thumbs") }
+
+    nonisolated static func load(_ file: String) -> [Thumb]? {
+        guard let d = try? Data(contentsOf: url(file)),
+              let s = try? PropertyListDecoder().decode(Stored.self, from: d),
+              s.version == 1, s.times.count == s.jpegs.count, !s.times.isEmpty else { return nil }
+        var out: [Thumb] = []
+        out.reserveCapacity(s.times.count)
+        for (t, j) in zip(s.times, s.jpegs) {
+            guard let img = UIImage(data: j) else { return nil }
+            // decoded here, in the background, not while the timeline draws
+            out.append(Thumb(time: t, image: img.preparingForDisplay() ?? img))
+        }
+        return out
+    }
+
+    /// Saved frames of media files that are gone (their project was deleted).
+    nonisolated static func tidy() {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: folder.path) else { return }
+        for n in names where n.hasSuffix(".thumbs") {
+            let media = String(n.dropLast(".thumbs".count))
+            if !fm.fileExists(atPath: Paths.mediaURL(media).path) { try? fm.removeItem(at: folder.appendingPathComponent(n)) }
+        }
+    }
+
+    nonisolated static func save(_ file: String, _ thumbs: [Thumb]) {
+        guard !thumbs.isEmpty else { return }
+        let jpegs = thumbs.compactMap { $0.image.jpegData(compressionQuality: 0.7) }
+        guard jpegs.count == thumbs.count else { return }
+        let s = Stored(times: thumbs.map(\.time), jpegs: jpegs)
+        guard let d = try? PropertyListEncoder().encode(s) else { return }
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? d.write(to: url(file), options: .atomic)
     }
 }
 

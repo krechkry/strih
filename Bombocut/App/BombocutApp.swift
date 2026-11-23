@@ -21,6 +21,7 @@ struct BombocutApp: App {
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification,
                                                object: nil, queue: .main) { _ in
             Task { await SpeechEngine.shared.unload() }
+            Task { @MainActor in ThumbnailCache.shared.trim() }
         }
     }
 
