@@ -4,8 +4,8 @@ import XCTest
 
 /// An untouched clip must come out of the compositor with the same colors it went in with. A user saw exports
 /// get paler every time they were brought back in (shadows lifted, colors washed out): the frames were read
-/// with one tone curve and written with another. CI makes `test-ramp.mp4`: 8 gray steps (Rec. 709 tags,
-/// video range) stacked top to bottom, and `test-red.mp4` (untagged, plain red).
+/// with one tone curve and written with another. CI makes `test-ramp.mp4` (8 gray steps stacked top to bottom)
+/// and `test-colors.mp4` (red, green, blue, skin tone), both tagged Rec. 709 and video range like iPhone video.
 final class ColorRoundTripTests: XCTestCase {
     private func media(_ name: String) throws -> String {
         guard let dir = ProcessInfo.processInfo.environment["BOMBOCUT_TEST_MEDIA"] else {
@@ -75,30 +75,22 @@ final class ColorRoundTripTests: XCTestCase {
         b.map { "(" + $0.map { String(format: "%.0f", $0) }.joined(separator: ",") + ")" }.joined(separator: " ")
     }
 
-    func testGrayStepsComeOutUnchanged() async throws {
-        let name = try media("test-ramp.mp4")
-        let a = try await straight(name)
-        let b = try await composed(name)
-        print("ramp file:     ", show(a))
-        print("ramp composed: ", show(b))
-        // the ramp really is a ramp (darkest band near black, brightest near white)
-        XCTAssertLessThan(a[0][1], 30)
-        XCTAssertGreaterThan(a[7][1], 200)
-        for k in 0..<8 {
-            for c in 0..<3 {
-                XCTAssertEqual(b[k][c], a[k][c], accuracy: 3, "band \(k) channel \(c): \(show(a)) became \(show(b))")
-            }
-        }
+    /// Every band and channel within `tolerance`; one failure line with all the numbers.
+    private func check(_ name: String, tolerance: Double) async throws {
+        let file = try media(name)
+        let a = try await straight(file)
+        let b = try await composed(file)
+        let worst = zip(a, b).flatMap { zip($0, $1).map { abs($0 - $1) } }.max() ?? 0
+        print("\(name) file:     ", show(a))
+        print("\(name) composed: ", show(b))
+        XCTAssertLessThanOrEqual(worst, tolerance, "\(name) off by \(Int(worst)): \(show(a)) became \(show(b))")
     }
 
-    func testRedKeepsItsColor() async throws {
-        let name = try media("test-red.mp4")
-        let a = try await straight(name)
-        let b = try await composed(name)
-        print("red file:     ", show(a))
-        print("red composed: ", show(b))
-        for c in 0..<3 {
-            XCTAssertEqual(b[4][c], a[4][c], accuracy: 4, "red \(show(a)) became \(show(b))")
-        }
+    func testGrayStepsComeOutUnchanged() async throws {
+        try await check("test-ramp.mp4", tolerance: 3)
+    }
+
+    func testColorBarsComeOutUnchanged() async throws {
+        try await check("test-colors.mp4", tolerance: 4)
     }
 }
