@@ -552,15 +552,19 @@ struct CaptionsSheet: View {
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
         HStack(spacing: 8) {
-            ForEach(CaptionLength.allCases, id: \.self) { l in
-                pill(l.title, on: l.matches(s)) { setLines(l.lines, l.maxChars) }
-            }
+            pill("1 line", on: s.lines == 1) { setLines(1, s.maxChars) }
+            pill("2 lines", on: s.lines == 2) { setLines(2, s.maxChars) }
             Spacer(minLength: 4)
             Stepper(value: Binding(get: { s.maxChars }, set: { v in setLines(s.lines, v) }),
                     in: 8...48, step: 2) {
                 Text("\(s.maxChars) chars").font(.subheadline.weight(.bold).monospacedDigit())
             }
             .fixedSize()
+        }
+        HStack(spacing: 8) {
+            ForEach(CaptionLength.allCases, id: \.self) { l in
+                pill(l.title, on: l.matches(s)) { setLines(s.lines, l.maxChars) }
+            }
         }
         slider("Size", value: s.size, def: Self.base.size, in: 0.03...0.28) { v in { $0.size = v } }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }

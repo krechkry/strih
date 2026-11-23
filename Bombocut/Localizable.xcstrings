@@ -230,6 +230,26 @@
         }
       }
     },
+    "1 line": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 řádek"
+          }
+        }
+      }
+    },
+    "2 lines": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 řádky"
+          }
+        }
+      }
+    },
     "25 languages": {
       "localizations": {
         "cs": {

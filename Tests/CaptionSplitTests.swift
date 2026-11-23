@@ -103,6 +103,7 @@ final class CaptionSplitTests: XCTestCase {
         canvas.ratioH = 16
         let s = CaptionPrefs.forNewTrack(CaptionStyle(), canvas: canvas)
         XCTAssertTrue(CaptionLength.short.matches(s))
+        XCTAssertEqual(s.lines, 1)
         canvas.ratioW = 16
         canvas.ratioH = 9
         let wide = CaptionPrefs.forNewTrack(CaptionStyle(), canvas: canvas)

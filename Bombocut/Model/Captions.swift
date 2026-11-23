@@ -149,11 +149,11 @@ struct CaptionStyle: Codable, Hashable {
     }
 }
 
-/// How long caption lines are: chips on the Layout tab (the stepper still fine-tunes the characters).
+/// How long each caption row is: chips on the Layout tab, next to 1 line / 2 lines (the stepper still
+/// fine-tunes the characters).
 enum CaptionLength: CaseIterable {
     case short, normal, long
 
-    var lines: Int { self == .long ? 2 : 1 }
     var maxChars: Int {
         switch self {
         case .short: return 18
@@ -168,7 +168,7 @@ enum CaptionLength: CaseIterable {
         case .long: return "Long"
         }
     }
-    func matches(_ s: CaptionStyle) -> Bool { s.lines == lines && s.maxChars == maxChars }
+    func matches(_ s: CaptionStyle) -> Bool { s.maxChars == maxChars }
 }
 
 /// Caption text settings remembered for the next captions you make (they follow the Apple ID with the
@@ -192,7 +192,7 @@ enum CaptionPrefs {
         s.punctuation = punctuation
         s.naturalBreaks = naturalBreaks
         if canvas.ratioH > canvas.ratioW {
-            s.lines = CaptionLength.short.lines
+            s.lines = 1
             s.maxChars = CaptionLength.short.maxChars
         }
         return s
