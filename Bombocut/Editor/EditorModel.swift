@@ -2326,8 +2326,11 @@ final class EditorModel: ObservableObject {
     @Published var maskPanelOpen = false {
         didSet {
             if maskPanelOpen != oldValue { outlineHidden = false; updateMaskOutline() }
+            if !maskPanelOpen && keyMatteOn { keyMatteOn = false }
         }
     }
+    /// Mask panel: the chroma key's matte shown in black and white on the preview (white stays).
+    @Published var keyMatteOn = false { didSet { if keyMatteOn != oldValue { updateKeyMatte() } } }
     private var outlineHidden = false
     /// Timeline: the edge a dragged block snapped to (a soft lime line marks it), nil when not snapped.
     @Published private(set) var snapTime: Double?
@@ -5100,6 +5103,10 @@ extension EditorModel {
         if let c, let r = eyedropper { r.pick(c) }
         eyedropper = nil
         eyedropperFrame = nil
+        if LookStore.shared.bypassKey {
+            LookStore.shared.bypassKey = false
+            refreshFrame()
+        }
     }
 }
 

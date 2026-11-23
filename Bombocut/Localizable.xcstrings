@@ -1680,6 +1680,16 @@
         }
       }
     },
+    "Chroma key": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klíčování barvy"
+          }
+        }
+      }
+    },
     "Cinematic": {
       "localizations": {
         "cs": {
@@ -3474,6 +3484,16 @@
         }
       }
     },
+    "Fill holes": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyplnit díry"
+          }
+        }
+      }
+    },
     "Fill, no borders": {
       "localizations": {
         "cs": {
@@ -4588,6 +4608,16 @@
         }
       }
     },
+    "Key": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klíč"
+          }
+        }
+      }
+    },
     "Keyframes, transitions, text and overlays": {
       "localizations": {
         "cs": {
@@ -4944,6 +4974,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nejdřív vytvoř titulky."
+          }
+        }
+      }
+    },
+    "Makes a green or blue screen see-through, so whatever is under it shows: the clips below, a layer under it, or the background. Pick any other color with the eyedropper.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zprůhlední zelené nebo modré plátno, takže prosvitne to, co je pod ním: klipy, vrstva pod ním nebo pozadí. Jinou barvu vyber kapátkem."
           }
         }
       }
@@ -5964,6 +6004,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fotky"
+          }
+        }
+      }
+    },
+    "Pick": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat"
           }
         }
       }
@@ -7258,6 +7308,16 @@
         }
       }
     },
+    "Show matte": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukázat masku"
+          }
+        }
+      }
+    },
     "Shows the app's buttons and texts over your video while you edit. The shaded area is what they cover; a title that goes into it lights the layout up orange.": {
       "localizations": {
         "cs": {
@@ -7624,6 +7684,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rychlostní křivky, plynulé zpomalení a motion blur"
+          }
+        }
+      }
+    },
+    "Spill removal": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit přesvit"
           }
         }
       }
@@ -9344,6 +9414,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "White stays, black goes. Grey is see-through.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bílá zůstane, černá zmizí. Šedá je průhledná."
           }
         }
       }

@@ -18,10 +18,13 @@ struct MaskSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 if let oi = model.selectedOverlayIndex {
                     overlayMask(model.project.overlays[oi])
+                    if model.project.overlays[oi].isMedia { keySection(model.editedKey) }
                 } else if let st = model.selectedStack {
                     stackMask(st)
+                    keySection(model.editedKey)
                 } else if let i = model.selectedIndex {
                     clipMask(i)
+                    keySection(model.editedKey)
                 }
             }
             .padding(20)
@@ -281,6 +284,67 @@ struct MaskSheet: View {
                                         blend: lastMode == .matte ? .multiply : .normal)
             saved = loc("Added as an overlay")
         }
+    }
+
+    // MARK: Chroma key
+
+    /// Green / blue screen: a color made see-through, with the usual keyer controls.
+    @ViewBuilder
+    private func keySection(_ k: ChromaKey?) -> some View {
+        Text("Chroma key").font(.title3.weight(.heavy)).padding(.top, 10)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                pill("Off", on: k == nil) { model.setKey(nil) }
+                pill("Green", on: k?.screen == .green) { model.setKey(ChromaKey.green) }
+                pill("Blue", on: k?.screen == .blue) { model.setKey(ChromaKey.blue) }
+                pickPill(k)
+            }
+        }
+        if let k {
+            let def = ChromaKey()
+            group("Key") {
+                slider("Strength", k.strength, def: def.strength) { v in model.editKey { $0.strength = v } }
+                slider("Softness", k.softness, def: def.softness) { v in model.editKey { $0.softness = v } }
+                slider("Spill removal", k.spill, def: def.spill) { v in model.editKey { $0.spill = v } }
+            }
+            group("Edge") {
+                slider("Shrink / grow", k.edge, range: -1...1, center: true) { v in model.editKey { $0.edge = v } }
+                slider("Feather", k.feather) { v in model.editKey { $0.feather = v } }
+                slider("Fill holes", k.fillHoles) { v in model.editKey { $0.fillHoles = v } }
+            }
+            Toggle(isOn: Binding(get: { model.keyMatteOn }, set: { model.keyMatteOn = $0 })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Show matte").font(.subheadline.weight(.bold))
+                    Text("White stays, black goes. Grey is see-through.")
+                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                }
+            }
+            .tint(Theme.accent)
+        } else {
+            Text("Makes a green or blue screen see-through, so whatever is under it shows: the clips below, a layer under it, or the background. Pick any other color with the eyedropper.")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The eyedropper chip: a color picked from the video (the key is off while picking).
+    private func pickPill(_ k: ChromaKey?) -> some View {
+        let picked = k?.screen == .picked
+        return Button { model.pickKeyColor() } label: {
+            HStack(spacing: 6) {
+                if let k, picked {
+                    Circle().fill(k.color.color).frame(width: 16, height: 16)
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                }
+                Image(systemName: "eyedropper")
+                Text(loc("Pick")).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(picked ? .black : .white)
+            .padding(.horizontal, 14).frame(height: 36)
+            .background(picked ? Theme.accent : Theme.panel2, in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Parts

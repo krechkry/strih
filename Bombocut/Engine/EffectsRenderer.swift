@@ -19,6 +19,26 @@ final class LookStore: @unchecked Sendable {
         set { lock.lock(); bypass = newValue; lock.unlock() }
     }
 
+    private var keyOff = false
+    private var matte: UUID?
+
+    /// The eyedropper is picking a key color: every chroma key is off in the preview, so the screen shows.
+    var bypassKey: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return keyOff }
+        set { lock.lock(); keyOff = newValue; lock.unlock() }
+    }
+
+    /// The clip, Stack or layer whose chroma key matte is shown in black and white (Mask panel). Never in exports.
+    var keyMatte: UUID? {
+        get { lock.lock(); defer { lock.unlock() }; return matte }
+        set { lock.lock(); matte = newValue; lock.unlock() }
+    }
+
+    /// The chroma key to draw for this clip, Stack or layer in the preview / export.
+    func key(_ k: ChromaKey?, preview: Bool) -> ChromaKey? {
+        preview && bypassKey ? nil : k
+    }
+
     /// The clip whose crop is being edited: the preview shows its whole picture, the crop frame is drawn over it.
     var cropEditClip: UUID? {
         get { lock.lock(); defer { lock.unlock() }; return cropping }
@@ -56,6 +76,7 @@ final class LookStore: @unchecked Sendable {
             s.autoZoom = c.autoZoom
             s.crop = c.crop
             s.filter = c.filter
+            s.key = c.key
             states[c.id] = s
             lock.unlock()
         } else {

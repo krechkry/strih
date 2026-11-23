@@ -213,6 +213,13 @@ final class OverlayRenderer: @unchecked Sendable {
         let w = e.width, h = e.height
         guard w > 0, h > 0 else { return nil }
         let src = CGSize(width: w, height: h)
+        // chroma key first, on the untouched picture (the eyedropper picking a key color turns it off)
+        var keyTag = ""
+        if o.isMedia, let k = LookStore.shared.key(o.key, preview: preview) {
+            let showMatte = preview && LookStore.shared.keyMatte == o.id
+            img = KeyRenderer.apply(img, k, showMatte: showMatte)
+            keyTag = "\(k.hashValue)|\(showMatte)"
+        }
         // the crop (the Crop panel open on it: the whole picture stays faintly visible around the crop)
         let editingCrop = preview && o.isMedia && LookStore.shared.cropEditClip == o.id
         if o.isMedia, let c = o.crop ?? (editingCrop ? CropRect() : nil), !c.keepsAll || editingCrop {
@@ -226,7 +233,7 @@ final class OverlayRenderer: @unchecked Sendable {
                     "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0.3)]))
                 : kept
         }
-        img = finished(o, img, at: t, outline: preview && OverlayStore.shared.outlineOverlay == o.id)
+        img = finished(o, img, at: t, outline: preview && OverlayStore.shared.outlineOverlay == o.id, keyTag: keyTag)
         // a video copied from a clip: its stabilization and tracking, as on the clip
         let srcT = o.sourceTime(at: t)
         let mo = o.kind.isVideo ? OverlayStore.shared.motion(o.id) : nil
@@ -267,13 +274,13 @@ final class OverlayRenderer: @unchecked Sendable {
     /// The layer's own look, before it is placed: its cut-out (pictures and videos) and its Adjust effects.
     /// Glow, halation and the lens effects may spill past the layer's edges (the result can be bigger than `img`,
     /// with the picture still at 0, 0). A picture's result doesn't change from frame to frame, so it is rendered once and kept.
-    private func finished(_ o: Overlay, _ img: CIImage, at t: Double, outline: Bool) -> CIImage {
+    private func finished(_ o: Overlay, _ img: CIImage, at t: Double, outline: Bool, keyTag: String = "") -> CIImage {
         let filter = o.isMedia ? o.filter : nil
         let fx = FilterRenderer.effects(o.effects, filter)
         let mask = o.isMedia ? o.mask : nil
         guard fx.hasColor || fx.hasCanvasFX || mask != nil || filter != nil else { return img }
         guard case .image(let file) = o.kind, fx.grain == 0 else { return look(o, img, at: t, outline: outline) }
-        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)|\(o.crop?.hashValue ?? 0)|\(LookStore.shared.cropEditClip == o.id)|\(filter?.hashValue ?? 0)"
+        let key = "\(file)|\(fx.hashValue)|\(mask?.hashValue ?? 0)|\(outline)|\(o.crop?.hashValue ?? 0)|\(LookStore.shared.cropEditClip == o.id)|\(filter?.hashValue ?? 0)|\(keyTag)"
         lock.lock()
         if let c = looks[key] { lock.unlock(); return c }
         lock.unlock()

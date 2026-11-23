@@ -197,6 +197,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var crop: CropRect?            // crop of its own picture (soft edge, rounded corners)
     var stack: [Clip]?             // a Stack: the clips it was made of (rendered into `mediaFile`), back on Unstack
     var filter: LookFilter?        // a look from the Filters gallery, after Adjust
+    var key: ChromaKey?            // chroma key: a green / blue screen made see-through
     var fadeIn = 0.0               // seconds its sound rises from silence at the start
     var fadeOut = 0.0              // seconds its sound sinks to silence at the end
     /// The sound fades as they play (each at most half the clip).
@@ -223,7 +224,7 @@ struct Clip: Identifiable, Codable, Hashable {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
                   motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom, crop: crop,
-                  filter: filter)
+                  filter: filter, key: key)
     }
 
     /// Files this clip needs: its own, the original of a reversed clip, and everything inside a Stack.
@@ -270,7 +271,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case curveSticks
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
-        case fadeIn, fadeOut, filter
+        case fadeIn, fadeOut, filter, key
     }
 
     init(from d: Decoder) throws {
@@ -308,6 +309,7 @@ struct Clip: Identifiable, Codable, Hashable {
         stack = try? c.decodeIfPresent([Clip].self, forKey: .stack)
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
         filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
+        key = try? c.decodeIfPresent(ChromaKey.self, forKey: .key)
         fadeIn = (try? c.decodeIfPresent(Double.self, forKey: .fadeIn)) ?? 0
         fadeOut = (try? c.decodeIfPresent(Double.self, forKey: .fadeOut)) ?? 0
         // older projects kept motion blur among the Adjust effects

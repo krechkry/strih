@@ -131,7 +131,8 @@ final class MaskExporter: @unchecked Sendable {
                 var matte = geometry(raw, crop: nil).composited(over: black).cropped(to: frame)
                 matte = SubjectMasker.refine(matte, mask, frame: frame)
                 // the crop and the opacity take away from the subject too
-                var picture = geometry(FilterRenderer.apply(EffectsRenderer.color(src, look.effects), state.filter), crop: state.crop)
+                var picture = geometry(FilterRenderer.apply(EffectsRenderer.color(KeyRenderer.apply(src, state.key), look.effects),
+                                                            state.filter), crop: state.crop)
                 var opacity = look.opacity
                 if let a = anim { opacity *= a.opacity }
                 if opacity < 0.999 {

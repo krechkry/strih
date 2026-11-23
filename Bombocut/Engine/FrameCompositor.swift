@@ -336,7 +336,12 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
         // the filter after Adjust (off with the effects while comparing before / after)
         let filter: LookFilter? = (info.preview && LookStore.shared.bypassEffects) ? nil : state.filter
-        var image = geometry(FilterRenderer.apply(EffectsRenderer.color(p.source, look.effects), filter), upright: false)
+        // chroma key on the untouched source (its matte in black and white while the Mask panel shows it)
+        let key = LookStore.shared.key(state.key, preview: info.preview)
+        let showMatte = info.preview && key != nil && LookStore.shared.keyMatte == info.clipID
+        let source = KeyRenderer.apply(p.source, key, showMatte: showMatte)
+        let colored = showMatte ? source : FilterRenderer.apply(EffectsRenderer.color(source, look.effects), filter)
+        var image = geometry(colored, upright: false)
         var opacity = look.opacity
         if let a = anim { opacity *= a.opacity }
         if opacity < 0.999 {
@@ -411,7 +416,10 @@ final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             return out
         }
-        var image = geometry(FilterRenderer.apply(EffectsRenderer.color(img, look.effects), filter))
+        let key = LookStore.shared.key(s.key, preview: preview)
+        let showMatte = preview && key != nil && LookStore.shared.keyMatte == l.id
+        let keyed = KeyRenderer.apply(img, key, showMatte: showMatte)
+        var image = geometry(showMatte ? keyed : FilterRenderer.apply(EffectsRenderer.color(keyed, look.effects), filter))
         var opacity = look.opacity
         if let a = anim { opacity *= a.opacity }
         if opacity < 0.999 {
