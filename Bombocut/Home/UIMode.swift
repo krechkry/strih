@@ -450,6 +450,7 @@ struct SettingsView: View {
     @State private var language = AppLanguage.current
     @State private var showLanguages = false
     @AppStorage(AudioMix.key) private var mixAudio = false
+    @AppStorage(Proxies.settingKey) private var smoothPlayback = true
 
     var body: some View {
         NavigationStack {
@@ -493,6 +494,13 @@ struct SettingsView: View {
                     }
                     group("Defaults") { DefaultsSettings() }
                     group("Quick menu") { QuickMenuSettings() }
+                    group("Playback") {
+                        OnOffRow(title: "Smooth playback",
+                                 subtitle: "4K, 10-bit (S-Log) and ProRes clips play from a light HD copy while you edit, made once in the background. Exports always use your originals.",
+                                 isOn: smoothPlayback) { v in smoothPlayback = v }
+                        .padding(14)
+                        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+                    }
                     group("Sound") {
                         OnOffRow(title: "Keep music from other apps playing",
                                  subtitle: "Spotify, Apple Music and others keep playing while you edit. The editor's sound plays on top.",

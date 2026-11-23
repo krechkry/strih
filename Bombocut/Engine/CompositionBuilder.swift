@@ -182,13 +182,18 @@ enum CompositionBuilder {
         }
         var lane = 0
         var placed: [Placed] = []
+        /// Preview: seconds of timeline per source frame rate (the preview plays at the footage's own rate).
+        var rateTime: [Int: Double] = [:]
 
         /// Puts one clip on the timeline at `at` on lane `l`. Returns where it ended (nil: no video in the file).
         func place(_ clip: Clip, asset: AVURLAsset, at start: CMTime, lane l: Int, cut: CutTransition?,
                    lead: Double = 0, trail: Double = 0) async throws -> Placed? {
-            guard let src = try await asset.loadTracks(withMediaType: .video).first else { return nil }
+            // the preview plays a heavy clip's light copy (Proxies), when it's made; its sound stays the original's
+            let videoAsset = preview ? (Proxies.ready(clip.mediaFile).map { AVURLAsset(url: $0) } ?? asset) : asset
+            guard let src = try await videoAsset.loadTracks(withMediaType: .video).first else { return nil }
             let (prefTransform, srcRange, nominalFps) = try await src.load(.preferredTransform, .timeRange, .nominalFrameRate)
             let fps = nominalFps > 1 ? Double(nominalFps) : 30
+            rateTime[Int((fps * 100).rounded()), default: 0] += clip.duration
             let ln = lanes[l]
             let vTrack = try ln.videoTrack()
             let aux = clip.needsNeighbours
@@ -337,7 +342,8 @@ enum CompositionBuilder {
         for o in project.overlays {
             guard case .video(let file, _, let inPoint) = o.kind, o.start < contentEnd.seconds else { continue }
             let asset = AVURLAsset(url: Paths.mediaURL(file))
-            guard let src = try? await asset.loadTracks(withMediaType: .video).first,
+            let videoAsset = preview ? (Proxies.ready(file).map { AVURLAsset(url: $0) } ?? asset) : asset
+            guard let src = try? await videoAsset.loadTracks(withMediaType: .video).first,
                   let loaded = try? await src.load(.preferredTransform, .timeRange),
                   let track = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid)
             else { continue }
@@ -511,13 +517,22 @@ enum CompositionBuilder {
         vc.customVideoCompositorClass = FrameCompositor.self
         vc.instructions = instructions
         vc.renderSize = renderSize
-        vc.frameDuration = frameDuration(fps: fps)
+        vc.frameDuration = frameDuration(fps: preview ? previewRate(rateTime, fallback: fps) : fps)
         // Convert iPhone HDR (HLG / Dolby Vision) sources to standard Rec.709 before compositing.
         vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
         vc.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
         vc.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
 
         return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, duration: cursor.seconds)
+    }
+
+    /// The preview's frame rate: the rate most of the footage was shot at, at most 30 (24 fps footage plays
+    /// at 24, 25 at 25, 60 at 30, 50 at 25), so playback never repeats frames unevenly.
+    static func previewRate(_ rateTime: [Int: Double], fallback: Double) -> Double {
+        guard let top = rateTime.max(by: { $0.value < $1.value })?.key else { return min(fallback, 30) }
+        let rate = Double(top) / 100
+        guard rate > 30.5 else { return max(rate, 15) }
+        return rate / (rate / 30.5).rounded(.up)
     }
 
     static func err(_ s: String) -> NSError {

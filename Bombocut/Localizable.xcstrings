@@ -260,6 +260,16 @@
         }
       }
     },
+    "4K, 10-bit (S-Log) and ProRes clips play from a light HD copy while you edit, made once in the background. Exports always use your originals.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4K, 10bitové (S-Log) a ProRes klipy se při střihu přehrávají z lehké HD kopie, která se jednou vytvoří na pozadí. Export vždycky použije originály."
+          }
+        }
+      }
+    },
     "A preset holds the whole look of the text: size, spacing, font, colors, outline, shadow and box. Save makes one from this text; hold a preset to update it with the current look, rename it or delete it.": {
       "localizations": {
         "cs": {
@@ -7548,6 +7558,16 @@
         }
       }
     },
+    "Smooth playback": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plynulé přehrávání"
+          }
+        }
+      }
+    },
     "Smooth slow motion": {
       "localizations": {
         "cs": {
@@ -8858,12 +8878,12 @@
         }
       }
     },
-    "Thumbnails and system caches, rebuilt when needed": {
+    "Thumbnails, playback copies of 4K clips and system caches, rebuilt when needed": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Náhledy a systémová mezipaměť, podle potřeby se vytvoří znovu"
+            "value": "Náhledy, kopie 4K klipů pro přehrávání a systémová mezipaměť, podle potřeby se vytvoří znovu"
           }
         }
       }

@@ -57,7 +57,8 @@ struct StorageView: View {
                         row(icon: "film.stack", title: "Unused videos",
                             detail: "Imported videos no project uses any more", bytes: report.unused) { confirm = .unused }
                         row(icon: "square.stack.3d.up", title: "Caches",
-                            detail: "Thumbnails and system caches, rebuilt when needed", bytes: report.caches) { confirm = .caches }
+                            detail: "Thumbnails, playback copies of 4K clips and system caches, rebuilt when needed",
+                            bytes: report.caches) { confirm = .caches }
                         row(icon: "cpu", title: "Voice model optimization",
                             detail: "Makes the voice model load fast. Deleting means the next load takes minutes again.",
                             bytes: report.optimized) { confirm = .optimized }
@@ -452,5 +453,6 @@ struct StorageReport: Sendable {
             if d < cutoff { try? fm.removeItem(at: u) }
         }
         ThumbnailCache.tidy()
+        Proxies.tidy()
     }
 }

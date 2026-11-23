@@ -401,6 +401,12 @@ final class EditorModel: ObservableObject {
     }
 
     func rebuild() {
+        // heavy clips (4K, 10-bit, ProRes) get a light copy for the preview; each one ready builds again
+        Proxies.shared.changed = { [weak self] in self?.rebuild() }
+        Proxies.shared.want(project.clips.map(\.mediaFile) + project.overlays.compactMap { o -> String? in
+            if case .video(let file, _, _) = o.kind { return file }
+            return nil
+        })
         // speech settings without their cleaned sound yet: make it, then build again with it
         let speechWork = SpeechCleanup.shared.missing(in: project)
         if !speechWork.isEmpty {
