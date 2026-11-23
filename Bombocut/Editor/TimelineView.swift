@@ -1240,13 +1240,18 @@ struct CaptionLane: View {
             .zIndex(moving ? 2 : (tapped ? 1 : 0))
     }
 
-    /// The whole line when it fits in its block; otherwise, for the line under the playhead, the word being
-    /// said with its neighbours faded on either side, the word sitting on the playhead.
+    /// Room for every word at the time it is said: each word sits where it starts (pushed right only as far as
+    /// the word before needs), on the line under the playhead the word being said is lit and the rest faded.
+    /// Too tight for that: the line under the playhead shows the word being said with its neighbours, the others
+    /// their text from the start.
     @ViewBuilder
     private func label(_ cue: CaptionCue, width: CGFloat, on: Bool, dark: Bool, px: CGFloat) -> some View {
         let flat = cue.text.replacingOccurrences(of: "\n", with: " ")
-        if on, cue.words.count > 1, LaneText.width(flat) + 8 > width {
+        let fits = LaneText.width(flat) + 8 <= width
+        if on, cue.words.count > 1, !fits {
             spoken(cue, width: width, px: px)
+        } else if fits, cue.words.count > 1, let xs = wordSpots(cue, width: width, px: px) {
+            timedWords(cue, xs, width: width, on: on, dark: dark)
         } else {
             Text(flat)
                 .font(LaneText.font)
@@ -1254,6 +1259,41 @@ struct CaptionLane: View {
                 .lineLimit(1)
                 .padding(.horizontal, 4)
         }
+    }
+
+    /// Where each word goes in the block (nil: they don't all fit at their times).
+    private func wordSpots(_ cue: CaptionCue, width: CGFloat, px: CGFloat) -> [CGFloat]? {
+        var xs: [CGFloat] = []
+        xs.reserveCapacity(cue.words.count)
+        var end: CGFloat = 4
+        for w in cue.words {
+            let at: CGFloat = CGFloat(w.start - cue.start) * px
+            let x: CGFloat = max(at, end)
+            xs.append(x)
+            end = x + LaneText.width(w.text) + 4
+        }
+        return end <= width ? xs : nil
+    }
+
+    private func timedWords(_ cue: CaptionCue, _ xs: [CGFloat], width: CGFloat, on: Bool, dark: Bool) -> some View {
+        let t = model.currentTime
+        let lit: Int? = on ? cue.words.lastIndex { $0.start <= t } : nil
+        return ZStack(alignment: .leading) {
+            ForEach(Array(cue.words.enumerated()), id: \.offset) { i, w in
+                Text(verbatim: w.text)
+                    .font(LaneText.font)
+                    .foregroundStyle(wordColor(i, lit: lit, on: on, dark: dark))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .offset(x: xs[i])
+            }
+        }
+        .frame(width: width, alignment: .leading)
+    }
+
+    private func wordColor(_ i: Int, lit: Int?, on: Bool, dark: Bool) -> Color {
+        if on { return Color.black.opacity(i == lit ? 1 : 0.4) }
+        return dark ? .black : .white.opacity(0.85)
     }
 
     private func spoken(_ cue: CaptionCue, width: CGFloat, px: CGFloat) -> some View {
