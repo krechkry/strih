@@ -127,7 +127,7 @@ struct TimelineView: View {
                     lane(lanes.layers, empty: model.project.overlays.isEmpty, alignment: .bottom) {
                         OverlayLane(model: model)
                     }
-                    .opacity(reorder == nil ? 1 : 0)
+                    .opacity(reorder == nil ? (model.mergePick == nil ? 1 : 0.3) : 0)
                     .allowsHitTesting(reorder == nil)
                     let overlaps = overlapsPx(shown)
                     let onScreen = clipsOnScreen(shown, half: half)
@@ -182,6 +182,7 @@ struct TimelineView: View {
                                 .padding(.leading, k < overlaps.count && overlaps[k] > 0 ? -overlaps[k] : 0)
                         }
                     }
+                    .opacity(model.mergePick == nil ? 1 : 0.3)   // merging caption lines: the rest of the timeline steps back
                     .gesture(SwipeUp(changed: swipeUp))
                     .overlay(alignment: .leading) {
                         // transitions: a diagonal across the overlap, tap it to change the transition
@@ -226,7 +227,7 @@ struct TimelineView: View {
                     lane(lanes.music, empty: model.project.audio.isEmpty) {
                         AudioLane(model: model)
                     }
-                    .opacity(reorder == nil ? 1 : 0)
+                    .opacity(reorder == nil ? (model.mergePick == nil ? 1 : 0.3) : 0)
                     .allowsHitTesting(reorder == nil)
                     }
                     .overlay(alignment: .topLeading) {
@@ -249,7 +250,7 @@ struct TimelineView: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil
-                        model.captionsSelected = false
+                        if model.mergePick != nil { model.mergePick = nil } else { model.captionsSelected = false }
                     }
                     // slipping: a finger anywhere on the timeline slides the footage (not just on the clip itself)
                     .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
@@ -1185,11 +1186,21 @@ struct CaptionLane: View {
         let tapped = selected && model.tappedCue == cue.id
         let moving = dragStart?.id == cue.id
         let width: CGFloat = max(4, CGFloat(cue.end - cue.start) * px - 1)
-        return label(cue, width: width, on: on, dark: on || tapped, px: px)
+        let role = mergeRole(cue)
+        let lit = on || tapped || role == .target
+        return label(cue, width: width, on: on, dark: lit, px: px)
             .frame(width: width, height: Self.height, alignment: .leading)
-            .background(on || tapped ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
+            .background(lit ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
+            .overlay {
+                // merging: the lines it can join wear a dashed white edge
+                if role == .target {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(.white, style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
+                }
+            }
             .clipped()
+            .opacity(role == .dim ? 0.25 : 1)
             .overlay(alignment: .leading) {
                 if tapped {
                     HStack(spacing: 0) {
@@ -1211,10 +1222,16 @@ struct CaptionLane: View {
                 }
             }
             .contentShape(OutsetX(dx: tapped ? LaneEdge.width + 8 : 0))
-            .onTapGesture { model.tapCaption(cue, track: track) }
+            .onTapGesture {
+                switch role {
+                case .none: model.tapCaption(cue, track: track)
+                case .target: model.finishMerge(with: cue.id)
+                case .source, .dim: model.mergePick = nil
+                }
+            }
             .gesture(HoldToDrag(
                 onBegan: { x in
-                    guard selected else { return }
+                    guard selected, model.mergePick == nil else { return }
                     if model.tappedCue != cue.id { model.tapCaption(cue, track: track) }
                     dragStart = (cue.id, cue.start, cue.end)
                     active = (cue.id, .move, 0)
@@ -1259,6 +1276,16 @@ struct CaptionLane: View {
                 .lineLimit(1)
                 .padding(.horizontal, 4)
         }
+    }
+
+    enum MergeRole { case none, source, target, dim }
+
+    /// Merging (Merge tapped): the picked line, the neighbours it can join, everything else dimmed.
+    private func mergeRole(_ cue: CaptionCue) -> MergeRole {
+        guard let pick = model.mergePick else { return .none }
+        guard selected else { return .dim }
+        if cue.id == pick { return .source }
+        return model.mergeNeighbours.contains(cue.id) ? .target : .dim
     }
 
     /// Where each word goes in the block (nil: they don't all fit at their times).

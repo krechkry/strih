@@ -84,8 +84,12 @@ struct TranslateSheet: View {
 
             jobStatus(usePacks: usePacks)
 
-            translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
-                            title: String(format: loc("Translate to %@"), TranslateLanguage.localName(target)))
+            if usePacks || (dirs == nil && appleCan) {
+                translateButton(caps, target: target, dirs: dirs, usePacks: usePacks, appleCan: appleCan, busy: busy,
+                                title: String(format: loc("Translate to %@"), TranslateLanguage.localName(target)))
+            } else {
+                downloadPanel(caps, target: target, dirs: dirs, appleCan: appleCan, busy: busy)
+            }
             Text(asNewTrack
                  ? "The translation becomes a second captions track, a line above these, with its own style. Both stay editable."
                  : "The translation replaces the captions, with the same style and timing. Undo brings the original back.")
@@ -111,55 +115,65 @@ struct TranslateSheet: View {
         .pickerStyle(.wheel)
         .frame(height: 136)
         .clipped()
-        .opacity(ready ? 1 : 0.35)
         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
-        .overlay { if !ready { downloadBadge(dirs: dirs, appleCan: appleCan) } }
         .disabled(busy)
     }
 
-    /// Over the wheel's middle row: download the language (its size), the download running, or why it can't.
+    /// The picked language isn't downloaded: what is going on, then the download where the Translate button
+    /// sits (its size), the download running, or why it can't be had; Apple's translator as a way out.
     @ViewBuilder
-    private func downloadBadge(dirs: [String]?, appleCan: Bool) -> some View {
-        VStack(spacing: 4) {
+    private func downloadPanel(_ caps: Captions, target: String, dirs: [String]?, appleCan: Bool, busy: Bool) -> some View {
+        let name = TranslateLanguage.localName(target)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(String(format: loc("%@ isn't downloaded yet. Download it once and captions translate offline, right here."), name))
+                .font(.footnote.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
             if let p = packs.progress {
-                HStack(spacing: 10) {
-                    ProgressView(value: max(p, 0.01)).tint(.black).frame(width: 70)
-                    Text("\(Int(p * 100)) %").font(.subheadline.weight(.bold).monospacedDigit())
+                HStack(spacing: 12) {
+                    ProgressView(value: max(p, 0.01)).tint(.black)
+                    Text(verbatim: "\(Int(p * 100)) %").font(.headline.weight(.bold).monospacedDigit())
                     Button { packs.cancel() } label: {
-                        Image(systemName: "xmark").font(.system(size: 12, weight: .heavy))
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .heavy))
+                            .frame(width: 32, height: 32)
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel(loc("Cancel"))
                 }
                 .foregroundStyle(.black)
-                .padding(.horizontal, 16).frame(height: 40)
-                .background(Theme.accent, in: Capsule())
+                .padding(.horizontal, 18)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
             } else if let dirs {
                 Button { packs.download(dirs) } label: {
                     Label(String(format: loc("Download (%@)"), TranslationPacks.sizeLabel(packs.downloadSize(dirs))),
                           systemImage: "arrow.down.circle.fill")
-                        .font(.subheadline.weight(.bold)).foregroundStyle(.black)
+                        .font(.headline.weight(.bold)).foregroundStyle(.black)
                         .lineLimit(1).minimumScaleFactor(0.7)
-                        .padding(.horizontal, 16).frame(height: 40)
-                        .background(Theme.accent, in: Capsule())
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
                 }
                 .buttonStyle(.plain)
+                .disabled(busy)
             } else {
                 Text(packs.catalog == nil ? (packs.catalogError ?? loc("Checking…")) : loc("Not available yet"))
-                    .font(.footnote.weight(.bold)).foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(Theme.panel, in: Capsule())
+                    .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
             }
             if let e = packs.downloadError {
-                Text(e).font(.caption.weight(.semibold)).foregroundStyle(.red)
+                Text(e).font(.footnote.weight(.semibold)).foregroundStyle(.red)
             } else if appleCan && packs.progress == nil {
-                // it still translates without it, with Apple's translator
-                Text("Or translate now with Apple's translator").font(.caption.weight(.semibold)).foregroundStyle(.white)
-                    .padding(.horizontal, 8).padding(.vertical, 2)
-                    .background(Theme.panel.opacity(0.85), in: Capsule())
+                // it still translates without the download, with Apple's translator
+                Button { startTranslate(caps, target: target, dirs: dirs, usePacks: false) } label: {
+                    Text("Or translate now with Apple's translator")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .underline()
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .disabled(busy)
             }
         }
-        .padding(.horizontal, 10)
     }
 
     /// Translating: how far, or what went wrong.
@@ -190,18 +204,7 @@ struct TranslateSheet: View {
 
     private func translateButton(_ caps: Captions, target: String, dirs: [String]?, usePacks: Bool, appleCan: Bool,
                                  busy: Bool, title: String) -> some View {
-        Button {
-            model.pause()
-            model.dismissTranslateError()
-            if usePacks, let dirs {
-                model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
-            } else {
-                appleTarget = target
-                let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
-                                                           target: Locale.Language(identifier: target))
-                if appleConfig == cfg { appleConfig?.invalidate() } else { appleConfig = cfg }
-            }
-        } label: {
+        Button { startTranslate(caps, target: target, dirs: dirs, usePacks: usePacks) } label: {
             Label(title, systemImage: "character.bubble.fill")
                 .font(.headline.weight(.bold))
                 .foregroundStyle(.black)
@@ -211,6 +214,20 @@ struct TranslateSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(busy || !(usePacks || appleCan))
+    }
+
+    /// With the downloaded language when there is one, else with Apple's translator.
+    private func startTranslate(_ caps: Captions, target: String, dirs: [String]?, usePacks: Bool) {
+        model.pause()
+        model.dismissTranslateError()
+        if usePacks, let dirs {
+            model.translateWithPacks(to: target, via: dirs, asNewTrack: asNewTrack)
+        } else {
+            appleTarget = target
+            let cfg = TranslationSession.Configuration(source: Locale.Language(identifier: caps.language),
+                                                       target: Locale.Language(identifier: target))
+            if appleConfig == cfg { appleConfig?.invalidate() } else { appleConfig = cfg }
+        }
     }
 
 }

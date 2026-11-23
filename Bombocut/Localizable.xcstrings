@@ -12,6 +12,16 @@
         }
       }
     },
+    "%@ isn't downloaded yet. Download it once and captions translate offline, right here.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ještě není stažená. Stáhni ji jednou a titulky se pak přeloží offline, přímo tady."
+          }
+        }
+      }
+    },
     "%@ translates offline, on your iPhone.": {
       "localizations": {
         "cs": {

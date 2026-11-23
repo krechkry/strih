@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// One big two-sided switch (only one side can be on): the lime pill slides to the picked side, the other side
-/// is dimmed. Tap a side to pick it (no drag: it often sits in a ScrollView).
+/// One big two-sided switch (only one side can be on): a lighter grey pill slides to the picked side, the other
+/// side is dimmed. Kept quiet on purpose (no lime): it is a setting, not the panel's main action. Tap a side to
+/// pick it (no drag: it often sits in a ScrollView).
 struct TwoSideToggle: View {
     let left: (title: String, icon: String)
     let right: (title: String, icon: String)
@@ -14,7 +15,7 @@ struct TwoSideToggle: View {
             let half: CGFloat = (g.size.width - inset * 2) / 2
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 11)
-                    .fill(Theme.accent)
+                    .fill(Color.white.opacity(0.16))
                     .frame(width: half, height: height)
                     .offset(x: leftOn ? 0 : half)
                 HStack(spacing: 0) {
@@ -35,7 +36,7 @@ struct TwoSideToggle: View {
         Button(action: action) {
             Label(loc(s.title), systemImage: s.icon)
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(on ? Color.black : Color.white.opacity(0.4))
+                .foregroundStyle(on ? Color.white : Color.white.opacity(0.4))
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .padding(.horizontal, 6)
                 .frame(width: width, height: height)

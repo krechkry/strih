@@ -812,7 +812,8 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "scissors", label: "Split") { model.splitCaption() }
                         .disabled(!model.canSplitCaption)
-                    ToolButton(icon: "arrow.triangle.merge", label: "Merge") { model.mergeCaption() }
+                    ToolButton(icon: "arrow.triangle.merge", label: "Merge",
+                               tint: model.mergePick != nil ? Theme.accent : .white) { model.mergeCaption() }
                         .disabled(!model.canMergeCaption)
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
                     ToolButton(icon: "square.grid.2x2", label: "Presets") { model.pause(); model.captionTab = 4; sheet = .captions }

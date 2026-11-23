@@ -289,6 +289,12 @@ struct Captions: Codable, Hashable {
         return true
     }
 
+    /// The line before this one (for Merge).
+    func previous(before id: UUID) -> CaptionCue? {
+        guard let c = cues.first(where: { $0.id == id }) else { return nil }
+        return cues.filter { $0.start < c.start }.max { $0.start < $1.start }
+    }
+
     /// The line after this one (for Merge).
     func next(after id: UUID) -> CaptionCue? {
         guard let c = cues.first(where: { $0.id == id }) else { return nil }

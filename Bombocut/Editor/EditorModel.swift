@@ -102,8 +102,12 @@ final class EditorModel: ObservableObject {
         }
     }
     /// The captions track is selected: fingers on the preview move the captions.
+    /// Merge was tapped on this caption line: its neighbours light up, tap one to merge with it (the rest of the
+    /// timeline dims). nil: not picking.
+    @Published var mergePick: UUID?
     @Published var captionsSelected = false {
         didSet {
+            if !captionsSelected && mergePick != nil { mergePick = nil }
             if captionsSelected {
                 if selectedStackID != nil { selectedStackID = nil }
                 if selectedClipID != nil { selectedClipID = nil }
@@ -4638,8 +4642,14 @@ extension EditorModel {
 
     var canSplitCaption: Bool { (cueForTools?.words.count ?? 0) >= 2 }
     var canMergeCaption: Bool {
-        guard let c = cueForTools else { return false }
-        return project.captions?.next(after: c.id) != nil
+        guard let c = cueForTools, let caps = project.captions else { return false }
+        return caps.next(after: c.id) != nil || caps.previous(before: c.id) != nil
+    }
+
+    /// While picking: the lines the picked one can merge with (before and after it).
+    var mergeNeighbours: [UUID] {
+        guard let id = mergePick, let caps = project.captions else { return [] }
+        return [caps.previous(before: id)?.id, caps.next(after: id)?.id].compactMap { $0 }
     }
 
     /// Split (scissors, ⌘B with the captions selected): the line under the playhead is cut in two in the gap
@@ -4650,19 +4660,37 @@ extension EditorModel {
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
             return
         }
+        mergePick = nil
         setCaptions(caps)
         tappedCue = keep
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
-    /// Merge: the line joins the one after it.
+    /// Merge: the line's neighbours light up and you pick which one it joins (tap Merge again, or anywhere
+    /// else, to stop).
     func mergeCaption() {
-        guard let cue = cueForTools, var caps = project.captions, caps.mergeCue(cue.id) else {
+        if mergePick != nil { mergePick = nil; return }
+        guard let cue = cueForTools, canMergeCaption else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
+        pause()
+        tappedCue = cue.id
+        mergePick = cue.id
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// The neighbour was tapped: the two lines become one (one undo step).
+    func finishMerge(with other: UUID) {
+        guard let id = mergePick, var caps = project.captions else { mergePick = nil; return }
+        mergePick = nil
+        let first = caps.previous(before: id)?.id == other ? other : id
+        guard caps.mergeCue(first) else {
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
             return
         }
         setCaptions(caps)
-        tappedCue = cue.id
+        tappedCue = first
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
