@@ -820,12 +820,12 @@
         }
       }
     },
-    "Apple's tracker. Quick, and good with people and things that turn or change shape.": {
+    "Apple's tracker. Quick, good with people and things that turn.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tracker od Applu. Rychlý a dobrý na lidi a věci, které se otáčí nebo mění tvar."
+            "value": "Tracker od Applu. Rychlý, dobrý na lidi a věci, které se otáčí."
           }
         }
       }
@@ -4004,12 +4004,12 @@
         }
       }
     },
-    "Follows points on the subject's surface, like a planar tracker. Best on flat, textured things: a sign, a screen, a box.": {
+    "Follows points on the surface, like a planar tracker. Best on flat, textured things.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sleduje body na povrchu objektu, jako planární tracker. Nejlíp funguje na plochých věcech s kresbou: cedule, displej, krabice."
+            "value": "Sleduje body na povrchu, jako planární tracker. Nejlíp na plochých věcech s kresbou."
           }
         }
       }
@@ -6584,6 +6584,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přehrávání"
+          }
+        }
+      }
+    },
+    "Playback stopped by itself": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přehrávání se samo zastavilo"
           }
         }
       }

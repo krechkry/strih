@@ -143,10 +143,10 @@ final class EditorModel: ObservableObject {
 
     /// A message about an analysis that didn't work (tracking, stabilizing…): shown on the preview for a few
     /// seconds (tap it to hide it sooner).
-    func showNote(_ text: String) {
+    func showNote(_ text: String, seconds: Double = 4) {
         buildError = text
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: .seconds(seconds))
             if buildError == text { buildError = nil }
         }
     }
@@ -229,6 +229,7 @@ final class EditorModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 guard let self else { return }
+                PlaybackLog.add("status \(status.rawValue)")
                 // the selected clip is the last one: the item stopped at its end, so go round again
                 if status == .paused, self.loopSelected, let i = self.selectedIndex,
                    self.player.currentTime().seconds >= self.project.clipStarts[i] + self.project.clips[i].duration - 0.1 {
@@ -236,6 +237,19 @@ final class EditorModel: ObservableObject {
                     self.player.play()
                     return
                 }
+                // stopped by itself right after Play (nobody paused it): try once more, then say why
+                if status == .paused, self.isPlaying, !self.pausing, Date().timeIntervalSince(self.playStarted) < 2 {
+                    let why = self.playbackDiagnosis()
+                    PlaybackLog.add("stopped by itself: " + why)
+                    if !self.retriedPlay {
+                        self.retriedPlay = true
+                        self.player.play()
+                        return
+                    }
+                    let recent = PlaybackLog.text.split(separator: "\n").suffix(6).joined(separator: "\n")
+                    self.showNote(loc("Playback stopped by itself") + "\n" + why + "\n" + recent, seconds: 12)
+                }
+                if status == .playing { PlaybackLog.add("playing") }
                 self.isPlaying = status != .paused
             }
             .store(in: &cancellables)
@@ -254,6 +268,7 @@ final class EditorModel: ObservableObject {
             .sink { [weak self] n in
                 guard let self, let item = n.object as? AVPlayerItem, item === self.player.currentItem,
                       !self.loopSelected else { return }
+                PlaybackLog.add("played to end")
                 self.isPlaying = false
                 // the start of the last frame, the same spot scrubbing to the end lands on
                 self.scrub(to: self.lastFrameTime)
@@ -289,12 +304,15 @@ final class EditorModel: ObservableObject {
         quickMenuClipID = nil
         loopSelected = false
         if currentTime >= lastFrameTime - 0.001 { scrub(to: 0) }
-        player.play()
+        startPlayer()
         isPlaying = true      // flip immediately so UI (fullscreen bar) reacts on the same tap
     }
 
-    func pause() {
+    func pause(file: String = #fileID, line: Int = #line) {
+        if isPlaying { PlaybackLog.add("pause() from \(file):\(line)") }
         let wasPlaying = isPlaying
+        pausing = true
+        defer { pausing = false }
         player.pause()
         isPlaying = false
         // stopped mid-play: rest on the frame that is showing
@@ -377,8 +395,36 @@ final class EditorModel: ObservableObject {
         if playerBroken { recoverPlayer(play: true); return }
         if currentTime < start || currentTime >= end - 0.05 { scrub(to: start) }
         loopSelected = true
-        player.play()
+        startPlayer()
         isPlaying = true
+    }
+
+    /// Set while `pause()` runs: the player stopping then is on purpose.
+    private var pausing = false
+    private var playStarted = Date.distantPast
+    private var retriedPlay = false
+
+    private func startPlayer() {
+        playStarted = Date()
+        retriedPlay = false
+        PlaybackLog.add("play at \(String(format: "%.2f", currentTime)), item \(player.currentItem?.status.rawValue ?? -1), building \(building), seeking \(seeking)")
+        player.play()
+    }
+
+    /// What the player says about why it isn't playing (shown when it stops by itself).
+    func playbackDiagnosis() -> String {
+        let item = player.currentItem
+        var parts: [String] = []
+        parts.append("item " + (item == nil ? "none" : ["unknown", "ready", "failed"][min(item!.status.rawValue, 2)]))
+        if let e = item?.error as NSError? { parts.append("error \(e.domain) \(e.code) \(e.localizedDescription)") }
+        if let ev = item?.errorLog()?.events.last {
+            parts.append("log \(ev.errorDomain) \(ev.errorStatusCode) \(ev.errorComment ?? "")")
+        }
+        if let r = player.reasonForWaitingToPlay { parts.append("waiting \(r.rawValue)") }
+        let t = player.currentTime().seconds, d = item?.duration.seconds ?? 0
+        parts.append(String(format: "at %.2f of %.2f", t, d))
+        if let e = player.error as NSError? { parts.append("player \(e.domain) \(e.code)") }
+        return parts.joined(separator: " · ")
     }
 
     private func loopIfNeeded() {
@@ -502,6 +548,7 @@ final class EditorModel: ObservableObject {
                 let wasPlaying = isPlaying
                 // playing: carry on from where it is now (it kept going while this built), not from where it was
                 let now = currentTime
+                PlaybackLog.add("new player item (playing \(wasPlaying))")
                 player.replaceCurrentItem(with: item)
                 buildError = nil
                 builtKey = key

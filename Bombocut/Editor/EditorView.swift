@@ -58,7 +58,12 @@ struct EditorView: View {
 
     /// Height of each panel; editing panels leave the preview visible and undimmed.
     private func panelHeight(_ s: EditorSheet) -> CGFloat {
-        min(naturalHeight(s), maxPanel)
+        // a picked subject: Fast / Precise, Memory and the buttons need more room, the video moves up for it
+        if s == .trackPick, model.pickPhase == .adjust, model.pinPickOverlay == nil {
+            let h = windowHeight > 0 ? windowHeight : Device.window.height
+            return min(naturalHeight(s), (h * 0.6).rounded())
+        }
+        return min(naturalHeight(s), maxPanel)
     }
 
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
@@ -98,7 +103,7 @@ struct EditorView: View {
         // once the subject is picked, the strip isn't needed: the panel covers the whole bottom (Fast / Precise)
         case .trackPick:
             if model.pickPhase == .adjust && model.pinPickOverlay == nil {
-                return max(300, 28 + bottomHeight - Panel<EmptyView>.extra)
+                return max(430, 28 + bottomHeight - Panel<EmptyView>.extra)
             }
             return max(180, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
         }
@@ -1775,8 +1780,8 @@ private struct TrackPickPanel: View {
                           leftOn: Binding(get: { !precise },
                                           set: { method = ($0 ? TrackMethod.fast : TrackMethod.precise).rawValue }))
             Text(loc(precise
-                     ? "Follows points on the subject's surface, like a planar tracker. Best on flat, textured things: a sign, a screen, a box."
-                     : "Apple's tracker. Quick, and good with people and things that turn or change shape."))
+                     ? "Follows points on the surface, like a planar tracker. Best on flat, textured things."
+                     : "Apple's tracker. Quick, good with people and things that turn."))
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
             if precise { memoryRow }
