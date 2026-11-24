@@ -1,1 +1,387 @@
-{"activeCaption":0,"audio":[],"canvas":{"ratioH":16,"ratioW":9},"captionTracks":[],"clips":[{"anim":{"inAnim":"none","inDur":0.4,"outAnim":"none","outDur":0.4},"aspect":0.5625,"blurDirection":"both","effects":{"aberration":0,"bloom":0,"bloomSize":0.4,"bloomThreshold":0,"clarity":0,"contrast":0,"curve":[0,0,1,1],"curveB":[0,0,1,1],"curveG":[0,0,1,1],"curveR":[0,0,1,1],"exposure":0,"grain":0,"grainSize":0.4,"halation":0,"halationSize":0.4,"halationThreshold":0.5,"highlights":0,"hslHue":[0,0,0,0,0,0,0,0],"hslLum":[0,0,0,0,0,0,0,0],"hslSat":[0,0,0,0,0,0,0,0],"motionBlur":0,"saturation":0,"shadows":0,"temperature":0,"texture":0,"tint":0,"vignette":0},"fadeIn":0,"fadeOut":0,"fill":false,"id":"00000000-0000-0000-0000-00000000B001","inPoint":0,"keyframes":[],"mediaFile":"red.mp4","motionBlur":0.5,"motionBlurOn":false,"opacity":1,"outPoint":3,"pitchCorrect":true,"smoothSlowMo":false,"sourceDuration":3,"speed":1,"still":false,"transform":{"rotation":0,"scale":1,"x":0,"y":0},"volume":1},{"anim":{"inAnim":"none","inDur":0.4,"outAnim":"none","outDur":0.4},"aspect":0.5625,"blurDirection":"both","effects":{"exposure":0},"fadeIn":0,"fadeOut":0,"fill":false,"id":"00000000-0000-0000-0000-00000000B002","inPoint":0.5,"keyframes":[],"mediaFile":"blue.mp4","motionBlur":0.5,"motionBlurOn":false,"opacity":1,"outPoint":3,"pitchCorrect":true,"smoothSlowMo":false,"sourceDuration":3,"speed":2,"still":false,"transform":{"rotation":0,"scale":1,"x":0,"y":0},"volume":1}],"created":785000000,"id":"00000000-0000-0000-0000-00000000A001","layerRows":true,"modified":785000100,"name":"Z iPhonu","overlays":[]}
+{
+  "activeCaption": 0,
+  "audio": [],
+  "canvas": {
+    "ratioH": 16,
+    "ratioW": 9
+  },
+  "captionTracks": [
+    {
+      "cues": [
+        {
+          "end": 1.9,
+          "id": "00000000-0000-0000-0000-0000000001A0",
+          "start": 0.2,
+          "text": "Ahoj lidi",
+          "words": []
+        },
+        {
+          "end": 4.1,
+          "id": "00000000-0000-0000-0000-0000000001A1",
+          "start": 2.0,
+          "text": "Titulky z iPhonu",
+          "words": []
+        }
+      ],
+      "language": "cs",
+      "style": {
+        "anim": "fade",
+        "behindSubject": false,
+        "box": false,
+        "boxColor": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "boxOpacity": 0.7,
+        "caps": false,
+        "font": "heavy",
+        "highlight": {
+          "a": 1,
+          "b": 0.353,
+          "g": 1,
+          "r": 0.894
+        },
+        "lineSpacing": 1,
+        "lines": 2,
+        "maxChars": 32,
+        "naturalBreaks": true,
+        "punctuation": false,
+        "rotation": 0,
+        "shadow": true,
+        "shadowAngle": 90,
+        "shadowBlur": 0.18,
+        "shadowDistance": 0.05,
+        "shadowOpacity": 0.75,
+        "size": 0.065,
+        "stroke": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "strokeOutside": true,
+        "strokeWidth": 0,
+        "text": {
+          "a": 1,
+          "b": 1,
+          "g": 1,
+          "r": 1
+        },
+        "tracking": 0,
+        "x": 0,
+        "y": 0.72
+      },
+      "words": []
+    }
+  ],
+  "clips": [
+    {
+      "anim": {
+        "inAnim": "none",
+        "inDur": 0.4,
+        "outAnim": "none",
+        "outDur": 0.4
+      },
+      "aspect": 0.5625,
+      "blurDirection": "both",
+      "effects": {
+        "aberration": 0,
+        "bloom": 0,
+        "bloomSize": 0.4,
+        "bloomThreshold": 0,
+        "clarity": 0,
+        "contrast": 0,
+        "curve": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveB": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveG": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveR": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "exposure": 0,
+        "grain": 0,
+        "grainSize": 0.4,
+        "halation": 0,
+        "halationSize": 0.4,
+        "halationThreshold": 0.5,
+        "highlights": 0,
+        "hslHue": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslLum": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslSat": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "motionBlur": 0,
+        "saturation": 0,
+        "shadows": 0,
+        "temperature": 0,
+        "texture": 0,
+        "tint": 0,
+        "vignette": 0
+      },
+      "fadeIn": 0,
+      "fadeOut": 0,
+      "fill": false,
+      "id": "00000000-0000-0000-0000-00000000B001",
+      "inPoint": 0,
+      "keyframes": [],
+      "mediaFile": "red.mp4",
+      "motionBlur": 0.5,
+      "motionBlurOn": false,
+      "opacity": 1,
+      "outPoint": 3,
+      "pitchCorrect": true,
+      "smoothSlowMo": false,
+      "sourceDuration": 3,
+      "speed": 1,
+      "still": false,
+      "transform": {
+        "rotation": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      "volume": 1
+    },
+    {
+      "anim": {
+        "inAnim": "none",
+        "inDur": 0.4,
+        "outAnim": "none",
+        "outDur": 0.4
+      },
+      "aspect": 0.5625,
+      "blurDirection": "both",
+      "effects": {
+        "exposure": 0
+      },
+      "fadeIn": 0,
+      "fadeOut": 0,
+      "fill": false,
+      "id": "00000000-0000-0000-0000-00000000B002",
+      "inPoint": 0.5,
+      "keyframes": [],
+      "mediaFile": "blue.mp4",
+      "motionBlur": 0.5,
+      "motionBlurOn": false,
+      "opacity": 1,
+      "outPoint": 3,
+      "pitchCorrect": true,
+      "smoothSlowMo": false,
+      "sourceDuration": 3,
+      "speed": 2,
+      "still": false,
+      "transform": {
+        "rotation": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      "volume": 1
+    }
+  ],
+  "created": 785000000,
+  "id": "00000000-0000-0000-0000-00000000A001",
+  "layerRows": true,
+  "modified": 785000100,
+  "name": "Z iPhonu",
+  "overlays": [
+    {
+      "anim": {
+        "inAnim": "pop",
+        "inDur": 0.4,
+        "outAnim": "fade",
+        "outDur": 0.4
+      },
+      "behindSubject": false,
+      "blend": "normal",
+      "duration": 3.6,
+      "effects": {
+        "aberration": 0,
+        "bloom": 0,
+        "bloomSize": 0.4,
+        "bloomThreshold": 0,
+        "clarity": 0,
+        "contrast": 0,
+        "curve": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveB": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveG": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveR": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "exposure": 0,
+        "grain": 0,
+        "grainSize": 0.4,
+        "halation": 0,
+        "halationSize": 0.4,
+        "halationThreshold": 0.5,
+        "highlights": 0,
+        "hslHue": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslLum": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslSat": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "motionBlur": 0,
+        "saturation": 0,
+        "shadows": 0,
+        "temperature": 0,
+        "texture": 0,
+        "tint": 0,
+        "vignette": 0
+      },
+      "id": "00000000-0000-0000-0000-000000000060",
+      "keys": [],
+      "kind": {
+        "text": {
+          "_0": "BOMBOCUT na Androidu"
+        }
+      },
+      "opacity": 1,
+      "speed": 1,
+      "start": 0.3,
+      "style": {
+        "anim": "none",
+        "behindSubject": false,
+        "box": false,
+        "boxColor": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "boxOpacity": 0.7,
+        "caps": false,
+        "font": "heavy",
+        "highlight": {
+          "a": 1,
+          "b": 0.353,
+          "g": 1,
+          "r": 0.894
+        },
+        "lineSpacing": 1,
+        "lines": 3,
+        "maxChars": 32,
+        "naturalBreaks": true,
+        "punctuation": true,
+        "rotation": 0,
+        "shadow": false,
+        "shadowAngle": 90,
+        "shadowBlur": 0.18,
+        "shadowDistance": 0.05,
+        "shadowOpacity": 0.75,
+        "size": 0.075,
+        "stroke": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "strokeOutside": true,
+        "strokeWidth": 0,
+        "text": {
+          "a": 1,
+          "b": 1,
+          "g": 1,
+          "r": 1
+        },
+        "tracking": 0,
+        "x": 0,
+        "y": 0.72
+      },
+      "track": 0,
+      "transform": {
+        "x": 0,
+        "y": -0.25,
+        "scale": 1,
+        "rotation": 0
+      },
+      "volume": 1
+    }
+  ]
+}

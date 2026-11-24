@@ -1,7 +1,8 @@
 // Ported from Bombocut/Engine/CompositionBuilder.swift (iOS ad3827a), on Media3 instead of AVFoundation.
 // iOS inserts one time-scaled piece per Retime segment; Media3 takes the same pieces as a SpeedProvider.
 // Covered so far: clips in order, trims, constant speed and speed curves (pitch kept or not), clip volume and
-// sound fades, fit / fill on the canvas. Not yet: transitions (overlaps), overlays, sound items, the look.
+// sound fades, fit / fill on the canvas, the look (LookLut), text layers and captions (TextLayer). Not yet:
+// transitions (overlaps), picture / video layers, sound items.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class)
 package cz.krechler.bombocut.engine
 
@@ -96,8 +97,12 @@ object CompositionBuilder {
         val items = project.clips.map { item(it, width, height) }
         val seq = EditedMediaItemSequence.Builder(items).build()
         val b = Composition.Builder(seq)
-        // export: the frame rate asked for (the preview plays the footage's own)
-        fps?.let { b.setEffects(Effects(emptyList(), listOf(androidx.media3.effect.FrameDropEffect.createDefaultFrameDropEffect(it.toFloat())))) }
+        // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
+        val video = listOfNotNull(
+            TextLayer.effect(project, width, height),
+            fps?.let { androidx.media3.effect.FrameDropEffect.createDefaultFrameDropEffect(it.toFloat()) },
+        )
+        if (video.isNotEmpty()) b.setEffects(Effects(emptyList(), video))
         return b.build()
     }
 }
