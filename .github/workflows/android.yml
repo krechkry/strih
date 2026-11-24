@@ -5,6 +5,14 @@ on:
     paths: ['android/**', 'shared/**', 'Bombocut/Localizable.xcstrings', '.github/workflows/android.yml']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+# a newer push makes an older run pointless
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -87,3 +95,19 @@ jobs:
         with:
           name: screens
           path: android/ci/out/
+
+      - name: Screens to the android-screens branch (readable with git)
+        if: always()
+        run: |
+          [ -d android/ci/out ] || exit 0
+          SHA=$(git rev-parse --short HEAD)
+          cp -r android/ci/out /tmp/screens
+          git config user.name screens-bot; git config user.email screens-bot@users.noreply.github.com
+          git checkout -q --orphan screens-tmp
+          git rm -rfq . > /dev/null
+          cp -r /tmp/screens/* .
+          echo "$SHA" > COMMIT
+          git add -A
+          git commit -qm "screens from $SHA"
+          git push -fq origin screens-tmp:android-screens
+
