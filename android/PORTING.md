@@ -13,24 +13,25 @@ stub = placeholder. - = not started.
 |---|---|---|---|
 | App/BombocutApp.swift (Theme, Fmt, loc) | app/BombocutApp.kt | ad3827a | 1:1 (Fmt tested) |
 | Model/Languages.swift (AppLanguage) | app/AppLanguage.kt | ad3827a | rework (reads the xcstrings asset) |
-| Home/HomeView.swift | home/HomeView.kt | | stub |
-| Model/Models.swift | model/Models.kt | | - |
-| Model/Look.swift | model/Look.kt | | - |
-| Model/Motion.swift | model/Motion.kt | | - |
-| Model/Overlay.swift | model/Overlay.kt | | - |
-| Model/Anim.swift | model/Anim.kt | | - |
-| Model/Audio.swift | model/Audio.kt | | - |
-| Model/Captions.swift | model/Captions.kt | | - |
-| Model/Stack.swift | model/Stack.kt | | - |
-| Model/Filter.swift | model/Filter.kt | | - |
-| Model/ChromaKey.swift | model/ChromaKey.kt | | - |
-| Model/Pin.swift | model/Pin.kt | | - |
+| Home/HomeView.swift | home/HomeView.kt | ad3827a | partly: list, sort, new project, rename, delete (not yet: share / .bbc, iCloud rows, trial pill, import game) |
+| Model/Models.swift | model/Models.kt + model/Project.kt | ad3827a | 1:1 (parity: timing.json, projects.json) |
+| Model/Look.swift | model/Look.kt | ad3827a | 1:1 data + math (LookState for the compositor comes with the look engine) |
+| Model/Motion.swift | model/Motion.kt | ad3827a | 1:1 |
+| Model/Overlay.swift | model/Overlay.kt + Project.kt (rows) | ad3827a | 1:1 except placeNewOverlay / moveOverlay, remapOverlays (with Captions remap) |
+| Model/Anim.swift | model/Anim.kt | ad3827a | 1:1 |
+| Model/Audio.swift | model/Audio.kt | ad3827a | Fade, AudioItem 1:1; extractRetimed / sound engine: rework |
+| Model/Captions.swift | model/Captions.kt + Color.kt | ad3827a | data only; CaptionCutter, split / merge / restyle, locate / timeline / remap: next |
+| Model/Stack.swift | model/Stack.kt + Project.kt | ad3827a | 1:1 |
+| Model/Filter.swift | model/Filter.kt | ad3827a | stored types 1:1; FilterLibrary / LUT formulas with the look engine |
+| Model/ChromaKey.swift | model/ChromaKey.kt | ad3827a | 1:1 |
+| Model/Pin.swift | model/Pin.kt | ad3827a | stored types; PinPath math with tracking |
 | Model/SafeZone.swift | model/SafeZone.kt | | - |
 | Model/FrameGuides.swift | model/FrameGuides.kt | | - |
-| Model/Defaults.swift | model/Defaults.kt | | - |
+| Model/Defaults.swift | model/Defaults.kt + app/PrefsSettings.kt | ad3827a | 1:1 (QuickAction with the editor) |
 | Model/FontCatalogData.swift | model/FontCatalogData.kt | | - |
 | Model/ProjectFile.swift | model/ProjectFile.kt | | - |
-| Model/Storage.swift | model/Storage.kt | | - |
+| Model/Storage.swift | model/Storage.kt | ad3827a | rework: same folders and JSON; photos as clips (StillVideo) not yet |
+| Engine/SpeechCleanup.swift (SpeechFX) | model/Speech.kt | ad3827a | stored settings 1:1; engine: rework |
 | Engine/Beats.swift (BeatDetector) | engine/Beats.kt | | - |
 | Engine/Silence.swift | engine/Silence.kt | | - |
 | Editor/EditEffort.swift | editor/EditEffort.kt | | - |
@@ -41,3 +42,7 @@ stub = placeholder. - = not started.
 - Swift's default JSONEncoder: dates are seconds since 2001-01-01 (Double), UUIDs upper case, CGPoint / CGSize as `[a, b]`, CGRect as `[[x, y], [w, h]]`.
 - Decoding is tolerant on iOS (missing keys get defaults): Kotlin uses `ignoreUnknownKeys` and default values the same way.
 - Swift `String(format:)` always writes a dot: Kotlin uses `fmt(...)` (Locale.ROOT), never plain `String.format`.
+
+## Decode tolerance (known difference)
+iOS reads many nested values with `try?` (a broken value becomes nil, the project still opens). kotlinx.serialization
+fails the whole project on a broken nested value. Fine for files iOS wrote; revisit if a real project fails to open.
