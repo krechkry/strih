@@ -278,7 +278,7 @@ final class ParityFixtures: XCTestCase {
         let space = FrameCompositor.videoSpace
         let ctx = CIContext(options: [.workingColorSpace: space, .cacheIntermediates: false])
         func render(_ e: Effects) -> [[Int]] {
-            let bytes = colors.flatMap { $0.map { UInt8($0) } + [255] }
+            let bytes: [UInt8] = colors.flatMap { c -> [UInt8] in c.map { UInt8($0) } + [255] }
             let img = CIImage(bitmapData: Data(bytes), bytesPerRow: n * 4, size: CGSize(width: n, height: 1), format: .RGBA8, colorSpace: space)
             let out = EffectsRenderer.color(img, e)
             var buf = [UInt8](repeating: 0, count: n * 4)
