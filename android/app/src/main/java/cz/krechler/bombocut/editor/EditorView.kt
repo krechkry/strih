@@ -2,6 +2,10 @@
 // the timeline and the clip toolbar (Split, Delete, Duplicate). Panels come next.
 package cz.krechler.bombocut.editor
 
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.MusicNote
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -60,6 +64,13 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
     val tl = remember { TimelineState() }
     var exporting by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val soundPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            if (SoundImport.add(context, uri, model)) sheet = "sound"
+        }
+    }
     // while playing the playhead follows the player
     LaunchedEffect(preview.time, preview.playing) { if (preview.playing) model.currentTime = preview.time }
 
@@ -97,19 +108,27 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
             }
             Spacer(Modifier.weight(1f))
         }
-        TimelineView(model, tl, ::scrub)
+        TimelineView(model, tl, ::scrub, pick = { preview.player?.pause(); sheet = it })
         // the free week is over: the project can still be exported as it is, the tools wait for the purchase
         if (exportOnly) Text(loc("Your 7 free days are over"), color = Theme.muted, fontWeight = FontWeight.Bold,
                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp))
-        else ToolRow(model) { preview.player?.pause(); sheet = it }
+        else ToolRow(model, addSound = { preview.player?.pause(); soundPicker.launch("audio/*") }) { preview.player?.pause(); sheet = it }
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
     }
     // a panel covers the bottom, the preview stays in view (iOS Panel)
     val open = sheet
-    if (open != null && model.selectedIndex != null) {
+    val fits = when (open) {
+        "text" -> model.selectedOverlay?.isText == true
+        "sound" -> model.selectedAudio != null
+        null -> false
+        else -> model.selectedIndex != null
+    }
+    if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 440.dp; "sound" -> 460.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
+                    "text" -> TextSheet(model)
+                    "sound" -> SoundSheet(model)
                     "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)
                     "volume" -> VolumeSheet(model)
@@ -122,12 +141,17 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
 }
 
 @Composable
-private fun ToolRow(model: EditorModel, open: (String) -> Unit) {
+private fun ToolRow(model: EditorModel, addSound: () -> Unit, open: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(72.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ToolButton(Icons.Filled.ContentCut, "Split") { model.split() }
+        if (model.selectedIndex == null) {
+            // nothing picked: add a text or a sound at the playhead (iOS: the island's + buttons)
+            ToolButton(Icons.Filled.TextFields, "Text") { model.addText(); open("text") }
+            ToolButton(Icons.Filled.MusicNote, "Audio") { addSound() }
+        }
         if (model.selectedIndex != null) {
             ToolButton(Icons.Filled.Tune, "Adjust") { open("adjust") }
             ToolButton(Icons.Filled.Speed, "Speed") { open("speed") }

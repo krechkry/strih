@@ -73,7 +73,8 @@ object LaneLayout {
 class TimelineState { var pxPerSec by mutableStateOf(60f) }
 
 @Composable
-fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit, modifier: Modifier = Modifier) {
+fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit, modifier: Modifier = Modifier,
+                 pick: (String) -> Unit = {}) {
     val density = LocalDensity.current
     val p = model.project
     val layerRows = p.overlayRows()
@@ -98,7 +99,7 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
                     }
                 }
             }
-            .pointerInput(Unit) { detectTapGestures { model.selectedClipID = null } },
+            .pointerInput(Unit) { detectTapGestures { model.selectedClipID = null; model.selectedOverlayID = null; model.selectedAudioID = null } },
     ) {
         val center = maxWidth / 2
         val px = tl.pxPerSec
@@ -121,7 +122,11 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
             val y = LaneLayout.top + withGap(capH) + (LaneLayout.layer + LaneLayout.rowGap.dp) * r
             row.forEach { o ->
                 LaneBlock(x0 + (o.start * px).dp, (o.duration * px).toFloat(), y, LaneLayout.layer,
-                          Theme.panel2, if (o.isText) o.title else loc(o.title), Color.White)
+                          Theme.panel2, if (o.isText) o.title else loc(o.title), Color.White,
+                          selected = model.selectedOverlayID == o.id) {
+                    if (model.selectedOverlayID == o.id) model.selectOverlay(null)
+                    else { model.selectOverlay(o.id); if (o.isText) pick("text") }
+                }
             }
         }
         // sound below the clips
@@ -129,7 +134,9 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
             val y = stripY + LaneLayout.strip + LaneLayout.gap + (LaneLayout.sound + LaneLayout.rowGap.dp) * r
             row.forEach { a ->
                 LaneBlock(x0 + (a.start * px).dp, (a.duration * px).toFloat(), y, LaneLayout.sound,
-                          Color(0xFF1F6F4A), a.name, Color.White)
+                          Color(0xFF1F6F4A), a.name, Color.White, selected = model.selectedAudioID == a.id) {
+                    if (model.selectedAudioID == a.id) model.selectAudio(null) else { model.selectAudio(a.id); pick("sound") }
+                }
             }
         }
         // the fixed playhead
@@ -155,13 +162,16 @@ private fun Ruler(x0: Dp, px: Float, duration: Double) {
 }
 
 @Composable
-private fun LaneBlock(x: Dp, widthDp: Float, y: Dp, height: Dp, fill: Color, label: String, ink: Color) {
+private fun LaneBlock(x: Dp, widthDp: Float, y: Dp, height: Dp, fill: Color, label: String, ink: Color,
+                      selected: Boolean = false, tap: (() -> Unit)? = null) {
     Box(
         Modifier
             .offset(x = x, y = y)
             .size(maxOf(4f, widthDp - 1).dp, height)
             .clip(RoundedCornerShape(4.dp))
-            .background(fill),
+            .background(fill)
+            .border(if (selected) 2.dp else 0.dp, if (selected) Theme.accent else Color.Transparent, RoundedCornerShape(4.dp))
+            .then(if (tap != null) Modifier.pointerInput(tap) { detectTapGestures { tap() } } else Modifier),
         contentAlignment = Alignment.CenterStart,
     ) {
         androidx.compose.material3.Text(label, color = ink, maxLines = 1,

@@ -87,6 +87,20 @@ else
   echo "no export file" > $OUT/export.txt
 fi
 cat $OUT/export.txt
+# add a text: reopen the project (nothing selected), tap Text, the text panel opens; then pick the sound in its lane
+adb shell am force-stop $APP
+adb shell am start -W -n $APP/.app.MainActivity
+sleep 4
+python3 android/ci/tap.py "Z iPhonu"
+sleep 4
+python3 android/ci/tap.py "Text" || true
+sleep 3
+adb exec-out screencap -p > $OUT/13-text.png
+adb shell input keyevent 4
+sleep 1
+python3 android/ci/tap.py "Zvuk z videa" || true
+sleep 3
+adb exec-out screencap -p > $OUT/14-sound.png
 # the paywall (debug builds skip it unless asked): a fresh start shows the free week offer
 adb shell am force-stop $APP
 adb shell run-as $APP rm -f shared_prefs/purchases.xml || true

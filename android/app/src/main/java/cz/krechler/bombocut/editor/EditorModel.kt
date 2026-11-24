@@ -18,6 +18,9 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         private set
     var currentTime by mutableStateOf(0.0)
     var selectedClipID by mutableStateOf<UUID?>(null)
+    /** A text / layer or a sound picked in its lane (picking one lets go of the others, like iOS). */
+    var selectedOverlayID by mutableStateOf<UUID?>(null)
+    var selectedAudioID by mutableStateOf<UUID?>(null)
     var canUndo by mutableStateOf(false)
         private set
     var canRedo by mutableStateOf(false)
