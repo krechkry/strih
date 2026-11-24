@@ -134,6 +134,11 @@ enum Media {
         var clips: [Clip] = []
         var first: CGSize?
         for (n, url) in urls.enumerated() {
+            // cancelled: the copies not made into clips yet go
+            if let work, await work.cancelled {
+                for u in urls[n...] where !PhotosMedia.isShared(u) { try? FileManager.default.removeItem(at: u) }
+                break
+            }
             let row = rows.map { n < $0.count ? $0[n] : n } ?? n
             // photos: held as long as Settings > Defaults says
             if StillVideo.isImage(url) {

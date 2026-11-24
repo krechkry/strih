@@ -507,6 +507,7 @@ extension Media {
             o.isNetworkAccessAllowed = true
             // only called while the original comes down from iCloud
             o.progressHandler = { p in
+                work?.markCloud()
                 work?.update(row, String(format: loc("Downloading from iCloud · %lld %%"), Int(p * 100)), progress: p)
             }
             work?.update(row, loc("Copying into BOMBOCUT…"), progress: nil)
@@ -528,6 +529,7 @@ extension Media {
         o.version = .current
         o.deliveryMode = .highQualityFormat
         o.progressHandler = { p, _, _, _ in
+            work?.markCloud()
             work?.update(row, String(format: loc("Downloading from iCloud · %lld %%"), Int(p * 100)), progress: p)
         }
         work?.update(row, loc("Copying into BOMBOCUT…"), progress: nil)
@@ -558,9 +560,14 @@ extension Media {
         var clips: [Clip] = []
         var first: CGSize?
         for (k, a) in assets.enumerated() {
+            if let work, await work.cancelled { break }
             guard let url = await load(a, work: work, row: k) else {
                 await work?.failed(k, loc("Couldn't get it from Photos"))
                 continue
+            }
+            if let work, await work.cancelled {
+                if !PhotosMedia.isShared(url) { try? FileManager.default.removeItem(at: url) }
+                break
             }
             await work?.working(k, a.mediaType == .video ? loc("Reading the clip…") : loc("Turning the photo into a clip…"))
             // a reused file belongs to other projects too: never removed here, even when it can't be read

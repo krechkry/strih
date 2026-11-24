@@ -96,9 +96,15 @@ struct HomeView: View {
             }
             .background(Theme.bg)
             .navigationTitle(selecting ? String.localizedStringWithFormat(loc("%lld selected"), selected.count) : "BOMBOCUT")
-            .navigationBarTitleDisplayMode(selecting ? .inline : .automatic)
+            .navigationBarTitleDisplayMode(.inline)
             .overlay(alignment: .bottom) { if selecting { selectionBar } }
             .toolbar {
+                // the name in the middle of the bar, bold
+                if !selecting {
+                    ToolbarItem(placement: .principal) {
+                        Text("BOMBOCUT").font(.system(size: 22, weight: .heavy)).foregroundStyle(.white)
+                    }
+                }
                 if selecting {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(selected.count == store.projects.count ? loc("Select none") : loc("Select all")) {
@@ -136,7 +142,12 @@ struct HomeView: View {
             }
             .overlay {
                 if let work {
-                    ImportWaitView(work: work)
+                    ImportWaitView(work: work) {
+                        // the import stops before its next clip; the card goes now
+                        work.cancel()
+                        self.work = nil
+                        importing = false
+                    }
                 } else if importing {
                     ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Checking the files…") } }
                         .padding(24)
@@ -427,25 +438,35 @@ struct HomeView: View {
         if mode != "home", mode != "settings", mode != "storage", let p { openProject = p }
     }
 
+    /// The import's card goes once it's over (a cancelled one may finish after a new one started: that one stays).
+    private func finished(_ w: WorkSteps) {
+        guard work === w || work == nil else { return }
+        importing = false
+        convertStatus = nil
+        work = nil
+    }
+
     private func importFromPhotos(_ items: [PhotosPickerItem]) async {
         importing = true
         let w = WorkSteps(title: "Importing media", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
         work = w
-        defer { importing = false; work = nil }
+        defer { finished(w) }
         var urls: [URL] = [], rows: [Int] = []
         for (k, item) in items.enumerated() {
+            if w.cancelled { break }
             w.working(k, loc("Copying into BOMBOCUT…"))
             if let url = await Media.load(item) { urls.append(url); rows.append(k) } else { w.failed(k, loc("Couldn't get it from Photos")) }
         }
-        await create(from: urls, rows: rows)
+        await create(from: urls, rows: rows, work: w)
     }
 
     private func importFromAssets(_ assets: [PHAsset]) async {
         importing = true
-        work = Media.importSteps(assets, title: "Importing media")
-        defer { importing = false; work = nil }
-        let (clips, firstSize) = await Media.makeClips(from: assets, work: work)
-        await create(clips: clips, firstSize: firstSize)
+        let w = Media.importSteps(assets, title: "Importing media")
+        work = w
+        defer { finished(w) }
+        let (clips, firstSize) = await Media.makeClips(from: assets, work: w)
+        await create(clips: clips, firstSize: firstSize, work: w)
     }
 
     /// Old camera files (AVCHD, AVI, MKV) get converted: ask first.
@@ -467,22 +488,31 @@ struct HomeView: View {
 
     private func importPickedFiles(_ picked: [URL]) async {
         importing = true
-        work = Media.importSteps(picked, title: "Importing media")
-        defer { importing = false; convertStatus = nil; work = nil }
-        let r = await Media.importFiles(picked, work: work)
-        await create(from: r.urls, problems: r.problems, rows: r.rows)
+        let w = Media.importSteps(picked, title: "Importing media")
+        work = w
+        defer { finished(w) }
+        let r = await Media.importFiles(picked, work: w)
+        await create(from: r.urls, problems: r.problems, rows: r.rows, work: w)
     }
 
-    private func create(from urls: [URL], problems: [String] = [], rows: [Int]? = nil) async {
+    private func create(from urls: [URL], problems: [String] = [], rows: [Int]? = nil, work: WorkSteps) async {
         let (clips, firstSize) = await Media.makeClips(from: urls, work: work, rows: rows)
         var problems = problems
         if !problems.isEmpty && clips.count < urls.count {
             problems.append(String(format: loc("%lld files couldn't be opened."), urls.count - clips.count))
         }
-        await create(clips: clips, firstSize: firstSize, problems: problems)
+        await create(clips: clips, firstSize: firstSize, problems: problems, work: work)
     }
 
-    private func create(clips: [Clip], firstSize: CGSize?, problems: [String] = []) async {
+    private func create(clips: [Clip], firstSize: CGSize?, problems: [String] = [], work: WorkSteps? = nil) async {
+        // cancelled: no project, and the copies made for it go
+        if work?.cancelled == true {
+            for c in clips {
+                let u = Paths.mediaURL(c.mediaFile)
+                if !PhotosMedia.isShared(u) { try? FileManager.default.removeItem(at: u) }
+            }
+            return
+        }
         importNote = problems.isEmpty ? nil : problems.joined(separator: "\n")
         guard !clips.isEmpty else {
             importError = problems.isEmpty ? loc("None of the picked files could be opened as video or picture.") : problems.joined(separator: "\n")

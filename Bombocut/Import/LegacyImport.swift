@@ -112,6 +112,7 @@ extension Media {
             }
         }.value
         for (k, (u, verdict)) in zip(picked, verdicts).enumerated() {
+            if let work, await work.cancelled { break }
             switch verdict {
             case .unsupported(let why):
                 result.problems.append(why)

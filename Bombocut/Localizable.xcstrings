@@ -1240,6 +1240,16 @@
         }
       }
     },
+    "Best %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rekord %lld"
+          }
+        }
+      }
+    },
     "Best quality, on your iPhone, offline.": {
       "localizations": {
         "cs": {
@@ -9364,6 +9374,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odstín"
+          }
+        }
+      }
+    },
+    "Tip: with Optimize iPhone Storage on, your videos live in iCloud and each one downloads first. Settings > Photos > Download and Keep Originals makes importing quick.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: se zapnutým Optimalizovat úložiště iPhonu jsou videa v iCloudu a každé se musí nejdřív stáhnout. Nastavení > Fotky > Stáhnout a uchovat originály a import bude rychlý."
           }
         }
       }

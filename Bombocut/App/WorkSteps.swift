@@ -68,6 +68,14 @@ final class WorkSteps: ObservableObject, Identifiable {
 
     // MARK: The waiting game (importing a new project, `ImportWaitView`)
 
+    /// Something had to come down from iCloud first (the tip about Optimize iPhone Storage shows).
+    @Published private(set) var fromCloud = false
+
+    /// From any thread.
+    nonisolated func markCloud() {
+        Task { @MainActor in if !self.fromCloud { self.fromCloud = true } }
+    }
+
     /// The ball game is on (the job took longer than 10 s).
     @Published var playing = false
     /// The ball went into the card ("the island").
@@ -78,6 +86,15 @@ final class WorkSteps: ObservableObject, Identifiable {
     var nearEnd: Bool {
         !steps.contains { $0.state == .waiting }
             && steps.filter { if case .working = $0.state { return true } else { return false } }.count <= 1
+    }
+
+    /// Cancel was tapped: the jobs stop before their next step (what was already copied is removed).
+    @Published private(set) var cancelled = false
+
+    func cancel() {
+        cancelled = true
+        landing?.resume()
+        landing = nil
     }
 
     func land() {
@@ -116,6 +133,8 @@ struct WorkStepsView: View {
     var note: String? = nil
     /// Lit up in lime: the ball can go in (the waiting game).
     var lit = false
+    /// A smaller hint at the bottom of the card.
+    var tip: String? = nil
 
     private static let rowHeight: CGFloat = 46
 
@@ -150,6 +169,14 @@ struct WorkStepsView: View {
                     .font(.footnote.weight(.semibold)).foregroundStyle(lit ? Theme.accent : Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .contentTransition(.opacity)
+            }
+            if let tip {
+                Label(tip, systemImage: "icloud.and.arrow.down")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
             }
             if let cancel {
                 Button(action: cancel) {
