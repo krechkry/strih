@@ -207,5 +207,61 @@ final class ParityFixtures: XCTestCase {
         for (name, json) in Self.legacyJSON { try add(name, input: json) }
         try write(cases, "projects.json")
     }
+
+    // MARK: Edits: split, delete, trim, move, speed (with captions, overlays and sounds following)
+
+    struct EditCase: Codable { var name: String; var output: String }
+
+    /// EditorModel.mutate without the UI: change, follow the footage, commit's tidy-up.
+    @MainActor
+    static func edited(_ p: Project, _ change: (inout Project) -> Void) -> Project {
+        let before = p
+        var q = p
+        change(&q)
+        if before.timingKey != q.timingKey {
+            q.captionTracks = q.captionTracks.map { $0.remapped(from: before, to: q) }
+            if !q.overlays.isEmpty { q.overlays = Captions.remapOverlays(q.overlays, from: before, to: q) }
+            if !q.audio.isEmpty { q.audio = Captions.remapAudio(q.audio, from: before, to: q) }
+        }
+        q.normalizeOverlays()
+        q.cleanStacks()
+        return q
+    }
+
+    @MainActor
+    func testWriteEdits() throws {
+        let rich = Self.richProject()
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        var cases: [EditCase] = []
+        func add(_ name: String, _ change: (inout Project) -> Void) throws {
+            let q = Self.edited(rich, change)
+            cases.append(EditCase(name: name, output: String(data: try enc.encode(q), encoding: .utf8)!))
+        }
+        try add("split") { p in
+            let c = p.clips[1]
+            if let (a, b) = EditorModel.clipHalves(c, at: 6) {
+                p.clips[1] = a
+                p.clips.insert(b, at: 2)
+                p.joinStack(b.id, with: c.id)
+            }
+        }
+        try add("split-curve") { p in
+            let c = p.clips[0]
+            if let (a, b) = EditorModel.clipHalves(c, at: 3.5) {
+                p.clips[0] = a
+                p.clips.insert(b, at: 1)
+            }
+        }
+        try add("delete") { p in p.clips.remove(at: 0) }
+        try add("trim") { p in p.clips[2].outPoint = 3 }
+        try add("move") { p in
+            let c = p.clips.remove(at: 3)
+            p.clips.insert(c, at: 0)
+            p.leaveStackIfMovedAway(c.id)
+        }
+        try add("speed") { p in p.clips[1].speed = 1 }
+        try write(cases, "edits.json")
+    }
 }
 

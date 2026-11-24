@@ -35,6 +35,8 @@ class ProjectParityTest {
     }
 
     /** Same JSON, numbers within 1e-9 (relative), key order ignored. */
+    fun sameJson(want: JsonElement, got: JsonElement, path: String) = same(want, got, path)
+
     private fun same(want: JsonElement, got: JsonElement, path: String) {
         when (want) {
             is JsonObject -> {
