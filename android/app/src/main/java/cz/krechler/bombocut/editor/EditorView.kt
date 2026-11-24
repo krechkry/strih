@@ -31,7 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +55,7 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
     val model = remember(start.id) { EditorModel(start, store) }
     val preview = remember(start.id) { PreviewState() }
     val tl = remember { TimelineState() }
+    var exporting by remember { mutableStateOf(false) }
     // while playing the playhead follows the player
     LaunchedEffect(preview.time, preview.playing) { if (preview.playing) model.currentTime = preview.time }
 
@@ -61,6 +65,7 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
         preview.seek(t)
     }
 
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().background(Theme.bg).safeDrawingPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(close) { Text(loc("Projects"), color = Theme.accent) }
@@ -70,6 +75,10 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
             }
             IconButton({ model.redo() }, enabled = model.canRedo) {
                 Icon(Icons.AutoMirrored.Filled.Redo, loc("Redo"), tint = if (model.canRedo) Color.White else Theme.muted)
+            }
+            TextButton({ preview.player?.pause(); exporting = true },
+                Modifier.background(Theme.accent, androidx.compose.foundation.shape.RoundedCornerShape(50))) {
+                Text(loc("Export"), color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
         PreviewView(model.project, preview, Modifier.fillMaxWidth().weight(1f))
@@ -87,6 +96,8 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
         TimelineView(model, tl, ::scrub)
         ToolRow(model)
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
+    }
+    if (exporting) ExportSheet(model.project) { exporting = false }
     }
 }
 

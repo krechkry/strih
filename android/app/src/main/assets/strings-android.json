@@ -2,6 +2,25 @@
   "sourceLanguage": "en",
   "version": "1.0",
   "strings": {
-    "Importing %lld of %lld": { "localizations": { "cs": { "stringUnit": { "state": "translated", "value": "Import %lld z %lld" } } } }
+    "Importing %lld of %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import %lld z %lld"
+          }
+        }
+      }
+    },
+    "Couldn't save the video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video se nepodařilo uložit."
+          }
+        }
+      }
+    }
   }
 }

@@ -90,10 +90,13 @@ object CompositionBuilder {
     }
 
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
-    fun build(project: Project, width: Int, height: Int): Composition? {
+    fun build(project: Project, width: Int, height: Int, fps: Double? = null): Composition? {
         if (project.clips.isEmpty()) return null
         val items = project.clips.map { item(it, width, height) }
         val seq = EditedMediaItemSequence.Builder(items).build()
-        return Composition.Builder(seq).build()
+        val b = Composition.Builder(seq)
+        // export: the frame rate asked for (the preview plays the footage's own)
+        fps?.let { b.setEffects(Effects(emptyList(), listOf(androidx.media3.effect.FrameDropEffect.createDefaultFrameDropEffect(it.toFloat())))) }
+        return b.build()
     }
 }
