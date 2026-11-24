@@ -53,7 +53,7 @@ enum Defaults {
 /// One tool of the clip toolbar, for the quick menu.
 enum QuickAction: String, CaseIterable, Identifiable {
     case split, adjust, filters, speed, slip, crop, autoZoom, captions, track, mask, stabilize, motionBlur
-    case transition, freeze, reverse, fill, duplicate, copyAsOverlay, soundFromVideo, speech, volume, delete
+    case transition, freeze, reverse, fill, duplicate, copyAsOverlay, soundFromVideo, speech, volume, delete, silence
 
     var id: String { rawValue }
     static let standard: [QuickAction] = [.transition, .volume, .duplicate, .copyAsOverlay, .delete]
@@ -83,6 +83,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
         case .speech: return "person.wave.2"
         case .volume: return "speaker.wave.2"
         case .delete: return "trash"
+        case .silence: return "waveform.path.badge.minus"
         }
     }
 
@@ -110,6 +111,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
         case .speech: return "Speech"
         case .volume: return "Volume"
         case .delete: return "Delete"
+        case .silence: return "Remove silence"
         }
     }
 
@@ -124,7 +126,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
     /// Works on held pictures (photos, freeze frames) too.
     var forStills: Bool {
         switch self {
-        case .captions, .stabilize, .motionBlur, .freeze, .reverse, .soundFromVideo, .speech, .volume, .slip: return false
+        case .captions, .stabilize, .motionBlur, .freeze, .reverse, .soundFromVideo, .speech, .volume, .slip, .silence: return false
         default: return true
         }
     }

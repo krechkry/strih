@@ -980,6 +980,16 @@
         }
       }
     },
+    "Auto": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        }
+      }
+    },
     "AutoZoom": {
       "localizations": {
         "cs": {
@@ -1226,6 +1236,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Základní"
+          }
+        }
+      }
+    },
+    "Beats": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beaty"
+          }
+        }
+      }
+    },
+    "Beats marked (%d BPM). Cuts, texts and sounds snap to them.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beaty označené (%d BPM). Střihy, texty a zvuky se na ně přichytí."
           }
         }
       }
@@ -1736,6 +1766,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Titulky jsou hotové"
+          }
+        }
+      }
+    },
+    "Captions, texts and sounds move along with their footage. Undo brings everything back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titulky, texty a zvuky se posunou spolu se svými záběry. Zpět vrátí všechno."
           }
         }
       }
@@ -2426,6 +2466,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stříhání a skládání klipů, text a hudba, automatické titulky, rychlost, hlasitost a formát videa. Nic navíc, co by se pletlo pod ruce."
+          }
+        }
+      }
+    },
+    "Cut pauses: %d, %@ shorter.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vystřižené pauzy: %d, o %@ kratší."
           }
         }
       }
@@ -3834,6 +3884,16 @@
         }
       }
     },
+    "Finding the beats…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hledám beaty…"
+          }
+        }
+      }
+    },
     "Finds people (fast) or any main subject in every frame, on your iPhone. Then blur, darken or drain the color from everything else, or put text behind the subject.": {
       "localizations": {
         "cs": {
@@ -4898,6 +4958,26 @@
         }
       }
     },
+    "Keep after speech": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechat po řeči"
+          }
+        }
+      }
+    },
+    "Keep before speech": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechat před řečí"
+          }
+        }
+      }
+    },
     "Keep borders": {
       "localizations": {
         "cs": {
@@ -5204,6 +5284,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přepisuju %lld %%"
+          }
+        }
+      }
+    },
+    "Listening to the sound…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslouchám zvuk…"
           }
         }
       }
@@ -5778,12 +5868,32 @@
         }
       }
     },
+    "No clips with sound.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Žádné klipy se zvukem."
+          }
+        }
+      }
+    },
     "No new fonts in those files.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
             "value": "V těch souborech nejsou žádná nová písma."
+          }
+        }
+      }
+    },
+    "No pauses to cut with these settings.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S tímhle nastavením tu nejsou žádné pauzy ke střihu."
           }
         }
       }
@@ -5824,6 +5934,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nenašla se žádná řeč."
+          }
+        }
+      }
+    },
+    "No steady beat found in this sound.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "V tomhle zvuku jsem nenašel pravidelný beat."
           }
         }
       }
@@ -6384,6 +6504,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pozastaveno na %lld %%"
+          }
+        }
+      }
+    },
+    "Pauses to cut: %d, %@ shorter.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauzy ke střihu: %d, o %@ kratší."
           }
         }
       }
@@ -7088,6 +7218,16 @@
         }
       }
     },
+    "Remove silence": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstranit ticho"
+          }
+        }
+      }
+    },
     "Remove the captions?": {
       "localizations": {
         "cs": {
@@ -7788,6 +7928,16 @@
         }
       }
     },
+    "Shortest pause": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejkratší pauza"
+          }
+        }
+      }
+    },
     "Show matte": {
       "localizations": {
         "cs": {
@@ -7834,6 +7984,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Na synchronizaci projektů se přihlas k iCloudu a zapni iCloud Drive."
+          }
+        }
+      }
+    },
+    "Silence below": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticho pod"
           }
         }
       }
@@ -8064,6 +8224,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sociální sítě"
+          }
+        }
+      }
+    },
+    "Soft cuts": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Měkké střihy"
           }
         }
       }
@@ -9174,6 +9344,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tohle nejde vrátit."
+          }
+        }
+      }
+    },
+    "This clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento klip"
           }
         }
       }

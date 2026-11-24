@@ -73,7 +73,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .filters, .export, .trackPick: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .filters, .export, .trackPick, .silence: return true
         default: return false
         }
     }
@@ -102,6 +102,7 @@ struct EditorView: View {
         case .crop: return 500
         case .filters: return 500
         case .overlayTrack: return 330
+        case .silence: return 600
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         // (the lanes above the strip fold away while picking, so the strip moves up and the panel gets taller)
         // once the subject is picked, the strip isn't needed: the panel covers the whole bottom (Fast / Precise)
@@ -211,6 +212,7 @@ struct EditorView: View {
         case .crop: CropSheet(model: model)
         case .filters: FiltersSheet(model: model)
         case .overlayTrack: OverlayTrackSheet(model: model)
+        case .silence: SilenceSheet(model: model)
         case .trackPick: TrackPickPanel(model: model) {
             let back: EditorSheet? = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize
                 : model.editedTracking != nil ? .track : nil
@@ -920,6 +922,7 @@ struct EditorView: View {
                     if !clip.still {
                         ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
                         ToolButton(icon: "speaker.wave.2", label: "Volume") { sheet = .volume }
+                        ToolButton(icon: "waveform.path.badge.minus", label: "Remove silence") { model.pause(); sheet = .silence }
                     }
                 } else {
                     // nothing selected: everything under the playhead (not the captions).
@@ -944,6 +947,9 @@ struct EditorView: View {
                         ToolLabel(icon: "music.note", label: "Audio")
                     }
                     ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
+                    if !model.project.clips.isEmpty {
+                        ToolButton(icon: "waveform.path.badge.minus", label: "Remove silence") { model.pause(); sheet = .silence }
+                    }
                     ToolButton(icon: "aspectratio", label: "Aspect") { sheet = .canvas }
                     ToolButton(icon: "square.fill.on.square", label: "Background") { sheet = .background }
                 }
@@ -961,6 +967,7 @@ struct EditorView: View {
         ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
         ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
         ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
+        ToolButton(icon: "metronome", label: "Beats", tint: a.beatsOn == true ? Theme.accent : .white) { model.toggleBeats() }
         if model.canSlip {
             ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
         }
@@ -1533,7 +1540,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, guides, audio, speech
-    case easing, autoZoom, crop, trackPick, background, overlayTrack, filters
+    case easing, autoZoom, crop, trackPick, background, overlayTrack, filters, silence
     var id: String { rawValue }
 }
 

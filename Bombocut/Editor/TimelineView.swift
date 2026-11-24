@@ -1762,6 +1762,7 @@ struct OverlayLane: View {
 struct AudioLane: View {
     @ObservedObject var model: EditorModel
     @ObservedObject private var waves = WaveformCache.shared
+    @ObservedObject private var beatCache = BeatCache.shared
     @State private var dragStart: (start: Double, duration: Double, inPoint: Double)?
     @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
 
@@ -1875,6 +1876,9 @@ struct AudioLane: View {
                 Wave(seed: a.file.hashValue).fill(Self.ink.opacity(0.4))
             }
             FadeRamp(fadeIn: CGFloat(f.in) * px, fadeOut: CGFloat(f.out) * px)
+            if a.beatsOn == true, let b = beatCache.beats(a.file) {
+                BeatTicks(beats: b, from: a.inPoint, speed: a.speed, length: a.duration, px: px).fill(Self.ink)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 5))
     }
@@ -2193,5 +2197,31 @@ enum LaneText {
         if cache.count > 4000 { cache.removeAll() }
         cache[s] = w
         return w
+    }
+}
+
+/// Beat markers on a sound block: a small notch hanging from the top at every beat (bigger every 4th).
+struct BeatTicks: Shape {
+    let beats: [Double]
+    let from: Double
+    let speed: Double
+    let length: Double
+    let px: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let sp = max(speed, 0.01)
+        // too dense to read when zoomed far out: every 4th beat only
+        let gap = beats.count > 1 ? (beats[beats.count - 1] - beats[0]) / Double(beats.count - 1) : 0.5
+        let every = CGFloat(gap / sp) * px < 5 ? 4 : 1
+        for (k, s) in beats.enumerated() where k % every == 0 {
+            let t = (s - from) / sp
+            guard t >= 0, t <= length else { continue }
+            let x = CGFloat(t) * px
+            let big = k % 4 == 0
+            let w: CGFloat = big ? 2.5 : 1.5, h: CGFloat = big ? 9 : 6
+            p.addRoundedRect(in: CGRect(x: x - w / 2, y: rect.minY, width: w, height: h), cornerSize: CGSize(width: w / 2, height: w / 2))
+        }
+        return p
     }
 }

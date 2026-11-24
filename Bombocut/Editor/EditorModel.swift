@@ -2593,6 +2593,11 @@ final class EditorModel: ObservableObject {
     /// and how far the strip scrolled by itself meanwhile (the finger at a screen edge keeps going).
     @Published private(set) var laneFinger: CGFloat?
     @Published var laneAuto: Double = 0
+    /// Remove silence: the loudness of clips read so far (by `silenceKey`), and whether it's reading.
+    @Published var silenceLevels: [String: [Float]] = [:]
+    @Published var silenceReading = false
+    /// The clips the panel asked for last (read next when a reading is still going).
+    var silenceWanted: [Clip] = []
     var cueSnapshot: Project?
     /// The AutoZoom panel is open: paused, the clip shows unzoomed with its first and last framing drawn over it.
     @Published var autoZoomPanelOpen = false { didSet { if autoZoomPanelOpen != oldValue { updateFraming() } } }
@@ -4286,6 +4291,7 @@ extension EditorModel {
     /// blocks of its own kind (texts, pictures and videos together; sounds; captions).
     func snapEdges(_ kind: SnapKind, excluding id: UUID?) -> [Double] {
         var t: [Double] = [currentTime, 0, duration]
+        t += beatTimes(excluding: kind == .audio ? id : nil)
         let starts = project.clipStarts
         for (i, c) in project.clips.enumerated() { t.append(starts[i]); t.append(starts[i] + c.duration) }
         switch kind {
@@ -4299,9 +4305,45 @@ extension EditorModel {
 
     private var snapReach: Double { 10 / Double(max(pxPerSec, 1)) }
 
+    /// The beats of every sound with Beats on, on the timeline (a sound being moved doesn't snap to its own).
+    func beatTimes(excluding id: UUID? = nil) -> [Double] {
+        project.audio.filter { $0.id != id }.flatMap(\.timelineBeats)
+    }
+
+    /// Beats on the selected sound: its beats are found (once, then kept) and marked on it; clip edges, cuts,
+    /// texts and other sounds snap to them. Again: off.
+    func toggleBeats() {
+        guard let i = selectedAudioIndex else { return }
+        let on = project.audio[i].beatsOn != true
+        mutateLook { $0.audio[i].beatsOn = on ? true : nil }
+        guard on else { return }
+        let file = project.audio[i].file
+        if let b = BeatCache.shared.beats(file) {
+            beatsFound(b, file: file)
+        } else {
+            showNote(loc("Finding the beats…"))
+            Task { [weak self] in
+                while BeatCache.shared.reading.contains(file) { try? await Task.sleep(for: .milliseconds(150)) }
+                self?.beatsFound(BeatCache.shared.known(file) ?? [], file: file)
+            }
+        }
+    }
+
+    private func beatsFound(_ beats: [Double], file: String) {
+        guard project.audio.contains(where: { $0.file == file && $0.beatsOn == true }) else { return }
+        if beats.count < 4 {
+            showNote(loc("No steady beat found in this sound."))
+        } else {
+            let bpm = beats.count > 1 ? 60 * Double(beats.count - 1) / max(beats.last! - beats.first!, 0.01) : 0
+            showNote(String(format: loc("Beats marked (%d BPM). Cuts, texts and sounds snap to them."), Int(bpm.rounded())))
+        }
+        objectWillChange.send()
+    }
+
     /// A clip edge (trim) or a cut (roll) at `t`: the nearest playhead / block edge within reach, if any.
     func clipEdgeSnap(_ t: Double, skipPlayhead: Bool = false) -> Double? {
         var edges: [Double] = skipPlayhead ? [] : [currentTime]
+        edges += beatTimes()
         for o in project.overlays { edges.append(o.start); edges.append(o.end) }
         for a in project.audio { edges.append(a.start); edges.append(a.end) }
         for caps in project.captionTracks { for c in caps.cues { edges.append(c.start); edges.append(c.end) } }
@@ -5293,6 +5335,7 @@ extension EditorModel {
         case .speech: panel(.speech)
         case .volume: pause(); openVolumePanel = true
         case .delete: deleteSelected()
+        case .silence: panel(.silence)
         }
     }
 }
@@ -5569,5 +5612,80 @@ extension EditorModel {
         gen.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 10)
         gen.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 10)
         return try? await gen.image(at: CMTime(seconds: max(0, time), preferredTimescale: 600)).image
+    }
+}
+
+// MARK: Remove silence
+
+extension EditorModel {
+    /// The clips Remove silence works on: the selected clip, or every clip with sound.
+    func silenceTargets(all: Bool) -> [Clip] {
+        let list = all || selectedIndex == nil ? project.clips : selectedIndex.map { [project.clips[$0]] } ?? []
+        return list.filter { !$0.still }
+    }
+
+    nonisolated static func silenceKey(_ c: Clip) -> String {
+        "\(c.mediaFile)|\(c.inPoint)|\(c.outPoint)|\(c.speech?.renders == true ? "fx" : "")"
+    }
+
+    /// Reads the loudness of these clips (once per clip as it is cut), for the panel's picture and the cuts.
+    func readSilence(_ clips: [Clip]) {
+        silenceWanted = clips
+        let want = clips.filter { silenceLevels[Self.silenceKey($0)] == nil }
+        guard !want.isEmpty, !silenceReading else { return }
+        silenceReading = true
+        Task { [weak self] in
+            for c in want {
+                let lv = await Silence.levels(c) ?? []
+                await MainActor.run { self?.silenceLevels[Self.silenceKey(c)] = lv }
+            }
+            await MainActor.run {
+                guard let self else { return }
+                self.silenceReading = false
+                // clips asked for while it was reading
+                self.readSilence(self.silenceWanted)
+            }
+        }
+    }
+
+    /// What would go from a clip with these settings (seconds from its in point), nil while it's being read.
+    func silenceCuts(_ c: Clip, _ s: Silence.Settings) -> [ClosedRange<Double>]? {
+        guard let lv = silenceLevels[Self.silenceKey(c)] else { return nil }
+        guard !lv.isEmpty else { return [] }
+        let thr = s.threshold ?? Silence.autoThreshold(lv)
+        let len = c.outPoint - c.inPoint
+        return Silence.cuts(Silence.quiet(lv, threshold: thr, minSilence: s.minSilence), length: len, settings: s)
+    }
+
+    /// Cuts the pauses out of these clips in one undo step; everything after moves up, captions, texts and
+    /// sounds stay with their footage.
+    func removeSilence(_ clips: [Clip], _ s: Silence.Settings) {
+        pause()
+        var plan: [UUID: [Clip]] = [:]
+        var pauses = 0
+        var saved = 0.0
+        for c in clips {
+            guard let cuts = silenceCuts(c, s), !cuts.isEmpty, let pieces = Silence.pieces(c, cutting: cuts, fade: s.fade)
+            else { continue }
+            plan[c.id] = pieces
+            pauses += cuts.count
+            saved += c.duration - pieces.reduce(0) { $0 + $1.duration }
+        }
+        guard !plan.isEmpty else {
+            showNote(loc("No pauses to cut with these settings."))
+            return
+        }
+        Silence.Settings.saved = s
+        mutate { p in
+            for i in p.clips.indices.reversed() {
+                let c = p.clips[i]
+                guard let pieces = plan[c.id] else { continue }
+                p.clips.replaceSubrange(i...i, with: pieces)
+                for q in pieces where q.id != c.id { p.joinStack(q.id, with: c.id) }
+            }
+        }
+        selectedClipID = nil
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        showNote(String(format: loc("Cut pauses: %d, %@ shorter."), pauses, Fmt.duration(saved)))
     }
 }

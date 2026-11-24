@@ -20,6 +20,8 @@ struct AudioItem: Codable, Hashable, Identifiable {
     var speech: SpeechFX?
     /// Playing backwards: `file` is a reversed copy, this is the original it was made from.
     var reverse: AudioReverse?
+    /// Beats: markers on the song's beats (found once, see BeatCache); clip edges, texts and sounds snap to them.
+    var beatsOn: Bool?
 
     var end: Double { start + duration }
     /// The sound as the speech tools see it: always the forward file (the result is turned round for a reversed one).
