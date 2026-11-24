@@ -1075,7 +1075,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT změří, jak se obraz celého Stacku třese, naklání a kymácí (každý záběr zvlášť), pak to nad jeho klipy vyhladí a trochu přiblíží, aby nebyly vidět okraje."
+            "value": "BOMBOCUT změří, jak se obraz celé skupiny třese, naklání a kymácí (každý záběr zvlášť), pak to nad jejími klipy vyhladí a trochu přiblíží, aby nebyly vidět okraje."
           }
         }
       }
@@ -2005,7 +2005,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zavřít Stack"
+            "value": "Zavřít skupinu"
           }
         }
       }
@@ -2265,7 +2265,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stack se nedá načíst."
+            "value": "Skupina se nedá načíst."
           }
         }
       }
@@ -3919,7 +3919,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Najde lidi nebo hlavní objekt v celém Stacku, nad tím, co dělají jeho klipy. Pak můžeš všechno ostatní rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+            "value": "Najde lidi nebo hlavní objekt v celé skupině, nad tím, co dělají její klipy. Pak můžeš všechno ostatní rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
           }
         }
       }
@@ -4393,7 +4393,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Platí pro všechny klipy ve Stacku."
+            "value": "Platí pro všechny klipy ve skupině."
           }
         }
       }
@@ -6163,7 +6163,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Otevřít Stack"
+            "value": "Otevřít skupinu"
           }
         }
       }
@@ -7933,7 +7933,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rozmaže všechno, co se hýbe ve všech klipech Stacku, i pohyby Stacku samotného (keyframy, AutoZoom, příchod a odchod), jako dlouhý čas závěrky."
+            "value": "Rozmaže všechno, co se hýbe ve všech klipech skupiny, i pohyby skupiny samotné (keyframy, AutoZoom, příchod a odchod), jako dlouhý čas závěrky."
           }
         }
       }
@@ -8223,7 +8223,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stack"
+            "value": "Seskupit"
           }
         }
       }
@@ -8233,7 +8233,17 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stack (%lld)"
+            "value": "Seskupit (%lld)"
+          }
+        }
+      }
+    },
+    "Stack settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nastavení skupiny"
           }
         }
       }
@@ -8933,7 +8943,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Příchod celého Stacku"
+            "value": "Příchod celé skupiny"
           }
         }
       }
@@ -8943,7 +8953,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Odchod celého Stacku"
+            "value": "Odchod celé skupiny"
           }
         }
       }
@@ -9843,7 +9853,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unstack"
+            "value": "Odskupit"
           }
         }
       }
@@ -10153,7 +10163,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Celý Stack"
+            "value": "Celá skupina"
           }
         }
       }

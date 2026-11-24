@@ -3239,7 +3239,7 @@ final class EditorModel: ObservableObject {
             case .overlayMask: return "Mask"
             case .overlaySpeed: return "Speed"
             case .autoZoom: return "AutoZoom"
-            case .stack: return "Stack"
+            case .stack: return "Stack settings"
             case .crop: return "Crop"
             case .filter, .overlayFilter: return "Filters"
             }
