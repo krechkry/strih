@@ -9378,6 +9378,156 @@
         }
       }
     },
+    "Tip: Captions > Translate works offline. Download a language once and translate as often as you like.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Titulky > Přeložit fungují offline. Jazyk stáhneš jednou a překládáš, kolikrát chceš."
+          }
+        }
+      }
+    },
+    "Tip: Natural line breaks (Captions > Layout) end caption lines where sentences end.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Přirozené konce řádků (Titulky > Layout) ukončují řádky titulků tam, kde končí věty."
+          }
+        }
+      }
+    },
+    "Tip: Socials overlay shows where TikTok and Instagram buttons will cover your video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Sociální sítě ukážou, kde ti tlačítka TikToku a Instagramu zakryjí video."
+          }
+        }
+      }
+    },
+    "Tip: Speech > Enhance voice cleans up noisy talking.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Řeč > Vylepšit hlas vyčistí zašuměnou řeč."
+          }
+        }
+      }
+    },
+    "Tip: Track has two trackers: Fast for people and things that turn, Precise for flat, textured things like signs and screens.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Tracking má dva trackery: Rychlé na lidi a věci, které se otáčí, Přesné na ploché věci s kresbou, třeba cedule a displeje."
+          }
+        }
+      }
+    },
+    "Tip: a caption line too long? Split cuts it in two, Merge joins it with the line before or after.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: titulek je moc dlouhý? Rozdělit ho rozpůlí, Spojit ho spojí s titulkem před ním nebo za ním."
+          }
+        }
+      }
+    },
+    "Tip: bring your own look: import a .cube LUT in Filters & LUT.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: vlastní look: importuj .cube LUT ve Filtry a LUT."
+          }
+        }
+      }
+    },
+    "Tip: double-tap a slider to set it back to its default.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: dvojitým klepnutím vrátíš posuvník na výchozí hodnotu."
+          }
+        }
+      }
+    },
+    "Tip: heavy 4K and 10-bit clips get light playback copies, so the preview stays smooth. Exports always use the originals.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: těžké 4K a 10bitové klipy dostanou lehké kopie na přehrávání, takže náhled jede plynule. Export vždy použije originály."
+          }
+        }
+      }
+    },
+    "Tip: one caption style for most clips and another for a few? Give those clips their own caption track.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: jeden styl titulků pro většinu klipů a jiný pro pár z nich? Dej těm klipům vlastní stopu titulků."
+          }
+        }
+      }
+    },
+    "Tip: share a whole project as a .bbc file and open it in BOMBOCUT on another device.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: sdílej celý projekt jako soubor .bbc a otevři ho v BOMBOCUTu na jiném zařízení."
+          }
+        }
+      }
+    },
+    "Tip: shot on a green screen? Mask > Chroma key takes the background out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: točil jsi na zelené plátno? Maska > Klíčování barvy pozadí odstraní."
+          }
+        }
+      }
+    },
+    "Tip: tap a clip to select it, then hold it to move it somewhere else on the timeline.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: klepnutím klip vybereš, pak ho podrž a přesuň jinam na časové ose."
+          }
+        }
+      }
+    },
+    "Tip: turn on HDR Export on the export page for 10-bit HDR video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: zapni na stránce exportu HDR export a dostaneš 10bitové HDR video."
+          }
+        }
+      }
+    },
+    "Tip: when tracking loses the subject it stops there. Select it again, frame by frame if needed, and Continue.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: když tracking ztratí objekt, zastaví se. Vyber ho znovu, klidně po snímcích, a Pokračovat."
+          }
+        }
+      }
+    },
     "Tip: with Optimize iPhone Storage on, your videos live in iCloud and each one downloads first. Settings > Photos > Download and Keep Originals makes importing quick.": {
       "localizations": {
         "cs": {

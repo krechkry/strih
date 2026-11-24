@@ -140,20 +140,6 @@ struct HomeView: View {
                 EditorView(project: p, store: store) { openProject = nil }
                     .toolbar(.hidden, for: .navigationBar)
             }
-            .overlay {
-                if let work {
-                    ImportWaitView(work: work) {
-                        // the import stops before its next clip; the card goes now
-                        work.cancel()
-                        self.work = nil
-                        importing = false
-                    }
-                } else if importing {
-                    ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Checking the files…") } }
-                        .padding(24)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                }
-            }
             .task { await runDemoIfRequested() }
             .onChange(of: pickerItems) { _, items in
                 guard !items.isEmpty else { return }
@@ -170,6 +156,21 @@ struct HomeView: View {
             .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .image, .bombocutProject] + LegacyVideo.pickerTypes, allowsMultipleSelection: true) { result in
                 guard case .success(let urls) = result else { return }
                 Task { await importFromFiles(urls) }
+            }
+        }
+        // over the whole screen, the bar too (the waiting game uses all of it)
+        .overlay {
+            if let work {
+                ImportWaitView(work: work) {
+                    // the import stops before its next clip; the card goes now
+                    work.cancel()
+                    self.work = nil
+                    importing = false
+                }
+            } else if importing {
+                ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Checking the files…") } }
+                    .padding(24)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
     }

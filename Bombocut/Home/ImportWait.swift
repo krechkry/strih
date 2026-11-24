@@ -10,51 +10,114 @@ struct ImportWaitView: View {
     let cancel: () -> Void
     @State private var game = BallGame()
     @State private var island: CGRect = .zero
+    /// What the card says now: changed only while the ball is well away from the card, so the card never grows
+    /// into the ball.
+    @State private var shown = CardText(note: loc("Keep BOMBOCUT open until it's done"))
+    /// When the tips take over from "let's play a game" (5 s into the game, give or take 5).
+    @State private var tipsFrom: Date?
+    @State private var tips: [ImportTip] = []
 
     private var lit: Bool { work.playing && work.nearEnd && !work.landed }
 
-    private var note: String {
-        if work.landed { return loc("Nice one!") }
-        if lit { return loc("Almost done! Shoot the ball in here") }
-        if work.playing { return loc("This is taking pretty long, let's play a game") }
-        return loc("Keep BOMBOCUT open until it's done")
+    /// What the card should say right now.
+    private func wanted(_ now: Date) -> CardText {
+        if work.landed { return CardText(note: loc("Nice one!")) }
+        if lit { return CardText(note: loc("Almost done! Shoot the ball in here")) }
+        if work.playing {
+            if let from = tipsFrom, now >= from, !tips.isEmpty {
+                // a new tip every 8 s (the iCloud one first when clips come from iCloud)
+                let list = work.fromCloud ? [ImportTip.cloud] + tips : tips
+                return CardText(tip: list[Int(now.timeIntervalSince(from) / 8) % list.count])
+            }
+            return CardText(note: loc("This is taking pretty long, let's play a game"))
+        }
+        return CardText(note: loc("Keep BOMBOCUT open until it's done"))
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.opacity(work.playing ? 0.85 : 0.45).ignoresSafeArea()
-            if work.playing {
-                SwiftUI.TimelineView(.animation) { tl in
-                    SwiftUI.Canvas { ctx, size in
-                        game.step(tl.date, size: size, island: island, lit: lit)
-                        game.draw(&ctx, size: size)
+        GeometryReader { outer in
+            let top = outer.safeAreaInsets.top
+            ZStack(alignment: .top) {
+                Color.black.opacity(work.playing ? 0.85 : 0.45)
+                if work.playing {
+                    SwiftUI.TimelineView(.animation) { tl in
+                        SwiftUI.Canvas { ctx, size in
+                            game.step(tl.date, size: size, island: island, lit: lit)
+                            game.draw(&ctx, size: size)
+                        }
                     }
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { game.aim($0.location.x) })
+                    .transition(.opacity)
                 }
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { game.aim($0.location.x) })
-                .transition(.opacity)
+                WorkStepsView(work: work, cancel: work.landed ? nil : cancel, note: shown.note, lit: lit,
+                              tip: shown.tip.map { loc($0.text) }, tipIcon: shown.tip?.icon ?? "lightbulb")
+                    // the card itself, without the space around it
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.space)) }) { island = $0.insetBy(dx: 24, dy: 24) }
+                    .onTapGesture { if lit { work.land() } }
+                    .padding(.top, work.playing ? top - 16 : 0)
+                    .frame(maxHeight: .infinity, alignment: work.playing ? .top : .center)
             }
-            WorkStepsView(work: work, cancel: work.landed ? nil : cancel, note: note, lit: lit,
-                          tip: work.fromCloud ? loc("Tip: with Optimize iPhone Storage on, your videos live in iCloud and each one downloads first. Settings > Photos > Download and Keep Originals makes importing quick.") : nil)
-                // the card itself, without the space around it
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.space)) }) { island = $0.insetBy(dx: 24, dy: 24) }
-                .onTapGesture { if lit { work.land() } }
-                .padding(.top, work.playing ? -14 : 0)
-                .frame(maxHeight: .infinity, alignment: work.playing ? .top : .center)
+            .ignoresSafeArea()
+            .coordinateSpace(.named(Self.space))
         }
-        .coordinateSpace(.named(Self.space))
         .animation(.snappy(duration: 0.45), value: work.playing)
         .onAppear {
             let w = work
             game.onLand = { [weak w] in w?.land() }
+            tips = ImportTip.all.shuffled()
         }
         .task {
-            try? await Task.sleep(for: .seconds(10))
-            if !Task.isCancelled { work.playing = true }
+            let opened = Date()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(250))
+                let now = Date()
+                if !work.playing, now.timeIntervalSince(opened) >= 10 {
+                    work.playing = true
+                    tipsFrom = now.addingTimeInterval(5 + Double.random(in: -5...5))
+                }
+                let next = wanted(now)
+                // the card changes size with its text: only while the ball is well below it
+                if next != shown, !work.playing || game.clear(below: island.maxY, margin: 150) {
+                    withAnimation(.snappy(duration: 0.3)) { shown = next }
+                }
+            }
         }
     }
 
     private static let space = "importWait"
+}
+
+/// The card's line: a note, or a tip in its own box.
+struct CardText: Equatable {
+    var note: String?
+    var tip: ImportTip?
+}
+
+/// Tips about BOMBOCUT shown during the waiting game (English keys, translated when shown).
+struct ImportTip: Equatable {
+    let text: String
+    var icon = "lightbulb"
+
+    static let cloud = ImportTip(text: "Tip: with Optimize iPhone Storage on, your videos live in iCloud and each one downloads first. Settings > Photos > Download and Keep Originals makes importing quick.", icon: "icloud.and.arrow.down")
+
+    static let all: [ImportTip] = [
+        ImportTip(text: "Tip: tap a clip to select it, then hold it to move it somewhere else on the timeline.", icon: "hand.draw"),
+        ImportTip(text: "Tip: a caption line too long? Split cuts it in two, Merge joins it with the line before or after.", icon: "captions.bubble"),
+        ImportTip(text: "Tip: Captions > Translate works offline. Download a language once and translate as often as you like.", icon: "character.bubble"),
+        ImportTip(text: "Tip: one caption style for most clips and another for a few? Give those clips their own caption track.", icon: "captions.bubble"),
+        ImportTip(text: "Tip: Natural line breaks (Captions > Layout) end caption lines where sentences end.", icon: "text.alignleft"),
+        ImportTip(text: "Tip: shot on a green screen? Mask > Chroma key takes the background out.", icon: "person.crop.rectangle"),
+        ImportTip(text: "Tip: Track has two trackers: Fast for people and things that turn, Precise for flat, textured things like signs and screens.", icon: "scope"),
+        ImportTip(text: "Tip: when tracking loses the subject it stops there. Select it again, frame by frame if needed, and Continue.", icon: "scope"),
+        ImportTip(text: "Tip: bring your own look: import a .cube LUT in Filters & LUT.", icon: "camera.filters"),
+        ImportTip(text: "Tip: turn on HDR Export on the export page for 10-bit HDR video.", icon: "sun.max"),
+        ImportTip(text: "Tip: heavy 4K and 10-bit clips get light playback copies, so the preview stays smooth. Exports always use the originals.", icon: "play.rectangle"),
+        ImportTip(text: "Tip: Speech > Enhance voice cleans up noisy talking.", icon: "person.wave.2"),
+        ImportTip(text: "Tip: double-tap a slider to set it back to its default.", icon: "slider.horizontal.3"),
+        ImportTip(text: "Tip: Socials overlay shows where TikTok and Instagram buttons will cover your video.", icon: "rectangle.dashed"),
+        ImportTip(text: "Tip: share a whole project as a .bbc file and open it in BOMBOCUT on another device.", icon: "square.and.arrow.up"),
+    ]
 }
 
 /// The ball game (points of the view it runs in). No gravity: the ball flies straight and bounces off the sides,
@@ -92,6 +155,12 @@ final class BallGame {
     func aim(_ x: CGFloat) {
         target = x
         touched = true
+    }
+
+    /// The ball is far enough below `y` (more so the faster it goes) for the card to change size safely.
+    func clear(below y: CGFloat, margin: CGFloat) -> Bool {
+        if size == .zero || gone || absorbing != nil || respawnAt != nil { return true }
+        return pos.y - radius > y + margin + speed * 0.35
     }
 
     func step(_ now: Date, size: CGSize, island: CGRect, lit: Bool) {

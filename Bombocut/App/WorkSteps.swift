@@ -133,8 +133,9 @@ struct WorkStepsView: View {
     var note: String? = nil
     /// Lit up in lime: the ball can go in (the waiting game).
     var lit = false
-    /// A smaller hint at the bottom of the card.
+    /// A smaller hint at the bottom of the card, with its icon.
     var tip: String? = nil
+    var tipIcon = "lightbulb"
 
     private static let rowHeight: CGFloat = 46
 
@@ -149,6 +150,17 @@ struct WorkStepsView: View {
                     Text(String(format: loc("%lld of %lld"), work.finished, work.steps.count))
                         .font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
                         .contentTransition(.numericText())
+                }
+                if let cancel {
+                    // stop: a small red cross in the corner
+                    Button(action: cancel) {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.red, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(loc("Cancel"))
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
                 }
             }
             VStack(alignment: .leading, spacing: 0) {
@@ -171,20 +183,12 @@ struct WorkStepsView: View {
                     .contentTransition(.opacity)
             }
             if let tip {
-                Label(tip, systemImage: "icloud.and.arrow.down")
+                Label(tip, systemImage: tipIcon)
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-            }
-            if let cancel {
-                Button(action: cancel) {
-                    Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.85))
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(Theme.panel2, in: Capsule())
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(18)
