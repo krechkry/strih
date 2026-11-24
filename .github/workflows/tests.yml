@@ -3,7 +3,7 @@ name: Tests
 on:
   push:
     # Android work doesn't need the Mac
-    paths-ignore: ['android/**', 'shared/**', '.github/workflows/android.yml']
+    paths-ignore: ['android/**', 'shared/**', '.github/workflows/android.yml', '.github/workflows/parity.yml', 'Tests/ParityFixtures.swift']
   workflow_dispatch:
 
 jobs:
