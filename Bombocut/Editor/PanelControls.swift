@@ -49,13 +49,17 @@ struct TwoSideToggle: View {
 
 /// A sideways number wheel: the numbers slide under a lime mark in the middle, the one there is picked
 /// (a tick for each number passed). Tap a number to roll to it. The value is applied once the wheel rests,
-/// so a fast spin is one change, not twenty.
+/// so a fast spin is one change, not twenty; with `live`, every number passed shows right away too (the
+/// preview follows the finger) and `set` still comes once, when it rests.
 struct NumberWheel: View {
     let values: [Int]
     let value: Int
+    var live: ((Int) -> Void)? = nil
     let set: (Int) -> Void
 
     @State private var shown: Int?
+    /// Live changes shown but not set yet.
+    @State private var dirty = false
     private let itemW: CGFloat = 48
     private let height: CGFloat = 50
 
@@ -87,9 +91,21 @@ struct NumberWheel: View {
         .onChange(of: value) { if shown != nearest(value) { shown = nearest(value) } }
         .sensoryFeedback(.selection, trigger: shown)
         .task(id: shown) {
-            guard let s = shown, s != nearest(value) else { return }
+            guard let s = shown else { return }
+            if let live {
+                if s != nearest(value) { live(s); dirty = true }
+                guard dirty else { return }
+            } else if s == nearest(value) {
+                return
+            }
             try? await Task.sleep(for: .milliseconds(350))
-            if !Task.isCancelled { set(s) }
+            if Task.isCancelled { return }
+            dirty = false
+            set(s)
+        }
+        .onDisappear {
+            // closed before the wheel came to rest: keep what it shows
+            if dirty, let s = shown { dirty = false; set(s) }
         }
     }
 

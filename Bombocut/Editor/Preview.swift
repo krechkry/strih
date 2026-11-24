@@ -26,6 +26,8 @@ struct PreviewArea: View {
     @State private var panBase: CGSize = .zero
     @State private var pinching = false
     @State private var dragIsPan: Bool?
+    /// Captions > Layout: this drag grabbed the captions (nil until it starts).
+    @State private var dragMovesCaptions: Bool?
     /// Fingers on the preview with nothing selected: they zoom and move the view (the view when they began).
     @State private var viewGrab: (zoom: CGFloat, offset: CGSize)?
     @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
@@ -289,6 +291,16 @@ struct PreviewArea: View {
                 // one finger: scrub, or move around while zoomed in
                 DragGesture(minimumDistance: 2)
                     .onChanged { v in
+                        // Captions > Layout: a finger that lands on the captions moves them
+                        if dragMovesCaptions == nil {
+                            let q = CGPoint(x: v.startLocation.x - inset.width, y: v.startLocation.y - inset.height)
+                            dragMovesCaptions = !pinching && model.captionDragBegan(at: contentPoint(q, canvas), canvas: canvas)
+                        }
+                        if dragMovesCaptions == true {
+                            model.captionDragChanged(CGSize(width: v.translation.width / viewZoom,
+                                                            height: v.translation.height / viewZoom), canvas: canvas)
+                            return
+                        }
                         // AutoZoom: the playhead stays on the frame being framed (Start / End), no scrubbing
                         if dragIsPan == nil { dragIsPan = viewZoom > 1.02 || pinching || model.autoZoomPanelOpen }
                         if dragIsPan == true {
@@ -300,6 +312,12 @@ struct PreviewArea: View {
                         }
                     }
                     .onEnded { v in
+                        if dragMovesCaptions == true {
+                            dragMovesCaptions = nil
+                            model.captionDragEnded()
+                            return
+                        }
+                        dragMovesCaptions = nil
                         if dragIsPan == true {
                             panBase = viewOffset
                         } else {
@@ -1384,10 +1402,10 @@ struct PreviewArea: View {
         }
     }
 
-    /// Dashed outline around the captions while they move.
+    /// Dashed outline around the captions while they move, and while Captions > Layout is open (they can be dragged).
     @ViewBuilder
     private func captionBox(_ canvas: CGSize) -> some View {
-        if model.movingCaptions, let b = model.captionBox(canvas: canvas) {
+        if model.movingCaptions || (model.captionLayoutOpen && !model.isPlaying), let b = model.captionBox(canvas: canvas) {
             Path { p in
                 let m = CGAffineTransform(rotationAngle: b.rotation).concatenating(CGAffineTransform(translationX: b.center.x, y: b.center.y))
                 let w = b.size.width, h = b.size.height

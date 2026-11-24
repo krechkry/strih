@@ -2633,6 +2633,9 @@ final class EditorModel: ObservableObject {
     /// through the selected clip, or the whole timeline when nothing is selected.
     /// Playing then loops the selected clip (`togglePlay`); closing the panel lets it play on.
     @Published var previewScrubs = false { didSet { if !previewScrubs { loopSelected = false } } }
+    /// Captions > Style > Layout is open: a dashed outline marks the captions in the preview and a finger on them
+    /// moves them (anywhere else it still scrubs).
+    @Published var captionLayoutOpen = false
     /// The Track panel is open (the tracked box is only drawn then).
     @Published var trackPanelOpen = false
     /// An overlay's Track panel is open (its followed point is drawn then).
@@ -3878,6 +3881,24 @@ final class EditorModel: ObservableObject {
             try? await Task.sleep(for: .seconds(1.6))
             safeZoneFlash = false
         }
+    }
+
+    /// A finger on the captions in the preview while Layout is open (canvas points): true when it grabbed them.
+    func captionDragBegan(at p: CGPoint, canvas: CGSize) -> Bool {
+        guard captionLayoutOpen, let b = captionBox(canvas: canvas),
+              Self.inside(p, center: b.center, size: b.size, rotation: b.rotation) else { return false }
+        captionTransformBegan()
+        return captionStart != nil
+    }
+
+    /// The finger moved this far (canvas points) since it grabbed the captions.
+    func captionDragChanged(_ d: CGSize, canvas: CGSize) {
+        captionTransformChanged(CGAffineTransform(translationX: d.width, y: d.height), canvas: canvas)
+    }
+
+    func captionDragEnded() {
+        guard captionStart != nil else { return }
+        captionTransformEnded()
     }
 
     private func captionTransformBegan() {

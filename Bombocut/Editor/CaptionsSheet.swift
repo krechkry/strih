@@ -14,6 +14,8 @@ struct CaptionsSheet: View {
     @AppStorage("captionStyleTab") private var styleSection = 0
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
     @State private var savingTemplate = false
+    /// The captions before the characters wheel started spinning (nil when it rests).
+    @State private var wheelBase: Captions?
     @State private var templateName = ""
     @State private var askCellular = false
     @State private var askedCellular = false
@@ -277,6 +279,9 @@ struct CaptionsSheet: View {
             .onChange(of: model.hintTranslate) { glowTranslate() }
             .onChange(of: tab) { showCaptionForStyling() }
             .onChange(of: styleSection) { showCaptionForStyling() }
+            .onChange(of: caps.style.anim) { showCaptionForStyling() }
+            .onAppear { showCaptionForStyling() }
+            .onDisappear { model.captionLayoutOpen = false }
             }
             if let scope = model.captionScope, tab == 1 || tab == 4, !scopedCues(caps).isEmpty {
                 trackRow(scope)
@@ -298,14 +303,52 @@ struct CaptionsSheet: View {
     /// Style and Presets change how the captions look, so a caption has to be on screen: if the playhead is
     /// between lines, it jumps to the middle of the nearest one (in this clip's lines when opened from a clip).
     private func showCaptionForStyling() {
+        syncLayoutFlag()
         guard tab == 1 || tab == 4, let caps = model.project.captions else { return }
         let t = model.currentTime
         let cues = scopedCues(caps)
-        guard !cues.contains(where: { t >= $0.start && t < $0.end }) else { return }
+        let anim = caps.style.anim
+        // on a line, but where its fade, pop or slide hides part of it (or words are still coming in): not good
+        // enough to judge a look, so it moves to where that line shows in full
+        if let on = cues.first(where: { t >= $0.start && t < $0.end }) {
+            let w = Self.fullyShown(on, anim)
+            if w.contains(t) { return }
+            model.pause()
+            model.scrub(to: Self.bestFrame(on, anim))
+            return
+        }
         func gap(_ c: CaptionCue) -> Double { t < c.start ? c.start - t : t - c.end }
         guard let near = cues.min(by: { gap($0) < gap($1) }) else { return }
         model.pause()
-        model.scrub(to: (near.start + near.end) / 2)
+        model.scrub(to: Self.bestFrame(near, anim))
+    }
+
+    /// When a line is fully on screen: after its way in (fade, pop, slide take up to 0.22 s) and before its way out
+    /// (0.12 s); word by word and typewriter only near the end, once every word is there.
+    private static func fullyShown(_ c: CaptionCue, _ anim: CaptionAnim) -> ClosedRange<Double> {
+        let mid = (c.start + c.end) / 2
+        var lo: Double, hi = c.end - 0.15
+        switch anim {
+        case .none: lo = c.start + 0.01; hi = c.end - 0.01
+        case .words, .typewriter: lo = max(c.start + (c.end - c.start) * 0.8, (c.words.last?.start ?? mid) + 0.05)
+        default: lo = c.start + 0.25
+        }
+        if lo > hi { lo = mid; hi = mid }
+        return lo...max(lo, hi)
+    }
+
+    private static func bestFrame(_ c: CaptionCue, _ anim: CaptionAnim) -> Double {
+        let w = fullyShown(c, anim)
+        switch anim {
+        case .words, .typewriter: return w.upperBound
+        default: return min(max((c.start + c.end) / 2, w.lowerBound), w.upperBound)
+        }
+    }
+
+    /// Captions > Style > Layout open: the preview shows where the captions are and lets you drag them.
+    private func syncLayoutFlag() {
+        let on = tab == 1 && styleSection == 0 && model.project.captions != nil && !model.captionsGenerator
+        if model.captionLayoutOpen != on { model.captionLayoutOpen = on }
     }
 
     /// Captions were just made: the Translate tab's outline fades in quickly, then out slowly. Once.
@@ -557,11 +600,13 @@ struct CaptionsSheet: View {
     /// punctuation, natural breaks, behind the subject.
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
-        TwoSideToggle(left: ("1 line", "minus"), right: ("2 lines", "equal"),
-                      leftOn: Binding(get: { s.lines == 1 }, set: { one in setLines(one ? 1 : 2, s.maxChars) }))
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Characters per line").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-            NumberWheel(values: Array(stride(from: 8, through: 48, by: 2)), value: s.maxChars) { v in setLines(s.lines, v) }
+        // lines and characters per line side by side (one row, the wheel shows the line length as you spin it)
+        HStack(spacing: 8) {
+            TwoSideToggle(left: ("1 line", "minus"), right: ("2 lines", "equal"),
+                          leftOn: Binding(get: { s.lines == 1 }, set: { one in setLines(one ? 1 : 2, s.maxChars) }))
+            NumberWheel(values: Array(stride(from: 8, through: 48, by: 2)), value: s.maxChars,
+                        live: { v in liveChars(v) }) { v in setLines(s.lines, v) }
+                .accessibilityLabel(loc("Characters per line"))
         }
         slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
         PanelBreak()
@@ -722,16 +767,44 @@ struct CaptionsSheet: View {
 
     // MARK: Small building blocks
 
+    /// The characters wheel while it spins: the lines are cut again from the captions as they were when it started,
+    /// shown at once; one undo step when it rests (setLines).
+    private func liveChars(_ chars: Int) {
+        if wheelBase == nil {
+            wheelBase = model.project.captions
+            model.liveEditBegan()
+        }
+        guard let base = wheelBase else { return }
+        var c = base
+        c.restyle { $0.maxChars = chars }
+        model.editCaptions { $0 = c }
+    }
+
     /// Lines and length don't make it another look: the template stays picked, and your own template remembers them.
     private func setLines(_ lines: Int, _ chars: Int) {
+        if let base = wheelBase {
+            // the wheel came to rest: one undo step back to before it spun
+            wheelBase = nil
+            var c = base
+            c.restyle { $0.lines = lines; $0.maxChars = chars }
+            remember(lines, chars, template: c.templateID)
+            model.editCaptions { $0 = c }
+            model.liveEditEnded()
+            return
+        }
         guard var c = model.project.captions else { return }
         c.restyle { $0.lines = lines; $0.maxChars = chars }
-        if let tid = c.templateID, let i = templates.firstIndex(where: { $0.id == tid }) {
+        remember(lines, chars, template: c.templateID)
+        model.setCaptions(c)
+    }
+
+    /// Your own template picked: it keeps the lines and length too.
+    private func remember(_ lines: Int, _ chars: Int, template tid: UUID?) {
+        if let tid, let i = templates.firstIndex(where: { $0.id == tid }) {
             templates[i].style.lines = lines
             templates[i].style.maxChars = chars
             TemplateStore.save(templates)
         }
-        model.setCaptions(c)
     }
 
     /// Commas / natural breaks: the lines are cut again, the template stays picked (not a look).
