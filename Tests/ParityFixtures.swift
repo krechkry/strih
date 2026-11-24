@@ -263,5 +263,40 @@ final class ParityFixtures: XCTestCase {
         try add("speed") { p in p.clips[1].speed = 1 }
         try write(cases, "edits.json")
     }
+
+    // MARK: Adjust colors: EffectsRenderer.color in the compositor's Core Image setup (working space Rec. 709)
+
+    struct ColorCase: Codable { var name: String; var effects: Effects; var output: [[Int]] }
+    struct ColorFixture: Codable { var input: [[Int]]; var cases: [ColorCase] }
+
+    func testWriteColors() throws {
+        let steps: [Int] = [0, 64, 128, 192, 255]
+        var colors: [[Int]] = []
+        for r in steps { for g in steps { for b in steps { colors.append([r, g, b]) } } }
+        let n = colors.count
+        let space = FrameCompositor.videoSpace
+        let ctx = CIContext(options: [.workingColorSpace: space, .cacheIntermediates: false])
+        func render(_ e: Effects) -> [[Int]] {
+            let bytes = colors.flatMap { $0.map { UInt8($0) } + [255] }
+            let img = CIImage(bitmapData: Data(bytes), bytesPerRow: n * 4, size: CGSize(width: n, height: 1), format: .RGBA8, colorSpace: space)
+            let out = EffectsRenderer.color(img, e)
+            var buf = [UInt8](repeating: 0, count: n * 4)
+            ctx.render(out, toBitmap: &buf, rowBytes: n * 4, bounds: CGRect(x: 0, y: 0, width: n, height: 1), format: .RGBA8, colorSpace: space)
+            return (0..<n).map { [Int(buf[$0 * 4]), Int(buf[$0 * 4 + 1]), Int(buf[$0 * 4 + 2])] }
+        }
+        func fx(_ set: (inout Effects) -> Void) -> Effects { var e = Effects(); set(&e); return e }
+        let cases: [(String, Effects)] = [
+            ("none", Effects()),
+            ("exposure+0.5", fx { $0.exposure = 0.5 }), ("exposure-0.5", fx { $0.exposure = -0.5 }),
+            ("contrast+0.6", fx { $0.contrast = 0.6 }), ("contrast-0.6", fx { $0.contrast = -0.6 }),
+            ("saturation+0.7", fx { $0.saturation = 0.7 }), ("saturation-1", fx { $0.saturation = -1 }),
+            ("temperature+0.6", fx { $0.temperature = 0.6 }), ("temperature-0.6", fx { $0.temperature = -0.6 }),
+            ("tint+0.6", fx { $0.tint = 0.6 }), ("tint-0.6", fx { $0.tint = -0.6 }),
+            ("shadows+0.8", fx { $0.shadows = 0.8 }), ("shadows-0.8", fx { $0.shadows = -0.8 }),
+            ("highlights+0.8", fx { $0.highlights = 0.8 }), ("highlights-0.8", fx { $0.highlights = -0.8 }),
+            ("combo", fx { $0.exposure = 0.2; $0.contrast = 0.3; $0.saturation = -0.4; $0.temperature = 0.3; $0.shadows = 0.4 }),
+        ]
+        try write(ColorFixture(input: colors, cases: cases.map { ColorCase(name: $0.0, effects: $0.1, output: render($0.1)) }), "colors.json")
+    }
 }
 
