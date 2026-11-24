@@ -12,6 +12,7 @@ import java.util.Locale
 /** English keys → the translation in one language. English is the key itself. */
 class Strings(private val table: Map<String, String>) {
     fun translate(key: String): String = table[key] ?: key
+    operator fun plus(o: Strings) = Strings(table + o.table)
 
     companion object {
         val english = Strings(emptyMap())
@@ -54,8 +55,9 @@ object AppLanguage {
     fun set(context: Context, code: String, save: Boolean = true) {
         current = code
         strings = if (code == "en") Strings.english else {
-            val json = context.assets.open("Localizable.xcstrings").bufferedReader().use { it.readText() }
-            Strings.fromXcstrings(json, code)
+            // the iOS app's strings, plus the few only Android has (same format, assets/strings-android.json)
+            fun read(name: String) = context.assets.open(name).bufferedReader().use { it.readText() }
+            Strings.fromXcstrings(read("Localizable.xcstrings"), code) + Strings.fromXcstrings(read("strings-android.json"), code)
         }
         if (save) context.getSharedPreferences("bombocut", Context.MODE_PRIVATE).edit().putString(KEY, code).apply()
     }

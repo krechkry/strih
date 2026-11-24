@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.tooling.preview)
+    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation(libs.compose.tooling)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)

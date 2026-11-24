@@ -68,3 +68,7 @@ object Fmt {
         return BigDecimal(v.toString()).stripTrailingZeros().toPlainString()
     }
 }
+
+/** A translated string with iOS format specifiers (%lld, %@) filled in like Swift's String(format:). */
+fun locf(key: String, vararg args: Any?): String =
+    fmt(loc(key).replace("%lld", "%d").replace("%ld", "%d").replace("%@", "%s"), *args)
