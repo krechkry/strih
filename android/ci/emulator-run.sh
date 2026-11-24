@@ -48,6 +48,9 @@ adb exec-out screencap -p > $OUT/05b-scrubbed.png
 python3 android/ci/tap.py "Split"
 sleep 2
 adb exec-out screencap -p > $OUT/06-split.png
+python3 android/ci/tap.py "Speed" && sleep 2 && adb exec-out screencap -p > $OUT/06b-speed.png
+python3 android/ci/tap.py "Curve" && sleep 2 && adb exec-out screencap -p > $OUT/06c-curve.png
+python3 android/ci/tap.py "Done"; sleep 1
 python3 android/ci/tap.py "Undo"
 sleep 2
 adb exec-out screencap -p > $OUT/07-undo.png
