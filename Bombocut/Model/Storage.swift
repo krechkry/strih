@@ -129,28 +129,38 @@ enum Media {
     }
 
     /// Turns imported files into clips. Returns the clips and the shape of the first video.
-    static func makeClips(from urls: [URL]) async -> (clips: [Clip], firstSize: CGSize?) {
+    /// `work` / `rows`: the checklist row of each url, told when it is read and how it went.
+    static func makeClips(from urls: [URL], work: WorkSteps? = nil, rows: [Int]? = nil) async -> (clips: [Clip], firstSize: CGSize?) {
         var clips: [Clip] = []
         var first: CGSize?
-        for url in urls {
+        for (n, url) in urls.enumerated() {
+            let row = rows.map { n < $0.count ? $0[n] : n } ?? n
             // photos: held as long as Settings > Defaults says
             if StillVideo.isImage(url) {
                 defer { try? FileManager.default.removeItem(at: url) }
+                await work?.working(row, loc("Turning the photo into a clip…"))
                 guard let video = try? await StillVideo.make(fromImageAt: url),
-                      let info = try? await probe(video) else { continue }
+                      let info = try? await probe(video) else {
+                    await work?.failed(row, loc("Couldn't open it"))
+                    continue
+                }
                 if first == nil { first = info.size }
                 var still = StillVideo.clip(video, size: info.size)
                 still.fill = Defaults.fillNewClips
                 clips.append(still)
+                await work?.done(row, WorkText.clipInfo(info.size))
                 continue
             }
+            await work?.working(row, loc("Reading the clip…"))
             let (made, size) = await videoClip(url)
             guard let c = made.first else {
                 try? FileManager.default.removeItem(at: url)
+                await work?.failed(row, loc("Couldn't open it"))
                 continue
             }
             if first == nil { first = size }
             clips.append(c)
+            await work?.done(row, WorkText.clipInfo(size))
         }
         return (clips, first)
     }

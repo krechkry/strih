@@ -25,6 +25,8 @@ struct EditorView: View {
     @State private var adding = false
     @State private var confirmConvert: [URL]?     // old camera files picked: waiting for "proceed?"
     @State private var convertStatus: String?
+    /// The import checklist while clips come in (one row per clip).
+    @State private var work: WorkSteps?
     @State private var importProblems: String?
     @State private var renaming = false
     @State private var confirmRemoveCaptions = false
@@ -440,8 +442,13 @@ struct EditorView: View {
             Task { await add(items) }
         }
         .overlay {
-            if adding || model.audioBusy {
-                ProgressView(model.audioBusy ? loc("Getting the sound…") : convertStatus ?? loc("Importing…"))
+            if let work {
+                ZStack {
+                    Color.black.opacity(0.45).ignoresSafeArea()
+                    WorkStepsView(work: work)
+                }
+            } else if adding || model.audioBusy {
+                ProgressView(model.audioBusy ? loc("Getting the sound…") : convertStatus ?? loc("Checking the files…"))
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
@@ -1172,15 +1179,19 @@ struct EditorView: View {
     /// Picked in our gallery: original files, each clip remembering its Photos item.
     private func add(_ assets: [PHAsset]) async {
         adding = true
-        defer { adding = false }
-        let (clips, _) = await Media.makeClips(from: assets)
+        work = Media.importSteps(assets)
+        defer { adding = false; work = nil }
+        let (clips, _) = await Media.makeClips(from: assets, work: work)
         model.addClips(clips)
     }
 
     private func addOverlay(_ a: PHAsset) async {
         adding = true
-        defer { adding = false }
-        guard let url = await Media.load(a) else { return }
+        let w = Media.importSteps([a], title: "Adding a layer")
+        work = w
+        defer { adding = false; work = nil }
+        guard let url = await Media.load(a, work: w, row: 0) else { return }
+        w.done(0)
         await model.addMediaOverlay(url: url, isVideo: a.mediaType == .video, asset: a.localIdentifier)
     }
 
@@ -1222,10 +1233,10 @@ struct EditorView: View {
 
     private func importPickedFiles(_ picked: [URL]) async {
         adding = true
-        defer { adding = false; convertStatus = nil }
-        let r = await Media.importFiles(picked) { convertStatus = $0 }
-        convertStatus = nil
-        let (clips, _) = await Media.makeClips(from: r.urls)
+        work = Media.importSteps(picked)
+        defer { adding = false; convertStatus = nil; work = nil }
+        let r = await Media.importFiles(picked, work: work)
+        let (clips, _) = await Media.makeClips(from: r.urls, work: work, rows: r.rows)
         model.addClips(clips)
         var problems = r.problems
         if clips.count < r.urls.count {
@@ -1236,12 +1247,15 @@ struct EditorView: View {
 
     private func add(_ items: [PhotosPickerItem]) async {
         adding = true
-        defer { adding = false }
-        var urls: [URL] = []
-        for item in items {
-            if let url = await Media.load(item) { urls.append(url) }
+        let w = WorkSteps(title: "Adding clips", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
+        work = w
+        defer { adding = false; work = nil }
+        var urls: [URL] = [], rows: [Int] = []
+        for (k, item) in items.enumerated() {
+            w.working(k, loc("Copying into BOMBOCUT…"))
+            if let url = await Media.load(item) { urls.append(url); rows.append(k) } else { w.failed(k, loc("Couldn't get it from Photos")) }
         }
-        let (clips, _) = await Media.makeClips(from: urls)
+        let (clips, _) = await Media.makeClips(from: urls, work: w, rows: rows)
         model.addClips(clips)
     }
 

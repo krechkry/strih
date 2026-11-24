@@ -69,6 +69,8 @@ enum LegacyVideo {
 extension Media {
     struct FilesImport {
         var urls: [URL] = []
+        /// The checklist row of each url (`work` rows are one per picked file).
+        var rows: [Int] = []
         /// Files left out or imported with a catch, one line each.
         var problems: [String] = []
     }
@@ -91,10 +93,16 @@ extension Media {
         }.value
     }
 
-    /// Brings files picked in Files into the Media folder: copies the ones iOS reads, converts old camera formats.
-    /// `status` gets "Converting 1 of 2… 40 %" style text while converting.
+    /// One checklist row per picked file (its name).
     @MainActor
-    static func importFiles(_ picked: [URL], status: @escaping @MainActor (String) -> Void) async -> FilesImport {
+    static func importSteps(_ picked: [URL], title: String = "Adding clips") -> WorkSteps {
+        WorkSteps(title: title, steps: picked.map { $0.lastPathComponent })
+    }
+
+    /// Brings files picked in Files into the Media folder: copies the ones iOS reads, converts old camera formats.
+    /// `work` (rows from `importSteps`) is told what happens to each file.
+    @MainActor
+    static func importFiles(_ picked: [URL], work: WorkSteps?) async -> FilesImport {
         var result = FilesImport()
         let verdicts = await Task.detached(priority: .userInitiated) { () -> [LegacyVideo.Verdict] in
             picked.map { u in
@@ -103,37 +111,46 @@ extension Media {
                 return LegacyVideo.verdict(u)
             }
         }.value
-        let total = verdicts.filter { $0 == .convert }.count
-        var done = 0
-        for (u, verdict) in zip(picked, verdicts) {
+        for (k, (u, verdict)) in zip(picked, verdicts).enumerated() {
             switch verdict {
             case .unsupported(let why):
                 result.problems.append(why)
+                work?.failed(k, why)
             case .native:
+                work?.working(k, loc("Copying into BOMBOCUT…"))
                 let copied = await Task.detached(priority: .userInitiated) { () -> URL? in
                     let ok = u.startAccessingSecurityScopedResource()
                     defer { if ok { u.stopAccessingSecurityScopedResource() } }
+                    // files from iCloud Drive come down first
+                    if (try? u.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]))?.ubiquitousItemDownloadingStatus
+                        == .notDownloaded {
+                        work?.update(k, loc("Downloading from iCloud Drive…"), progress: nil)
+                    }
                     return try? Media.copyIn(u)
                 }.value
-                if let copied { result.urls.append(copied) }
+                if let copied {
+                    result.urls.append(copied)
+                    result.rows.append(k)
+                } else {
+                    work?.failed(k, loc("Couldn't copy it"))
+                }
             case .convert:
-                done += 1
-                let k = done
-                status(String(format: loc("Converting %lld of %lld…"), k, total))
+                work?.working(k, loc("Converting the old camera format…"), progress: 0)
                 do {
                     let converted = try await Task.detached(priority: .userInitiated) { () -> LegacyConverter.Result in
                         let ok = u.startAccessingSecurityScopedResource()
                         defer { if ok { u.stopAccessingSecurityScopedResource() } }
                         return try await LegacyVideo.convert(u) { p in
-                            Task { @MainActor in
-                                status(String(format: loc("Converting %lld of %lld… %lld %%"), k, total, Int(p * 100)))
-                            }
+                            work?.update(k, String(format: loc("Converting the old camera format · %lld %%"), Int(p * 100)),
+                                         progress: p)
                         }
                     }.value
                     result.urls.append(converted.url)
+                    result.rows.append(k)
                     result.problems += converted.notes
                 } catch {
                     result.problems.append(error.localizedDescription)
+                    work?.failed(k, error.localizedDescription)
                 }
             }
         }

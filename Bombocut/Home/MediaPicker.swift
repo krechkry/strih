@@ -491,16 +491,29 @@ extension Media {
     /// `dest`: where it goes (a new name otherwise), used to bring back a light project file's videos.
     /// A video already copied in for another project (same Photos item, not edited since) is reused instead of
     /// copied again: one file here, one file in iCloud (`PhotosMedia`).
-    static func load(_ asset: PHAsset, to dest: URL? = nil) async -> URL? {
+    /// `work` / `row`: the import checklist row this item reports to (downloading from iCloud, copying).
+    static func load(_ asset: PHAsset, to dest: URL? = nil, work: WorkSteps? = nil, row: Int = 0) async -> URL? {
         Paths.ensure()
         if asset.mediaType == .video {
-            if dest == nil, let same = PhotosMedia.existing(asset) { return same }
+            if dest == nil, let same = PhotosMedia.existing(asset) {
+                work?.update(row, loc("Already in BOMBOCUT"), progress: 1)
+                return same
+            }
             let res = PHAssetResource.assetResources(for: asset)
             guard let r = res.first(where: { $0.type == .fullSizeVideo }) ?? res.first(where: { $0.type == .video }) else { return nil }
             let ext = (r.originalFilename as NSString).pathExtension.lowercased()
             let url = dest ?? Paths.mediaURL(UUID().uuidString + "." + (ext.isEmpty ? "mov" : ext))
             let o = PHAssetResourceRequestOptions()
             o.isNetworkAccessAllowed = true
+            // only called while the original comes down from iCloud
+            o.progressHandler = { p in
+                work?.update(row, String(format: loc("Downloading from iCloud · %lld %%"), Int(p * 100)), progress: p)
+            }
+            work?.update(row, loc("Copying into BOMBOCUT…"), progress: nil)
+            let watch = WorkText.watch(url) { n in
+                work?.update(row, String(format: loc("Copying into BOMBOCUT · %@"), WorkText.bytes(n)), progress: nil)
+            }
+            defer { watch.cancel() }
             do {
                 try await PHAssetResourceManager.default().writeData(for: r, toFile: url, options: o)
                 PhotosMedia.remember(asset, url)
@@ -514,6 +527,10 @@ extension Media {
         o.isNetworkAccessAllowed = true
         o.version = .current
         o.deliveryMode = .highQualityFormat
+        o.progressHandler = { p, _, _, _ in
+            work?.update(row, String(format: loc("Downloading from iCloud · %lld %%"), Int(p * 100)), progress: p)
+        }
+        work?.update(row, loc("Copying into BOMBOCUT…"), progress: nil)
         let got: (Data, String)? = await withCheckedContinuation { c in
             PHImageManager.default().requestImageDataAndOrientation(for: asset, options: o) { data, uti, _, _ in
                 c.resume(returning: data.map { ($0, uti ?? "public.jpeg") })
@@ -526,11 +543,26 @@ extension Media {
     }
 
     /// Picked Photos items as clips, in the picked order, each remembering where it came from.
-    static func makeClips(from assets: [PHAsset]) async -> (clips: [Clip], firstSize: CGSize?) {
+    /// One checklist row per picked item ("Video 1 · 0:14", "Photo 2"), for `makeClips(from:work:)`.
+    @MainActor
+    static func importSteps(_ assets: [PHAsset], title: String = "Adding clips") -> WorkSteps {
+        WorkSteps(title: title, steps: assets.enumerated().map { k, a in
+            a.mediaType == .video
+                ? String(format: loc("Video %lld · %@"), k + 1, Fmt.duration(a.duration))
+                : String(format: loc("Photo %lld"), k + 1)
+        })
+    }
+
+    /// `work`: rows made by `importSteps`, one per asset, told what is happening to each (one after another).
+    static func makeClips(from assets: [PHAsset], work: WorkSteps? = nil) async -> (clips: [Clip], firstSize: CGSize?) {
         var clips: [Clip] = []
         var first: CGSize?
-        for a in assets {
-            guard let url = await load(a) else { continue }
+        for (k, a) in assets.enumerated() {
+            guard let url = await load(a, work: work, row: k) else {
+                await work?.failed(k, loc("Couldn't get it from Photos"))
+                continue
+            }
+            await work?.working(k, a.mediaType == .video ? loc("Reading the clip…") : loc("Turning the photo into a clip…"))
             // a reused file belongs to other projects too: never removed here, even when it can't be read
             let got: (clips: [Clip], firstSize: CGSize?)
             if PhotosMedia.isShared(url) {
@@ -539,6 +571,11 @@ extension Media {
                 got = await makeClips(from: [url])
             }
             if first == nil { first = got.firstSize }
+            if got.clips.isEmpty {
+                await work?.failed(k, loc("Couldn't open it"))
+            } else {
+                await work?.done(k, WorkText.clipInfo(got.firstSize))
+            }
             clips += got.clips.map { var c = $0; c.asset = a.localIdentifier; return c }
         }
         return (clips, first)

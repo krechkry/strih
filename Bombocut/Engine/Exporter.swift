@@ -129,7 +129,9 @@ final class Exporter: @unchecked Sendable {
     /// by simple frame blending instead of Apple's frame engine (much less memory, a softer look).
     /// `hdr`: 10-bit HEVC in HLG (BT.2100), HDR footage keeps its highlights. The frame engine's smooth cuts and
     /// motion blur work on 8-bit frames, so an HDR export uses their lighter blends.
+    /// `work`: the export checklist (rows 0 getting ready, 1 building the timeline; the sheet does the rest).
     func export(project: Project, settings: ExportSettings, endCard: Bool = false, light: Bool = false, hdr: Bool = false,
+                work: WorkSteps? = nil,
                 progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let light = light || hdr
         let w = Canvas.even(Double(settings.width)), h = Canvas.even(Double(settings.height))
@@ -140,10 +142,15 @@ final class Exporter: @unchecked Sendable {
         CaptionStore.shared.update(project.captionTracks)
         OverlayStore.shared.update(project)
         // cleaned-up speech the editor has not made yet
+        let cleaning = await !SpeechCleanup.shared.missing(in: project).isEmpty
+        await work?.working(0, cleaning ? loc("Cleaning up speech…") : loc("Checking clips and sound…"))
         await SpeechCleanup.shared.prepare(project)
+        await work?.done(0)
+        await work?.working(1, String(format: loc("%lld clips, effects, captions and sound"), project.clips.count))
         let built = try await CompositionBuilder.build(project: project,
                                                        renderSize: CGSize(width: w, height: h),
                                                        fps: settings.fps, endCard: endCard, light: light, hdr: hdr)
+        await work?.done(1)
         let duration = max(built.duration, 0.01)
 
         let out = FileManager.default.temporaryDirectory

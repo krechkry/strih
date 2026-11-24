@@ -132,6 +132,16 @@
         }
       }
     },
+    "%lld clips, effects, captions and sound": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld klipů, efekty, titulky a zvuk"
+          }
+        }
+      }
+    },
     "%lld days of your trial left.": {
       "localizations": {
         "cs": {
@@ -182,6 +192,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld snímků"
+          }
+        }
+      }
+    },
+    "%lld of %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld z %lld"
           }
         }
       }
@@ -520,6 +540,26 @@
         }
       }
     },
+    "Adding a layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidávám vrstvu"
+          }
+        }
+      }
+    },
+    "Adding clips": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidávám klipy"
+          }
+        }
+      }
+    },
     "Adding the project…": {
       "localizations": {
         "cs": {
@@ -666,6 +706,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Povol v Nastavení přístup k fotkám a vybírej klipy tady, klidně tahem prstu. Nebo použij systémový výběr."
+          }
+        }
+      }
+    },
+    "Already in BOMBOCUT": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Už je v BOMBOCUTu"
           }
         }
       }
@@ -1460,6 +1510,16 @@
         }
       }
     },
+    "Building the timeline": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skládám časovou osu"
+          }
+        }
+      }
+    },
     "Buy BOMBOCUT once to keep editing. Your projects are safe on your iPhone, and you can still export them as they are.": {
       "localizations": {
         "cs": {
@@ -1730,6 +1790,26 @@
         }
       }
     },
+    "Checking clips and sound…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontroluju klipy a zvuk…"
+          }
+        }
+      }
+    },
+    "Checking the files…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontroluju soubory…"
+          }
+        }
+      }
+    },
     "Checking…": {
       "localizations": {
         "cs": {
@@ -1796,6 +1876,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Úklid"
+          }
+        }
+      }
+    },
+    "Cleaning up speech…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čistím řeč…"
           }
         }
       }
@@ -1990,6 +2080,26 @@
         }
       }
     },
+    "Converting the old camera format · %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Převádím starý formát kamery · %lld %%"
+          }
+        }
+      }
+    },
+    "Converting the old camera format…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Převádím starý formát kamery…"
+          }
+        }
+      }
+    },
     "Cool Night": {
       "localizations": {
         "cs": {
@@ -2006,6 +2116,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kopírovat jako překrytí"
+          }
+        }
+      }
+    },
+    "Copying into BOMBOCUT · %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopíruju do BOMBOCUTu · %@"
+          }
+        }
+      }
+    },
+    "Copying into BOMBOCUT…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopíruju do BOMBOCUTu…"
+          }
+        }
+      }
+    },
+    "Copying the video into your library…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopíruju video do knihovny…"
           }
         }
       }
@@ -2146,6 +2286,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Projekt se nepodařilo přidat"
+          }
+        }
+      }
+    },
+    "Couldn't copy it": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nešlo to zkopírovat"
+          }
+        }
+      }
+    },
+    "Couldn't get it from Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z Fotek to nešlo získat"
+          }
+        }
+      }
+    },
+    "Couldn't open it": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejde otevřít"
           }
         }
       }
@@ -2854,6 +3024,26 @@
         }
       }
     },
+    "Downloading from iCloud Drive…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuju z iCloud Drive…"
+          }
+        }
+      }
+    },
+    "Downloading from iCloud · %lld %%": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahuju z iCloudu · %lld %%"
+          }
+        }
+      }
+    },
     "Downloading from iCloud…": {
       "localizations": {
         "cs": {
@@ -3384,6 +3574,16 @@
         }
       }
     },
+    "Exporting": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exportuju"
+          }
+        }
+      }
+    },
     "Exposure": {
       "localizations": {
         "cs": {
@@ -3874,6 +4074,16 @@
         }
       }
     },
+    "Frame %lld of %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snímek %lld z %lld"
+          }
+        }
+      }
+    },
     "Frame for": {
       "localizations": {
         "cs": {
@@ -4054,6 +4264,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vytvořit titulky znovu? Tvoje úpravy textu se přepíšou."
+          }
+        }
+      }
+    },
+    "Getting clips and sound ready": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuju klipy a zvuk"
           }
         }
       }
@@ -4418,16 +4638,6 @@
         }
       }
     },
-    "Importing…": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importuju…"
-          }
-        }
-      }
-    },
     "In": {
       "localizations": {
         "cs": {
@@ -4574,6 +4784,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kurzíva"
+          }
+        }
+      }
+    },
+    "Item %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Položka %lld"
           }
         }
       }
@@ -6108,6 +6328,16 @@
         }
       }
     },
+    "Photo %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotka %lld"
+          }
+        }
+      }
+    },
     "Photo length": {
       "localizations": {
         "cs": {
@@ -6598,6 +6828,16 @@
         }
       }
     },
+    "Reading the clip…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Načítám klip…"
+          }
+        }
+      }
+    },
     "Ready": {
       "localizations": {
         "cs": {
@@ -6784,6 +7024,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přejmenovat projekt"
+          }
+        }
+      }
+    },
+    "Rendering the video": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renderuju video"
           }
         }
       }
@@ -7184,6 +7434,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uloženo do Fotek"
+          }
+        }
+      }
+    },
+    "Saving to Photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ukládám do Fotek"
           }
         }
       }
@@ -9248,6 +9508,16 @@
         }
       }
     },
+    "Turning the photo into a clip…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dělám z fotky klip…"
+          }
+        }
+      }
+    },
     "Typewriter": {
       "localizations": {
         "cs": {
@@ -9384,6 +9654,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Video"
+          }
+        }
+      }
+    },
+    "Video %lld · %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video %lld · %@"
           }
         }
       }

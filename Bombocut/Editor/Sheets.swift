@@ -176,6 +176,8 @@ struct ExportSheet: View {
     @AppStorage("export.bitrate") private var bitrate = 12.0
     @AppStorage("export.endCard") private var endCard = true
     @AppStorage("export.hdr") private var hdr = false
+    /// What the export is doing, step by step (under the progress bar).
+    @State private var work: WorkSteps?
     /// Basic shows only the presets (always H.264 in an .mp4, it plays everywhere).
     @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
     private var pro: Bool { uiMode == UIMode.pro.rawValue }
@@ -597,22 +599,31 @@ struct ExportSheet: View {
         let withCard = withEndCard
         let exp = Exporter()
         exporter = exp
+        let w = WorkSteps(title: "Exporting", steps: ["Getting clips and sound ready", "Building the timeline",
+                                                      "Rendering the video", "Saving to Photos"])
+        work = w
+        let frames = Int((project.duration + (withCard ? EndCard.length : 0)) * fps)
         phase = .exporting(0)
         UIApplication.shared.isIdleTimerDisabled = true
         task = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
             do {
                 let url = try await exp.export(project: project, settings: settings, endCard: withCard, light: light,
-                                               hdr: hdr) { p in
+                                               hdr: hdr, work: w) { p in
                     Task { @MainActor in
                         if case .exporting = phase { phase = .exporting(p) }
+                        w.working(2, String(format: loc("Frame %lld of %lld"), min(frames, Int(p * Double(frames))), frames),
+                                  progress: p)
                     }
                 }
                 // cancelled: the screen already went back to the settings
                 if Task.isCancelled || exp.cancelled { return }
+                w.done(2, String(format: loc("%lld frames"), frames))
+                w.working(3, loc("Copying the video into your library…"))
                 doneMeme = EditEffort.doneMeme(for: project)
                 do {
                     try await Exporter.saveToPhotos(url)
+                    w.done(3)
                     phase = .done(url, saved: true, note: nil)
                 } catch {
                     phase = .done(url, saved: false, note: error.localizedDescription)
@@ -666,6 +677,7 @@ struct ExportSheet: View {
                 .animation(.snappy, value: Int(p * 100))
                 .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.play)) }) { stage.percent = $0 }
             progressBar(p)
+            if let work { WorkStepsView(work: work, compact: true) }
             Text("Keep the app open while exporting.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)

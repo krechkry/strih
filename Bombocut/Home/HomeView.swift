@@ -16,6 +16,8 @@ struct HomeView: View {
     @State private var importError: String?
     @State private var confirmConvert: [URL]?     // old camera files picked: waiting for "proceed?"
     @State private var convertStatus: String?
+    /// The import checklist while a new project's clips come in (one row per clip).
+    @State private var work: WorkSteps?
     @State private var importNote: String?        // files left out of the new project, shown when naming it
     @State private var openProject: Project?
     /// A project being checked against iCloud before it opens (Sync projects).
@@ -133,8 +135,13 @@ struct HomeView: View {
                     .toolbar(.hidden, for: .navigationBar)
             }
             .overlay {
-                if importing {
-                    ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Importing…") } }
+                if let work {
+                    ZStack {
+                        Color.black.opacity(0.45).ignoresSafeArea()
+                        WorkStepsView(work: work)
+                    }
+                } else if importing {
+                    ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Checking the files…") } }
                         .padding(24)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
@@ -425,18 +432,22 @@ struct HomeView: View {
 
     private func importFromPhotos(_ items: [PhotosPickerItem]) async {
         importing = true
-        defer { importing = false }
-        var urls: [URL] = []
-        for item in items {
-            if let url = await Media.load(item) { urls.append(url) }
+        let w = WorkSteps(title: "New project", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
+        work = w
+        defer { importing = false; work = nil }
+        var urls: [URL] = [], rows: [Int] = []
+        for (k, item) in items.enumerated() {
+            w.working(k, loc("Copying into BOMBOCUT…"))
+            if let url = await Media.load(item) { urls.append(url); rows.append(k) } else { w.failed(k, loc("Couldn't get it from Photos")) }
         }
-        await create(from: urls)
+        await create(from: urls, rows: rows)
     }
 
     private func importFromAssets(_ assets: [PHAsset]) async {
         importing = true
-        defer { importing = false }
-        let (clips, firstSize) = await Media.makeClips(from: assets)
+        work = Media.importSteps(assets, title: "New project")
+        defer { importing = false; work = nil }
+        let (clips, firstSize) = await Media.makeClips(from: assets, work: work)
         await create(clips: clips, firstSize: firstSize)
     }
 
@@ -459,14 +470,14 @@ struct HomeView: View {
 
     private func importPickedFiles(_ picked: [URL]) async {
         importing = true
-        defer { importing = false; convertStatus = nil }
-        let r = await Media.importFiles(picked) { convertStatus = $0 }
-        convertStatus = nil
-        await create(from: r.urls, problems: r.problems)
+        work = Media.importSteps(picked, title: "New project")
+        defer { importing = false; convertStatus = nil; work = nil }
+        let r = await Media.importFiles(picked, work: work)
+        await create(from: r.urls, problems: r.problems, rows: r.rows)
     }
 
-    private func create(from urls: [URL], problems: [String] = []) async {
-        let (clips, firstSize) = await Media.makeClips(from: urls)
+    private func create(from urls: [URL], problems: [String] = [], rows: [Int]? = nil) async {
+        let (clips, firstSize) = await Media.makeClips(from: urls, work: work, rows: rows)
         var problems = problems
         if !problems.isEmpty && clips.count < urls.count {
             problems.append(String(format: loc("%lld files couldn't be opened."), urls.count - clips.count))
