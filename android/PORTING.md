@@ -35,8 +35,11 @@ stub = placeholder. - = not started.
 | Engine/Beats.swift (BeatDetector) | engine/Beats.kt | | - |
 | Engine/Silence.swift | engine/Silence.kt | | - |
 | Editor/EditEffort.swift | editor/EditEffort.kt | | - |
-| Editor/EditorModel.swift | editor/EditorModel.kt | | - |
-| Engine/CompositionBuilder.swift | engine/CompositionBuilder.kt | | - |
+| Editor/EditorModel.swift | editor/EditorModel.kt | ad3827a | part 1: undo / redo, split, delete, duplicate, move, ripple trim, speed, volume, adjust |
+| Engine/CompositionBuilder.swift | engine/CompositionBuilder.kt | ad3827a | rework on Media3: clips, speed curves, pitch, volume / fades, fit / fill, sound items (audio sequences); not yet: transitions, picture / video layers |
+| Engine/EffectsRenderer.swift (color) | engine/LookMath.kt + LookLut.kt | ad3827a | 1:1 math as a 33-point LUT: exposure, contrast, saturation, temperature, tint, shadows, highlights match colors.json within 3 levels (4 for white balance) |
+| Engine/CaptionRenderer.swift + OverlayRenderer text | engine/TextRenderer.kt + TextLayer.kt | ad3827a | rework on Canvas: size, wrap, box, outline, shadow, keyframes, in / out animations, caption fade / pop / slide; not yet: app fonts, per-word animations, pinned texts |
+| App/Purchases.swift + PaywallView | app/Purchases.kt + home/Paywall.kt | ad3827a | rework on Play Billing 8.3: trial kept on the phone (Play trials are subscription-only), one-time product cz.krechler.bombocut.full |
 
 ## Notes for the JSON contract
 - Swift's default JSONEncoder: dates are seconds since 2001-01-01 (Double), UUIDs upper case, CGPoint / CGSize as `[a, b]`, CGRect as `[[x, y], [w, h]]`.
