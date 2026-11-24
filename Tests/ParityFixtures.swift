@@ -1,4 +1,5 @@
 import XCTest
+import CoreImage
 @testable import Bombocut
 
 /// Writes shared/parity/*.json: inputs and the iPhone app's outputs of pure functions. The Android app's unit

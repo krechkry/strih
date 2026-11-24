@@ -36,7 +36,7 @@ jobs:
           c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]
           print(sorted(c,key=lambda x:x['name'])[-1]['udid'])")
           xcodebuild test -project Bombocut.xcodeproj -scheme Bombocut -destination "id=$UDID" ARCHS=arm64 \
-            CODE_SIGNING_ALLOWED=NO -only-testing:BombocutTests/ParityFixtures > test.log 2>&1 || { tail -60 test.log; exit 1; }
+            CODE_SIGNING_ALLOWED=NO -only-testing:BombocutTests/ParityFixtures > test.log 2>&1 || { grep -E "error:" test.log | head -30; tail -40 test.log; exit 1; }
           grep -E "Test Case .*(passed|failed)" test.log || true
           ls -la shared/parity
 
