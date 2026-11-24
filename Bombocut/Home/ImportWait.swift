@@ -23,7 +23,7 @@ struct ImportWaitView: View {
         ZStack(alignment: .top) {
             Color.black.opacity(work.playing ? 0.85 : 0.45).ignoresSafeArea()
             if work.playing {
-                TimelineView(.animation) { tl in
+                SwiftUI.TimelineView(.animation) { tl in
                     Canvas { ctx, size in
                         game.step(tl.date, size: size, island: island, lit: lit)
                         game.draw(&ctx, size: size)
