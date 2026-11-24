@@ -90,7 +90,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
         switch self {
         case .split: return "Split"
         case .adjust: return "Adjust"
-        case .filters: return "Filters"
+        case .filters: return "Filters & LUT"
         case .speed: return "Speed"
         case .slip: return "Slip"
         case .crop: return "Crop"

@@ -113,7 +113,7 @@ struct FiltersSheet: View {
             tabButton(.all) { Text("All").font(.footnote.weight(.bold)).lineLimit(1) }
             tabButton(.log) { Text(verbatim: "Apple Log").font(.footnote.weight(.bold)).lineLimit(1) }
             tabButton(.mine) { Image(systemName: "person.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
-            tabButton(.imported) { Image(systemName: "folder.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
+            tabButton(.imported) { Text(verbatim: "LUT").font(.footnote.weight(.bold)).lineLimit(1) }   // your imported .cube files
         }
     }
 
@@ -127,7 +127,7 @@ struct FiltersSheet: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(t == .log ? "Apple Log"
-                            : loc(t == .liked ? "Liked" : t == .imported ? "Imported" : t == .mine ? "Mine" : "All"))
+                            : (t == .imported ? "LUT" : loc(t == .liked ? "Liked" : t == .mine ? "Mine" : "All")))
     }
 
     // MARK: Tiles

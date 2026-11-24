@@ -34,6 +34,7 @@ struct MediaPicker: View {
     @AppStorage("pickerAlbum") private var albumID = ""
     @AppStorage("pickerSort") private var sort = GallerySort.created
     @State private var albums: [PHAssetCollection] = []
+    @State private var manageAccess = false
     @State private var status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
     @State private var fetch: PHFetchResult<PHAsset>?
     @State private var picked: [String] = []                // local identifiers, in the order picked
@@ -233,11 +234,7 @@ struct MediaPicker: View {
                     })
                     // room under the last row for the floating Add button, always there so nothing jumps
                     Color.clear.frame(height: limit > 1 ? 84 : 0)
-                    if status == .limited {
-                        Text("BOMBOCUT sees only the items you allowed. Change it in Settings.")
-                            .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                            .padding(16)
-                    }
+                    if status == .limited { limitedNote }
                 }
                 .scrollDisabled(painting)
                 .defaultScrollAnchor(.bottom)
@@ -370,6 +367,45 @@ struct MediaPicker: View {
             index[id] = i
         }
         UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// Limited Photos access: what it means, and Manage (like Instagram's) = pick more photos right here, or
+    /// open BOMBOCUT's page in Settings.
+    private var limitedNote: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("BOMBOCUT sees only the items you allowed.")
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button { manageAccess = true } label: {
+                Text("Manage").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .padding(.horizontal, 14).frame(height: 34)
+                    .background(Theme.panel2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .confirmationDialog("", isPresented: $manageAccess, titleVisibility: .hidden) {
+            Button(loc("Select more photos")) { pickMore() }
+            Button(loc("Change settings")) {
+                if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+            }
+            Button(loc("Cancel"), role: .cancel) {}
+        }
+    }
+
+    /// Apple's own picker for adding photos and videos to what BOMBOCUT may see; the grid reloads after.
+    private func pickMore() {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        guard var top = scene?.keyWindow?.rootViewController else { return }
+        while let next = top.presentedViewController { top = next }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: top) { _ in
+            Task { @MainActor in
+                status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+                load()
+            }
+        }
     }
 
     private func load() {

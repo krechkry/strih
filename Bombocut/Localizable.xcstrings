@@ -1030,12 +1030,12 @@
         }
       }
     },
-    "BOMBOCUT sees only the items you allowed. Change it in Settings.": {
+    "BOMBOCUT sees only the items you allowed.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT vidí jen to, k čemu má přístup. Změníš to v Nastavení."
+            "value": "BOMBOCUT vidí jen to, co jsi povolil."
           }
         }
       }
@@ -1666,6 +1666,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Změna přidá keyframe v %@"
+          }
+        }
+      }
+    },
+    "Change settings": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Změnit nastavení"
           }
         }
       }
@@ -3554,6 +3564,16 @@
         }
       }
     },
+    "Filters & LUT": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtry a LUT"
+          }
+        }
+      }
+    },
     "Finding it…": {
       "localizations": {
         "cs": {
@@ -5044,6 +5064,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dělám průhledné video…"
+          }
+        }
+      }
+    },
+    "Manage": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spravovat"
           }
         }
       }
@@ -7144,6 +7174,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat vše"
+          }
+        }
+      }
+    },
+    "Select more photos": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat další fotky"
           }
         }
       }
