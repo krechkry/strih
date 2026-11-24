@@ -35,5 +35,11 @@ adb exec-out screencap -p > $OUT/02-home.png
 adb shell input tap 540 900
 sleep 4
 adb exec-out screencap -p > $OUT/03-editor.png
+# play: the transport's play button sits at the bottom middle
+adb shell input tap 620 2240
+sleep 2
+adb exec-out screencap -p > $OUT/04-playing-2s.png
+sleep 2
+adb exec-out screencap -p > $OUT/05-playing-4s.png
 adb logcat -d -t 400 | grep -iE "bombocut|AndroidRuntime|FATAL" > $OUT/logcat.txt || true
 ls -la $OUT
