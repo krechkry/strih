@@ -10,13 +10,18 @@ final class HybridTrackerTests: XCTestCase {
         return GrayImage(w: 200, h: 150, px: px)
     }
 
-    private var texture: [Float] {
-        var g = SystemRandomNumberGenerator()
-        return (0..<900).map { _ in Float(UInt8.random(in: 0...255, using: &g)) }
+    /// A smooth pattern (like real footage, it changes little from one pixel to the next); `kind` picks another one.
+    private func texture(_ kind: Int = 0) -> [Float] {
+        (0..<900).map { k in
+            let i = Float(k % 30), j = Float(k / 30)
+            return kind == 0
+                ? 128 + 60 * sin(i * 0.35) + 50 * cos(j * 0.28 + i * 0.12)
+                : 128 + 60 * cos(j * 0.4) - 50 * sin(i * 0.22 - j * 0.15)
+        }
     }
 
     func testFindsTheSubjectWhereItMoved() {
-        let t = texture
+        let t = texture()
         let a = frame(patchAt: 40, 40, texture: t)
         let mem = AppearanceMemory(capacity: 30)
         let box = CGRect(x: 40, y: 40, width: 30, height: 30)
@@ -29,11 +34,11 @@ final class HybridTrackerTests: XCTestCase {
     }
 
     func testAnotherLookScoresLow() {
-        let a = frame(patchAt: 40, 40, texture: texture)
+        let a = frame(patchAt: 40, 40, texture: texture())
         let mem = AppearanceMemory(capacity: 30)
         let box = CGRect(x: 40, y: 40, width: 30, height: 30)
         mem.remember(AppearanceMemory.patch(a, box)!)
-        let other = frame(patchAt: 40, 40, texture: texture)
+        let other = frame(patchAt: 40, 40, texture: texture(1))
         XCTAssertLessThan(mem.score(AppearanceMemory.patch(other, box)!), 0.4)
         // a flat spot has no look at all
         XCTAssertNil(AppearanceMemory.patch(a, CGRect(x: 150, y: 100, width: 30, height: 30)))
