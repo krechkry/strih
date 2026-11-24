@@ -58,6 +58,7 @@ jobs:
             [ -f "$f" ] && grep -o 'testsuite name="[^"]*" tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' "$f"
           done | tee -a "$GITHUB_STEP_SUMMARY" || true
           grep -h -A5 '<failure' android/app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | head -80 || true
+          [ -f android/app/build/color-report.txt ] && { echo "### Adjust colors vs iPhone"; cat android/app/build/color-report.txt; } | tee -a "$GITHUB_STEP_SUMMARY" || true
 
       - uses: actions/upload-artifact@v4
         if: success()
