@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
                 var open by rememberSaveable { mutableStateOf<String?>(null) }
                 val projects by store.projects.collectAsState()
                 val p = open?.let { id -> projects.firstOrNull { it.id.toString() == id } }
-                if (p != null) EditorView(p) { open = null }
+                if (p != null) EditorView(p, store) { open = null }
                 else HomeView(store) { open = it.toString() }
             }
         }
