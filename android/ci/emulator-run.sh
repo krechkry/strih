@@ -31,12 +31,11 @@ adb shell am start -W -n $APP/.app.MainActivity
 sleep 5
 adb exec-out screencap -p > $OUT/02-home.png
 
-# open the first project (rows start below the New project card)
-adb shell input tap 540 900
+# open the project from the iPhone
+python3 android/ci/tap.py "Z iPhonu"
 sleep 4
 adb exec-out screencap -p > $OUT/03-editor.png
-# play: the transport's play button sits at the bottom middle
-adb shell input tap 620 2240
+python3 android/ci/tap.py "Play"
 sleep 2
 adb exec-out screencap -p > $OUT/04-playing-2s.png
 sleep 2

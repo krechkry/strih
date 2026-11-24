@@ -48,7 +48,7 @@ fun EditorView(project: Project, close: () -> Unit) {
         ) {
             Text(Fmt.time(preview.time) + " / " + Fmt.time(project.duration), color = Color.White, fontSize = 14.sp)
             IconButton({ preview.toggle() }, Modifier.size(48.dp)) {
-                Icon(if (preview.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, null, tint = Color.White)
+                Icon(if (preview.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (preview.playing) "Pause" else "Play", tint = Color.White)
             }
         }
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
