@@ -79,7 +79,9 @@ data class AnimPair(
 }
 
 /** A transition between two clips (see Anim.swift and `Project.cutShape`). */
-@Serializable
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@kotlinx.serialization.KeepGeneratedSerializer
+@Serializable(with = CutTransitionSerializer::class)
 data class CutTransition(
     val kind: MotionAnim = MotionAnim.fade,
     val duration: Double = 0.5,
@@ -137,5 +139,16 @@ data class CutTransition(
         var dz = (ln(b.scale) - ln(a.scale)) / dt
         if (abs(dz) > 50) dz = 0.0
         return Triple((b.dx - a.dx) / dt, (b.dy - a.dy) / dt, dz)
+    }
+}
+
+/**
+ * Swift's `var handles: Bool? = true` reads a missing key as nil (an old transition that overlaps), while a new
+ * transition starts at true. kotlinx would fill in the default, so a missing key is made an explicit null first.
+ */
+object CutTransitionSerializer : kotlinx.serialization.json.JsonTransformingSerializer<CutTransition>(CutTransition.generatedSerializer()) {
+    override fun transformDeserialize(element: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement {
+        val o = element as? kotlinx.serialization.json.JsonObject ?: return element
+        return if (o.containsKey("handles")) o else kotlinx.serialization.json.JsonObject(o + ("handles" to kotlinx.serialization.json.JsonNull))
     }
 }
