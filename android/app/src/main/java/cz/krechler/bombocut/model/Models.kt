@@ -217,3 +217,201 @@ data class Canvas(val ratioW: Double = 9.0, val ratioH: Double = 16.0) {
 
 /** Swift `Double.rounded()`: to nearest, halves away from zero. */
 fun swiftRound(v: Double): Int = if (v >= 0) kotlin.math.floor(v + 0.5).toInt() else -kotlin.math.floor(-v + 0.5).toInt()
+
+/** Where a reversed clip came from: the original file and the part of it that was reversed. */
+@Serializable
+data class ReverseOrigin(val mediaFile: String, val sourceDuration: Double, val inPoint: Double, val outPoint: Double)
+
+/**
+ * One piece of source media placed on the timeline. Decoding is tolerant like iOS (see ClipSerializer).
+ * Immutable: Swift's value semantics become copy() here, so an undo snapshot can never change under us.
+ */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@kotlinx.serialization.KeepGeneratedSerializer
+@Serializable(with = ClipSerializer::class)
+data class Clip(
+    @Serializable(with = UUIDSerializer::class) val id: java.util.UUID = java.util.UUID.randomUUID(),
+    val mediaFile: String,
+    val sourceDuration: Double,
+    val inPoint: Double = 0.0,
+    val outPoint: Double = sourceDuration,
+    val volume: Double = 1.0,
+    val fill: Boolean = false,
+    val speed: Double = 1.0,
+    val speedCurve: List<SpeedPoint>? = null,
+    val pitchCorrect: Boolean = true,
+    val curveSticks: Boolean? = null,
+    val transform: ClipTransform = ClipTransform(),
+    val aspect: Double? = null,
+    val opacity: Double = 1.0,
+    val effects: Effects = Effects(),
+    val keyframes: List<Keyframe> = emptyList(),
+    val stabilization: Stabilization? = null,
+    val tracking: Tracking? = null,
+    val smoothSlowMo: Boolean = false,
+    val mask: SubjectMask? = null,
+    val motionBlur: Double = 0.5,
+    val motionBlurOn: Boolean = false,
+    val blurDirection: BlurDirection = BlurDirection.both,
+    val anim: AnimPair = AnimPair(),
+    val cut: CutTransition? = null,
+    val speech: SpeechFX? = null,
+    val still: Boolean = false,
+    val reversed: ReverseOrigin? = null,
+    val asset: String? = null,
+    val autoZoom: AutoZoom? = null,
+    val stack: List<Clip>? = null,
+    val crop: CropRect? = null,
+    val fadeIn: Double = 0.0,
+    val fadeOut: Double = 0.0,
+    val filter: LookFilter? = null,
+    val key: ChromaKey? = null,
+    /** Its Stack's speed and motion blur (kept in step by `Project.syncStackSpeeds`, not saved). */
+    @kotlinx.serialization.Transient val outerSpeed: Double = 1.0,
+    @kotlinx.serialization.Transient val stackBlur: Double = 0.0,
+) {
+    val blurAmount: Double get() = maxOf(if (motionBlurOn) motionBlur else 0.0, stackBlur)
+    val fades: Pair<Double, Double> get() = Fade.fit(fadeIn, fadeOut, duration)
+    val rate: Double get() = maxOf(speed * outerSpeed, 0.01)
+    val staticLook: Look get() = Look(transform, opacity, effects)
+    fun withStaticLook(l: Look) = copy(transform = l.transform, opacity = l.opacity, effects = l.effects)
+
+    /** Look at a source time (keyframes / static only; cheap, for the UI). */
+    fun look(atSource: Double): Look = lookAt(staticLook, keyframes, atSource)
+
+    val allMediaFiles: List<String>
+        get() = listOf(mediaFile) + (reversed?.let { listOf(it.mediaFile) } ?: emptyList()) + (stack ?: emptyList()).flatMap { it.allMediaFiles }
+
+    val retime: Retime get() = Retime(inPoint, outPoint - inPoint, speedCurve, speed, outerSpeed)
+
+    val hasCurve: Boolean get() = (speedCurve?.size ?: 0) >= 2
+    /** Length on the timeline. */
+    val duration: Double get() = retime.outDuration
+
+    val headHandle: Double
+        get() = if (hasCurve || still || reversed != null || stack != null) 0.0 else maxOf(0.0, inPoint / rate)
+    val tailHandle: Double
+        get() = if (hasCurve || still || reversed != null || stack != null) 0.0 else maxOf(0.0, (sourceDuration - outPoint) / rate)
+
+    fun withHandles(head: Double, tail: Double): Clip {
+        if (!(head > 0 || tail > 0) || hasCurve) return this
+        val v = rate
+        return copy(inPoint = maxOf(0.0, inPoint - head * v), outPoint = minOf(sourceDuration, outPoint + tail * v))
+    }
+
+    val needsNeighbours: Boolean
+        get() = blurAmount > 0.001 || (smoothSlowMo && retime.segs.any { it.outLen > it.srcLen * 1.05 })
+
+    val sticksCurve: Boolean get() = curveSticks ?: Defaults.stickSpeedCurve
+
+    /** `o`'s curve on this clip's source range with every point kept on its frame (see Models.swift). */
+    fun stuckCurve(o: Clip): List<SpeedPoint>? {
+        val pts = o.speedCurve
+        if (pts == null || pts.size < 2) return speedCurve
+        val a0 = o.inPoint; val len0 = o.outPoint - o.inPoint
+        val a1 = inPoint; val len1 = outPoint - inPoint
+        if (len0 <= 1e-6 || len1 <= 1e-6) return o.speedCurve
+        val eps = 1e-4
+        fun u(src: Double) = (src - a1) / len1
+        fun old(src: Double) = SpeedCurve.value(pts, ((src - a0) / len0).coerceIn(0.0, 1.0))
+        val headAdded = u(a0) > eps
+        val tailAdded = u(a0 + len0) < 1 - eps
+        val out = mutableListOf(SpeedPoint(0.0, if (headAdded) 1.0 else old(a1)))
+        for (p in pts) {
+            val t = u(a0 + p.t * len0)
+            if (t > eps && t < 1 - eps && t - out[out.size - 1].t > 0.002) out.add(SpeedPoint(t, p.v))
+        }
+        out.add(SpeedPoint(1.0, if (tailAdded) 1.0 else old(a1 + len1)))
+        return out
+    }
+
+    /** Part of the curve between u0 and u1, renormalized to 0...1 (used by split). */
+    fun subCurve(u0: Double, u1: Double): List<SpeedPoint>? {
+        val pts = speedCurve
+        if (pts == null || pts.size < 2 || u1 - u0 <= 1e-6) return speedCurve
+        val out = mutableListOf(SpeedPoint(0.0, SpeedCurve.value(pts, u0)))
+        for (p in pts) if (p.t > u0 + 1e-6 && p.t < u1 - 1e-6) out.add(SpeedPoint((p.t - u0) / (u1 - u0), p.v))
+        out.add(SpeedPoint(1.0, SpeedCurve.value(pts, u1)))
+        return out
+    }
+
+    fun baseFraction(canvasAspect: Double): Pair<Double, Double> = baseFraction(aspect ?: canvasAspect, fill, canvasAspect)
+
+    val speedLabel: String?
+        get() = if (hasCurve) "curve" else if (abs(speed - 1) < 0.001) null else Fmt.speed(speed)
+
+    /** Swap to the reversed copy at `file` (covering inPoint...outPoint of the current file, `length` long). */
+    fun reversing(file: String, length: Double) = copy(
+        reversed = ReverseOrigin(mediaFile, sourceDuration, inPoint, outPoint),
+        mediaFile = file, sourceDuration = length, inPoint = 0.0, outPoint = minOf(length, outPoint - inPoint),
+        speedCurve = mirrored(speedCurve), keyframes = mirrored(keyframes, outPoint),
+        stabilization = null, tracking = null,
+    )
+
+    /** Back to the original file, keeping any trims made while reversed. */
+    fun unreversed(): Clip {
+        val o = reversed ?: return this
+        return copy(mediaFile = o.mediaFile, sourceDuration = o.sourceDuration,
+            inPoint = maxOf(0.0, o.outPoint - outPoint), outPoint = minOf(o.sourceDuration, o.outPoint - inPoint),
+            speedCurve = mirrored(speedCurve), keyframes = mirrored(keyframes, o.outPoint), reversed = null)
+    }
+
+    companion object {
+        /** A new clip of a whole file (Swift's `init(mediaFile:sourceDuration:)`). */
+        fun new(mediaFile: String, sourceDuration: Double) =
+            Clip(mediaFile = mediaFile, sourceDuration = sourceDuration, pitchCorrect = Defaults.keepPitch)
+
+        /** Size of the clip on the canvas before its transform, as fractions of canvas width and height. */
+        fun baseFraction(aspect: Double, fill: Boolean, canvasAspect: Double): Pair<Double, Double> {
+            val r = maxOf(aspect, 0.0001) / maxOf(canvasAspect, 0.0001)
+            return if (fill) maxOf(1.0, r) to maxOf(1.0, 1 / r) else minOf(1.0, r) to minOf(1.0, 1 / r)
+        }
+
+        fun mirrored(pts: List<SpeedPoint>?): List<SpeedPoint>? = pts?.reversed()?.map { SpeedPoint(1 - it.t, it.v) }
+
+        /** Keyframes on the other time axis (source time s becomes `pivot - s`); easing stays with its stretch. */
+        fun mirrored(keys: List<Keyframe>, pivot: Double): List<Keyframe> {
+            val flipped = keys.map { it.copy(t = pivot - it.t) }.sortedBy { it.t }
+            return flipped.map { k ->
+                val j = keys.indexOfFirst { it.id == k.id }
+                if (j > 0) k.copy(ease = keys[j - 1].ease) else k
+            }
+        }
+    }
+}
+
+/**
+ * Swift's `Clip.init(from:)` fix-ups, done on the JSON before decoding: outPoint defaults to the whole file,
+ * motion blur moves out of the Adjust effects (old projects), and it's on when an old project had an amount.
+ */
+object ClipSerializer : kotlinx.serialization.json.JsonTransformingSerializer<Clip>(Clip.generatedSerializer()) {
+    override fun transformDeserialize(element: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement {
+        val o = element as? kotlinx.serialization.json.JsonObject ?: return element
+        val m = o.toMutableMap()
+        fun num(e: kotlinx.serialization.json.JsonElement?): Double? =
+            (e as? kotlinx.serialization.json.JsonPrimitive)?.content?.toDoubleOrNull()
+        fun effectsBlur(e: kotlinx.serialization.json.JsonElement?): Double =
+            num((e as? kotlinx.serialization.json.JsonObject)?.get("motionBlur")) ?: 0.0
+        fun withoutBlur(e: kotlinx.serialization.json.JsonElement?): kotlinx.serialization.json.JsonElement? {
+            val eo = e as? kotlinx.serialization.json.JsonObject ?: return e
+            return kotlinx.serialization.json.JsonObject(eo + ("motionBlur" to kotlinx.serialization.json.JsonPrimitive(0.0)))
+        }
+        if (!m.containsKey("outPoint")) m["sourceDuration"]?.let { m["outPoint"] = it }
+        var blur = num(m["motionBlur"]) ?: 0.0
+        val keys = (m["keyframes"] as? kotlinx.serialization.json.JsonArray) ?: kotlinx.serialization.json.JsonArray(emptyList())
+        if (blur == 0.0) {
+            blur = maxOf(effectsBlur(m["effects"]),
+                keys.maxOfOrNull { effectsBlur((it as? kotlinx.serialization.json.JsonObject)?.get("look")?.let { l -> (l as? kotlinx.serialization.json.JsonObject)?.get("effects") }) } ?: 0.0)
+        }
+        if (m.containsKey("effects")) m["effects"] = withoutBlur(m["effects"])!!
+        if (m.containsKey("keyframes")) m["keyframes"] = kotlinx.serialization.json.JsonArray(keys.map { k ->
+            val ko = k as? kotlinx.serialization.json.JsonObject ?: return@map k
+            val look = ko["look"] as? kotlinx.serialization.json.JsonObject ?: return@map k
+            kotlinx.serialization.json.JsonObject(ko + ("look" to kotlinx.serialization.json.JsonObject(look + ("effects" to (withoutBlur(look["effects"]) ?: kotlinx.serialization.json.JsonObject(emptyMap()))))))
+        })
+        val savedOn = (m["motionBlurOn"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toBooleanStrictOrNull()
+        m["motionBlurOn"] = kotlinx.serialization.json.JsonPrimitive(savedOn ?: (blur > 0.001))
+        m["motionBlur"] = kotlinx.serialization.json.JsonPrimitive(if (blur < 0.001) 0.5 else blur)
+        return kotlinx.serialization.json.JsonObject(m)
+    }
+}
