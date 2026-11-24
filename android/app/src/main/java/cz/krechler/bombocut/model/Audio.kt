@@ -19,3 +19,30 @@ object Fade {
         return g
     }
 }
+
+/** The forward sound a reversed sound item was made from. */
+@kotlinx.serialization.Serializable
+data class AudioReverse(val file: String, val sourceDuration: Double)
+
+/** A piece of sound on its own lane under the clips: music from Files, or sound taken out of a video. */
+@kotlinx.serialization.Serializable
+data class AudioItem(
+    @kotlinx.serialization.Serializable(with = UUIDSerializer::class) val id: java.util.UUID = java.util.UUID.randomUUID(),
+    val file: String,
+    val name: String,
+    val sourceDuration: Double,
+    val inPoint: Double = 0.0,
+    val start: Double,
+    val duration: Double,
+    val speed: Double = 1.0,
+    val volume: Double = 1.0,
+    val fadeIn: Double? = null,
+    val fadeOut: Double? = null,
+    val speech: SpeechFX? = null,
+    val reverse: AudioReverse? = null,
+    /** Beats: markers on the song's beats; clip edges, texts and sounds snap to them. */
+    val beatsOn: Boolean? = null,
+) {
+    val end: Double get() = start + duration
+    val fades: Pair<Double, Double> get() = Fade.fit(fadeIn ?: 0.0, fadeOut ?: 0.0, duration)
+}
