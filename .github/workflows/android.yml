@@ -1,0 +1,58 @@
+name: Android
+
+on:
+  push:
+    paths: ['android/**', 'shared/**', 'Bombocut/Localizable.xcstrings', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Newest versions on Google's Maven and Maven Central (to bump libs.versions.toml)
+        continue-on-error: true
+        run: |
+          latest() { curl -s "$1" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -E 'alpha|beta|rc|dev|-M' | tail -1; }
+          G=https://dl.google.com/dl/android/maven2
+          C=https://repo1.maven.org/maven2
+          {
+            echo "### Newest stable versions"
+            echo "- AGP: $(latest $G/com/android/tools/build/gradle/maven-metadata.xml)"
+            echo "- Compose BOM: $(latest $G/androidx/compose/compose-bom/maven-metadata.xml)"
+            echo "- Media3: $(latest $G/androidx/media3/media3-exoplayer/maven-metadata.xml)"
+            echo "- Activity: $(latest $G/androidx/activity/activity-compose/maven-metadata.xml)"
+            echo "- Lifecycle: $(latest $G/androidx/lifecycle/lifecycle-viewmodel-compose/maven-metadata.xml)"
+            echo "- Kotlin: $(latest $C/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml)"
+            echo "- kotlinx.serialization: $(latest $C/org/jetbrains/kotlinx/kotlinx-serialization-json/maven-metadata.xml)"
+            echo "- Gradle: $(curl -s https://services.gradle.org/versions/current | grep -o '"version" *: *"[^"]*"' | head -1)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Build the APK and run the unit tests
+        working-directory: android
+        run: gradle --no-daemon assembleDebug testDebugUnitTest --stacktrace
+
+      - name: Test results
+        if: always()
+        run: |
+          for f in android/app/build/test-results/testDebugUnitTest/*.xml; do
+            [ -f "$f" ] && grep -o 'testsuite name="[^"]*" tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' "$f"
+          done | tee -a "$GITHUB_STEP_SUMMARY" || true
+          grep -h -A5 '<failure' android/app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | head -80 || true
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: bombocut-android-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk

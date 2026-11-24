@@ -2,6 +2,8 @@ name: Build iPhone app
 
 on:
   push:
+    # Android work doesn't need the Mac
+    paths-ignore: ['android/**', 'shared/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
 jobs:
