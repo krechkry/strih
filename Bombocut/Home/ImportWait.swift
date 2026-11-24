@@ -10,6 +10,8 @@ struct ImportWaitView: View {
     let cancel: () -> Void
     @State private var game = BallGame()
     @State private var island: CGRect = .zero
+    /// Where the game's canvas sits (the card is measured in the same space, then moved into the canvas's own).
+    @State private var field: CGRect = .zero
     /// What the card says now: changed only while the ball is well away from the card, so the card never grows
     /// into the ball.
     @State private var shown = CardText(note: loc("Keep BOMBOCUT open until it's done"))
@@ -42,10 +44,11 @@ struct ImportWaitView: View {
                 if work.playing {
                     SwiftUI.TimelineView(.animation) { tl in
                         SwiftUI.Canvas { ctx, size in
-                            game.step(tl.date, size: size, island: island, lit: lit)
+                            game.step(tl.date, size: size, island: island.offsetBy(dx: -field.minX, dy: -field.minY), lit: lit)
                             game.draw(&ctx, size: size)
                         }
                     }
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.space)) }) { field = $0 }
                     .contentShape(Rectangle())
                     .gesture(DragGesture(minimumDistance: 0).onChanged { game.aim($0.location.x) })
                     .transition(.opacity)
@@ -78,7 +81,7 @@ struct ImportWaitView: View {
                 }
                 let next = wanted(now)
                 // the card changes size with its text: only while the ball is well below it
-                if next != shown, !work.playing || game.clear(below: island.maxY, margin: 150) {
+                if next != shown, !work.playing || game.clear(below: island.maxY - field.minY, margin: 170) {
                     withAnimation(.snappy(duration: 0.3)) { shown = next }
                 }
             }
@@ -199,6 +202,7 @@ final class BallGame {
         let parts = max(1, Int((travel / (radius * 0.5)).rounded(.up)))
         let h = travel / CGFloat(parts)
         for _ in 0..<parts {
+            let before = pos
             pos.x += dir.dx * h
             pos.y += dir.dy * h
             // sides and top
@@ -212,7 +216,7 @@ final class BallGame {
                     UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                     return
                 }
-                bounce(off: island)
+                bounce(off: island, from: before)
             }
             // the paddle
             let top = paddleY - paddleH / 2
@@ -231,15 +235,20 @@ final class BallGame {
         }
     }
 
-    /// Out of the card the shortest way, the matching direction flipped.
-    private func bounce(off r: CGRect) {
+    /// Back out of the card through the edge it came in by, that direction flipped. Already inside (it can't
+    /// really happen, the card only changes size while the ball is far below): out through the bottom.
+    private func bounce(off r: CGRect, from before: CGPoint) {
         let e = r.insetBy(dx: -radius, dy: -radius)
-        let left = pos.x - e.minX, right = e.maxX - pos.x, up = pos.y - e.minY, down = e.maxY - pos.y
-        switch min(left, right, up, down) {
-        case down: pos.y = e.maxY; dir.dy = abs(dir.dy)
-        case up: pos.y = e.minY; dir.dy = -abs(dir.dy)
-        case left: pos.x = e.minX; dir.dx = -abs(dir.dx)
-        default: pos.x = e.maxX; dir.dx = abs(dir.dx)
+        if before.y >= e.maxY {
+            pos.y = e.maxY; dir.dy = abs(dir.dy)
+        } else if before.y <= e.minY {
+            pos.y = e.minY; dir.dy = -abs(dir.dy)
+        } else if before.x <= e.minX {
+            pos.x = e.minX; dir.dx = -abs(dir.dx)
+        } else if before.x >= e.maxX {
+            pos.x = e.maxX; dir.dx = abs(dir.dx)
+        } else {
+            pos.y = e.maxY; dir.dy = abs(dir.dy)
         }
     }
 
