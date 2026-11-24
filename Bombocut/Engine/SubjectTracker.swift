@@ -185,7 +185,9 @@ struct Homography {
 
     /// The map most of the point pairs agree on (RANSAC: fits to 4 random pairs, keeps the one most pairs land
     /// within `threshold` pixels of, then fits again to all of those). Returns it with the pairs that agree.
-    static func robust(_ src: [SIMD2<Double>], _ dst: [SIMD2<Double>], threshold: Double,
+    /// `weights`: how much each pair counts (points followed for longer count more, so a handful of new ones
+    /// on the background can't outvote the subject).
+    static func robust(_ src: [SIMD2<Double>], _ dst: [SIMD2<Double>], threshold: Double, weights: [Double]? = nil,
                        rounds: Int = 90) -> (Homography, [Int])? {
         let n = src.count
         guard n >= 4 else { return nil }
@@ -201,7 +203,9 @@ struct Homography {
                 return d.x * d.x + d.y * d.y < threshold * threshold
             }
         }
+        func weight(_ ins: [Int]) -> Double { weights.map { w in ins.reduce(0) { $0 + w[$1] } } ?? Double(ins.count) }
         var best: (Homography, [Int])?
+        var bestWeight = 0.0
         for _ in 0..<rounds {
             var pick: [Int] = []
             while pick.count < 4 {
@@ -210,13 +214,14 @@ struct Homography {
             }
             guard let m = fit(pick.map { src[$0] }, pick.map { dst[$0] }) else { continue }
             let ins = agreeing(m)
-            if ins.count > (best?.1.count ?? 3) { best = (m, ins) }
+            let w = weight(ins)
+            if ins.count >= 4, w > bestWeight { best = (m, ins); bestWeight = w }
             if ins.count == n { break }
         }
         guard let (m0, ins0) = best else { return nil }
         guard let m1 = fit(ins0.map { src[$0] }, ins0.map { dst[$0] }) else { return (m0, ins0) }
         let ins1 = agreeing(m1)
-        return ins1.count >= ins0.count ? (m1, ins1) : (m0, ins0)
+        return weight(ins1) >= weight(ins0) ? (m1, ins1) : (m0, ins0)
     }
 
     // MARK: small linear algebra
@@ -280,6 +285,8 @@ final class PlanarFollower: SubjectFollower {
     /// The surface's corners (top-left, top-right, bottom-right, bottom-left), in tracking-frame pixels.
     private(set) var quad: [SIMD2<Double>] = []
     private var points: [SIMD2<Float>] = []
+    /// Frames each point has been followed (new ones count less until they prove they move with the subject).
+    private var ages: [Int] = []
     private var prev: [GrayImage]?
     private let memory: AppearanceMemory
     private var frames = 0
@@ -294,6 +301,7 @@ final class PlanarFollower: SubjectFollower {
     func cut(_ cg: CGImage) {
         prev = nil
         points = []
+        ages = []
         searchWide = true
     }
 
@@ -345,7 +353,9 @@ final class PlanarFollower: SubjectFollower {
         return true
     }
 
-    /// Adds trackable corners on the surface (a little in from its edges), away from the points it has.
+    /// Adds trackable corners on the surface (a little in from its edges), away from the points it has. Later on
+    /// (not `fresh`) only a few at a time, the ones nearest the middle first: a loose box has background at its
+    /// edges, and new points there must not outnumber the ones that have followed the subject.
     private func addPoints(_ g: GrayImage, fresh: Bool) {
         let r = Self.bounds(quad)
         let inner = r.insetBy(dx: r.width * 0.06, dy: r.height * 0.06)
@@ -354,9 +364,14 @@ final class PlanarFollower: SubjectFollower {
         let mid = quad.reduce(SIMD2<Double>(0, 0), +) / 4
         let shrunk = quad.map { mid + ($0 - mid) * 0.92 }
         let gap: Float = max(4, Float(min(r.width, r.height)) / 14)
-        for p in found where Self.inside(p, shrunk) {
+        let centre = SIMD2<Float>(Float(mid.x), Float(mid.y))
+        var room = fresh ? Int.max : max(4, points.count / 2)
+        for p in found.sorted(by: { simd_distance($0, centre) < simd_distance($1, centre) }) where Self.inside(p, shrunk) {
+            guard room > 0 else { break }
             if points.contains(where: { simd_distance($0, p) < gap }) { continue }
             points.append(p)
+            ages.append(0)
+            room -= 1
         }
         if fresh { wanted = points.count }
     }
@@ -383,27 +398,38 @@ final class PlanarFollower: SubjectFollower {
                 memory.remember(p)
             }
             points = []
+            ages = []
             addPoints(g, fresh: true)
             return box
         }
 
-        // each point to the next frame and back: kept only when it comes back where it started
+        // each point to the next frame and back: kept only when it comes back where it started, and when its
+        // window still looks the same where it landed (points on the subject's outline, half background, lag
+        // behind and would slowly pull the box off the subject)
         let back = max(0.8, Float(g.w) / 800)
-        var src: [SIMD2<Double>] = [], dst: [SIMD2<Double>] = []
-        for p in points {
-            guard let d = LucasKanade.track(p, from: pa, to: next) else { continue }
-            let q = p + d
+        var found: [(p: SIMD2<Float>, q: SIMD2<Float>, residual: Float, age: Int)] = []
+        for (k, p) in points.enumerated() {
+            guard let f = LucasKanade.follow(p, from: pa, to: next) else { continue }
+            let q = p + f.move
             guard q.x > 2, q.y > 2, q.x < Float(g.w - 3), q.y < Float(g.h - 3),
                   let e = LucasKanade.track(q, from: next, to: pa), simd_length(q + e - p) < back else { continue }
-            src.append(SIMD2(Double(p.x), Double(p.y)))
-            dst.append(SIMD2(Double(q.x), Double(q.y)))
+            found.append((p, q, f.residual, k < ages.count ? ages[k] : 0))
         }
+        if !found.isEmpty {
+            let sorted = found.map(\.residual).sorted()
+            let limit = max(2, sorted[sorted.count / 2] * 1.5)
+            found = found.filter { $0.residual < limit }
+        }
+        let src = found.map { SIMD2(Double($0.p.x), Double($0.p.y)) }
+        let dst = found.map { SIMD2(Double($0.q.x), Double($0.q.y)) }
+        let age = found.map(\.age)
 
         // the perspective most of them agree on moves the surface
         let tolerance = max(1.5, Double(g.w) / 450)
         var moved: [SIMD2<Double>]?
         var kept: [Int] = []
-        if src.count >= 8, let (m, ins) = Homography.robust(src, dst, threshold: tolerance),
+        if src.count >= 8, let (m, ins) = Homography.robust(src, dst, threshold: tolerance,
+                                                                  weights: age.map { 1 + Double(min($0, 4)) }),
            ins.count >= max(6, src.count * 2 / 5) {
             let q = quad.compactMap { m.apply($0) }
             if Self.sane(q, from: quad) { moved = q; kept = ins }
@@ -422,6 +448,7 @@ final class PlanarFollower: SubjectFollower {
         if let q = moved, kept.count >= 6 || (kept.count >= 3 && wanted < 12) {
             quad = q
             points = kept.map { SIMD2(Float(dst[$0].x), Float(dst[$0].y)) }
+            ages = kept.map { age[$0] + 1 }
             lostFrames = 0
             let r = Self.bounds(quad)
             if frames % 5 == 0, let p = AppearanceMemory.patch(g, r), memory.score(p) > 0.5 { memory.remember(p) }
@@ -435,10 +462,12 @@ final class PlanarFollower: SubjectFollower {
             if let (found, s) = memory.find(in: g, around: r, reach: reach), s > 0.7 {
                 quad = Self.corners(found)
                 points = []
+                ages = []
                 addPoints(g, fresh: true)
                 lostFrames = 0
             } else {
                 points = kept.map { SIMD2(Float(dst[$0].x), Float(dst[$0].y)) }
+                ages = kept.map { age[$0] + 1 }
                 addPoints(g, fresh: false)
             }
         }

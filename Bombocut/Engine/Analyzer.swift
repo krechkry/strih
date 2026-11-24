@@ -826,7 +826,14 @@ enum LucasKanade {
 
     /// Displacement of `p` (level-0 pixels) from `a` to `b`, or nil if it cannot be followed.
     static func track(_ p: SIMD2<Float>, from a: [GrayImage], to b: [GrayImage]) -> SIMD2<Float>? {
+        follow(p, from: a, to: b)?.move
+    }
+
+    /// Like `track`, plus how different the window still looks where it landed (mean grey difference per pixel):
+    /// high for a point on an object's outline, where part of the window is background that stays behind.
+    static func follow(_ p: SIMD2<Float>, from a: [GrayImage], to b: [GrayImage]) -> (move: SIMD2<Float>, residual: Float)? {
         var g = SIMD2<Float>(0, 0)
+        var residual: Float = 0
         for level in stride(from: a.count - 1, through: 0, by: -1) {
             let A = a[level], B = b[level]
             let scale = Float(1 << level)
@@ -860,10 +867,20 @@ enum LucasKanade {
                 d += SIMD2(ux, uy)
                 if ux * ux + uy * uy < 0.0009 { break }
             }
+            if level == 0 {
+                var k = 0
+                for dy in -radius...radius {
+                    for dx in -radius...radius {
+                        residual += abs(vals[k] - B.sample(c.x + Float(dx) + d.x, c.y + Float(dy) + d.y))
+                        k += 1
+                    }
+                }
+                residual /= Float(k)
+            }
             g = level > 0 ? d * 2 : d
         }
         guard g.x.isFinite, g.y.isFinite, abs(g.x) < Float(a[0].w) / 4, abs(g.y) < Float(a[0].h) / 4 else { return nil }
-        return g
+        return (g, residual)
     }
 }
 
