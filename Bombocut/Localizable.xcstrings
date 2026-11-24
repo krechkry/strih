@@ -1035,7 +1035,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "BOMBOCUT vidí jen to, co jsi povolil."
+            "value": "BOMBOCUT vidí jen to, k čemu má přístup."
           }
         }
       }
