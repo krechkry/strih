@@ -98,7 +98,7 @@ class TextLayer(private val project: Project, private val w: Int, private val h:
         fun effect(project: Project, w: Int, h: Int): OverlayEffect? {
             val any = project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind is OverlayKind.Text }
             if (!any) return null
-            return OverlayEffect(ImmutableList.of(TextLayer(project, w, h)))
+            return OverlayEffect(ImmutableList.of<androidx.media3.effect.TextureOverlay>(TextLayer(project, w, h)))
         }
     }
 }
