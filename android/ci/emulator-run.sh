@@ -87,4 +87,10 @@ else
   echo "no export file" > $OUT/export.txt
 fi
 cat $OUT/export.txt
+# the paywall (debug builds skip it unless asked): a fresh start shows the free week offer
+adb shell am force-stop $APP
+adb shell run-as $APP rm -f shared_prefs/purchases.xml || true
+adb shell am start -W -n $APP/.app.MainActivity --ez paywall true
+sleep 4
+adb exec-out screencap -p > $OUT/12-paywall.png
 adb logcat -d -b crash > $OUT/crash.txt || true

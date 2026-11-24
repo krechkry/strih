@@ -53,7 +53,7 @@ import cz.krechler.bombocut.model.Project
 import cz.krechler.bombocut.model.ProjectStore
 
 @Composable
-fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
+fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false, close: () -> Unit) {
     BackHandler(onBack = close)
     val model = remember(start.id) { EditorModel(start, store) }
     val preview = remember(start.id) { PreviewState() }
@@ -74,10 +74,10 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(close) { Text(loc("Projects"), color = Theme.accent) }
             Spacer(Modifier.weight(1f))
-            IconButton({ model.undo() }, enabled = model.canUndo) {
+            if (!exportOnly) IconButton({ model.undo() }, enabled = model.canUndo) {
                 Icon(Icons.AutoMirrored.Filled.Undo, loc("Undo"), tint = if (model.canUndo) Color.White else Theme.muted)
             }
-            IconButton({ model.redo() }, enabled = model.canRedo) {
+            if (!exportOnly) IconButton({ model.redo() }, enabled = model.canRedo) {
                 Icon(Icons.AutoMirrored.Filled.Redo, loc("Redo"), tint = if (model.canRedo) Color.White else Theme.muted)
             }
             TextButton({ preview.player?.pause(); exporting = true },
@@ -98,7 +98,10 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
             Spacer(Modifier.weight(1f))
         }
         TimelineView(model, tl, ::scrub)
-        ToolRow(model) { preview.player?.pause(); sheet = it }
+        // the free week is over: the project can still be exported as it is, the tools wait for the purchase
+        if (exportOnly) Text(loc("Your 7 free days are over"), color = Theme.muted, fontWeight = FontWeight.Bold,
+                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp))
+        else ToolRow(model) { preview.player?.pause(); sheet = it }
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
     }
     // a panel covers the bottom, the preview stays in view (iOS Panel)

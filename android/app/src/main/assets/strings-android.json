@@ -21,6 +21,86 @@
           }
         }
       }
+    },
+    "The store isn't reachable right now. Try again in a moment.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obchod teď není dostupný. Zkus to za chvíli znovu."
+          }
+        }
+      }
+    },
+    "The purchase didn't go through.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nákup neprošel."
+          }
+        }
+      }
+    },
+    "Buy BOMBOCUT once to keep editing. Your projects are safe on your phone, and you can still export them as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kup si BOMBOCUT jednou a stříhej dál. Projekty máš v telefonu v bezpečí a pořád je můžeš exportovat tak, jak jsou."
+          }
+        }
+      }
+    },
+    "Speed curves, keyframes and color": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Křivky rychlosti, keyframy a barvy"
+          }
+        }
+      }
+    },
+    "Text and captions with outlines, shadows and animations": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texty a titulky s obrysy, stíny a animacemi"
+          }
+        }
+      }
+    },
+    "Export up to 4K, at 30 or 60 fps": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export až ve 4K, ve 30 nebo 60 fps"
+          }
+        }
+      }
+    },
+    "Everything runs offline, on your phone. No cloud, no account, no data collection.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechno běží offline, přímo v telefonu. Žádný cloud, žádný účet, žádné sbírání dat."
+          }
+        }
+      }
+    },
+    "Not a subscription. After 7 days nothing is bought or charged by itself. The trial has every tool. Then you buy BOMBOCUT once for %@, or you don't. You can always export your projects as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Není to předplatné. Po 7 dnech se nic samo nekoupí ani nestrhne. Zkušební týden má všechny nástroje. Pak si BOMBOCUT jednou koupíš za %@, nebo ne. Projekty můžeš vždycky exportovat tak, jak jsou."
+          }
+        }
+      }
     }
   }
 }

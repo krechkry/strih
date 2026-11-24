@@ -59,5 +59,6 @@ dependencies {
     implementation(libs.media3.transformer)
     implementation(libs.media3.effect)
     implementation(libs.serialization.json)
+    implementation(libs.billing)
     testImplementation(libs.junit)
 }
