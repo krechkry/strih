@@ -2032,7 +2032,19 @@ final class EditorModel: ObservableObject {
     /// While tracking: the box on the frame being followed (preview canvas points), the preview shows that frame.
     @Published var trackLiveBox: CGRect?
     private var lastLive = Date.distantPast
-    var pickCanvas: CGSize = .zero
+    /// The player's size while picking. When it changes (the panel grows once a subject is picked and the video
+    /// gets smaller), the picked box and the live box scale with it, so they stay on the subject.
+    var pickCanvas: CGSize = .zero {
+        didSet {
+            guard oldValue.width > 0, oldValue.height > 0, pickCanvas.width > 0, pickCanvas != oldValue else { return }
+            let kx = pickCanvas.width / oldValue.width, ky = pickCanvas.height / oldValue.height
+            func scaled(_ r: CGRect) -> CGRect {
+                CGRect(x: r.minX * kx, y: r.minY * ky, width: r.width * kx, height: r.height * ky)
+            }
+            if let r = pickRect { pickRect = scaled(r) }
+            if let r = trackLiveBox { trackLiveBox = scaled(r) }
+        }
+    }
 
     /// What to do now, while picking a subject.
     var pickHint: String {
