@@ -70,11 +70,12 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 /** How Home lists the projects (the menu next to PROJECTS). */
-enum class ProjectSort(val title: String) {
-    name("Name"), size("Size"), modified("Last modified"), created("Date created");
+enum class ProjectSort(val raw: String, val title: String) {
+    // iOS raw values (name, size, modified, created); `name` can't be a Kotlin enum entry
+    byName("name", "Name"), size("size", "Size"), modified("modified", "Last modified"), created("created", "Date created");
 
     fun sorted(projects: List<Project>): List<Project> = when (this) {
-        name -> projects.sortedWith { a, b -> java.text.Collator.getInstance().compare(a.name, b.name) }
+        byName -> projects.sortedWith { a, b -> java.text.Collator.getInstance().compare(a.name, b.name) }
         size -> { val s = projects.associate { it.id to bytes(it) }; projects.sortedByDescending { s[it.id] ?: 0 } }
         modified -> projects.sortedByDescending { it.modified }
         created -> projects.sortedByDescending { it.created }
