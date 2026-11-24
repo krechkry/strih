@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -104,8 +105,9 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
     val open = sheet
     if (open != null && model.selectedIndex != null) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(if (open == "speed") 560.dp else 380.dp, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
+                    "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)
                     "volume" -> VolumeSheet(model)
                 }
@@ -124,6 +126,7 @@ private fun ToolRow(model: EditorModel, open: (String) -> Unit) {
     ) {
         ToolButton(Icons.Filled.ContentCut, "Split") { model.split() }
         if (model.selectedIndex != null) {
+            ToolButton(Icons.Filled.Tune, "Adjust") { open("adjust") }
             ToolButton(Icons.Filled.Speed, "Speed") { open("speed") }
             ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume") { open("volume") }
             ToolButton(Icons.Filled.ContentCopy, "Duplicate") { model.duplicateSelected() }

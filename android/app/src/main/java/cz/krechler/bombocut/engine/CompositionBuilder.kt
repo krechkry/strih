@@ -82,7 +82,8 @@ object CompositionBuilder {
         val rt = c.retime
         val audio = listOfNotNull(gain(c.volume, c.fades, c.duration))
         val layout = if (c.fill) Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP else Presentation.LAYOUT_SCALE_TO_FIT
-        val video = listOf(Presentation.createForWidthAndHeight(width, height, layout))
+        // the look first (on the clip's own picture, like iOS), then placed on the canvas
+        val video = listOfNotNull(LookLut.effect(c.look(c.inPoint).effects), Presentation.createForWidthAndHeight(width, height, layout))
         // CompositionPlayer needs the whole file's length up front (Swift: the asset's time range)
         val b = EditedMediaItem.Builder(media).setEffects(Effects(audio, video)).setDurationUs(us(c.sourceDuration))
         speedProvider(rt, c.inPoint)?.let { b.setSpeed(SpeedParameters(it, c.pitchCorrect)) }
