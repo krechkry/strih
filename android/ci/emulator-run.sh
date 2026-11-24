@@ -53,3 +53,27 @@ adb logcat -d -b crash > $OUT/crash.txt || true
 adb logcat -d | grep -A60 "FATAL EXCEPTION" > $OUT/logcat.txt || true
 adb logcat -d | grep -iE "Media3|CompositionPlayer|ExoPlayer|bombocut" | tail -200 > $OUT/media.txt || true
 ls -la $OUT
+
+# export Full HD 30 and check the file (its length should be the project's: 3 s + 2.5 s at 2x = 4.25 s)
+python3 android/ci/tap.py "Export"
+sleep 2
+adb exec-out screencap -p > $OUT/08-export-sheet.png
+python3 android/ci/tap.py "Full HD · 30 fps"
+for i in $(seq 1 60); do
+  sleep 3
+  if adb shell ls /sdcard/Movies/BOMBOCUT/ 2>/dev/null | grep -q mp4; then break; fi
+done
+sleep 3
+adb exec-out screencap -p > $OUT/09-export-done.png
+F=$(adb shell ls /sdcard/Movies/BOMBOCUT/ | tr -d '\r' | grep mp4 | head -1)
+if [ -n "$F" ]; then
+  adb pull "/sdcard/Movies/BOMBOCUT/$F" $OUT/export.mp4
+  ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate -of default=nw=1 $OUT/export.mp4 > $OUT/export.txt
+  ffmpeg -loglevel error -ss 1 -i $OUT/export.mp4 -frames:v 1 $OUT/10-export-frame-1s.png
+  ffmpeg -loglevel error -ss 3.5 -i $OUT/export.mp4 -frames:v 1 $OUT/11-export-frame-3.5s.png
+  rm $OUT/export.mp4
+else
+  echo "no export file" > $OUT/export.txt
+fi
+cat $OUT/export.txt
+adb logcat -d -b crash > $OUT/crash.txt || true
