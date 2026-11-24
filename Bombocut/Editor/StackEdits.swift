@@ -150,13 +150,14 @@ extension EditorModel {
         let cuts = Analyzer.stackCuts(project, id)
         analysis = AnalysisState(title: "Tracking", progress: 0)
         let memory = TrackMemory.frames
+        let method = TrackMethod.current
         analysisTask = Task {
             let flag = CancelFlag()
             await withTaskCancellationHandler {
                 do {
                     let samples = try await Task.detached(priority: .userInitiated) {
                         try await Analyzer.track(.stack(snapshot, id), from: 0, to: length, anchor: anchor, box: box, cuts: cuts,
-                                                 memory: memory, progress: { f in Task { @MainActor in self.analysis?.progress = f } },
+                                                 memory: memory, method: method, progress: { f in Task { @MainActor in self.analysis?.progress = f } },
                                                  isCancelled: { flag.isSet })
                     }.value
                     guard let j = project.stacks.firstIndex(where: { $0.id == id }) else { return }

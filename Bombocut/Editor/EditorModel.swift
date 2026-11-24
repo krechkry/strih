@@ -239,6 +239,15 @@ final class EditorModel: ObservableObject {
                 self.isPlaying = status != .paused
             }
             .store(in: &cancellables)
+        // the player item broke (a decoder taken by something else, a frame that failed): build it again and carry
+        // on, instead of a play button that does nothing
+        player.publisher(for: \.currentItem?.status)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self, status == .failed else { return }
+                self.recoverPlayer(play: self.isPlaying || self.playAfterBuild)
+            }
+            .store(in: &cancellables)
         // played to the end: show the true last frame (the player can stop on one rendered ahead of time)
         NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)
             .receive(on: DispatchQueue.main)
@@ -274,6 +283,7 @@ final class EditorModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        if playerBroken { recoverPlayer(play: true); return }
         // a panel is open on a clip (or Stack): play just that, round and round, like scrubbing stays inside it
         if previewScrubs, selectedSpan != nil { previewSelected(); return }
         quickMenuClipID = nil
@@ -364,6 +374,7 @@ final class EditorModel: ObservableObject {
     func previewSelected() {
         guard let (start, end) = selectedSpan else { return }
         if isPlaying { pause(); return }
+        if playerBroken { recoverPlayer(play: true); return }
         if currentTime < start || currentTime >= end - 0.05 { scrub(to: start) }
         loopSelected = true
         player.play()
@@ -376,6 +387,29 @@ final class EditorModel: ObservableObject {
             scrub(to: start)
             player.play()
         }
+    }
+
+    /// No player item, or one that failed: playing it would do nothing.
+    private var playerBroken: Bool {
+        guard !building else { return false }
+        return player.currentItem == nil ? !project.clips.isEmpty : player.currentItem?.status == .failed
+    }
+
+    /// Play once the item being built is ready (Play was tapped while it was broken).
+    private var playAfterBuild = false
+    private var recoveries: [Date] = []
+
+    /// Builds the player item again (at most 3 times in half a minute, then it says what went wrong).
+    private func recoverPlayer(play: Bool) {
+        recoveries = recoveries.filter { Date().timeIntervalSince($0) < 30 }
+        guard recoveries.count < 3 else {
+            buildError = player.currentItem?.error?.localizedDescription ?? loc("The preview couldn't play.")
+            playAfterBuild = false
+            return
+        }
+        recoveries.append(Date())
+        playAfterBuild = play
+        rebuild()
     }
 
     // MARK: Rebuilding the player item
@@ -479,7 +513,11 @@ final class EditorModel: ObservableObject {
                 // the playhead was put somewhere new while this built (a moved clip lands on its start): stay there
                 let t = scrubCount != scrubs ? currentTime : (wasPlaying ? now : keep)
                 scrub(to: min(t, max(0, built.duration - 0.001)))
-                if wasPlaying { player.play() }
+                if wasPlaying || playAfterBuild {
+                    playAfterBuild = false
+                    player.play()
+                    isPlaying = true
+                }
                 // A committed transform keeps its live overlay until the new frame is on screen.
                 if let gen = clearLiveGen {
                     clearLiveGen = nil
@@ -2129,6 +2167,7 @@ final class EditorModel: ObservableObject {
         let c = project.clips[i]
         let id = c.id
         let memory = TrackMemory.frames
+        let method = TrackMethod.current
         let file = c.mediaFile
         let lo = c.inPoint, hi = c.outPoint
         analysis = AnalysisState(title: "Tracking", progress: 0)
@@ -2142,7 +2181,7 @@ final class EditorModel: ObservableObject {
                         let share = 1.0 / Double(forward.count)
                         let run = try await Task.detached(priority: .userInitiated) {
                             try await Analyzer.trackRun(file: file, from: anchor, to: fwd ? hi : lo, box: box, memory: memory,
-                                                        stopWhenLost: true,
+                                                        method: method, stopWhenLost: true,
                                                         live: { t, b in Task { @MainActor in self.trackLive(clip: id, source: t, box: b) } },
                                                         progress: { f in
                                                             Task { @MainActor in self.analysis?.progress = (Double(k) + f) * share }
@@ -2156,7 +2195,11 @@ final class EditorModel: ObservableObject {
                     let tracked: ClosedRange<Double> = (forward.contains(false) ? lo : anchor)...(forward.contains(true) ? hi : anchor)
                     mutateLook { p in
                         let old = fresh ? [] : (p.clips[j].tracking?.samples ?? []).filter { !tracked.contains($0.t) }
-                        let all = (old + found).sorted { $0.t < $1.t }
+                        // both ways start on the picked frame: one sample per time
+                        var all: [TrackSample] = []
+                        for x in (old + found).sorted(by: { $0.t < $1.t }) where (all.last.map { x.t - $0.t > 1e-4 } ?? true) {
+                            all.append(x)
+                        }
                         guard !all.isEmpty else { return }
                         if var tr = p.clips[j].tracking, !fresh {
                             tr.samples = all

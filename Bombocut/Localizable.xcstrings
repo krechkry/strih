@@ -820,6 +820,16 @@
         }
       }
     },
+    "Apple's tracker. Quick, and good with people and things that turn or change shape.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tracker od Applu. Rychlý a dobrý na lidi a věci, které se otáčí nebo mění tvar."
+          }
+        }
+      }
+    },
     "Apple's translator can't translate %@.": {
       "localizations": {
         "cs": {
@@ -3674,6 +3684,16 @@
         }
       }
     },
+    "Fast": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlé"
+          }
+        }
+      }
+    },
     "Fat": {
       "localizations": {
         "cs": {
@@ -3980,6 +4000,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sleduju výběr"
+          }
+        }
+      }
+    },
+    "Follows points on the subject's surface, like a planar tracker. Best on flat, textured things: a sign, a screen, a box.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleduje body na povrchu objektu, jako planární tracker. Nejlíp funguje na plochých věcech s kresbou: cedule, displej, krabice."
           }
         }
       }
@@ -6588,6 +6618,16 @@
         }
       }
     },
+    "Precise": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesné"
+          }
+        }
+      }
+    },
     "Preparing the model…": {
       "localizations": {
         "cs": {
@@ -8784,6 +8824,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alfa maska je hotová"
+          }
+        }
+      }
+    },
+    "The preview couldn't play.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Náhled nejde přehrát."
           }
         }
       }

@@ -64,7 +64,7 @@ struct EditorView: View {
     /// Panels that don't scroll by themselves get a scroll view (they can be cut to half the screen).
     private func scrollsItself(_ s: EditorSheet) -> Bool {
         switch s {
-        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .filters, .export: return true
+        case .overlay, .captions, .mask, .animation, .speech, .stabilize, .background, .audio, .filters, .export, .trackPick: return true
         default: return false
         }
     }
@@ -95,7 +95,11 @@ struct EditorView: View {
         case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         // (the lanes above the strip fold away while picking, so the strip moves up and the panel gets taller)
+        // once the subject is picked, the strip isn't needed: the panel covers the whole bottom (Fast / Precise)
         case .trackPick:
+            if model.pickPhase == .adjust && model.pinPickOverlay == nil {
+                return max(300, 28 + bottomHeight - Panel<EmptyView>.extra)
+            }
             return max(180, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
         }
     }
@@ -1711,12 +1715,17 @@ private struct KeyframeButton: View {
     }
 }
 
-/// Picking the subject to track: the hint, cancel and pick again as icons, and Track. Sits low, so the clip strip
-/// above it stays free to scrub to a better frame.
+/// Picking the subject to track: the hint, cancel and pick again as icons, and Track. Sits low while picking, so
+/// the clip strip above it stays free to scrub to a better frame; once a subject is picked it covers the strip and
+/// offers Fast or Precise.
 private struct TrackPickPanel: View {
     @ObservedObject var model: EditorModel
     let cancel: () -> Void
     @AppStorage(TrackMemory.key) private var memory = TrackMemory.standard
+    @AppStorage(TrackMethod.key) private var method = TrackMethod.fast.rawValue
+
+    /// Picked a subject (not an overlay pin): Fast or Precise, the panel covers the strip.
+    private var choosing: Bool { model.pickPhase == .adjust && model.pinPickOverlay == nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1724,7 +1733,8 @@ private struct TrackPickPanel: View {
                 .font(.subheadline.weight(.bold)).foregroundStyle(.white)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            if model.pinPickOverlay == nil { memoryRow }
+            if choosing { methodSection }
+            Spacer(minLength: 0)
             HStack(spacing: 10) {
                 iconButton("xmark", "Cancel", action: cancel)
                 if model.trackFix != nil {
@@ -1751,11 +1761,30 @@ private struct TrackPickPanel: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 2)
+        .padding(.bottom, 30)   // the panel runs under the home indicator
         .frame(maxHeight: .infinity, alignment: .top)
+        .animation(.snappy(duration: 0.25), value: method)
     }
 
-    /// How many frames of the subject's looks the tracker keeps, to find it again after it was hidden or
-    /// changed (`TrackMemory`). Remembered for the next tracking.
+    /// Fast (Apple's tracker) or Precise (planar, with the Memory slider), with a line on what each is good at.
+    /// Remembered for the next tracking.
+    private var methodSection: some View {
+        let precise = method == TrackMethod.precise.rawValue
+        return VStack(alignment: .leading, spacing: 12) {
+            TwoSideToggle(left: ("Fast", "hare"), right: ("Precise", "perspective"),
+                          leftOn: Binding(get: { !precise },
+                                          set: { method = ($0 ? TrackMethod.fast : TrackMethod.precise).rawValue }))
+            Text(loc(precise
+                     ? "Follows points on the subject's surface, like a planar tracker. Best on flat, textured things: a sign, a screen, a box."
+                     : "Apple's tracker. Quick, and good with people and things that turn or change shape."))
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            if precise { memoryRow }
+        }
+    }
+
+    /// How many frames of the subject's looks the Precise tracker keeps, to find it again after it was hidden
+    /// or changed (`TrackMemory`). Remembered for the next tracking.
     private var memoryRow: some View {
         HStack(spacing: 12) {
             Text("Memory").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)

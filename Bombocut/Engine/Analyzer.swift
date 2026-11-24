@@ -254,6 +254,8 @@ enum Analyzer {
         /// How sure Vision was on the last frame (0 when it lost the subject).
         private(set) var confidence: Float = 0
         private var misses = 0
+        /// Frames in a row Vision couldn't follow the subject.
+        var lostFrames: Int { misses }
 
         init(box: CGRect) {
             let b = Analyzer.trackable(box)
@@ -325,16 +327,17 @@ enum Analyzer {
     /// Follows the subject inside `box` (normalized, top-left origin, picked at source time `anchor`)
     /// forward to t1 and backward to t0.
     static func track(file: String, from t0: Double, to t1: Double, anchor: Double, box: CGRect, memory: Int = 60,
+                      method: TrackMethod = .fast,
                       progress: @escaping @Sendable (Double) -> Void,
                       isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
-        try await track(.file(file), from: t0, to: t1, anchor: anchor, box: box, memory: memory,
+        try await track(.file(file), from: t0, to: t1, anchor: anchor, box: box, memory: memory, method: method,
                         progress: progress, isCancelled: isCancelled)
     }
 
     /// `cuts`: times where the picture cuts to another shot: the subject is looked for again there.
-    /// `memory`: how many frames of the subject's looks the tracker keeps to find it again (`HybridFollower`).
+    /// `memory`: how many frames of the subject's looks the Precise tracker keeps to find it again.
     static func track(_ source: Source, from t0: Double, to t1: Double, anchor: Double, box: CGRect, cuts: [Double] = [],
-                      memory: Int = 60,
+                      memory: Int = 60, method: TrackMethod = .fast,
                       progress: @escaping @Sendable (Double) -> Void,
                       isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
         func crossed(_ a: Double, _ b: Double) -> Bool {
@@ -347,11 +350,11 @@ enum Analyzer {
         }
         let total = max(t1 - t0, 0.01)
         let fwdLen = max(t1 - anchor, 0)
-        let maxSide: CGFloat = 640
+        let maxSide = method.maxSide
 
         // forward
         var forward: [TrackSample] = []
-        let f = HybridFollower(box: start, memory: memory)
+        let f = method.follower(box: start, memory: memory)
         if fwdLen > 0.02 {
             var lastT = anchor
             try await readFrames(source, from: anchor, to: t1, maxSide: maxSide, rate: 30, isCancelled: isCancelled) { t, cg in
@@ -371,7 +374,7 @@ enum Analyzer {
         // backward, one short chunk at a time (frames are read forward, tracked in reverse)
         var backward: [TrackSample] = []
         if anchor - t0 > 0.02 {
-            let b = HybridFollower(box: start, memory: memory)
+            let b = method.follower(box: start, memory: memory)
             var lastBack = anchor
             var chunkEnd = anchor
             let chunk = 1.0
@@ -411,7 +414,8 @@ extension Analyzer {
     /// Follows the subject in `box` (normalized, top-left origin, at source time `from`) towards `to` (either way).
     /// With `stopWhenLost` it stops where the subject is lost for a few frames: the shaky last frames are dropped
     /// and `lostAt` says where to fix it. `live` gets every followed frame (time, box), for the preview to show.
-    static func trackRun(file: String, from: Double, to: Double, box: CGRect, memory: Int, stopWhenLost: Bool,
+    static func trackRun(file: String, from: Double, to: Double, box: CGRect, memory: Int, method: TrackMethod,
+                         stopWhenLost: Bool,
                          live: @escaping @Sendable (Double, CGRect) -> Void,
                          progress: @escaping @Sendable (Double) -> Void,
                          isCancelled: @escaping @Sendable () -> Bool) async throws -> TrackRun {
@@ -421,7 +425,7 @@ extension Analyzer {
         }
         func report(_ s: TrackSample) { live(s.t, CGRect(x: s.x - s.w / 2, y: s.y - s.h / 2, width: s.w, height: s.h)) }
         let total = max(abs(to - from), 0.01)
-        let f = HybridFollower(box: start, memory: memory)
+        let f = method.follower(box: start, memory: memory)
         var out: [TrackSample] = []
         struct Lost: Error {}
         var lostAt: Double?
@@ -445,7 +449,7 @@ extension Analyzer {
         }
         if to > from {
             do {
-                try await readFrames(.file(file), from: from, to: to, maxSide: 640, rate: 30, isCancelled: isCancelled) { t, cg in
+                try await readFrames(.file(file), from: from, to: to, maxSide: method.maxSide, rate: 30, isCancelled: isCancelled) { t, cg in
                     if !take(t, cg) { throw Lost() }
                 }
             } catch is Lost {}
@@ -456,7 +460,7 @@ extension Analyzer {
             outer: while chunkEnd - to > 0.01 {
                 let chunkStart = max(to, chunkEnd - 1.0)
                 var frames: [(Double, CGImage)] = []
-                try await readFrames(.file(file), from: chunkStart, to: chunkEnd, maxSide: 640, rate: 30,
+                try await readFrames(.file(file), from: chunkStart, to: chunkEnd, maxSide: method.maxSide, rate: 30,
                                      isCancelled: isCancelled) { t, cg in
                     if first ? t <= from + 1e-3 : t < chunkEnd - 1e-3 { frames.append((t, cg)) }
                 }
