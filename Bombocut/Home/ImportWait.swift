@@ -24,7 +24,7 @@ struct ImportWaitView: View {
             Color.black.opacity(work.playing ? 0.85 : 0.45).ignoresSafeArea()
             if work.playing {
                 SwiftUI.TimelineView(.animation) { tl in
-                    Canvas { ctx, size in
+                    SwiftUI.Canvas { ctx, size in
                         game.step(tl.date, size: size, island: island, lit: lit)
                         game.draw(&ctx, size: size)
                     }
