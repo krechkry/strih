@@ -28,6 +28,8 @@ import kotlinx.coroutines.delay
 /** Holds the player for one open project; the editor reads `time` / `playing` and calls play, pause, seek. */
 class PreviewState {
     var player: CompositionPlayer? = null
+    /** The project's length: the player's clock is never shown past it. */
+    var length = 0.0
     var time by mutableStateOf(0.0)
     var playing by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
@@ -46,6 +48,10 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
         val p = CompositionPlayer.Builder(context).build()
         p.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { state.playing = isPlaying }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                android.util.Log.i("Bombocut", "preview state $playbackState, player duration ${p.duration} ms, project ${state.length} s, at ${p.currentPosition} ms")
+                if (playbackState == Player.STATE_ENDED) state.time = state.length
+            }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) { state.error = error.message }
         })
         p.setVideoSurfaceView(surface)
@@ -56,12 +62,13 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
     LaunchedEffect(project.clips, project.canvas) {
         val p = state.player ?: return@LaunchedEffect
         val comp = CompositionBuilder.build(project, w, h) ?: return@LaunchedEffect
+        state.length = project.duration
         p.setComposition(comp, (state.time * 1000).toLong())
         p.prepare()
     }
     LaunchedEffect(Unit) {
         while (true) {
-            state.player?.let { if (it.isPlaying) state.time = it.currentPosition / 1000.0 }
+            state.player?.let { if (it.isPlaying) state.time = minOf(it.currentPosition / 1000.0, state.length) }
             delay(33)
         }
     }
