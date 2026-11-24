@@ -177,8 +177,8 @@ private fun CurveGraph(points: List<SpeedPoint>, selected: Int?, head: Double?,
             .pointerInput(Unit) {
                 val w = size.width.toFloat(); val h = size.height.toFloat()
                 fun yFor(v: Double) = (SpeedScale.graphY(v) * h).toFloat()
-                fun pointAt(o: Offset): Int? = pts.indices.filter { hypot(pts[it].t * w - o.x, yFor(pts[it].v) - o.y) < 26 * density }
-                    .minByOrNull { hypot(pts[it].t * w - o.x, yFor(pts[it].v) - o.y) }
+                fun pointAt(o: Offset): Int? = pts.indices.filter { hypot((pts[it].t * w).toFloat() - o.x, yFor(pts[it].v) - o.y) < 26 * density }
+                    .minByOrNull { hypot((pts[it].t * w).toFloat() - o.x, yFor(pts[it].v) - o.y) }
                 fun onLine(o: Offset): Boolean { val u = o.x / w; return abs(yFor(SpeedCurve.value(pts, u.toDouble())) - o.y) < 18 * density && u > 0.02 && u < 0.98 }
                 detectTapGestures { o ->
                     val p = pointAt(o)
@@ -199,8 +199,8 @@ private fun CurveGraph(points: List<SpeedPoint>, selected: Int?, head: Double?,
                 detectDragGestures(
                     onDragStart = { o ->
                         grabHead = head
-                        val p = pts.indices.filter { hypot(pts[it].t * w - o.x, yFor(pts[it].v) - o.y) < 26 * density }
-                            .minByOrNull { hypot(pts[it].t * w - o.x, yFor(pts[it].v) - o.y) }
+                        val p = pts.indices.filter { hypot((pts[it].t * w).toFloat() - o.x, yFor(pts[it].v) - o.y) < 26 * density }
+                            .minByOrNull { hypot((pts[it].t * w).toFloat() - o.x, yFor(pts[it].v) - o.y) }
                         drag = when {
                             p != null -> p
                             abs(yFor(SpeedCurve.value(pts, (o.x / w).toDouble())) - o.y) < 18 * density -> {
