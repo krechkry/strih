@@ -44,8 +44,8 @@ adb exec-out screencap -p > $OUT/04-playing-2s.png
 sleep 2
 adb exec-out screencap -p > $OUT/05-playing-4s.png
 python3 android/ci/tap.py "Pause" || true
-# scrub: swipe the timeline left (about 1.5 s at 60 points a second), then split at the playhead, then undo
-adb shell input swipe 800 1960 560 1960 600
+# scrub: playback left the playhead at the end, so swipe the timeline right (back about 1.5 s), then split at the playhead, then undo
+adb shell input swipe 300 1960 540 1960 600
 sleep 2
 adb exec-out screencap -p > $OUT/05b-scrubbed.png
 python3 android/ci/tap.py "Split"
