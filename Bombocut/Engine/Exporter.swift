@@ -1,4 +1,5 @@
 import AVFoundation
+import VideoToolbox
 import Photos
 import os
 
@@ -126,10 +127,13 @@ final class Exporter: @unchecked Sendable {
 
     /// `endCard`: the Bombocut end card after the last clip. `light`: motion blur and smooth slow motion
     /// by simple frame blending instead of Apple's frame engine (much less memory, a softer look).
-    func export(project: Project, settings: ExportSettings, endCard: Bool = false, light: Bool = false,
+    /// `hdr`: 10-bit HEVC in HLG (BT.2100), HDR footage keeps its highlights. The frame engine's smooth cuts and
+    /// motion blur work on 8-bit frames, so an HDR export uses their lighter blends.
+    func export(project: Project, settings: ExportSettings, endCard: Bool = false, light: Bool = false, hdr: Bool = false,
                 progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
+        let light = light || hdr
         let w = Canvas.even(Double(settings.width)), h = Canvas.even(Double(settings.height))
-        let hevc = settings.hevc || max(w, h) > 4096          // H.264 tops out at 4096 px
+        let hevc = settings.hevc || hdr || max(w, h) > 4096   // H.264 tops out at 4096 px; HDR needs HEVC Main 10
         // what the frames draw, from this project (an export from Home, after the trial, has no editor open)
         LookStore.shared.update(project.clips)
         StackStore.shared.update(project)
@@ -139,7 +143,7 @@ final class Exporter: @unchecked Sendable {
         await SpeechCleanup.shared.prepare(project)
         let built = try await CompositionBuilder.build(project: project,
                                                        renderSize: CGSize(width: w, height: h),
-                                                       fps: settings.fps, endCard: endCard, light: light)
+                                                       fps: settings.fps, endCard: endCard, light: light, hdr: hdr)
         let duration = max(built.duration, 0.01)
 
         let out = FileManager.default.temporaryDirectory
@@ -151,7 +155,8 @@ final class Exporter: @unchecked Sendable {
         let reader = try AVAssetReader(asset: built.composition)
         let vTracks = try await built.composition.loadTracks(withMediaType: .video)
         let vOut = AVAssetReaderVideoCompositionOutput(videoTracks: vTracks, videoSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: hdr ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+                                                            : kCVPixelFormatType_32BGRA,
         ])
         vOut.videoComposition = built.videoComposition
         vOut.alwaysCopiesSampleData = false
@@ -184,16 +189,20 @@ final class Exporter: @unchecked Sendable {
             AVVideoMaxKeyFrameIntervalKey: max(1, fpsInt * 2),
         ]
         if !hevc { compression[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel }
+        if hdr { compression[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main10_AutoLevel as String }
+        let color: [String: Any] = hdr
+            ? [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_2020,
+               AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_2100_HLG,
+               AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_2020]
+            : [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+               AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+               AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2]
         let vIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: hevc ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
             AVVideoWidthKey: w,
             AVVideoHeightKey: h,
             AVVideoCompressionPropertiesKey: compression,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
-            ],
+            AVVideoColorPropertiesKey: color,
         ])
         vIn.expectsMediaDataInRealTime = false
         writer.add(vIn)

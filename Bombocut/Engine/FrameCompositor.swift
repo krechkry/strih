@@ -5,29 +5,51 @@ import Metal
 /// Draws every output frame with Core Image on the GPU.
 /// Stage 1: rotation + fit/fill into the canvas.
 /// Later stages insert keyframe transforms, effects, stabilization and captions here.
-final class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
+class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
+    /// HDR export (`HDRFrameCompositor`): half-float frames in HLG (BT.2100), so HDR footage keeps its highlights.
+    class var hdr: Bool { false }
+
     private static let pixelAttrs: [String: any Sendable] = [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
         kCVPixelBufferMetalCompatibilityKey as String: true,
         kCVPixelBufferIOSurfacePropertiesKey as String: [String: Int](),
     ]
+    private static let hdrPixelAttrs: [String: any Sendable] = [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_64RGBAHalf,
+        kCVPixelBufferMetalCompatibilityKey as String: true,
+        kCVPixelBufferIOSurfacePropertiesKey as String: [String: Int](),
+    ]
 
-    let sourcePixelBufferAttributes: [String: any Sendable]? = FrameCompositor.pixelAttrs
-    let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = FrameCompositor.pixelAttrs
+    var sourcePixelBufferAttributes: [String: any Sendable]? { Self.hdr ? Self.hdrPixelAttrs : Self.pixelAttrs }
+    var requiredPixelBufferAttributesForRenderContext: [String: any Sendable] { Self.hdr ? Self.hdrPixelAttrs : Self.pixelAttrs }
+    var supportsHDRSourceFrames: Bool { Self.hdr }
+    var supportsWideColorSourceFrames: Bool { Self.hdr }
 
-    private let context: CIContext = {
-        let space = CGColorSpace(name: CGColorSpace.itur_709)!
+    /// HDR frames are read and written in HLG, which also is the working space: effects work on an encoded
+    /// picture like in SDR (Rec. 709), so the export looks like the preview, just with the highlights kept.
+    static let hlgSpace = CGColorSpace(name: CGColorSpace.itur_2100_HLG)!
+
+    private let context: CIContext
+    private let outSpace: CGColorSpace
+
+    override init() {
+        let hdr = Self.hdr
+        let space = hdr ? Self.hlgSpace : CGColorSpace(name: CGColorSpace.itur_709)!
+        var options: [CIContextOption: Any] = [.workingColorSpace: space, .cacheIntermediates: false]
+        if hdr { options[.workingFormat] = CIFormat.RGBAh }
         if let device = MTLCreateSystemDefaultDevice() {
-            return CIContext(mtlDevice: device, options: [.workingColorSpace: space, .cacheIntermediates: false])
+            context = CIContext(mtlDevice: device, options: options)
+        } else {
+            context = CIContext(options: options)
         }
-        return CIContext(options: [.workingColorSpace: space])
-    }()
+        outSpace = hdr ? Self.hlgSpace : Self.videoSpace
+        super.init()
+    }
     /// Every video frame is read and written in this space. The composition hands the compositor Rec. 709 frames
     /// (iPhone HDR is converted before), so reading them with the very curve the output is written with keeps an
     /// untouched frame byte for byte the same. Letting Core Image pick the curve from the frame's tags read them
     /// with a slightly different one: every trip through Bombocut lifted the shadows and paled the colors.
     static let videoSpace = CGColorSpace(name: CGColorSpace.itur_709)!
-    private let outSpace = FrameCompositor.videoSpace
 
     func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {}
 
@@ -738,8 +760,15 @@ enum CropShapeMask {
 }
 
 extension CIImage {
-    /// A video frame from the composition, read as Rec. 709 (see `FrameCompositor.videoSpace`).
+    /// A video frame from the composition, read as Rec. 709 (see `FrameCompositor.videoSpace`), or as HLG when it
+    /// is a half-float frame of an HDR export (only `HDRFrameCompositor` asks for those).
     convenience init(video pb: CVPixelBuffer) {
-        self.init(cvPixelBuffer: pb, options: [.colorSpace: FrameCompositor.videoSpace])
+        let hdr = CVPixelBufferGetPixelFormatType(pb) == kCVPixelFormatType_64RGBAHalf
+        self.init(cvPixelBuffer: pb, options: [.colorSpace: hdr ? FrameCompositor.hlgSpace : FrameCompositor.videoSpace])
     }
+}
+
+/// The compositor of an HDR export.
+final class HDRFrameCompositor: FrameCompositor, @unchecked Sendable {
+    override class var hdr: Bool { true }
 }

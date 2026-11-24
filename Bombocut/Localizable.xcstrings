@@ -240,6 +240,16 @@
         }
       }
     },
+    "10-bit HEVC in HLG, like the iPhone films. HDR footage keeps its bright highlights on HDR screens.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10bitové HEVC v HLG, jak natáčí iPhone. HDR záběry si na HDR displejích nechají jasná světla."
+          }
+        }
+      }
+    },
     "2 lines": {
       "localizations": {
         "cs": {
@@ -3574,6 +3584,16 @@
         }
       }
     },
+    "Filters and LUTs are SDR looks: on HDR footage they can flatten the brightest highlights.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtry a LUTy jsou SDR looky: na HDR záběrech můžou zploštit nejjasnější světla."
+          }
+        }
+      }
+    },
     "Finding it…": {
       "localizations": {
         "cs": {
@@ -4174,6 +4194,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vodítka"
+          }
+        }
+      }
+    },
+    "HDR": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDR"
+          }
+        }
+      }
+    },
+    "HDR export": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export v HDR"
+          }
+        }
+      }
+    },
+    "HDR is always 10-bit HEVC.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HDR je vždycky 10bitové HEVC."
           }
         }
       }

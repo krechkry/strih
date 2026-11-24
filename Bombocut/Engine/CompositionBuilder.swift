@@ -168,7 +168,8 @@ enum CompositionBuilder {
     }
 
     static func build(project: Project, renderSize: CGSize, fps: Double, preview: Bool = false,
-                      endCard: Bool = false, light: Bool = false, bare: Bool = false) async throws -> BuiltComposition {
+                      endCard: Bool = false, light: Bool = false, bare: Bool = false,
+                      hdr: Bool = false) async throws -> BuiltComposition {
         let comp = AVMutableComposition()
         let lanes = [Lane(comp), Lane(comp)]
         var stackVolume: [UUID: Double] = [:]
@@ -514,14 +515,21 @@ enum CompositionBuilder {
         }
 
         let vc = AVMutableVideoComposition()
-        vc.customVideoCompositorClass = FrameCompositor.self
+        vc.customVideoCompositorClass = hdr ? HDRFrameCompositor.self : FrameCompositor.self
         vc.instructions = instructions
         vc.renderSize = renderSize
         vc.frameDuration = frameDuration(fps: preview ? previewRate(rateTime, fallback: fps) : fps)
-        // Convert iPhone HDR (HLG / Dolby Vision) sources to standard Rec.709 before compositing.
-        vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
-        vc.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
-        vc.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+        if hdr {
+            // HDR export: every source arrives as HLG (BT.2100); SDR clips sit at SDR white inside it
+            vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_2020
+            vc.colorTransferFunction = AVVideoTransferFunction_ITU_R_2100_HLG
+            vc.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_2020
+        } else {
+            // Convert iPhone HDR (HLG / Dolby Vision) sources to standard Rec.709 before compositing.
+            vc.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+            vc.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
+            vc.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+        }
 
         return BuiltComposition(composition: comp, videoComposition: vc, audioMix: mix, duration: cursor.seconds)
     }

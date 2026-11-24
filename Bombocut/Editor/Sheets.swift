@@ -175,6 +175,7 @@ struct ExportSheet: View {
     @AppStorage("export.autoBitrate") private var autoBitrate = true
     @AppStorage("export.bitrate") private var bitrate = 12.0
     @AppStorage("export.endCard") private var endCard = true
+    @AppStorage("export.hdr") private var hdr = false
     /// Basic shows only the presets (always H.264 in an .mp4, it plays everywhere).
     @AppStorage(UIMode.key) private var uiMode = UIMode.pro.rawValue
     private var pro: Bool { uiMode == UIMode.pro.rawValue }
@@ -220,7 +221,7 @@ struct ExportSheet: View {
     }
 
     private var tooBigForH264: Bool { max(outSize.w, outSize.h) > 4096 }
-    private var effectiveHEVC: Bool { (hevc && pro && preset == nil) || tooBigForH264 }
+    private var effectiveHEVC: Bool { (hevc && pro && preset == nil) || tooBigForH264 || hdr }
 
     private var mbps: Double {
         if let p = ExportPreset.all.first(where: { $0.id == preset }) { return p.mbps }
@@ -308,6 +309,7 @@ struct ExportSheet: View {
                     presetGrid
                 }
                 if pro { proSettings }
+                hdrGroup
                 endCardGroup
             }
             .padding(.horizontal, 20)
@@ -431,10 +433,21 @@ struct ExportSheet: View {
             }
         }
 
-        group("Codec", footer: loc(tooBigForH264 ? "Above 4096 px only HEVC works." :
+        group("Codec", footer: loc(hdr ? "HDR is always 10-bit HEVC." : tooBigForH264 ? "Above 4096 px only HEVC works." :
                                    "H.264 plays everywhere. HEVC is about 40% smaller at the same quality.")) {
             ChipRow(items: [("H.264", false), ("HEVC", true)], selected: effectiveHEVC) { hevc = $0; preset = nil }
-                .disabled(tooBigForH264)
+                .disabled(tooBigForH264 || hdr)
+        }
+    }
+
+    /// HDR export: 10-bit HEVC in HLG, the iPhone's own HDR. Remembered for the next export.
+    private var hdrGroup: some View {
+        group("HDR", footer: hdr ? loc("Filters and LUTs are SDR looks: on HDR footage they can flatten the brightest highlights.") : nil) {
+            card {
+                OnOffRow(title: "HDR export",
+                         subtitle: "10-bit HEVC in HLG, like the iPhone films. HDR footage keeps its bright highlights on HDR screens.",
+                         isOn: hdr) { hdr = $0 }
+            }
         }
     }
 
@@ -589,7 +602,8 @@ struct ExportSheet: View {
         task = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
             do {
-                let url = try await exp.export(project: project, settings: settings, endCard: withCard, light: light) { p in
+                let url = try await exp.export(project: project, settings: settings, endCard: withCard, light: light,
+                                               hdr: hdr) { p in
                     Task { @MainActor in
                         if case .exporting = phase { phase = .exporting(p) }
                     }
