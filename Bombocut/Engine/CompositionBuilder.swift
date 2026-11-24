@@ -83,6 +83,8 @@ enum CompositionBuilder {
     }
 
     private static func time(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: timescale) }
+    /// From a to b, each end rounded on its own (pieces cut from one source line up tick for tick).
+    private static func span(_ a: Double, _ b: Double) -> CMTimeRange { CMTimeRange(start: time(a), end: time(b)) }
 
     /// Appends empty time so the next insert lands exactly at `t`.
     private static func pad(_ track: AVMutableCompositionTrack, to t: CMTime) {
@@ -210,10 +212,14 @@ enum CompositionBuilder {
             pad(vTrack, to: start)
 
             for seg in clip.retime.segs {
-                let r = CMTimeRange(start: time(seg.src0), duration: time(seg.srcLen)).intersection(srcRange)
+                // start and end rounded on their own, so one piece ends on the very tick the next starts
+                // (a tick of overlap or gap sent the decoder back to a keyframe at every piece)
+                let r = span(seg.src0, seg.src0 + seg.srcLen).intersection(srcRange)
                 guard r.duration.seconds > 0.0005 else { continue }
                 let ratio = seg.outLen / max(seg.srcLen, 1e-9)
-                let outDur = time(r.duration.seconds * ratio)
+                let outEnd = start + time(seg.out0 + (r.end.seconds - seg.src0) * ratio)
+                guard outEnd > cursor else { continue }
+                let outDur = outEnd - cursor
 
                 try vTrack.insertTimeRange(r, of: src, at: cursor)
                 if outDur != r.duration {
@@ -241,7 +247,7 @@ enum CompositionBuilder {
                         let at = max(want, ln.audioEnd[aTrack.trackID] ?? .zero)
                         ln.padAudio(aTrack, to: at)
                         if (try? aTrack.insertTimeRange(ar, of: srcAudio, at: at)) != nil {
-                            let aOut = time(ar.duration.seconds * ratio)
+                            let aOut = ar == r && at == cursor ? outDur : time(ar.duration.seconds * ratio)
                             if aOut != ar.duration {
                                 aTrack.scaleTimeRange(CMTimeRange(start: at, duration: ar.duration), toDuration: aOut)
                             }
@@ -367,9 +373,11 @@ enum CompositionBuilder {
                         let a = max(seg.out0, off), b = min(seg.out0 + seg.outLen, off + len)
                         guard b - a > 1e-5, seg.outLen > 0 else { continue }
                         let f0 = (a - seg.out0) / seg.outLen, f1 = (b - seg.out0) / seg.outLen
-                        let r = CMTimeRange(start: time(seg.src0 + f0 * seg.srcLen), duration: time((f1 - f0) * seg.srcLen)).intersection(range)
+                        let r = span(seg.src0 + f0 * seg.srcLen, seg.src0 + f1 * seg.srcLen).intersection(range)
                         guard r.duration.seconds > 0.0005 else { continue }
-                        let outDur = time(b - a)
+                        let outEnd = time(o.start + (b - off))
+                        guard outEnd > cursor else { continue }
+                        let outDur = outEnd - cursor
                         pad(track, to: cursor)
                         guard (try? track.insertTimeRange(r, of: src, at: cursor)) != nil else { continue }
                         if outDur != r.duration { track.scaleTimeRange(CMTimeRange(start: cursor, duration: r.duration), toDuration: outDur) }

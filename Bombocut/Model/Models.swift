@@ -109,13 +109,45 @@ struct Retime {
                 arr.append(Seg(src0: inPoint + Double(i) * step, srcLen: step, out0: out, outLen: ol))
                 out += ol
             }
-            segs = arr
+            segs = Self.joined(arr)
             outDuration = out
         } else {
             let v = max(speed * factor, 0.01)
             segs = [Seg(src0: inPoint, srcLen: len, out0: 0, outLen: len / v)]
             outDuration = len / v
         }
+    }
+
+    /// Shortest piece the composition gets (output seconds). Where a curve speeds up, the even source steps
+    /// played as edits of a frame or less each, and the player stuttered right there (each edit is a new
+    /// time-scaled piece for the decoder and the sound's pitch keeper). Neighbours are joined until a piece
+    /// lasts this long, and pieces of (nearly) the same speed always become one. Lengths are summed, so the
+    /// clip's duration stays exactly what it was.
+    static let minPiece = 1.0 / 12
+
+    static func joined(_ fine: [Seg]) -> [Seg] {
+        guard var run = fine.first else { return fine }
+        var out: [Seg] = []
+        out.reserveCapacity(fine.count)
+        for s in fine.dropFirst() {
+            let runV = run.srcLen / max(run.outLen, 1e-12)
+            let v = s.srcLen / max(s.outLen, 1e-12)
+            if run.outLen < minPiece || abs(v / runV - 1) < 0.02 {
+                run.srcLen += s.srcLen
+                run.outLen += s.outLen
+            } else {
+                out.append(run)
+                run = Seg(src0: s.src0, srcLen: s.srcLen, out0: run.out0 + run.outLen, outLen: s.outLen)
+            }
+        }
+        // a short last piece goes into the one before
+        if run.outLen < minPiece / 2, var last = out.popLast() {
+            last.srcLen += run.srcLen
+            last.outLen += run.outLen
+            run = last
+        }
+        out.append(run)
+        return out
     }
 
     private func segIndex(local t: Double) -> Int {

@@ -125,13 +125,15 @@ enum AudioExtract {
         func time(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: 60000) }
         var end = CMTime.zero
         for seg in c.retime.segs {
-            let r = CMTimeRange(start: time(seg.src0), duration: time(seg.srcLen)).intersection(range)
+            let r = CMTimeRange(start: time(seg.src0), end: time(seg.src0 + seg.srcLen)).intersection(range)
             guard r.duration.seconds > 0.0005 else { continue }
             let ratio = seg.outLen / max(seg.srcLen, 1e-9)
             let at = max(end, time(seg.out0 + (r.start.seconds - seg.src0) * ratio))
+            let outEnd = time(seg.out0 + (r.end.seconds - seg.src0) * ratio)
+            guard outEnd > at else { continue }
             if end < at { track.insertEmptyTimeRange(CMTimeRange(start: end, end: at)) }
             guard (try? track.insertTimeRange(r, of: src, at: at)) != nil else { continue }
-            let out = time(r.duration.seconds * ratio)
+            let out = outEnd - at
             if out != r.duration { track.scaleTimeRange(CMTimeRange(start: at, duration: r.duration), toDuration: out) }
             end = at + out
         }
