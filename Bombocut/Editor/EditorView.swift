@@ -197,7 +197,8 @@ struct EditorView: View {
         case .filters: FiltersSheet(model: model)
         case .overlayTrack: OverlayTrackSheet(model: model)
         case .trackPick: TrackPickPanel(model: model) {
-            let back: EditorSheet = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize : .track
+            let back: EditorSheet? = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize
+                : model.editedTracking != nil ? .track : nil
             model.cancelTrackPick()
             sheet = back
         }
@@ -364,11 +365,18 @@ struct EditorView: View {
                 // an open panel covers the bottom: shrink the preview so it stays fully visible above it
                 Color.clear.frame(height: previewLift)
                 VStack(spacing: 0) {
+                    // picking a subject: only the picture and the clips to scrub through stay alive
                     transport
+                        .opacity(model.trackPick ? 0.2 : 1)
+                        .allowsHitTesting(!model.trackPick)
                     let lanes = LaneLayout(model.project, pro: pro)
                     TimelineView(model: model)
                         .frame(height: lanes.total)
-                        .overlay(alignment: .topLeading) { addIsland(lanes) }
+                        .overlay(alignment: .topLeading) {
+                            addIsland(lanes)
+                                .opacity(model.trackPick ? 0 : 1)
+                                .allowsHitTesting(!model.trackPick)
+                        }
                     toolbar
                 }
                 .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { bottomHeight = $0 }
@@ -410,7 +418,7 @@ struct EditorView: View {
             if open { model.openStabilizeSheet = false; sheet = .stabilize }
         }
         .onChange(of: model.openTrackSheet) { _, open in
-            if open { model.openTrackSheet = false; sheet = .track }
+            if open { model.openTrackSheet = false; openTrack() }
         }
         .onChange(of: model.openOverlayPanel) { _, open in
             if open { model.openOverlayPanel = false; sheet = .overlay }
@@ -598,6 +606,14 @@ struct EditorView: View {
             .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+    }
+
+    /// Track: straight to picking the subject on the player when there is no tracking yet, the Track panel when
+    /// there is.
+    private func openTrack() {
+        model.pause()
+        model.playheadIntoSelected()
+        if model.editedTracking != nil { sheet = .track } else { model.startTrackPick() }
     }
 
     // MARK: Transport
@@ -848,7 +864,7 @@ struct EditorView: View {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
                     }
                     if pro {
-                        ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .track }
+                        ToolButton(icon: "scope", label: "Track") { openTrack() }
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
                         if !clip.still {
                             ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
@@ -964,7 +980,7 @@ struct EditorView: View {
         if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
         if pro {
-            ToolButton(icon: "scope", label: "Track") { model.pause(); model.playheadIntoSelected(); sheet = .track }
+            ToolButton(icon: "scope", label: "Track") { openTrack() }
             ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); model.playheadIntoSelected(); sheet = .mask }
             ToolButton(icon: "gyroscope", label: "Stabilize") { model.pause(); sheet = .stabilize }
             ToolButton(icon: "wind", label: "Motion blur") { model.pause(); sheet = .motionBlur }
@@ -1686,6 +1702,7 @@ private struct KeyframeButton: View {
 private struct TrackPickPanel: View {
     @ObservedObject var model: EditorModel
     let cancel: () -> Void
+    @AppStorage(TrackMemory.key) private var memory = TrackMemory.standard
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1693,6 +1710,7 @@ private struct TrackPickPanel: View {
                 .font(.subheadline.weight(.bold)).foregroundStyle(.white)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
+            if model.pinPickOverlay == nil { memoryRow }
             HStack(spacing: 10) {
                 iconButton("xmark", "Cancel", action: cancel)
                 iconButton("arrow.counterclockwise", "Again") {
@@ -1714,6 +1732,20 @@ private struct TrackPickPanel: View {
         .padding(.horizontal, 20)
         .padding(.top, 2)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    /// How many frames of the subject's looks the tracker keeps, to find it again after it was hidden or
+    /// changed (`TrackMemory`). Remembered for the next tracking.
+    private var memoryRow: some View {
+        HStack(spacing: 12) {
+            Text("Memory").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
+                .lineLimit(1).fixedSize()
+            BSlider(value: Binding(get: { memory }, set: { memory = ($0 / 5).rounded() * 5 }), in: TrackMemory.range)
+                .doubleTapReset { memory = TrackMemory.standard }
+            Text(String(format: loc("%lld frames"), Int(memory)))
+                .font(.subheadline.weight(.bold).monospacedDigit())
+                .lineLimit(1).fixedSize()
+        }
     }
 
     private func iconButton(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {

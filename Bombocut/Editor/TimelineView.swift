@@ -119,16 +119,16 @@ struct TimelineView: View {
                             }
                         }
                         .frame(height: lanes.captions, alignment: .top)
-                        .opacity(reorder == nil ? 1 : 0)
-                        .allowsHitTesting(reorder == nil)
+                        .opacity(reorder == nil ? (model.trackPick ? 0.3 : 1) : 0)
+                        .allowsHitTesting(reorder == nil && !model.trackPick)
                     }
                     // texts, pictures and videos share one stack of rows: the higher row is drawn on top,
                     // the lowest sits right above the clips
                     lane(lanes.layers, empty: model.project.overlays.isEmpty, alignment: .bottom) {
                         OverlayLane(model: model)
                     }
-                    .opacity(reorder == nil ? (model.mergePick == nil ? 1 : 0.3) : 0)
-                    .allowsHitTesting(reorder == nil)
+                    .opacity(reorder == nil ? (model.mergePick == nil && !model.trackPick ? 1 : 0.3) : 0)
+                    .allowsHitTesting(reorder == nil && !model.trackPick)
                     let overlaps = overlapsPx(shown)
                     let onScreen = clipsOnScreen(shown, half: half)
                     HStack(spacing: gap) {
@@ -141,12 +141,15 @@ struct TimelineView: View {
                                      height: stripHeight,
                                      inset: gap,
                                      selected: (clip.id == model.selectedClipID || edges != nil) && reorder == nil && model.slip == nil
-                                         && model.pick == nil,
+                                         && model.pick == nil && !model.trackPick,   // picking a subject: plain clips, no handles
                                      trim: model.trim?.id == clip.id ? model.trim : nil,
                                      lifted: dragged,
                                      lead: edges?.lead ?? true,
                                      trail: edges?.trail ?? true,
-                                     onTap: { if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) } },
+                                     onTap: {
+                                         if model.trackPick { return }
+                                         if model.pick != nil { model.togglePick(clip.id) } else { model.tapClip(clip.id) }
+                                     },
                                      onKeyframe: { kf in model.jump(toKeyframe: kf, in: clip.id) },
                                      onTrim: { leading, phase, delta, x in trim(clip.id, leading, phase, delta, x) },
                                      rollLead: k > 0, rollTrail: k < shown.count - 1,
@@ -227,8 +230,8 @@ struct TimelineView: View {
                     lane(lanes.music, empty: model.project.audio.isEmpty) {
                         AudioLane(model: model)
                     }
-                    .opacity(reorder == nil ? (model.mergePick == nil ? 1 : 0.3) : 0)
-                    .allowsHitTesting(reorder == nil)
+                    .opacity(reorder == nil ? (model.mergePick == nil && !model.trackPick ? 1 : 0.3) : 0)
+                    .allowsHitTesting(reorder == nil && !model.trackPick)
                     }
                     .overlay(alignment: .topLeading) {
                         // the edge a dragged block snapped to
@@ -249,6 +252,7 @@ struct TimelineView: View {
                     .frame(height: geo.size.height, alignment: .top)
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        if model.trackPick { return }
                         model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil
                         if model.mergePick != nil { model.mergePick = nil } else { model.captionsSelected = false }
                     }

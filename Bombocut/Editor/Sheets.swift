@@ -1041,17 +1041,8 @@ struct TrackSheet: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
             } else {
-                Text(loc(model.selectedStackIndex != nil
-                     ? "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT follows it through the whole stack and looks for it again after every cut."
-                     : "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip."))
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
-                Button { model.startTrackPick() } label: {
-                    Label("Select subject", systemImage: "viewfinder")
-                        .font(.headline.weight(.bold)).foregroundStyle(.black)
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
-                }
-                .buttonStyle(.plain)
+                // no tracking yet: picking the subject happens on the player (this panel is only for a tracked clip)
+                Color.clear.frame(height: 1).onAppear { model.startTrackPick() }
             }
         }
         .padding(20)

@@ -2083,13 +2083,14 @@ final class EditorModel: ObservableObject {
         let smooth = c.tracking?.smooth ?? 0.5
 
         analysis = AnalysisState(title: "Tracking", progress: 0)
+        let memory = TrackMemory.frames
         analysisTask = Task {
             let flag = CancelFlag()
             await withTaskCancellationHandler {
                 do {
                     let samples = try await Task.detached(priority: .userInitiated) {
                         try await Analyzer.track(file: c.mediaFile, from: c.inPoint, to: c.outPoint, anchor: anchor, box: box,
-                                                 progress: { f in
+                                                 memory: memory, progress: { f in
                             Task { @MainActor in self.analysis?.progress = f }
                         }, isCancelled: { flag.isSet })
                     }.value

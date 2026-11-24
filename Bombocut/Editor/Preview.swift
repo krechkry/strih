@@ -516,11 +516,20 @@ struct PreviewArea: View {
     /// (TrackPickPanel), so only the picture and the clip strip stay in view.
     private func pickOverlay(_ canvas: CGSize) -> some View {
         ZStack {
-            Color.black.opacity(model.pickPhase == .adjust ? 0.2 : 0.35)
+            Color.black.opacity(model.pickPhase == .adjust ? 0.2 : 0.3)
+                .overlay(Theme.accent.opacity(model.pickPhase == .select ? 0.12 : 0))
                 .contentShape(Rectangle())
                 .gesture(pickGesture(canvas))
             if let r = model.pickRect, r.width > 2 {
                 pickBox(r)
+            } else if model.pickPhase == .select {
+                // what to do, right on the picture (the panel below only has the buttons)
+                Label(loc(model.pinPickOverlay != nil ? "Select a spot" : "Select subject"), systemImage: "viewfinder")
+                    .font(.headline.weight(.bold)).foregroundStyle(.black)
+                    .padding(.horizontal, 18).frame(height: 44)
+                    .background(Theme.accent, in: Capsule())
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+                    .allowsHitTesting(false)
             }
             if model.pickPhase == .detecting {
                 ProgressView().tint(Theme.accent).scaleEffect(1.3).allowsHitTesting(false)

@@ -251,6 +251,8 @@ enum Analyzer {
         private var current: VNDetectedObjectObservation
         private var handler = VNSequenceRequestHandler()
         private(set) var box: CGRect       // Vision coordinates
+        /// How sure Vision was on the last frame (0 when it lost the subject).
+        private(set) var confidence: Float = 0
         private var misses = 0
 
         init(box: CGRect) {
@@ -259,7 +261,7 @@ enum Analyzer {
             current = VNDetectedObjectObservation(boundingBox: b)
         }
 
-        private func restart(_ b: CGRect) {
+        func restart(_ b: CGRect) {
             let t = Analyzer.trackable(b)
             box = t
             current = VNDetectedObjectObservation(boundingBox: t)
@@ -282,9 +284,11 @@ enum Analyzer {
             let req = VNTrackObjectRequest(detectedObjectObservation: current)
             req.trackingLevel = .accurate
             var ok = false
+            confidence = 0
             do {
                 try handler.perform([req], on: cg)
                 if let r = req.results?.first as? VNDetectedObjectObservation, r.confidence > 0.3 {
+                    confidence = r.confidence
                     let b = r.boundingBox
                     if b.width >= 0.03, b.height >= 0.03, b.width <= 0.9, b.height <= 0.9,
                        b.minX > -0.2, b.minY > -0.2, b.maxX < 1.2, b.maxY < 1.2 {
@@ -320,14 +324,17 @@ enum Analyzer {
 
     /// Follows the subject inside `box` (normalized, top-left origin, picked at source time `anchor`)
     /// forward to t1 and backward to t0.
-    static func track(file: String, from t0: Double, to t1: Double, anchor: Double, box: CGRect,
+    static func track(file: String, from t0: Double, to t1: Double, anchor: Double, box: CGRect, memory: Int = 60,
                       progress: @escaping @Sendable (Double) -> Void,
                       isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
-        try await track(.file(file), from: t0, to: t1, anchor: anchor, box: box, progress: progress, isCancelled: isCancelled)
+        try await track(.file(file), from: t0, to: t1, anchor: anchor, box: box, memory: memory,
+                        progress: progress, isCancelled: isCancelled)
     }
 
     /// `cuts`: times where the picture cuts to another shot: the subject is looked for again there.
+    /// `memory`: how many frames of the subject's looks the tracker keeps to find it again (`HybridFollower`).
     static func track(_ source: Source, from t0: Double, to t1: Double, anchor: Double, box: CGRect, cuts: [Double] = [],
+                      memory: Int = 60,
                       progress: @escaping @Sendable (Double) -> Void,
                       isCancelled: @escaping @Sendable () -> Bool) async throws -> [TrackSample] {
         func crossed(_ a: Double, _ b: Double) -> Bool {
@@ -344,7 +351,7 @@ enum Analyzer {
 
         // forward
         var forward: [TrackSample] = []
-        let f = Follower(box: start)
+        let f = HybridFollower(box: start, memory: memory)
         if fwdLen > 0.02 {
             var lastT = anchor
             try await readFrames(source, from: anchor, to: t1, maxSide: maxSide, rate: 30, isCancelled: isCancelled) { t, cg in
@@ -364,7 +371,7 @@ enum Analyzer {
         // backward, one short chunk at a time (frames are read forward, tracked in reverse)
         var backward: [TrackSample] = []
         if anchor - t0 > 0.02 {
-            let b = Follower(box: start)
+            let b = HybridFollower(box: start, memory: memory)
             var lastBack = anchor
             var chunkEnd = anchor
             let chunk = 1.0
@@ -854,7 +861,8 @@ final class PatchFollower {
     }
 
     func step(_ cg: CGImage) {
-        guard let g = GrayImage(cg) else { return }
+        // contrast-boosted, like the subject tracker: more corners to follow on flat footage
+        guard let g = GrayImage(Analyzer.trackingFrame(cg)) else { return }
         let next = g.pyramid(levels: 3)
         defer { prev = next }
         guard let pa = prev, pa[0].w == g.w, pa[0].h == g.h else { return }

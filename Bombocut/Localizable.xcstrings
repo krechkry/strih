@@ -176,6 +176,16 @@
         }
       }
     },
+    "%lld frames": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld snímků"
+          }
+        }
+      }
+    },
     "%lld projects, every clip stored once": {
       "localizations": {
         "cs": {
@@ -2894,26 +2904,6 @@
         }
       }
     },
-    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT finds it, draws a box you can fix, and follows it through the whole clip.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Táhni po náhledu do stran a najdi snímek, kde je objekt dobře vidět. Pak klepni na Vybrat objekt a klepni na něj, nebo ho zhruba orámuj. BOMBOCUT ho najde, nakreslí rámeček, který můžeš doladit, a sleduje ho celým klipem."
-          }
-        }
-      }
-    },
-    "Drag sideways on the preview to find a frame where the subject is clear, then tap Select subject and tap or roughly box it. BOMBOCUT follows it through the whole stack and looks for it again after every cut.": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Táhni po náhledu do strany, najdi snímek, kde je objekt dobře vidět, pak klepni na Vybrat objekt a klepni na něj nebo ho zhruba ohranič. BOMBOCUT ho sleduje celým Stackem a po každém střihu ho hledá znovu."
-          }
-        }
-      }
-    },
     "Drag the box to fix it, then Track": {
       "localizations": {
         "cs": {
@@ -5178,6 +5168,16 @@
         }
       }
     },
+    "Memory": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paměť"
+          }
+        }
+      }
+    },
     "Merge": {
       "localizations": {
         "cs": {
@@ -7214,6 +7214,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nejdřív vyber klip."
+          }
+        }
+      }
+    },
+    "Select a spot": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber místo"
           }
         }
       }
