@@ -54,8 +54,9 @@ final class SubjectTrackerTests: XCTestCase {
     func testMethodIsRememberedAndFastByDefault() {
         UserDefaults.standard.removeObject(forKey: TrackMethod.key)
         XCTAssertEqual(TrackMethod.current, .fast)
+        // Apple's tracker only for now, whatever is stored
         UserDefaults.standard.set("precise", forKey: TrackMethod.key)
-        XCTAssertEqual(TrackMethod.current, .precise)
+        XCTAssertEqual(TrackMethod.current, .fast)
         XCTAssertTrue(TrackMethod.precise.follower(box: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2), memory: 50) is PlanarFollower)
         UserDefaults.standard.removeObject(forKey: TrackMethod.key)
     }

@@ -132,9 +132,8 @@ enum TrackMethod: String, CaseIterable {
     case precise
 
     static let key = "trackMethod"
-    static var current: TrackMethod {
-        TrackMethod(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .fast
-    }
+    /// Apple's tracker only for now: in real use Precise lost the subject far more often (kept for later).
+    static var current: TrackMethod { .fast }
 
     func follower(box: CGRect, memory: Int) -> SubjectFollower {
         switch self {

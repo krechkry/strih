@@ -1004,7 +1004,25 @@ struct TrackSheet: View {
 
     var body: some View {
         PanelStack(spacing: 18, span: 1) {
-            Text("Track subject").font(.title3.weight(.heavy))
+            HStack(spacing: 10) {
+                Text("Track subject").font(.title3.weight(.heavy))
+                Spacer(minLength: 8)
+                if model.editedTracking != nil {
+                    // pick again / remove, next to the title
+                    Button { model.startTrackPick() } label: {
+                        Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .padding(.horizontal, 12).frame(height: 36).background(Theme.panel2, in: Capsule())
+                    }
+                    Button(role: .destructive) { model.removeTracking() } label: {
+                        Image(systemName: "trash").font(.system(size: 15, weight: .bold))
+                            .frame(width: 36, height: 36).background(Theme.panel2, in: Circle())
+                    }
+                    .accessibilityLabel(loc("Remove"))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
             if let tr = model.editedTracking {
                 Text("Follow").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
                 HStack(spacing: 8) {
@@ -1040,18 +1058,6 @@ struct TrackSheet: View {
                     if e { model.liveEditBegan() } else { model.liveEditEnded() }
                 })
                 .doubleTapReset { model.liveEditBegan(); model.editTracking { $0.smooth = 0.5 }; model.liveEditEnded() }
-                HStack(spacing: 10) {
-                    Button { model.startTrackPick() } label: {
-                        Label("Pick again", systemImage: "viewfinder").font(.subheadline.weight(.bold))
-                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
-                    }
-                    Button(role: .destructive) { model.removeTracking() } label: {
-                        Label("Remove", systemImage: "trash").font(.subheadline.weight(.bold))
-                            .padding(.horizontal, 14).frame(height: 38).background(Theme.panel2, in: Capsule())
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
             } else {
                 // no tracking yet: picking the subject happens on the player (this panel is only for a tracked clip)
                 Color.clear.frame(height: 1).onAppear { model.startTrackPick() }

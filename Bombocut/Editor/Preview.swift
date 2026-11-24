@@ -141,6 +141,11 @@ struct PreviewArea: View {
     /// Touch handling and the tools drawn over the picture (crop, AutoZoom, mask, track pick, analysis, scrub bar).
     @ViewBuilder
     private func editingLayers(_ canvas: CGSize, area: CGSize) -> some View {
+        // the picture's size, kept current also while tracking (the live box and the box to fix are worked out
+        // with it; a stale size put them in the wrong spot)
+        Color.clear.frame(width: 0, height: 0)
+            .onAppear { model.pickCanvas = canvas }
+            .onChange(of: canvas) { _, c in model.pickCanvas = c }
         if model.eyedropper != nil {
             layer(canvas) { eyedropperLayer(canvas) }
         } else if !model.trackPick && model.analysis == nil && !model.maskPaint {

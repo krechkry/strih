@@ -447,14 +447,15 @@ extension Analyzer {
             if let now = ColorPrint(cg, box: rect(out[out.count - 1])) {
                 if let ref = colors {
                     let like = ref.likeness(now)
-                    if like < 0.5 { colorMiss += 1 } else { colorMiss = 0 }
+                    if like < 0.4 { colorMiss += 1 } else { colorMiss = 0 }
                     if like > 0.75 { colors?.blend(now, 0.05) }
                 } else {
                     colors = now
                 }
             }
-            if stopWhenLost && (f.lostFrames >= 6 || colorMiss >= 4) {
-                let drop = min(max(f.lostFrames >= 6 ? f.lostFrames : 0, colorMiss >= 4 ? colorMiss : 0), out.count - 1)
+            // lost: Vision gave up for 8 frames in a row, or the colors were clearly not the subject's for 6
+            if stopWhenLost && (f.lostFrames >= 8 || colorMiss >= 6) {
+                let drop = min(max(f.lostFrames >= 8 ? f.lostFrames : 0, colorMiss >= 6 ? colorMiss : 0), out.count - 1)
                 lostAt = out[out.count - drop].t
                 out.removeLast(drop)
                 return false

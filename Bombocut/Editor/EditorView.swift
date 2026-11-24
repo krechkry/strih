@@ -1,4 +1,8 @@
 import SwiftUI
+
+/// Fast / Precise when picking a subject: hidden, only Apple's tracker for now (`TrackMethod.current`). With it
+/// hidden the pick panel also stays low, so the clip strip stays in view.
+private let trackMethodsShown = false
 import Photos
 import AVFoundation
 import PhotosUI
@@ -59,7 +63,7 @@ struct EditorView: View {
     /// Height of each panel; editing panels leave the preview visible and undimmed.
     private func panelHeight(_ s: EditorSheet) -> CGFloat {
         // a picked subject: Fast / Precise, Memory and the buttons need more room, the video moves up for it
-        if s == .trackPick, model.pickPhase == .adjust, model.pinPickOverlay == nil {
+        if s == .trackPick, trackMethodsShown, model.pickPhase == .adjust, model.pinPickOverlay == nil {
             let h = windowHeight > 0 ? windowHeight : Device.window.height
             return min(naturalHeight(s), (h * 0.6).rounded())
         }
@@ -102,7 +106,7 @@ struct EditorView: View {
         // (the lanes above the strip fold away while picking, so the strip moves up and the panel gets taller)
         // once the subject is picked, the strip isn't needed: the panel covers the whole bottom (Fast / Precise)
         case .trackPick:
-            if model.pickPhase == .adjust && model.pinPickOverlay == nil {
+            if trackMethodsShown && model.pickPhase == .adjust && model.pinPickOverlay == nil {
                 return max(430, 28 + bottomHeight - Panel<EmptyView>.extra)
             }
             return max(180, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
@@ -1730,7 +1734,7 @@ private struct TrackPickPanel: View {
     @AppStorage(TrackMethod.key) private var method = TrackMethod.fast.rawValue
 
     /// Picked a subject (not an overlay pin): Fast or Precise, the panel covers the strip.
-    private var choosing: Bool { model.pickPhase == .adjust && model.pinPickOverlay == nil }
+    private var choosing: Bool { trackMethodsShown && model.pickPhase == .adjust && model.pinPickOverlay == nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1738,7 +1742,7 @@ private struct TrackPickPanel: View {
                 .font(.subheadline.weight(.bold)).foregroundStyle(.white)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            if choosing { methodSection }
+            if choosing && trackMethodsShown { methodSection }
             Spacer(minLength: 0)
             HStack(spacing: 10) {
                 iconButton("xmark", "Cancel", action: cancel)
