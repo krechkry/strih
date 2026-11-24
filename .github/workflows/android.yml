@@ -15,7 +15,7 @@ jobs:
       - name: Newest versions on Google's Maven and Maven Central (to bump libs.versions.toml)
         continue-on-error: true
         run: |
-          latest() { curl -s "$1" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -E 'alpha|beta|rc|dev|-M' | tail -1; }
+          latest() { curl -s "$1" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v -i -E 'alpha|beta|rc|dev|-M|eap' | tail -3 | tr '\n' ' '; }
           G=https://dl.google.com/dl/android/maven2
           C=https://repo1.maven.org/maven2
           {

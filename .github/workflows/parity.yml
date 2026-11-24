@@ -1,0 +1,51 @@
+name: Parity fixtures
+
+# Runs the Swift ParityFixtures tests on the Mac and commits shared/parity/*.json,
+# which the Android unit tests compare against (strih/android-plan.md).
+on:
+  push:
+    paths: ['Tests/ParityFixtures.swift', 'Bombocut/Model/**', 'Bombocut/Engine/Beats.swift', 'Bombocut/Engine/Silence.swift', 'Bombocut/App/BombocutApp.swift', '.github/workflows/parity.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: parity
+  cancel-in-progress: false
+
+jobs:
+  fixtures:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pick newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+
+      - name: Write the fixtures
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if 'iPhone' in x['name'] and 'Pro' in x['name'] and 'Max' not in x['name']]
+          print(sorted(c,key=lambda x:x['name'])[-1]['udid'])")
+          xcodebuild test -project Bombocut.xcodeproj -scheme Bombocut -destination "id=$UDID" ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO -only-testing:BombocutTests/ParityFixtures > test.log 2>&1 || { tail -60 test.log; exit 1; }
+          grep -E "Test Case .*(passed|failed)" test.log || true
+          ls -la shared/parity
+
+      - name: Commit them
+        run: |
+          git config user.name "parity-bot"
+          git config user.email "parity-bot@users.noreply.github.com"
+          git add shared/parity
+          if git diff --cached --quiet; then echo "fixtures unchanged"; exit 0; fi
+          git commit -m "Parity fixtures from $(git rev-parse --short HEAD)"
+          for i in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 5; done
+          exit 1
