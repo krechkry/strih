@@ -6,6 +6,9 @@ OUT=android/ci/out
 mkdir -p $OUT
 APP=cz.krechler.bombocut
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+# let the fresh emulator settle (its launcher can be busy and throw "not responding" over us)
+sleep 20
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null
 adb shell pm grant $APP android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 
 # the app makes its folders on first start
