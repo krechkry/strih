@@ -850,6 +850,13 @@ struct ClipTile: View {
     /// Off screen: a plain tile, no filmstrip frames (see `TimelineView.clipsOnScreen`).
     var showFrames = true
 
+    /// A calm color of its own for each media file (the same every time), shown while its frames are still being
+    /// made or the clip is off screen, so nothing looks missing.
+    static func tint(_ file: String) -> Color {
+        let h = file.unicodeScalars.reduce(UInt32(7)) { ($0 &* 31) &+ $1.value }
+        return Color(hue: Double(h % 360) / 360, saturation: 0.38, brightness: 0.36)
+    }
+
     @ObservedObject private var thumbs = ThumbnailCache.shared
     @State private var dragging: Bool? = nil   // which edge is being dragged (true = leading)
     @State private var holding = false
@@ -875,7 +882,7 @@ struct ClipTile: View {
                     if let img = thumbs.image(file: clip.mediaFile, at: strip.time(k)) {
                         Image(uiImage: img).resizable().scaledToFill()
                     } else {
-                        Theme.panel2
+                        Color.clear   // the clip's own color shows until its frames are made
                     }
                 }
                 .frame(width: strip.slot, height: height)
@@ -884,7 +891,7 @@ struct ClipTile: View {
         }
         .offset(x: -strip.phase)
         .frame(width: w, height: height, alignment: .leading)
-        .background(Theme.panel2)
+        .background(Self.tint(clip.mediaFile))
         .clipped()
         .overlay(alignment: .topLeading) {
             if w > 44 {

@@ -13,8 +13,12 @@ final class Proxies {
     nonisolated static let settingKey = "smoothPlayback"
     nonisolated static var enabled: Bool { UserDefaults.standard.object(forKey: settingKey) as? Bool ?? true }
 
-    /// Called when a new copy is ready (the editor builds its preview again to play it).
+    /// Called when a new copy is ready (the editor builds its preview again to play it, once it isn't playing).
     var changed: (() -> Void)?
+    /// While the preview plays no new copy is started (making one needs the video decoders too).
+    var playing = false {
+        didSet { if !playing { next() } }
+    }
 
     /// Checked this session and light enough to play as they are.
     private var light: Set<String> = []
@@ -39,7 +43,7 @@ final class Proxies {
     }
 
     private func next() {
-        guard working == nil, !queue.isEmpty else { return }
+        guard working == nil, !playing, !queue.isEmpty else { return }
         let file = queue.removeFirst()
         working = file
         Task.detached(priority: .utility) {

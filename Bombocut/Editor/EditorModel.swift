@@ -84,6 +84,8 @@ final class EditorModel: ObservableObject {
             if isPlaying != oldValue {
                 updateFraming()
                 ThumbnailCache.shared.playing = isPlaying   // leave the decoders to the player
+                Proxies.shared.playing = isPlaying
+                if !isPlaying { applyDeferredRebuild() }
             }
         }
     }
@@ -168,7 +170,13 @@ final class EditorModel: ObservableObject {
     var analysisTask: Task<Void, Never>?
 
     /// True while the user drags the timeline, so playback time doesn't fight the scroll.
-    var isScrubbing = false
+    var isScrubbing = false {
+        didSet { if !isScrubbing { applyDeferredRebuild() } }
+    }
+    /// Something made in the background (a playback copy, cleaned speech) got ready while playing or scrubbing:
+    /// the preview takes it once that stops, never in the middle (rebuilding the player mid-playback made it jump
+    /// back and stutter).
+    private var deferredRebuild = false
 
     let player = AVPlayer()
     private let store: ProjectStore
@@ -404,9 +412,21 @@ final class EditorModel: ObservableObject {
         return BuildKey(project: q, sounds: sounds, size: size)
     }
 
+    /// Something made in the background is ready (a heavy clip's playback copy, cleaned speech): the preview
+    /// takes it now, or once playback / scrubbing stops.
+    private func backgroundReady() {
+        if isPlaying || isScrubbing { deferredRebuild = true } else { rebuild() }
+    }
+
+    private func applyDeferredRebuild() {
+        guard deferredRebuild, !isPlaying, !isScrubbing else { return }
+        deferredRebuild = false
+        rebuild()
+    }
+
     func rebuild() {
         // heavy clips (4K, 10-bit, ProRes) get a light copy for the preview; each one ready builds again
-        Proxies.shared.changed = { [weak self] in self?.rebuild() }
+        Proxies.shared.changed = { [weak self] in self?.backgroundReady() }
         Proxies.shared.want(project.clips.map(\.mediaFile) + project.overlays.compactMap { o -> String? in
             if case .video(let file, _, _) = o.kind { return file }
             return nil
@@ -414,7 +434,7 @@ final class EditorModel: ObservableObject {
         // speech settings without their cleaned sound yet: make it, then build again with it
         let speechWork = SpeechCleanup.shared.missing(in: project)
         if !speechWork.isEmpty {
-            SpeechCleanup.shared.process(sources: speechWork) { [weak self] in self?.rebuild() }
+            SpeechCleanup.shared.process(sources: speechWork) { [weak self] in self?.backgroundReady() }
         }
         let p = project
         let size = previewSize

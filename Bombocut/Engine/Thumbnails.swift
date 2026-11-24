@@ -125,12 +125,15 @@ final class ThumbnailCache: ObservableObject {
         guard dur > 0 else { return ([], false) }
         let gen = AVAssetImageGenerator(asset: asset)
         gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 180, height: 180)
-        let tol = CMTime(seconds: 0.25, preferredTimescale: 600)
+        // small (a strip tile is tiny) and one per second at most: the slow part is decoding the video
+        gen.maximumSize = CGSize(width: 96, height: 96)
+        let count = min(60, max(2, Int(dur.rounded(.up))))
+        // any frame near the asked time will do: the decoder can stop at the nearest keyframe instead of
+        // decoding its way to the exact frame (by far the most of the time on 4K HEVC)
+        let tol = CMTime(seconds: max(0.25, dur / Double(count) / 2), preferredTimescale: 600)
         gen.requestedTimeToleranceBefore = tol
         gen.requestedTimeToleranceAfter = tol
 
-        let count = min(150, max(2, Int((dur * 1.5).rounded(.up))))
         let times = (0..<count).map { CMTime(seconds: dur * (Double($0) + 0.5) / Double(count), preferredTimescale: 600) }
         var out: [Thumb] = []
         for await result in gen.images(for: times) {
@@ -145,7 +148,7 @@ final class ThumbnailCache: ObservableObject {
     // MARK: On disk
 
     private struct Stored: Codable {
-        var version = 1
+        var version = 2
         var times: [Double]
         var jpegs: [Data]
     }
@@ -159,7 +162,7 @@ final class ThumbnailCache: ObservableObject {
     nonisolated static func load(_ file: String) -> [Thumb]? {
         guard let d = try? Data(contentsOf: url(file)),
               let s = try? PropertyListDecoder().decode(Stored.self, from: d),
-              s.version == 1, s.times.count == s.jpegs.count, !s.times.isEmpty else { return nil }
+              s.version == 2, s.times.count == s.jpegs.count, !s.times.isEmpty else { return nil }
         var out: [Thumb] = []
         out.reserveCapacity(s.times.count)
         for (t, j) in zip(s.times, s.jpegs) {
