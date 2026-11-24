@@ -150,7 +150,11 @@ struct PreviewArea: View {
         if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
         if model.cropPanelOpen && !model.isPlaying && model.analysis == nil { cropLayer(canvas) }
         if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil { autoZoomLayer(canvas) }
-        if let a = model.analysis { layer(canvas) { analysisOverlay(a) } }
+        if let a = model.analysis {
+            layer(canvas) {
+                if let b = model.trackLiveBox { trackingLive(a, box: b) } else { analysisOverlay(a) }
+            }
+        }
         if let r = model.scrubRange { layer(canvas) { scrubBar(r, canvas) } }
     }
 
@@ -524,11 +528,10 @@ struct PreviewArea: View {
                 pickBox(r)
             } else if model.pickPhase == .select {
                 // what to do, right on the picture (the panel below only has the buttons)
+                // just the words (no button look: there is nothing to tap here, the picture itself is the target)
                 Label(loc(model.pinPickOverlay != nil ? "Select a spot" : "Select subject"), systemImage: "viewfinder")
-                    .font(.headline.weight(.bold)).foregroundStyle(.black)
-                    .padding(.horizontal, 18).frame(height: 44)
-                    .background(Theme.accent, in: Capsule())
-                    .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+                    .font(.title3.weight(.bold)).foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 6, y: 1)
                     .allowsHitTesting(false)
             }
             if model.pickPhase == .detecting {
@@ -1298,6 +1301,31 @@ struct PreviewArea: View {
         .stroke((add ? Theme.accent : Color(red: 1, green: 0.42, blue: 0.4)).opacity(0.55),
                 style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         .allowsHitTesting(false)
+    }
+
+    /// Tracking: the frame being followed shows with its box, the progress sits small at the bottom.
+    private func trackingLive(_ a: AnalysisState, box b: CGRect) -> some View {
+        ZStack(alignment: .bottom) {
+            Rectangle()
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2.5, dash: [8, 5]))
+                .background(Theme.accent.opacity(0.1))
+                .frame(width: b.width, height: b.height)
+                .position(x: b.midX, y: b.midY)
+                .allowsHitTesting(false)
+            HStack(spacing: 12) {
+                Text(loc(a.title) + " \(Int(a.progress * 100)) %").font(.subheadline.weight(.bold).monospacedDigit())
+                ProgressView(value: a.progress).tint(Theme.accent).frame(width: 90)
+                Button { model.cancelAnalysis() } label: {
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .heavy)).foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc("Cancel"))
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.black.opacity(0.7), in: Capsule())
+            .padding(.bottom, 12)
+        }
     }
 
     private func analysisOverlay(_ a: AnalysisState) -> some View {

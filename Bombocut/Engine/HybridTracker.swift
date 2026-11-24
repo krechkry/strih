@@ -123,6 +123,8 @@ final class HybridFollower {
     /// Vision coordinates (normalized, bottom-left origin), like `Analyzer.Follower`.
     private(set) var box: CGRect
     private var weak = 0
+    /// Frames in a row it couldn't find the subject at all (not even with the memory).
+    private(set) var lostFrames = 0
 
     init(box: CGRect, memory frames: Int) {
         area = Analyzer.Follower(box: box)
@@ -231,6 +233,7 @@ final class HybridFollower {
         let w = min(max(chosen.width, side * 0.03), CGFloat(g.w) * 0.95)
         let h = min(max(chosen.height, side * 0.03), CGFloat(g.h) * 0.95)
         chosen = CGRect(x: chosen.midX - w / 2, y: chosen.midY - h / 2, width: w, height: h)
+        if sure < 0.3 { lostFrames += 1 } else if sure > 0.42 { lostFrames = 0 }
         box = normalized(chosen, g)
         // the area tracker starts again from here only when points or memory overruled it (restarting it every
         // frame would throw away what it learned about the subject)
@@ -251,10 +254,27 @@ final class HybridFollower {
 /// More: it finds the subject again after longer gaps and big changes, at a little more work per frame.
 enum TrackMemory {
     static let key = "trackMemory"
-    static let range: ClosedRange<Double> = 10...240
-    static let standard = 60.0
+    static let range: ClosedRange<Double> = 10...400
+    static let standard = 200.0
     static var frames: Int {
         let v = UserDefaults.standard.object(forKey: key) as? Double ?? standard
         return Int(min(max(v, range.lowerBound), range.upperBound))
     }
+}
+
+/// Tracking stopped where it lost the subject (see `EditorModel.trackFix`).
+struct TrackFix: Equatable {
+    struct Settings: Equatable {
+        var mode: FollowMode
+        var smooth: Double
+        var forStab: Bool
+    }
+    struct Lost: Equatable {
+        var t: Double          // source time
+        var forward: Bool      // which way it was tracking
+    }
+    let clipID: UUID
+    let forward: Bool
+    var pending: [Lost]
+    var settings: Settings
 }

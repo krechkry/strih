@@ -46,8 +46,8 @@ final class HybridTrackerTests: XCTestCase {
 
     func testMemoryLengthIsClamped() {
         UserDefaults.standard.set(5000.0, forKey: TrackMemory.key)
-        XCTAssertEqual(TrackMemory.frames, 240)
+        XCTAssertEqual(TrackMemory.frames, 400)
         UserDefaults.standard.removeObject(forKey: TrackMemory.key)
-        XCTAssertEqual(TrackMemory.frames, 60)
+        XCTAssertEqual(TrackMemory.frames, 200)
     }
 }

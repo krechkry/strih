@@ -4998,6 +4998,16 @@
         }
       }
     },
+    "Lost it here. Fix the box (step frame by frame if needed), then Continue": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tady se ztratil. Oprav rámeček (klidně snímek po snímku), pak Pokračovat"
+          }
+        }
+      }
+    },
     "Luminance": {
       "localizations": {
         "cs": {

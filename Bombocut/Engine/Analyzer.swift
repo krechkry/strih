@@ -399,6 +399,80 @@ enum Analyzer {
     }
 }
 
+// MARK: Subject tracking one way, stopping where it loses the subject
+
+/// One run of the subject tracker: what it followed, and where it lost the subject (nil: it got to the end).
+struct TrackRun {
+    var samples: [TrackSample]
+    var lostAt: Double?
+}
+
+extension Analyzer {
+    /// Follows the subject in `box` (normalized, top-left origin, at source time `from`) towards `to` (either way).
+    /// With `stopWhenLost` it stops where the subject is lost for a few frames: the shaky last frames are dropped
+    /// and `lostAt` says where to fix it. `live` gets every followed frame (time, box), for the preview to show.
+    static func trackRun(file: String, from: Double, to: Double, box: CGRect, memory: Int, stopWhenLost: Bool,
+                         live: @escaping @Sendable (Double, CGRect) -> Void,
+                         progress: @escaping @Sendable (Double) -> Void,
+                         isCancelled: @escaping @Sendable () -> Bool) async throws -> TrackRun {
+        let start = CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height)   // Vision coordinates
+        func sample(_ t: Double, _ r: CGRect) -> TrackSample {
+            TrackSample(t: t, x: Double(r.midX), y: Double(1 - r.midY), w: Double(r.width), h: Double(r.height))
+        }
+        func report(_ s: TrackSample) { live(s.t, CGRect(x: s.x - s.w / 2, y: s.y - s.h / 2, width: s.w, height: s.h)) }
+        let total = max(abs(to - from), 0.01)
+        let f = HybridFollower(box: start, memory: memory)
+        var out: [TrackSample] = []
+        struct Lost: Error {}
+        var lostAt: Double?
+        /// One frame: false = stop here, the subject is gone.
+        func take(_ t: Double, _ cg: CGImage) -> Bool {
+            let b = f.step(cg)
+            if out.isEmpty {
+                out.append(sample(t, start))   // the picked frame keeps the picked box
+            } else {
+                out.append(sample(t, b))
+            }
+            report(out[out.count - 1])
+            progress(min(1, abs(t - from) / total))
+            if stopWhenLost && f.lostFrames >= 6 {
+                let drop = min(f.lostFrames, out.count - 1)
+                lostAt = out[out.count - drop].t
+                out.removeLast(drop)
+                return false
+            }
+            return true
+        }
+        if to > from {
+            do {
+                try await readFrames(.file(file), from: from, to: to, maxSide: 640, rate: 30, isCancelled: isCancelled) { t, cg in
+                    if !take(t, cg) { throw Lost() }
+                }
+            } catch is Lost {}
+        } else {
+            // backward, one short chunk at a time (frames are read forward, followed in reverse)
+            var chunkEnd = from + 0.05
+            var first = true
+            outer: while chunkEnd - to > 0.01 {
+                let chunkStart = max(to, chunkEnd - 1.0)
+                var frames: [(Double, CGImage)] = []
+                try await readFrames(.file(file), from: chunkStart, to: chunkEnd, maxSide: 640, rate: 30,
+                                     isCancelled: isCancelled) { t, cg in
+                    if first ? t <= from + 1e-3 : t < chunkEnd - 1e-3 { frames.append((t, cg)) }
+                }
+                first = false
+                for (t, cg) in frames.reversed() {
+                    if isCancelled() { throw CancellationError() }
+                    if !take(t, cg) { break outer }
+                }
+                chunkEnd = chunkStart
+            }
+        }
+        progress(1)
+        return TrackRun(samples: out.sorted { $0.t < $1.t }, lostAt: lostAt)
+    }
+}
+
 // MARK: Custom mask: following picked objects
 
 extension Analyzer {

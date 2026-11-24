@@ -1941,6 +1941,12 @@ final class EditorModel: ObservableObject {
     /// Enter "mark the subject" mode on the preview.
     /// The box drawn while picking a subject (preview canvas points) and the canvas it was drawn on.
     @Published var pickRect: CGRect?
+    /// Tracking stopped where it lost the subject: the box is fixed on that frame (stepping frame by frame if
+    /// needed), then Continue tracks on from there the way it was going. Other places it was lost come after.
+    @Published var trackFix: TrackFix?
+    /// While tracking: the box on the frame being followed (preview canvas points), the preview shows that frame.
+    @Published var trackLiveBox: CGRect?
+    private var lastLive = Date.distantPast
     var pickCanvas: CGSize = .zero
 
     /// What to do now, while picking a subject.
@@ -1948,7 +1954,9 @@ final class EditorModel: ObservableObject {
         switch pickPhase {
         case .select: return pinPickOverlay != nil ? "Tap or box the spot the overlay sticks to" : "Tap or roughly box the subject"
         case .detecting: return "Finding it…"
-        case .adjust: return "Drag the box to fix it, then Track"
+        case .adjust:
+            return trackFix != nil ? "Lost it here. Fix the box (step frame by frame if needed), then Continue"
+                : "Drag the box to fix it, then Track"
         }
     }
 
@@ -1985,6 +1993,7 @@ final class EditorModel: ObservableObject {
     }
 
     func cancelTrackPick() {
+        trackFix = nil
         pickRect = nil
         stabilizeOnSubject = false
         pinPickOverlay = nil
@@ -2095,39 +2104,132 @@ final class EditorModel: ObservableObject {
         trackPick = false
         pickPhase = .select
         let c = project.clips[i]
-        let id = c.id
         let anchor = sourceTime(i)
+        if let fix = trackFix, fix.clipID == c.id {
+            // continuing after a fix: on from here, the way it was going
+            trackFix = nil
+            runTrackPasses(clip: i, anchor: anchor, box: box, forward: [fix.forward], settings: fix.settings,
+                           pending: fix.pending, fresh: false)
+            return
+        }
+        trackFix = nil
         let forStab = stabilizeOnSubject
         stabilizeOnSubject = false
-        let mode: FollowMode = forStab ? .inPlace : (c.tracking?.mode ?? .center)
-        let smooth = c.tracking?.smooth ?? 0.5
+        let settings = TrackFix.Settings(mode: forStab ? .inPlace : (c.tracking?.mode ?? .center),
+                                         smooth: c.tracking?.smooth ?? 0.5, forStab: forStab)
+        runTrackPasses(clip: i, anchor: anchor, box: box, forward: [true, false], settings: settings, pending: [], fresh: true)
+    }
 
-        analysis = AnalysisState(title: "Tracking", progress: 0)
+    /// Tracks from `anchor` each way in `forward` (true = towards the clip's end), stopping where the subject is
+    /// lost. The preview shows every followed frame. Then: everything found goes into the clip's tracking
+    /// (`fresh`: replacing it, else only over the stretch just tracked), and if it was lost anywhere the editor
+    /// goes to the first such frame to fix the box (`trackFix`); the rest wait in `pending`.
+    private func runTrackPasses(clip i: Int, anchor: Double, box: CGRect, forward: [Bool], settings: TrackFix.Settings,
+                                pending: [TrackFix.Lost], fresh: Bool) {
+        let c = project.clips[i]
+        let id = c.id
         let memory = TrackMemory.frames
+        let file = c.mediaFile
+        let lo = c.inPoint, hi = c.outPoint
+        analysis = AnalysisState(title: "Tracking", progress: 0)
+        trackLiveBox = nil
         analysisTask = Task {
             let flag = CancelFlag()
             await withTaskCancellationHandler {
                 do {
-                    let samples = try await Task.detached(priority: .userInitiated) {
-                        try await Analyzer.track(file: c.mediaFile, from: c.inPoint, to: c.outPoint, anchor: anchor, box: box,
-                                                 memory: memory, progress: { f in
-                            Task { @MainActor in self.analysis?.progress = f }
-                        }, isCancelled: { flag.isSet })
-                    }.value
-                    guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
-                    mutateLook {
-                        $0.clips[j].tracking = Tracking(samples: samples, mode: mode == .off ? .center : mode,
-                                                        smooth: smooth, anchor: anchor, noBorders: forStab ? true : nil)
+                    var runs: [(Bool, TrackRun)] = []
+                    for (k, fwd) in forward.enumerated() {
+                        let share = 1.0 / Double(forward.count)
+                        let run = try await Task.detached(priority: .userInitiated) {
+                            try await Analyzer.trackRun(file: file, from: anchor, to: fwd ? hi : lo, box: box, memory: memory,
+                                                        stopWhenLost: true,
+                                                        live: { t, b in Task { @MainActor in self.trackLive(clip: id, source: t, box: b) } },
+                                                        progress: { f in
+                                                            Task { @MainActor in self.analysis?.progress = (Double(k) + f) * share }
+                                                        },
+                                                        isCancelled: { flag.isSet })
+                        }.value
+                        runs.append((fwd, run))
                     }
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    if forStab { openStabilizeSheet = true } else { openTrackSheet = true }
+                    guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
+                    let found = runs.flatMap { $0.1.samples }
+                    let tracked: ClosedRange<Double> = (forward.contains(false) ? lo : anchor)...(forward.contains(true) ? hi : anchor)
+                    mutateLook { p in
+                        let old = fresh ? [] : (p.clips[j].tracking?.samples ?? []).filter { !tracked.contains($0.t) }
+                        let all = (old + found).sorted { $0.t < $1.t }
+                        guard !all.isEmpty else { return }
+                        if var tr = p.clips[j].tracking, !fresh {
+                            tr.samples = all
+                            p.clips[j].tracking = tr
+                        } else {
+                            p.clips[j].tracking = Tracking(samples: all, mode: settings.mode == .off ? .center : settings.mode,
+                                                           smooth: settings.smooth, anchor: anchor,
+                                                           noBorders: settings.forStab ? true : nil)
+                        }
+                    }
+                    let lost = runs.compactMap { r in r.1.lostAt.map { TrackFix.Lost(t: $0, forward: r.0) } } + pending
+                    analysis = nil
+                    analysisTask = nil
+                    trackLiveBox = nil
+                    if let first = lost.first {
+                        fixTracking(clip: id, at: first, rest: Array(lost.dropFirst()), settings: settings)
+                    } else {
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        if settings.forStab { openStabilizeSheet = true } else { openTrackSheet = true }
+                    }
+                    return
                 } catch {
                     if !(error is CancellationError) { showNote(error.localizedDescription) }
                 }
             } onCancel: { flag.set() }
             analysis = nil
             analysisTask = nil
+            trackLiveBox = nil
         }
+    }
+
+    /// While tracking: the preview goes to the frame being followed and shows its box (a dozen times a second).
+    private func trackLive(clip id: UUID, source t: Double, box: CGRect) {
+        guard analysis != nil, Date().timeIntervalSince(lastLive) > 0.08,
+              let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
+        lastLive = Date()
+        let c = project.clips[i]
+        scrubFrame(to: project.clipStarts[i] + c.retime.local(atSource: t))
+        if pickCanvas.width > 0 { trackLiveBox = sourceRectToCanvas(box, clip: i, canvas: pickCanvas) }
+    }
+
+    /// The tracker lost the subject at `at`: the playhead goes there with the last good box to fix.
+    private func fixTracking(clip id: UUID, at lost: TrackFix.Lost, rest: [TrackFix.Lost], settings: TrackFix.Settings) {
+        guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return }
+        let c = project.clips[i]
+        selectedClipID = id
+        scrub(to: project.clipStarts[i] + c.retime.local(atSource: lost.t))
+        let last = (c.tracking?.samples ?? []).min { abs($0.t - lost.t) < abs($1.t - lost.t) }
+        trackFix = TrackFix(clipID: id, forward: lost.forward, pending: rest, settings: settings)
+        if let s = last, pickCanvas.width > 0 {
+            pickRect = sourceRectToCanvas(CGRect(x: s.x - s.w / 2, y: s.y - s.h / 2, width: s.w, height: s.h), clip: i, canvas: pickCanvas)
+        }
+        pickPhase = .adjust
+        trackPick = true
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    /// Fixing a lost subject: the box as it is now becomes this frame's position, then the playhead moves one
+    /// frame (`by` -1 / +1); the box stays put for the next fix.
+    func stepFixFrame(_ by: Int) {
+        guard let fix = trackFix, let r = pickRect, let i = project.clips.firstIndex(where: { $0.id == fix.clipID }),
+              let b = canvasToSource(r, clip: i, canvas: pickCanvas) else { return }
+        let t = sourceTime(i)
+        let manual = TrackSample(t: t, x: Double(b.midX), y: Double(b.midY), w: Double(b.width), h: Double(b.height))
+        mutateLook { p in
+            guard var tr = p.clips[i].tracking else { return }
+            tr.samples = (tr.samples.filter { abs($0.t - t) > 0.5 / 30 } + [manual]).sorted { $0.t < $1.t }
+            p.clips[i].tracking = tr
+        }
+        let c = project.clips[i]
+        let next = min(max(currentTime + Double(by) / Self.fps, project.clipStarts[i]), project.clipStarts[i] + c.duration - 0.001)
+        scrub(to: onFrame(next))
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     // MARK: Overlay tracking

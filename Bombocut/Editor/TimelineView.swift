@@ -118,16 +118,19 @@ struct TimelineView: View {
                                     .zIndex(model.captionsSelected && model.project.activeCaption == k ? 1 : 0)
                             }
                         }
-                        .frame(height: lanes.captions, alignment: .top)
-                        .opacity(reorder == nil ? (model.trackPick ? 0.3 : 1) : 0)
+                        // picking a subject: the lanes above the strip fold away, the strip moves up
+                        .frame(height: model.trackPick ? 0 : lanes.captions, alignment: .top)
+                        .clipped()
+                        .opacity(reorder == nil ? (model.trackPick ? 0 : 1) : 0)
                         .allowsHitTesting(reorder == nil && !model.trackPick)
                     }
                     // texts, pictures and videos share one stack of rows: the higher row is drawn on top,
                     // the lowest sits right above the clips
-                    lane(lanes.layers, empty: model.project.overlays.isEmpty, alignment: .bottom) {
+                    lane(model.trackPick ? 0 : lanes.layers, empty: model.project.overlays.isEmpty, alignment: .bottom) {
                         OverlayLane(model: model)
                     }
-                    .opacity(reorder == nil ? (model.mergePick == nil && !model.trackPick ? 1 : 0.3) : 0)
+                    .clipped()
+                    .opacity(reorder == nil ? (model.mergePick == nil && !model.trackPick ? 1 : (model.trackPick ? 0 : 0.3)) : 0)
                     .allowsHitTesting(reorder == nil && !model.trackPick)
                     let overlaps = overlapsPx(shown)
                     let onScreen = clipsOnScreen(shown, half: half)

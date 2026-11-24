@@ -92,9 +92,9 @@ struct EditorView: View {
         case .filters: return 500
         case .overlayTrack: return 330
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
+        // (the lanes above the strip fold away while picking, so the strip moves up and the panel gets taller)
         case .trackPick:
-            let above = LaneLayout(model.project, pro: pro).aboveStrip
-            return max(140, 34 + bottomHeight - 44 - LaneLayout.top - above - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
+            return max(180, 34 + bottomHeight - 44 - LaneLayout.top - LaneLayout.strip - 10 - Panel<EmptyView>.extra)
         }
     }
 
@@ -1713,14 +1713,20 @@ private struct TrackPickPanel: View {
             if model.pinPickOverlay == nil { memoryRow }
             HStack(spacing: 10) {
                 iconButton("xmark", "Cancel", action: cancel)
-                iconButton("arrow.counterclockwise", "Again") {
-                    model.pickRect = nil
-                    model.pickPhase = .select
+                if model.trackFix != nil {
+                    // fixing a lost subject: this frame's box is kept, then one frame back or on
+                    iconButton("chevron.left", "Previous frame") { model.stepFixFrame(-1) }
+                    iconButton("chevron.right", "Next frame") { model.stepFixFrame(1) }
+                } else {
+                    iconButton("arrow.counterclockwise", "Again") {
+                        model.pickRect = nil
+                        model.pickPhase = .select
+                    }
+                    .disabled(model.pickPhase != .adjust)
+                    .opacity(model.pickPhase == .adjust ? 1 : 0.35)
                 }
-                .disabled(model.pickPhase != .adjust)
-                .opacity(model.pickPhase == .adjust ? 1 : 0.35)
                 Button { model.trackPicked() } label: {
-                    Label(loc("Start tracking"), systemImage: "scope")
+                    Label(loc(model.trackFix != nil ? "Continue" : "Start tracking"), systemImage: "scope")
                         .font(.headline.weight(.bold)).foregroundStyle(.black)
                         .frame(maxWidth: .infinity, minHeight: 48)
                         .background(Theme.accent.opacity(model.pickReady ? 1 : 0.4), in: Capsule())
