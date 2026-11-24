@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -56,6 +58,7 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
     val preview = remember(start.id) { PreviewState() }
     val tl = remember { TimelineState() }
     var exporting by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf<String?>(null) }
     // while playing the playhead follows the player
     LaunchedEffect(preview.time, preview.playing) { if (preview.playing) model.currentTime = preview.time }
 
@@ -94,21 +97,35 @@ fun EditorView(start: Project, store: ProjectStore, close: () -> Unit) {
             Spacer(Modifier.weight(1f))
         }
         TimelineView(model, tl, ::scrub)
-        ToolRow(model)
+        ToolRow(model) { preview.player?.pause(); sheet = it }
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
+    }
+    // a panel covers the bottom, the preview stays in view (iOS Panel)
+    val open = sheet
+    if (open != null && model.selectedIndex != null) {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
+            Panel(if (open == "speed") 560.dp else 380.dp, close = { sheet = null }) {
+                when (open) {
+                    "speed" -> SpeedSheet(model, ::scrub)
+                    "volume" -> VolumeSheet(model)
+                }
+            }
+        }
     }
     if (exporting) ExportSheet(model.project) { exporting = false }
     }
 }
 
 @Composable
-private fun ToolRow(model: EditorModel) {
+private fun ToolRow(model: EditorModel, open: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(72.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ToolButton(Icons.Filled.ContentCut, "Split") { model.split() }
         if (model.selectedIndex != null) {
+            ToolButton(Icons.Filled.Speed, "Speed") { open("speed") }
+            ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume") { open("volume") }
             ToolButton(Icons.Filled.ContentCopy, "Duplicate") { model.duplicateSelected() }
             ToolButton(Icons.Filled.Delete, "Delete") { model.deleteSelected() }
         }

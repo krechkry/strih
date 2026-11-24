@@ -171,3 +171,49 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         }
     }
 }
+
+// MARK: Speed, volume, fades (EditorModel.swift)
+
+fun EditorModel.setSpeed(v0: Double) {
+    val i = selectedIndex ?: return
+    val v = v0.coerceIn(0.1, 100.0)
+    val c = project.clips[i]
+    if (!c.hasCurve && kotlin.math.abs(c.speed - v) <= 1e-6) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = it[i].copy(speed = v, speedCurve = null) }) }
+}
+
+fun EditorModel.setCurve(pts: List<cz.krechler.bombocut.model.SpeedPoint>) {
+    val i = selectedIndex ?: return
+    if (project.clips[i].speedCurve == pts) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = it[i].copy(speedCurve = pts) }) }
+}
+
+/** Also remembered for new clips (Settings > Defaults). */
+fun EditorModel.setPitch(on: Boolean) {
+    cz.krechler.bombocut.model.Defaults.keepPitch = on
+    val i = selectedIndex ?: return
+    if (project.clips[i].pitchCorrect == on) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = it[i].copy(pitchCorrect = on) }) }
+}
+
+fun EditorModel.setCurveSticks(on: Boolean) {
+    cz.krechler.bombocut.model.Defaults.stickSpeedCurve = on
+    val i = selectedIndex ?: return
+    val c = project.clips[i]
+    if (c.sticksCurve == on && c.curveSticks != null) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = it[i].copy(curveSticks = on) }) }
+}
+
+fun EditorModel.setVolume(v: Double) {
+    val i = selectedIndex ?: return
+    if (project.clips[i].volume == v) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = it[i].copy(volume = v.coerceIn(0.0, 1.0)) }) }
+}
+
+fun EditorModel.setClipFade(fadeIn: Double? = null, fadeOut: Double? = null) {
+    val i = selectedIndex ?: return
+    val c = project.clips[i]
+    val n = c.copy(fadeIn = fadeIn ?: c.fadeIn, fadeOut = fadeOut ?: c.fadeOut)
+    if (n == c) return
+    mutate { p -> p.copy(clips = p.clips.toMutableList().also { it[i] = n }) }
+}
