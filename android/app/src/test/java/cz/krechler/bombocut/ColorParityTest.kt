@@ -33,7 +33,7 @@ class ColorParityTest {
                 if (d > worst) { worst = d; at = "$rgb -> iOS ${c.output[k]}, Android $got" }
             }
             report.append("${c.name}: $worst levels${if (worst > 0) "  (worst $at)" else ""}\n")
-            val tol = if (c.name.startsWith("temperature") || c.name.startsWith("tint") || c.name == "combo") 40 else 3
+            val tol = if (c.name.startsWith("temperature") || c.name.startsWith("tint")) 4 else 3
             if (worst > tol) bad += "${c.name} off by $worst"
         }
         File("build").mkdirs()

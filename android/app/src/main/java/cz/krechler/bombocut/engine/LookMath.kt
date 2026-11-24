@@ -13,9 +13,10 @@ object LookMath {
     fun color(rgb: DoubleArray, e: Effects): DoubleArray {
         var c = rgb.copyOf()
         if (e.exposure != 0.0) {
-            // CIExposureAdjust: times 2^EV, EV = exposure * 2 (on linear light)
+            // CIExposureAdjust: times 2^EV, EV = exposure * 2, on the working space's values (iOS composes in
+            // encoded Rec. 709, so this is on the encoded values, checked against colors.json)
             val k = 2.0.pow(e.exposure * 2)
-            c = fromLinear(toLinear(c).map { it * k }.toDoubleArray())
+            c = DoubleArray(3) { c[it] * k }
         }
         if (e.contrast != 0.0 || e.saturation != 0.0) {
             // CIColorControls: saturation around luma, then contrast around 0.5
@@ -39,13 +40,13 @@ object LookMath {
     private fun temperatureTint(c: DoubleArray, kelvin: Double, tint: Double): DoubleArray {
         val src = whiteXYZ(kelvin, tint)
         val dst = whiteXYZ(6500.0, 0.0)
-        // von Kries in Bradford cone space, on linear light
+        // von Kries in Bradford cone space, on the working space's (encoded Rec. 709) values like Core Image:
+        // colors.json fits a 3x3 matrix on encoded values to within a level
         val bs = mul(BRADFORD, src); val bd = mul(BRADFORD, dst)
-        val lin = toLinear(c)
-        val xyz = mul(RGB2XYZ, lin)
+        val xyz = mul(RGB2XYZ, c)
         val cone = mul(BRADFORD, xyz)
         val adapted = DoubleArray(3) { cone[it] * bd[it] / bs[it] }
-        return fromLinear(mul(XYZ2RGB, mul(BRADFORD_INV, adapted)))
+        return mul(XYZ2RGB, mul(BRADFORD_INV, adapted))
     }
 
     /** White point of a light at `kelvin` (Planckian locus, Kim et al.), shifted along the isotherm by tint (Duv*3000). */
@@ -58,11 +59,11 @@ object LookMath {
             t <= 4000 -> -0.9549476 * x.pow(3) - 1.37418593 * x.pow(2) + 2.09137015 * x - 0.16748867
             else -> 3.0817580 * x.pow(3) - 5.87338670 * x.pow(2) + 3.75112997 * x - 0.37001483
         }
-        // tint: green (-) ... magenta (+), perpendicular to the locus in uv
+        // tint: the light's white moves this far in CIE 1960 uv per tint unit (fitted to colors.json at 6500 K:
+        // + tint says the light was greener, so the picture turns magenta)
         var u = 4 * x / (-2 * x + 12 * y + 3)
         var v = 6 * y / (-2 * x + 12 * y + 3)
-        val duv = -tint / 3000.0
-        u += 0.0; v += duv
+        u += -0.000265 * tint; v += 0.000195 * tint
         val xx = 3 * u / (2 * u - 8 * v + 4)
         val yy = 2 * v / (2 * u - 8 * v + 4)
         return doubleArrayOf(xx / yy, 1.0, (1 - xx - yy) / yy)
@@ -77,8 +78,10 @@ object LookMath {
     // MARK: Transfer curves
 
     /** Rec. 709 (as Core Image's itur_709 space): encoded -> linear light. */
-    fun toLinear(c: DoubleArray) = DoubleArray(3) { val v = c[it]; if (v < 0.081) v / 4.5 else ((v + 0.099) / 1.099).pow(1 / 0.45) }
-    fun fromLinear(c: DoubleArray) = DoubleArray(3) { val v = maxOf(c[it], 0.0); if (v < 0.018) v * 4.5 else 1.099 * v.pow(0.45) - 0.099 }
+    // Core Image's itur_709 working space decodes with a plain 2.4 gamma (BT.1886), not the camera curve:
+    // colors.json's Shadows / Highlights match exactly with it
+    fun toLinear(c: DoubleArray) = DoubleArray(3) { maxOf(c[it], 0.0).pow(2.4) }
+    fun fromLinear(c: DoubleArray) = DoubleArray(3) { maxOf(c[it], 0.0).pow(1 / 2.4) }
     fun srgbEncode(c: DoubleArray) = DoubleArray(3) { val v = maxOf(c[it], 0.0); if (v <= 0.0031308) 12.92 * v else 1.055 * v.pow(1 / 2.4) - 0.055 }
     fun srgbDecode(c: DoubleArray) = DoubleArray(3) { val v = c[it]; if (v <= 0.04045) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4) }
 }
