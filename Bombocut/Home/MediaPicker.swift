@@ -559,31 +559,55 @@ extension Media {
     static func makeClips(from assets: [PHAsset], work: WorkSteps? = nil) async -> (clips: [Clip], firstSize: CGSize?) {
         var clips: [Clip] = []
         var first: CGSize?
-        for (k, a) in assets.enumerated() {
-            if let work, await work.cancelled { break }
-            guard let url = await load(a, work: work, row: k) else {
-                await work?.failed(k, loc("Couldn't get it from Photos"))
-                continue
+        // Getting the files (iCloud download + copy) runs 3 at a time: each iCloud clip takes a few seconds to
+        // get going, and those waits overlap instead of adding up. The clips are made one by one in the picked
+        // order, each as soon as it and all before it are here.
+        var loaded: [Int: URL] = [:]
+        var missing: Set<Int> = []
+        var nextToStart = 0, nextToRead = 0, running = 0
+        await withTaskGroup(of: (Int, URL?).self) { group in
+            while true {
+                while nextToStart < assets.count, running < 3 {
+                    if let work, await work.cancelled { break }
+                    let k = nextToStart, a = assets[k]
+                    group.addTask { (k, await load(a, work: work, row: k)) }
+                    nextToStart += 1
+                    running += 1
+                }
+                guard running > 0, let (k, url) = await group.next() else { break }
+                running -= 1
+                if let url { loaded[k] = url } else { missing.insert(k) }
+                // every clip that's next in order and here
+                while nextToRead < nextToStart, loaded[nextToRead] != nil || missing.contains(nextToRead) {
+                    let i = nextToRead
+                    nextToRead += 1
+                    guard let url = loaded.removeValue(forKey: i) else {
+                        await work?.failed(i, loc("Couldn't get it from Photos"))
+                        continue
+                    }
+                    // cancelled: what came down for it goes
+                    if let work, await work.cancelled {
+                        if !PhotosMedia.isShared(url) { try? FileManager.default.removeItem(at: url) }
+                        continue
+                    }
+                    let a = assets[i]
+                    await work?.working(i, a.mediaType == .video ? loc("Reading the clip…") : loc("Turning the photo into a clip…"))
+                    // a reused file belongs to other projects too: never removed here, even when it can't be read
+                    let got: (clips: [Clip], firstSize: CGSize?)
+                    if PhotosMedia.isShared(url) {
+                        got = await videoClip(url)
+                    } else {
+                        got = await makeClips(from: [url])
+                    }
+                    if first == nil { first = got.firstSize }
+                    if got.clips.isEmpty {
+                        await work?.failed(i, loc("Couldn't open it"))
+                    } else {
+                        await work?.done(i, WorkText.clipInfo(got.firstSize))
+                    }
+                    clips += got.clips.map { var c = $0; c.asset = a.localIdentifier; return c }
+                }
             }
-            if let work, await work.cancelled {
-                if !PhotosMedia.isShared(url) { try? FileManager.default.removeItem(at: url) }
-                break
-            }
-            await work?.working(k, a.mediaType == .video ? loc("Reading the clip…") : loc("Turning the photo into a clip…"))
-            // a reused file belongs to other projects too: never removed here, even when it can't be read
-            let got: (clips: [Clip], firstSize: CGSize?)
-            if PhotosMedia.isShared(url) {
-                got = await videoClip(url)
-            } else {
-                got = await makeClips(from: [url])
-            }
-            if first == nil { first = got.firstSize }
-            if got.clips.isEmpty {
-                await work?.failed(k, loc("Couldn't open it"))
-            } else {
-                await work?.done(k, WorkText.clipInfo(got.firstSize))
-            }
-            clips += got.clips.map { var c = $0; c.asset = a.localIdentifier; return c }
         }
         return (clips, first)
     }
