@@ -364,7 +364,7 @@ struct EditorView: View {
         if s != .mask && model.maskPaint { model.finishPaint() }
         if s != nil && s != .export { model.panelOpened() } else { model.panelClosed() }
         // closing the captions panel leaves the generate page (unless clips are being picked for it)
-        if s == nil && model.pick == nil { model.captionsGenerator = false }
+        if s == nil && model.pick == nil { model.captionsGenerator = false; model.captionsNewTrack = false }
         if s != .captions { model.closeClipCaptions() }
         // a color being picked belongs to the panel that asked for it
         if model.eyedropper != nil { model.finishEyedropper(nil) }
@@ -1040,9 +1040,25 @@ struct EditorView: View {
     /// Fixed column left of the timeline: one + per lane, each on the lane it adds to.
     private func addIsland(_ lanes: LaneLayout) -> some View {
         VStack(spacing: LaneLayout.gap) {
-            // captions sit at the top (no + of their own: they come from the Captions tool)
-            // (a fixed width: a flexible spacer would stretch the island across the timeline)
-            if lanes.captions > 0 { Color.clear.frame(width: 1, height: lanes.captions).allowsHitTesting(false) }
+            // captions sit at the top, one lane per track: a captions mark beside each tells it apart from the
+            // texts (tap: that track in the Captions panel; hold: a new captions track)
+            if lanes.captions > 0 {
+                VStack(spacing: 3) {
+                    ForEach(Array(model.project.captionTracks.indices), id: \.self) { k in
+                        Menu {
+                            Button("Edit captions", systemImage: "captions.bubble") { model.openCaptionTrack(k) }
+                            Button("New captions track", systemImage: "plus") { model.newCaptionTrack() }
+                        } label: {
+                            captionTile(on: model.captionsSelected && model.project.activeCaption == k)
+                        } primaryAction: {
+                            model.openCaptionTrack(k)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(format: loc("Captions track %lld"), k + 1))
+                    }
+                }
+                .frame(height: lanes.captions, alignment: .top)
+            }
             // the layers lane: a text, and (Pro) a picture or video, both land in the same stack of rows
             VStack(spacing: LaneLayout.gap) {
                 let half = lanes.showOverlay ? (lanes.layers - LaneLayout.gap) / 2 : lanes.layers
@@ -1093,6 +1109,20 @@ struct EditorView: View {
         Button(action: action) { islandTile(height: height, icon: icon) }
             .buttonStyle(.plain)
             .accessibilityLabel(loc(label))
+    }
+
+    /// The mark beside a captions lane (lime while that track is selected).
+    private func captionTile(on: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(on ? Theme.accent : Theme.panel2)
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(on ? 0 : 0.08), lineWidth: 1))
+            .overlay {
+                Image(systemName: on ? "captions.bubble.fill" : "captions.bubble")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(on ? .black : .white.opacity(0.85))
+            }
+            .frame(width: 42, height: CaptionLane.height)
+            .contentShape(Rectangle())
     }
 
     /// Big + for clips; a small + with the lane's icon for the others.

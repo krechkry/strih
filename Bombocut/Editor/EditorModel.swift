@@ -1476,6 +1476,12 @@ final class EditorModel: ObservableObject {
         return s...(s + project.clips[i].duration)
     }
 
+    /// The built-in look a new track starts with: the first one no track uses yet (so the two read apart).
+    static func newTrackTemplate(_ p: Project) -> CaptionTemplate {
+        let used = Set(p.captionTracks.compactMap(\.templateID))
+        return CaptionTemplate.builtIns.first { !used.contains($0.id) } ?? CaptionTemplate.builtIns[min(1, CaptionTemplate.builtIns.count - 1)]
+    }
+
     func closeClipCaptions() {
         guard captionScope != nil else { return }
         captionScope = nil
@@ -1483,6 +1489,44 @@ final class EditorModel: ObservableObject {
     }
     /// The captions panel shows its generate page even though there are captions ("Regenerate").
     @Published var captionsGenerator = false
+    /// The generate page makes a new captions track (its own lines and style) instead of replacing the active one.
+    @Published var captionsNewTrack = false
+
+    /// A new captions track: the generate page opens for it (all clips, or the clips you pick), and what it hears
+    /// goes onto its own lane with a look of its own, so a project can carry two kinds of captions.
+    func newCaptionTrack() {
+        pause()
+        closeClipCaptions()
+        captionsNewTrack = true
+        captionsGenerator = true
+        captionTab = 0
+        openCaptions = true
+    }
+
+    /// Caption track k becomes the one the panel works on (its lane selected), the panel staying as it is.
+    func pickCaptionTrack(_ k: Int) {
+        guard project.captionTracks.indices.contains(k), project.activeCaption != k else { return }
+        project.activeCaption = k
+        store.save(project)
+        captionsSelected = true
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// Caption track k becomes the one the panel works on (its lane selected), and the panel opens.
+    func openCaptionTrack(_ k: Int) {
+        guard project.captionTracks.indices.contains(k) else { return }
+        pause()
+        closeClipCaptions()
+        if project.activeCaption != k {
+            project.activeCaption = k
+            store.save(project)
+        }
+        captionsNewTrack = false
+        captionsGenerator = false
+        captionsSelected = true
+        captionTab = 0
+        openCaptions = true
+    }
 
     /// The picked clips that still exist (nil when listening to all of them).
     var captionClipsLive: Set<UUID>? {
@@ -1519,10 +1563,18 @@ final class EditorModel: ObservableObject {
             heard.audio = []
         }
         let snapshot = project
-        let old = project.captions
-        let style = project.captions?.style
-            ?? CaptionPrefs.forNewTrack(CaptionTemplate.builtIns[0].style, canvas: project.canvas)
-        let tid = project.captions?.templateID ?? CaptionTemplate.builtIns[0].id
+        // a new track: nothing of the other tracks is replaced, and it starts with another look than the active one
+        let newTrack = captionsNewTrack && project.captions != nil
+        captionsNewTrack = false
+        let old = newTrack ? nil : project.captions
+        let fresh = newTrack ? Self.newTrackTemplate(project) : CaptionTemplate.builtIns[0]
+        var style = (newTrack ? nil : project.captions?.style)
+            ?? CaptionPrefs.forNewTrack(fresh.style, canvas: project.canvas)
+        if newTrack && only == nil, let a = project.captions?.style, abs(a.y - style.y) < 0.12 {
+            // the whole video: it would sit right on the other captions, so it goes a line above them
+            style.y = max(0.08, a.y - max(0.08, a.size * Double(a.lines) * 1.35))
+        }
+        let tid = (newTrack ? nil : project.captions?.templateID) ?? fresh.id
         UIApplication.shared.isIdleTimerDisabled = true
         captionTask = Task {
             defer { UIApplication.shared.isIdleTimerDisabled = false }
@@ -1550,7 +1602,15 @@ final class EditorModel: ObservableObject {
                 }
                 // you kept editing meanwhile: move the captions onto the timeline as it is now
                 if snapshot.timingKey != project.timingKey { caps = caps.remapped(from: snapshot, to: project) }
-                setCaptions(caps)
+                if newTrack {
+                    let new = caps
+                    mutateLook { p in
+                        p.captionTracks.append(new)
+                        p.activeCaption = p.captionTracks.count - 1
+                    }
+                } else {
+                    setCaptions(caps)
+                }
                 captionJob = nil
                 captionsReady = true
                 hintTranslate = true

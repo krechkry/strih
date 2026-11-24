@@ -1770,6 +1770,16 @@
         }
       }
     },
+    "Captions track %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopa titulků %lld"
+          }
+        }
+      }
+    },
     "Captions, texts and sounds move along with their footage. Undo brings everything back.": {
       "localizations": {
         "cs": {
@@ -3324,6 +3334,16 @@
         }
       }
     },
+    "Edit captions": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravit titulky"
+          }
+        }
+      }
+    },
     "Edit text": {
       "localizations": {
         "cs": {
@@ -4378,6 +4398,16 @@
         }
       }
     },
+    "Generate the new track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit novou stopu"
+          }
+        }
+      }
+    },
     "Getting clips and sound ready": {
       "localizations": {
         "cs": {
@@ -4444,6 +4474,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přidá se k vlastní rychlosti každého klipu (jejich křivky rychlosti si nechají tvar). Keyframy zůstanou na stejných momentech."
+          }
+        }
+      }
+    },
+    "Goes onto a captions track of its own, with its own style. The other captions stay as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vznikne vlastní stopa titulků s vlastním stylem. Ostatní titulky zůstanou, jak jsou."
           }
         }
       }
@@ -5794,6 +5834,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Potřebuje iPhone 15 Pro nebo novější."
+          }
+        }
+      }
+    },
+    "New captions track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nová stopa titulků"
           }
         }
       }

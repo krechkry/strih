@@ -8,6 +8,8 @@ struct CaptionsSheet: View {
     @AppStorage("captionNames") private var names = ""
     private var phase: Transcriber.Phase? { model.captionJob?.error == nil ? model.captionJob?.phase : nil }
     private var error: String? { model.captionJob?.error }
+    /// The generate page is making a new captions track (not replacing the active one).
+    private var newTrack: Bool { model.captionsNewTrack && model.project.captions != nil }
     @State private var tab = 0                 // 0 text, 1 style, 3 translate, 4 presets (2 was animation, now in style)
     @AppStorage("captionStyleTab") private var styleSection = 0
     @State private var templates: [CaptionTemplate] = TemplateStore.load()
@@ -33,7 +35,13 @@ struct CaptionsSheet: View {
             if let caps = model.project.captions, phase == nil, !model.captionsGenerator {
                 editor(caps)
             } else {
-                generator
+                // scrolls: with a clip's own captions or "Generate again" the page runs taller than the panel and
+                // the button sat below its bottom edge
+                ScrollView {
+                    generator.padding(.bottom, 28)
+                }
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
             }
         }
         .padding(.horizontal, 20)
@@ -68,12 +76,12 @@ struct CaptionsSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             if !compact {
             HStack {
-                Text(model.captionScope != nil ? "Captions for this clip"
+                Text(newTrack ? "New captions track" : model.captionScope != nil ? "Captions for this clip"
                      : model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Captions")
                     .font(.title2.weight(.heavy))
                 Spacer()
                 if model.project.captions != nil && model.captionsGenerator && phase == nil {
-                    Button { model.captionsGenerator = false } label: {
+                    Button { model.captionsGenerator = false; model.captionsNewTrack = false } label: {
                         Text("Cancel").font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.85))
                             .padding(.horizontal, 14).frame(height: 34)
                             .background(Theme.panel2, in: Capsule())
@@ -136,14 +144,19 @@ struct CaptionsSheet: View {
                 Text(loc(modelNote))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
-                if model.project.captions != nil && model.captionsGenerator {
+                if newTrack {
+                    Text("Goes onto a captions track of its own, with its own style. The other captions stay as they are.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if model.project.captions != nil && model.captionsGenerator {
                     Text(model.captionClipsLive == nil ? "Replaces the captions and your text edits. Undo brings them back."
                          : "Replaces the captions on the picked clips. Undo brings them back.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Button { generate() } label: {
-                    Label(model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Generate captions",
+                    Label(newTrack ? "Generate the new track"
+                          : model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Generate captions",
                           systemImage: "captions.bubble.fill")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)
@@ -267,6 +280,8 @@ struct CaptionsSheet: View {
             }
             if let scope = model.captionScope, tab == 1 || tab == 4, !scopedCues(caps).isEmpty {
                 trackRow(scope)
+            } else if model.captionScope == nil && tab != 3 && !compact {
+                tracksRow
             } else if model.captionScope != nil && tab == 3 {
                 Text("Translation covers the whole captions track.")
                     .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -724,6 +739,29 @@ struct CaptionsSheet: View {
         guard var c = model.project.captions else { return }
         c.restyle(change)
         model.setCaptions(c)
+    }
+
+    /// The captions tracks (each with its own lines and style): which one the panel works on, and a new one.
+    private var tracksRow: some View {
+        let tracks = model.project.captionTracks.count
+        let on = model.project.activeCaption
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                if tracks > 1 {
+                    ForEach(0..<tracks, id: \.self) { k in
+                        pill(String(format: loc("Track %lld"), k + 1), on: k == on) { model.pickCaptionTrack(k) }
+                    }
+                }
+                Button { model.newCaptionTrack() } label: {
+                    Label("New captions track", systemImage: "plus")
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 36)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     /// Opened from a clip: which captions track this clip's lines are on. Each track has its own style, so

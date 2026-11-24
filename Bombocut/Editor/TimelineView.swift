@@ -258,6 +258,9 @@ struct TimelineView: View {
                         if model.trackPick { return }
                         model.selectedClipID = nil; model.selectedOverlayID = nil; model.selectedAudioID = nil
                         if model.mergePick != nil { model.mergePick = nil } else { model.captionsSelected = false }
+                        // a lane drag whose block went away mid-touch (a caption's trim edge disappearing as the
+                        // captions let go) never ended and kept the timeline from scrolling: a tap here ends it
+                        if model.laneFinger != nil { model.laneDragEnded() }
                     }
                     // slipping: a finger anywhere on the timeline slides the footage (not just on the clip itself)
                     .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
@@ -1194,6 +1197,10 @@ struct CaptionLane: View {
             ForEach(cues) { cue in block(cue, px: px) }
         }
         .onChange(of: model.laneAuto) { apply() }
+        // the captions let go while a line's edge or the line was held: end that drag (its view went away and never
+        // told us, which froze the timeline's scrolling)
+        .onChange(of: selected) { _, on in if !on && dragStart != nil { finish() } }
+        .onDisappear { if dragStart != nil { finish() } }
     }
 
     private func block(_ cue: CaptionCue, px: CGFloat) -> some View {
@@ -1533,6 +1540,9 @@ struct OverlayLane: View {
         }
         .overlay(alignment: .topLeading) { landingMark(rows.count, px: px) }
         .onChange(of: model.laneAuto) { apply() }
+        .onDisappear { if let a = active { finish(a.id) } }
+        // the block let go mid-drag (its trim edge went away with the selection): end the drag so the timeline scrolls
+        .onChange(of: model.selectedOverlayID) { _, id in if let a = active, a.id != id { finish(a.id) } }
     }
 
     /// Where a block held and moved up / down lands: a new row between the others, or below / above them all.
@@ -1802,6 +1812,8 @@ struct AudioLane: View {
             }
         }
         .onChange(of: model.laneAuto) { apply() }
+        .onDisappear { if let a = active { finish(a.id) } }
+        .onChange(of: model.selectedAudioID) { _, id in if let a = active, a.id != id { finish(a.id) } }
     }
 
     private func block(_ a: AudioItem, px: CGFloat) -> some View {
