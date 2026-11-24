@@ -7918,6 +7918,16 @@
         }
       }
     },
+    "Slip slides the footage inside a trimmed clip. This clip plays all of it: trim it first.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slip posouvá záběr uvnitř zkráceného klipu. Tenhle klip hraje celý záběr: nejdřív ho zkrať."
+          }
+        }
+      }
+    },
     "Smart tools": {
       "localizations": {
         "cs": {

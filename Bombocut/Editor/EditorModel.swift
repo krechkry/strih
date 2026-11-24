@@ -5254,7 +5254,9 @@ extension EditorModel {
     /// The quick menu's actions for the selected clip: the ones picked in Settings that fit this clip.
     func quickActions(for clip: Clip) -> [QuickAction] {
         Defaults.quickActions.filter { a in
-            (!a.pro || UIMode.isPro) && (!clip.still || a.forStills) && (a != .slip || canSlip)
+            // Slip stays in the menu even when there's nothing to slide (dimmed, it says why), so the menu
+            // always looks the way it was set up
+            (!a.pro || UIMode.isPro) && (!clip.still || a.forStills)
         }
     }
 
@@ -5267,7 +5269,13 @@ extension EditorModel {
         case .adjust: panel(.adjust)
         case .filters: panel(.filters)
         case .speed: panel(.speed)
-        case .slip: requestedPanel = nil; startSlip()
+        case .slip:
+            guard canSlip else {
+                showNote(loc("Slip slides the footage inside a trimmed clip. This clip plays all of it: trim it first."))
+                return
+            }
+            requestedPanel = nil
+            startSlip()
         case .crop: pause(); playheadIntoSelected(); requestedPanel = .crop
         case .autoZoom: panel(.autoZoom)
         case .captions: openClipCaptions()

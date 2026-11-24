@@ -290,7 +290,8 @@ struct TimelineView: View {
                     let cx = min(max(mid, w / 2 + 8), geo.size.width - w / 2 - 8)
                     QuickMenu(pointer: mid - cx, actions: actions,
                               unstack: stacked ? { model.quickMenuClipID = nil; model.unstackSelected() } : nil,
-                              perform: { model.performQuick($0) })
+                              perform: { model.performQuick($0) },
+                              off: { $0 == .slip && !model.canSlip })
                         .position(x: cx, y: LaneLayout.top + LaneLayout(model.project, pro: UIMode.isPro).aboveStrip - 8 - QuickMenu.height / 2)
                         .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
                         .zIndex(5)
@@ -2011,6 +2012,8 @@ struct QuickMenu: View {
     /// A Stack: its own Unstack button.
     var unstack: (() -> Void)? = nil
     let perform: (QuickAction) -> Void
+    /// Shown but dimmed (Slip on a clip that already plays all its footage: nothing to slide).
+    var off: (QuickAction) -> Bool = { _ in false }
 
     static let height: CGFloat = 54
     private static func item(_ n: Int) -> CGFloat { n > 5 ? 58 : 64 }
@@ -2022,7 +2025,7 @@ struct QuickMenu: View {
         HStack(spacing: 0) {
             if let unstack { button("square.stack.3d.up.slash", "Unstack", action: unstack) }
             ForEach(actions) { a in
-                button(a.icon, a.title, tint: a == .delete ? Color(red: 1, green: 0.38, blue: 0.36) : .white) { perform(a) }
+                button(a.icon, a.title, tint: a == .delete ? Color(red: 1, green: 0.38, blue: 0.36) : .white.opacity(off(a) ? 0.35 : 1)) { perform(a) }
             }
         }
         .padding(.horizontal, 6)
