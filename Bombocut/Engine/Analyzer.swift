@@ -423,7 +423,12 @@ extension Analyzer {
         func sample(_ t: Double, _ r: CGRect) -> TrackSample {
             TrackSample(t: t, x: Double(r.midX), y: Double(1 - r.midY), w: Double(r.width), h: Double(r.height))
         }
-        func report(_ s: TrackSample) { live(s.t, CGRect(x: s.x - s.w / 2, y: s.y - s.h / 2, width: s.w, height: s.h)) }
+        func rect(_ s: TrackSample) -> CGRect { CGRect(x: s.x - s.w / 2, y: s.y - s.h / 2, width: s.w, height: s.h) }
+        func report(_ s: TrackSample) { live(s.t, rect(s)) }
+        // the subject's colors: a box that slides onto something of another color is lost, however alike it
+        // looks in grey
+        var colors: ColorPrint?
+        var colorMiss = 0
         let total = max(abs(to - from), 0.01)
         let f = method.follower(box: start, memory: memory)
         var out: [TrackSample] = []
@@ -439,8 +444,17 @@ extension Analyzer {
             }
             report(out[out.count - 1])
             progress(min(1, abs(t - from) / total))
-            if stopWhenLost && f.lostFrames >= 6 {
-                let drop = min(f.lostFrames, out.count - 1)
+            if let now = ColorPrint(cg, box: rect(out[out.count - 1])) {
+                if let ref = colors {
+                    let like = ref.likeness(now)
+                    if like < 0.5 { colorMiss += 1 } else { colorMiss = 0 }
+                    if like > 0.75 { colors?.blend(now, 0.05) }
+                } else {
+                    colors = now
+                }
+            }
+            if stopWhenLost && (f.lostFrames >= 6 || colorMiss >= 4) {
+                let drop = min(max(f.lostFrames >= 6 ? f.lostFrames : 0, colorMiss >= 4 ? colorMiss : 0), out.count - 1)
                 lostAt = out[out.count - drop].t
                 out.removeLast(drop)
                 return false

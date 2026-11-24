@@ -95,7 +95,7 @@ extension Media {
 
     /// One checklist row per picked file (its name).
     @MainActor
-    static func importSteps(_ picked: [URL], title: String = "Adding clips") -> WorkSteps {
+    static func importSteps(_ picked: [URL], title: String = "Importing media") -> WorkSteps {
         WorkSteps(title: title, steps: picked.map { $0.lastPathComponent })
     }
 

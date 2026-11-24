@@ -503,9 +503,70 @@ struct TrackFix: Equatable {
     struct Lost: Equatable {
         var t: Double          // source time
         var forward: Bool      // which way it was tracking
+        /// Not tracked yet (tracking stopped at the first lost frame, before this way was tried): it starts at `t`
+        /// with this box once the fixes before it are done, nothing to fix here.
+        var box: CGRect? = nil
     }
     let clipID: UUID
     let forward: Bool
     var pending: [Lost]
     var settings: Settings
 }
+
+/// The subject's colors, to notice when a tracker slides off it onto something that looks alike in grey but not
+/// in color (a yellow carton onto a white ceiling). A small histogram of the middle of the box: 12 hues for
+/// colored pixels, 3 greys (dark, mid, light) for the rest.
+struct ColorPrint: Equatable {
+    static let bins = 15
+    private(set) var h: [Float]
+
+    /// `box`: normalized, top-left origin. Only the middle 70 % counts (the edges are often background).
+    init?(_ cg: CGImage, box: CGRect) {
+        let w = CGFloat(cg.width), ht = CGFloat(cg.height)
+        let r = CGRect(x: box.minX * w, y: box.minY * ht, width: box.width * w, height: box.height * ht)
+            .insetBy(dx: box.width * w * 0.15, dy: box.height * ht * 0.15)
+            .intersection(CGRect(x: 0, y: 0, width: w, height: ht))
+        guard r.width >= 3, r.height >= 3, let crop = cg.cropping(to: r.integral) else { return nil }
+        let n = 20
+        var px = [UInt8](repeating: 0, count: n * n * 4)
+        let ok = px.withUnsafeMutableBytes { raw -> Bool in
+            guard let ctx = CGContext(data: raw.baseAddress, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.interpolationQuality = .low
+            ctx.draw(crop, in: CGRect(x: 0, y: 0, width: n, height: n))
+            return true
+        }
+        guard ok else { return nil }
+        var hist = [Float](repeating: 0, count: Self.bins)
+        for k in 0..<(n * n) {
+            let rr = Float(px[k * 4]) / 255, gg = Float(px[k * 4 + 1]) / 255, bb = Float(px[k * 4 + 2]) / 255
+            let mx = max(rr, gg, bb), mn = min(rr, gg, bb), c = mx - mn
+            if c < 0.1 || mx < 0.12 {
+                hist[12 + (mx < 0.35 ? 0 : mx < 0.7 ? 1 : 2)] += 1
+                continue
+            }
+            var hue: Float
+            if mx == rr { hue = (gg - bb) / c } else if mx == gg { hue = 2 + (bb - rr) / c } else { hue = 4 + (rr - gg) / c }
+            hue = (hue / 6).truncatingRemainder(dividingBy: 1)
+            if hue < 0 { hue += 1 }
+            hist[min(11, Int(hue * 12))] += 1
+        }
+        let sum = hist.reduce(0, +)
+        guard sum > 0 else { return nil }
+        h = hist.map { $0 / sum }
+    }
+
+    init(h: [Float]) { self.h = h }
+
+    /// 0 (nothing alike) to 1 (the same colors): the Bhattacharyya coefficient of the two histograms.
+    func likeness(_ o: ColorPrint) -> Float {
+        zip(h, o.h).reduce(0) { $0 + ($1.0 * $1.1).squareRoot() }
+    }
+
+    /// Moves a little towards `o` (light changes slowly).
+    mutating func blend(_ o: ColorPrint, _ k: Float) {
+        for i in h.indices { h[i] = h[i] * (1 - k) + o.h[i] * k }
+    }
+}
+

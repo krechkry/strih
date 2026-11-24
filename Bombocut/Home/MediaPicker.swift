@@ -545,7 +545,7 @@ extension Media {
     /// Picked Photos items as clips, in the picked order, each remembering where it came from.
     /// One checklist row per picked item ("Video 1 · 0:14", "Photo 2"), for `makeClips(from:work:)`.
     @MainActor
-    static func importSteps(_ assets: [PHAsset], title: String = "Adding clips") -> WorkSteps {
+    static func importSteps(_ assets: [PHAsset], title: String = "Importing media") -> WorkSteps {
         WorkSteps(title: title, steps: assets.enumerated().map { k, a in
             a.mediaType == .video
                 ? String(format: loc("Video %lld · %@"), k + 1, Fmt.duration(a.duration))

@@ -1256,7 +1256,7 @@ struct EditorView: View {
 
     private func add(_ items: [PhotosPickerItem]) async {
         adding = true
-        let w = WorkSteps(title: "Adding clips", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
+        let w = WorkSteps(title: "Importing media", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
         work = w
         defer { adding = false; work = nil }
         var urls: [URL] = [], rows: [Int] = []

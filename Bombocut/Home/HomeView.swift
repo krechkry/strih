@@ -136,10 +136,7 @@ struct HomeView: View {
             }
             .overlay {
                 if let work {
-                    ZStack {
-                        Color.black.opacity(0.45).ignoresSafeArea()
-                        WorkStepsView(work: work)
-                    }
+                    ImportWaitView(work: work)
                 } else if importing {
                     ProgressView { if let convertStatus { Text(convertStatus) } else { Text("Checking the files…") } }
                         .padding(24)
@@ -432,7 +429,7 @@ struct HomeView: View {
 
     private func importFromPhotos(_ items: [PhotosPickerItem]) async {
         importing = true
-        let w = WorkSteps(title: "New project", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
+        let w = WorkSteps(title: "Importing media", steps: items.indices.map { String(format: loc("Item %lld"), $0 + 1) })
         work = w
         defer { importing = false; work = nil }
         var urls: [URL] = [], rows: [Int] = []
@@ -445,7 +442,7 @@ struct HomeView: View {
 
     private func importFromAssets(_ assets: [PHAsset]) async {
         importing = true
-        work = Media.importSteps(assets, title: "New project")
+        work = Media.importSteps(assets, title: "Importing media")
         defer { importing = false; work = nil }
         let (clips, firstSize) = await Media.makeClips(from: assets, work: work)
         await create(clips: clips, firstSize: firstSize)
@@ -470,7 +467,7 @@ struct HomeView: View {
 
     private func importPickedFiles(_ picked: [URL]) async {
         importing = true
-        work = Media.importSteps(picked, title: "New project")
+        work = Media.importSteps(picked, title: "Importing media")
         defer { importing = false; convertStatus = nil; work = nil }
         let r = await Media.importFiles(picked, work: work)
         await create(from: r.urls, problems: r.problems, rows: r.rows)
@@ -492,6 +489,8 @@ struct HomeView: View {
             importNote = nil
             return
         }
+        // the waiting game is on: the ball goes into the card first
+        await work?.waitForLanding()
         var p = Project(name: store.nextName())
         p.clips = clips
         p.canvas = Media.canvas(for: firstSize)

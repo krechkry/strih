@@ -2040,7 +2040,7 @@ final class EditorModel: ObservableObject {
         case .select: return pinPickOverlay != nil ? "Tap or box the spot the overlay sticks to" : "Tap or roughly box the subject"
         case .detecting: return "Finding it…"
         case .adjust:
-            return trackFix != nil ? "Lost it here. Fix the box (step frame by frame if needed), then Continue"
+            return trackFix != nil ? "Subject lost. Select it again (step frame by frame if needed), then Continue"
                 : "Drag the box to fix it, then Track"
         }
     }
@@ -2224,7 +2224,13 @@ final class EditorModel: ObservableObject {
             await withTaskCancellationHandler {
                 do {
                     var runs: [(Bool, TrackRun)] = []
+                    // ways not tried because it stopped at the first lost frame: they run after the fix
+                    var skipped: [TrackFix.Lost] = []
                     for (k, fwd) in forward.enumerated() {
+                        if runs.contains(where: { $0.1.lostAt != nil }) {
+                            skipped.append(TrackFix.Lost(t: anchor, forward: fwd, box: box))
+                            continue
+                        }
                         let share = 1.0 / Double(forward.count)
                         let run = try await Task.detached(priority: .userInitiated) {
                             try await Analyzer.trackRun(file: file, from: anchor, to: fwd ? hi : lo, box: box, memory: memory,
@@ -2239,7 +2245,8 @@ final class EditorModel: ObservableObject {
                     }
                     guard let j = project.clips.firstIndex(where: { $0.id == id }) else { return }
                     let found = runs.flatMap { $0.1.samples }
-                    let tracked: ClosedRange<Double> = (forward.contains(false) ? lo : anchor)...(forward.contains(true) ? hi : anchor)
+                    let ran = runs.map(\.0)
+                    let tracked: ClosedRange<Double> = (ran.contains(false) ? lo : anchor)...(ran.contains(true) ? hi : anchor)
                     mutateLook { p in
                         let old = fresh ? [] : (p.clips[j].tracking?.samples ?? []).filter { !tracked.contains($0.t) }
                         // both ways start on the picked frame: one sample per time
@@ -2257,10 +2264,16 @@ final class EditorModel: ObservableObject {
                                                            noBorders: settings.forStab ? true : nil)
                         }
                     }
-                    let lost = runs.compactMap { r in r.1.lostAt.map { TrackFix.Lost(t: $0, forward: r.0) } } + pending
+                    let lost = runs.compactMap { r in r.1.lostAt.map { TrackFix.Lost(t: $0, forward: r.0) } } + skipped + pending
                     analysis = nil
                     analysisTask = nil
                     trackLiveBox = nil
+                    if let first = lost.first, let start = first.box {
+                        // nothing to fix: the way not tracked yet, from where it was picked
+                        runTrackPasses(clip: j, anchor: first.t, box: start, forward: [first.forward], settings: settings,
+                                       pending: Array(lost.dropFirst()), fresh: false)
+                        return
+                    }
                     if let first = lost.first {
                         fixTracking(clip: id, at: first, rest: Array(lost.dropFirst()), settings: settings)
                     } else {

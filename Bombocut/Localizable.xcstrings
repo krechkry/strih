@@ -550,16 +550,6 @@
         }
       }
     },
-    "Adding clips": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přidávám klipy"
-          }
-        }
-      }
-    },
     "Adding the project…": {
       "localizations": {
         "cs": {
@@ -706,6 +696,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Povol v Nastavení přístup k fotkám a vybírej klipy tady, klidně tahem prstu. Nebo použij systémový výběr."
+          }
+        }
+      }
+    },
+    "Almost done! Shoot the ball in here": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skoro hotovo! Pošli míček sem"
           }
         }
       }
@@ -3174,6 +3174,16 @@
         }
       }
     },
+    "Drag to move": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhni prstem"
+          }
+        }
+      }
+    },
     "Duplicate": {
       "localizations": {
         "cs": {
@@ -4668,6 +4678,16 @@
         }
       }
     },
+    "Importing media": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahrávám média"
+          }
+        }
+      }
+    },
     "In": {
       "localizations": {
         "cs": {
@@ -4854,6 +4874,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "BOMBOCUT napořád"
+          }
+        }
+      }
+    },
+    "Keep BOMBOCUT open until it's done": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nech BOMBOCUT otevřený, dokud to nedoběhne"
           }
         }
       }
@@ -5244,16 +5274,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vzhled překrytí"
-          }
-        }
-      }
-    },
-    "Lost it here. Fix the box (step frame by frame if needed), then Continue": {
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tady se ztratil. Oprav rámeček (klidně snímek po snímku), pak Pokračovat"
           }
         }
       }
@@ -5734,6 +5754,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Další keyframe"
+          }
+        }
+      }
+    },
+    "Nice one!": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pěkná trefa!"
           }
         }
       }
@@ -8338,6 +8368,16 @@
         }
       }
     },
+    "Subject lost. Select it again (step frame by frame if needed), then Continue": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objekt ztracen. Vyber ho znovu (případně po snímcích), pak Pokračovat"
+          }
+        }
+      }
+    },
     "Subject mask": {
       "localizations": {
         "cs": {
@@ -9184,6 +9224,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tohle není projekt z BOMBOCUTu."
+          }
+        }
+      }
+    },
+    "This is taking pretty long, let's play a game": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trvá to docela dlouho, pojď si zahrát"
           }
         }
       }

@@ -139,4 +139,26 @@ final class SubjectTrackerTests: XCTestCase {
         XCTAssertEqual(p.x, 160, accuracy: 5)
         XCTAssertEqual(p.y, 130, accuracy: 5)
     }
+
+    // MARK: Colors
+
+    private func filled(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> CGImage {
+        let ctx = CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.setFillColor(red: r, green: g, blue: b, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+        return ctx.makeImage()!
+    }
+
+    /// A yellow carton and a white ceiling look nothing alike in color; the same yellow a bit darker does.
+    func testColorsTellYellowFromWhite() {
+        let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+        let yellow = ColorPrint(filled(0.95, 0.85, 0.2), box: box)!
+        let darker = ColorPrint(filled(0.8, 0.7, 0.15), box: box)!
+        let white = ColorPrint(filled(0.93, 0.93, 0.92), box: box)!
+        XCTAssertGreaterThan(yellow.likeness(darker), 0.8)
+        XCTAssertLessThan(yellow.likeness(white), 0.3)
+        XCTAssertEqual(white.likeness(white), 1, accuracy: 0.001)
+    }
 }
+

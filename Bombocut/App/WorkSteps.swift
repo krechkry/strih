@@ -65,10 +65,36 @@ final class WorkSteps: ObservableObject, Identifiable {
     }
 
     var finished: Int { steps.filter { $0.state == .done || $0.state == .failed }.count }
+
+    // MARK: The waiting game (importing a new project, `ImportWaitView`)
+
+    /// The ball game is on (the job took longer than 10 s).
+    @Published var playing = false
+    /// The ball went into the card ("the island").
+    @Published private(set) var landed = false
+    private var landing: CheckedContinuation<Void, Never>?
+
+    /// Nothing waits any more and at most one step is still working: the card lights up for the last shot.
+    var nearEnd: Bool {
+        !steps.contains { $0.state == .waiting }
+            && steps.filter { if case .working = $0.state { return true } else { return false } }.count <= 1
+    }
+
+    func land() {
+        landed = true
+        landing?.resume()
+        landing = nil
+    }
+
+    /// The job is done: with the game on, waits until the ball goes into the card (or the card is tapped).
+    func waitForLanding() async {
+        guard playing, !landed else { return }
+        await withCheckedContinuation { landing = $0 }
+    }
 }
 
 /// The checklist card: a title with "2 of 5", then the steps, the one being worked on spinning (or a ring filling
-/// up), finished ones ticked in lime, failed ones crossed in red. Long lists scroll, keeping the current step in view.
+/// up), finished ones ticked in lime, failed ones crossed in red. Long lists show 3 rows around the current one.
 struct WorkStepsView: View {
     @ObservedObject var work: WorkSteps
     var cancel: (() -> Void)? = nil
@@ -86,6 +112,15 @@ struct WorkStepsView: View {
         }
     }
 
+    /// A note under the rows ("Keep BOMBOCUT open…").
+    var note: String? = nil
+    /// Lit up in lime: the ball can go in (the waiting game).
+    var lit = false
+
+    private static let rowHeight: CGFloat = 46
+
+    /// A solid block: at most 3 rows, the one being worked on in the middle, the last finished one above it and
+    /// the next one below. Nothing to scroll; the rows slide up as the job moves on.
     private var card: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -94,20 +129,27 @@ struct WorkStepsView: View {
                 if work.steps.count > 1 {
                     Text(String(format: loc("%lld of %lld"), work.finished, work.steps.count))
                         .font(.subheadline.weight(.bold).monospacedDigit()).foregroundStyle(Theme.muted)
+                        .contentTransition(.numericText())
                 }
             }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(work.steps) { s in row(s).id(s.id) }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(slots, id: \.self) { k in
+                    Group {
+                        if work.steps.indices.contains(k) { row(work.steps[k]) } else { Color.clear }
                     }
+                    .frame(height: Self.rowHeight, alignment: .top)
+                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .move(edge: .top).combined(with: .opacity)))
                 }
-                .scrollIndicators(.hidden)
-                .frame(maxHeight: work.steps.count > 6 ? 300 : nil)
-                .fixedSize(horizontal: false, vertical: work.steps.count <= 6)
-                .onChange(of: current) { _, k in
-                    if let k { withAnimation { proxy.scrollTo(k, anchor: .center) } }
-                }
+            }
+            .frame(height: Self.rowHeight * CGFloat(min(3, max(work.steps.count, 1))), alignment: .top)
+            .clipped()
+            .animation(.snappy(duration: 0.35), value: focus)
+            if let note {
+                Text(note)
+                    .font(.footnote.weight(.semibold)).foregroundStyle(lit ? Theme.accent : Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
             }
             if let cancel {
                 Button(action: cancel) {
@@ -121,9 +163,24 @@ struct WorkStepsView: View {
         .padding(18)
         .frame(maxWidth: 340)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line))
-        .shadow(color: .black.opacity(0.4), radius: 20, y: 6)
+        .background(Theme.accent.opacity(work.landed ? 0.35 : 0), in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(lit ? Theme.accent : Theme.line, lineWidth: lit ? 2 : 1))
+        .shadow(color: lit ? Theme.accent.opacity(0.55) : .black.opacity(0.4), radius: lit ? 26 : 20, y: lit ? 0 : 6)
+        .animation(.easeInOut(duration: 0.3), value: lit)
+        .animation(.easeOut(duration: 0.4), value: work.landed)
         .padding(24)
+    }
+
+    /// The row in the middle: the one being worked on, else the next waiting one, else the last.
+    private var focus: Int {
+        if let c = current { return c }
+        if let w = work.steps.firstIndex(where: { $0.state == .waiting }) { return w }
+        return max(work.steps.count - 1, 0)
+    }
+
+    /// Which rows show (an index outside the steps is an empty row, so the block keeps its size).
+    private var slots: [Int] {
+        work.steps.count <= 3 ? Array(work.steps.indices) : [focus - 1, focus, focus + 1]
     }
 
     private var current: Int? {
@@ -142,8 +199,7 @@ struct WorkStepsView: View {
                     Text(d)
                         .font(.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(s.state == .failed ? Color.red : Theme.muted)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
