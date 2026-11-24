@@ -1,6 +1,20 @@
 {
   "activeCaption": 0,
-  "audio": [],
+  "audio": [
+    {
+      "id": "00000000-0000-0000-0000-0000000002A0",
+      "file": "red.mp4",
+      "name": "Zvuk z videa",
+      "sourceDuration": 3,
+      "inPoint": 0,
+      "start": 1.0,
+      "duration": 2.5,
+      "speed": 1,
+      "volume": 0.8,
+      "fadeIn": 0.3,
+      "fadeOut": 0.5
+    }
+  ],
   "canvas": {
     "ratioH": 16,
     "ratioW": 9

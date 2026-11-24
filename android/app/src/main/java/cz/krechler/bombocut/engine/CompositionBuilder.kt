@@ -2,7 +2,7 @@
 // iOS inserts one time-scaled piece per Retime segment; Media3 takes the same pieces as a SpeedProvider.
 // Covered so far: clips in order, trims, constant speed and speed curves (pitch kept or not), clip volume and
 // sound fades, fit / fill on the canvas, the look (LookLut), text layers and captions (TextLayer). Not yet:
-// transitions (overlaps), picture / video layers, sound items.
+// transitions (overlaps), picture / video layers, Speech / Reverse on sounds. Sound items: SoundSequences.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class)
 package cz.krechler.bombocut.engine
 
@@ -18,6 +18,7 @@ import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
+import cz.krechler.bombocut.model.AudioItem
 import cz.krechler.bombocut.model.Clip
 import cz.krechler.bombocut.model.Fade
 import cz.krechler.bombocut.model.Paths
@@ -91,12 +92,60 @@ object CompositionBuilder {
         return b.build()
     }
 
+    /** A constant speed as a provider (sounds have one speed, no curves). */
+    private fun constantSpeed(speed: Float) = object : SpeedProvider {
+        override fun getSpeed(timeUs: Long): Float = speed
+        override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
+    }
+
+    /** One sound item (music, a voice-over, sound from a video), its own volume and fades, pitch kept. */
+    fun soundItem(a: AudioItem, length: Double): EditedMediaItem {
+        val media = MediaItem.Builder()
+            .setUri(Uri.fromFile(Paths.mediaFile(a.file)))
+            .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionUs(us(a.inPoint))
+                    .setEndPositionUs(us(minOf(a.sourceDuration, a.inPoint + length * a.speed)))
+                    .build()
+            )
+            .build()
+        val audio = listOfNotNull(gain(a.volume, a.fades, length))
+        val b = EditedMediaItem.Builder(media).setRemoveVideo(true).setEffects(Effects(audio, emptyList()))
+            .setDurationUs(us(a.sourceDuration))
+        if (abs(a.speed - 1) > 1e-4) b.setSpeed(SpeedParameters(constantSpeed(a.speed.toFloat()), true))
+        return b.build()
+    }
+
+    /**
+     * The sounds as audio-only sequences: overlapping sounds go on separate rows (Media3 plays a sequence one item
+     * after another), gaps fill the time between them. Nothing plays past the end of the video.
+     */
+    fun soundSequences(project: Project): List<EditedMediaItemSequence> {
+        val total = project.duration
+        val rows = mutableListOf<MutableList<AudioItem>>()
+        for (a in project.audio.filter { it.start < total - 0.01 && it.duration > 0.01 }.sortedBy { it.start }) {
+            val row = rows.firstOrNull { it.last().end <= a.start + 1e-6 }
+            if (row != null) row.add(a) else rows.add(mutableListOf(a))
+        }
+        return rows.map { row ->
+            val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
+            var t = 0.0
+            for (a in row) {
+                if (a.start - t > 0.001) b.addGap(us(a.start - t))
+                val length = minOf(a.duration, total - a.start)
+                b.addItem(soundItem(a, length))
+                t = a.start + length
+            }
+            b.build()
+        }
+    }
+
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
     fun build(project: Project, width: Int, height: Int, fps: Double? = null): Composition? {
         if (project.clips.isEmpty()) return null
         val items = project.clips.map { item(it, width, height) }
         val seq = EditedMediaItemSequence.Builder(items).build()
-        val b = Composition.Builder(seq)
+        val b = Composition.Builder(listOf(seq) + soundSequences(project))
         // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
         val video = listOfNotNull(
             TextLayer.effect(project, width, height),
