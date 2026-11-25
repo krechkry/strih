@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import cz.krechler.bombocut.engine.LiveLayers
+import cz.krechler.bombocut.engine.TextLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,12 +61,19 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
         onDispose { state.player = null; p.release() }
     }
     // rebuilt when the timing or the shape changes (like iOS `rebuild()`)
-    LaunchedEffect(project.clips, project.canvas) {
+    // (texts and captions are read live by the text layer: changing them only redraws the frame)
+    LaunchedEffect(project.clips, project.canvas, project.audio, TextLayer.hasAny(project)) {
         val p = state.player ?: return@LaunchedEffect
-        val comp = CompositionBuilder.build(project, w, h) ?: return@LaunchedEffect
+        LiveLayers.project = project
+        val comp = CompositionBuilder.build(project, w, h, livePreview = true) ?: return@LaunchedEffect
         state.length = project.duration
         p.setComposition(comp, (state.time * 1000).toLong())
         p.prepare()
+    }
+    LaunchedEffect(project.overlays, project.captionTracks) {
+        LiveLayers.project = project
+        // paused: show the change right away (the player draws the frame again when it seeks)
+        state.player?.let { if (!it.isPlaying) it.seekTo(it.currentPosition) }
     }
     LaunchedEffect(Unit) {
         while (true) {

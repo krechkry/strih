@@ -141,14 +141,14 @@ object CompositionBuilder {
     }
 
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
-    fun build(project: Project, width: Int, height: Int, fps: Double? = null): Composition? {
+    fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {
         if (project.clips.isEmpty()) return null
         val items = project.clips.map { item(it, width, height) }
         val seq = EditedMediaItemSequence.Builder(items).build()
         val b = Composition.Builder(listOf(seq) + soundSequences(project))
         // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
         val video = listOfNotNull(
-            TextLayer.effect(project, width, height),
+            TextLayer.effect(project, width, height, livePreview),
             fps?.let { androidx.media3.effect.FrameDropEffect.createDefaultFrameDropEffect(it.toFloat()) },
         )
         if (video.isNotEmpty()) b.setEffects(Effects(emptyList(), video))

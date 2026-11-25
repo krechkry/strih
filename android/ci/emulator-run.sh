@@ -98,6 +98,8 @@ sleep 3
 adb exec-out screencap -p > $OUT/13-text.png
 adb shell input keyevent 4
 sleep 1
+adb exec-out screencap -p > $OUT/13b-text-closed.png
+sleep 1
 python3 android/ci/tap.py "Zvuk z videa" || true
 sleep 3
 adb exec-out screencap -p > $OUT/14-sound.png

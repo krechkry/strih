@@ -37,6 +37,8 @@ import cz.krechler.bombocut.app.loc
 /** The bottom panel: rounded top, the lime check closes it. */
 @Composable
 fun Panel(height: Dp, close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    // Back closes the panel, not the project
+    androidx.activity.compose.BackHandler(onBack = close)
     Column(
         Modifier.fillMaxWidth().heightIn(max = height)
             .background(Theme.panel, RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)),

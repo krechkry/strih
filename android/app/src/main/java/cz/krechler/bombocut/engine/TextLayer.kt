@@ -19,7 +19,11 @@ import cz.krechler.bombocut.model.Project
 import com.google.common.collect.ImmutableList
 import kotlin.math.pow
 
-class TextLayer(private val project: Project, private val w: Int, private val h: Int) : BitmapOverlay() {
+/** The project the preview's text layer reads, so editing a text or a caption doesn't rebuild the composition. */
+object LiveLayers { @Volatile var project: Project? = null }
+
+class TextLayer(private val fixed: Project, private val w: Int, private val h: Int, private val live: Boolean) : BitmapOverlay() {
+    private val project: Project get() = if (live) LiveLayers.project ?: fixed else fixed
     private val frame: Bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     private var drawn: String? = null
     /** Text blocks by text + style (they don't change while the project is the same). */
@@ -30,6 +34,7 @@ class TextLayer(private val project: Project, private val w: Int, private val h:
 
     /** What shows at timeline time t, top layer last. */
     private fun pieces(t: Double): List<Piece> {
+        val project = this.project
         val out = mutableListOf<Piece>()
         // captions under the text layers (iOS draws them first)
         project.captionTracks.forEachIndexed { k, caps ->
@@ -69,12 +74,16 @@ class TextLayer(private val project: Project, private val w: Int, private val h:
         return out
     }
 
-    private fun block(p: Piece): Bitmap? = blocks.getOrPut(p.text to p.style) { TextRenderer.render(p.text, p.style, w, h, p.wrap) }
+    private fun block(p: Piece): Bitmap? {
+        // typing makes a new block per letter: keep the cache small
+        if (blocks.size > 48) blocks.clear()
+        return blocks.getOrPut(p.text to p.style) { TextRenderer.render(p.text, p.style, w, h, p.wrap) }
+    }
 
     override fun getBitmap(presentationTimeUs: Long): Bitmap {
         val ps = pieces(presentationTimeUs / 1_000_000.0)
         // rounded, so a still layer doesn't redraw every frame
-        val sig = ps.joinToString(";") { "${it.key}|${(it.cx * 2).toInt()}|${(it.cy * 2).toInt()}|${(it.scale * 500).toInt()}|${(it.rotation * 10).toInt()}|${(it.alpha * 255).toInt()}" }
+        val sig = ps.joinToString(";") { "${it.key}|${it.text.hashCode()}|${it.style.hashCode()}|${(it.cx * 2).toInt()}|${(it.cy * 2).toInt()}|${(it.scale * 500).toInt()}|${(it.rotation * 10).toInt()}|${(it.alpha * 255).toInt()}" }
         if (sig == drawn) return frame
         drawn = sig
         val c = Canvas(frame)
@@ -95,10 +104,13 @@ class TextLayer(private val project: Project, private val w: Int, private val h:
 
     companion object {
         /** The layer as an effect, or null when the project has no text and no captions. */
-        fun effect(project: Project, w: Int, h: Int): OverlayEffect? {
-            val any = project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind is OverlayKind.Text }
-            if (!any) return null
-            return OverlayEffect(ImmutableList.of<androidx.media3.effect.TextureOverlay>(TextLayer(project, w, h)))
+        fun hasAny(project: Project): Boolean =
+            project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind is OverlayKind.Text }
+
+        /** `live`: the preview, reading LiveLayers; export takes the project as it is. */
+        fun effect(project: Project, w: Int, h: Int, live: Boolean = false): OverlayEffect? {
+            if (!hasAny(project)) return null
+            return OverlayEffect(ImmutableList.of<androidx.media3.effect.TextureOverlay>(TextLayer(project, w, h, live)))
         }
     }
 }
