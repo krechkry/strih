@@ -508,7 +508,7 @@
       "keys": [],
       "kind": {
         "video": {
-          "file": "blue.mp4",
+          "file": "green.mp4",
           "sourceDuration": 3,
           "inPoint": 0.5
         }
