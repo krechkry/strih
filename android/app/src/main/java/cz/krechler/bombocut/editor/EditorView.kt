@@ -133,7 +133,7 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
     }
     if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 440.dp; "sound" -> 460.dp; "picture" -> 320.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
                     "text" -> TextSheet(model)
                     "sound" -> SoundSheet(model)

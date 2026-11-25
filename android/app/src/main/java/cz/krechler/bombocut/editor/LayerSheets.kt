@@ -8,6 +8,11 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -164,6 +169,14 @@ fun TextSheet(model: EditorModel) {
         Text("${(size * 1000).toInt()}", color = Color.White, fontWeight = FontWeight.Bold)
     }
     BSlider(size, 0.03..0.28, { size = it }, { model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(size = size)) } })
+    Text(loc("Color"), color = Theme.muted, fontWeight = FontWeight.Bold)
+    Swatches(o.style.text) { c -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(text = c)) } }
+    var outline by remember(o.id, o.style.strokeWidth) { mutableStateOf(o.style.strokeWidth) }
+    Row {
+        Text(loc("Outline"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(outline * 100).toInt()}", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(outline, 0.0..1.0, { outline = it }, { model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(strokeWidth = outline)) } })
     OnOffRow("Shadow", isOn = o.style.shadow) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(shadow = on)) } }
     OnOffRow("Box", isOn = o.style.box) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(box = on)) } }
     TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
@@ -230,4 +243,27 @@ fun EditorModel.dragAudio(id: UUID, mode: LaneDrag, dt: Double) = laneDragChange
         }
     }
     p.copy(audio = p.audio.toMutableList().also { it[i] = n })
+}
+
+/** The quick colors (iOS ColorControl's swatch row); the full color menu comes later. */
+private val swatches = listOf(
+    cz.krechler.bombocut.model.RGBA.white, cz.krechler.bombocut.model.RGBA.black, cz.krechler.bombocut.model.RGBA.lime,
+    cz.krechler.bombocut.model.RGBA(1.0, 0.84, 0.0), cz.krechler.bombocut.model.RGBA(1.0, 0.27, 0.23),
+    cz.krechler.bombocut.model.RGBA(0.04, 0.52, 1.0), cz.krechler.bombocut.model.RGBA(1.0, 0.18, 0.57),
+    cz.krechler.bombocut.model.RGBA(1.0, 0.58, 0.0),
+)
+
+@Composable
+private fun Swatches(current: cz.krechler.bombocut.model.RGBA, pick: (cz.krechler.bombocut.model.RGBA) -> Unit) {
+    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+        for (c in swatches) {
+            val on = c.near(current)
+            androidx.compose.foundation.layout.Box(
+                Modifier.size(32.dp)
+                    .background(Color(c.r.toFloat(), c.g.toFloat(), c.b.toFloat()), androidx.compose.foundation.shape.CircleShape)
+                    .border(if (on) 3.dp else 1.dp, if (on) Theme.accent else Color.White.copy(alpha = 0.2f), androidx.compose.foundation.shape.CircleShape)
+                    .clickable { pick(c) },
+            )
+        }
+    }
 }
