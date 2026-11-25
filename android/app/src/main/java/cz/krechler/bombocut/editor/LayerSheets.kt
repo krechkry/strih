@@ -107,6 +107,24 @@ fun EditorModel.duplicateAudio(id: UUID) {
     selectAudio(c.id)
 }
 
+/** iOS audioHalves: a sound cut in two at timeline time t (the second piece reads on from where the first ends). */
+fun audioHalves(x: AudioItem, t: Double): Pair<AudioItem, AudioItem>? {
+    if (t <= x.start + 0.1 || t >= x.end - 0.1) return null
+    val a = x.copy(duration = t - x.start, fadeOut = null)
+    val b = x.copy(id = UUID.randomUUID(), start = t, duration = x.end - t, inPoint = x.inPoint + (t - x.start) * x.speed, fadeIn = null)
+    return a to b
+}
+
+/** Splits the picked sound at the playhead; the second piece is picked. */
+fun EditorModel.splitAudio(): Boolean {
+    val id = selectedAudioID ?: return false
+    val i = project.audio.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return false
+    val (a, b) = audioHalves(project.audio[i], currentTime) ?: return false
+    mutate { p -> p.copy(audio = p.audio.toMutableList().also { it[i] = a; it.add(i + 1, b) }) }
+    selectedAudioID = b.id
+    return true
+}
+
 fun EditorModel.deleteOverlay(id: UUID) {
     mutate { p -> p.copy(overlays = p.overlays.filter { it.id != id }) }
     selectedOverlayID = null

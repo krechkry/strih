@@ -161,7 +161,7 @@ private fun ToolRow(model: EditorModel, addSound: () -> Unit, addPicture: () -> 
         Modifier.fillMaxWidth().height(72.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        ToolButton(Icons.Filled.ContentCut, "Split") { model.split() }
+        ToolButton(Icons.Filled.ContentCut, "Split") { if (model.selectedAudioID != null) model.splitAudio() else model.split() }
         if (model.selectedIndex == null) {
             // nothing picked: add a text or a sound at the playhead (iOS: the island's + buttons)
             ToolButton(Icons.Filled.TextFields, "Text") { model.addText(); open("text") }
