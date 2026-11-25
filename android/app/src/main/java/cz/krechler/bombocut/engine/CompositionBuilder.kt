@@ -2,13 +2,17 @@
 // iOS inserts one time-scaled piece per Retime segment; Media3 takes the same pieces as a SpeedProvider.
 // Covered so far: clips in order, trims, constant speed and speed curves (pitch kept or not), clip volume and
 // sound fades, fit / fill on the canvas, the look (LookLut), text layers and captions (TextLayer). Not yet:
-// transitions (overlaps), picture / video layers, Speech / Reverse on sounds. Sound items: SoundSequences.
+// video layers, transition shapes other than a crossfade, Speech / Reverse on sounds. Sound items: SoundSequences.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class)
 package cz.krechler.bombocut.engine
 
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.OverlaySettings
+import androidx.media3.common.VideoCompositorSettings
+import androidx.media3.common.util.Size
+import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.common.SpeedParameters
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.GainProcessor
@@ -151,15 +155,76 @@ object CompositionBuilder {
         }
     }
 
+    /** Even clips on roll A, odd clips on roll B, each at its own timeline start; A runs to the very end. */
+    private fun abRolls(project: Project, width: Int, height: Int): List<EditedMediaItemSequence> {
+        val starts = project.clipStarts
+        val total = project.duration
+        return (0..1).map { roll ->
+            val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+            var t = 0.0
+            for (k in project.clips.indices) {
+                if (k % 2 != roll) continue
+                val c = project.clips[k]
+                if (starts[k] - t > 0.001) b.addGap(us(starts[k] - t))
+                b.addItem(item(c, width, height))
+                t = starts[k] + c.duration
+            }
+            // the primary roll sets the output's length: it covers the whole video
+            if (roll == 0 && total - t > 0.001) b.addGap(us(total - t))
+            b.build()
+        }
+    }
+
+    /**
+     * How roll A shows over roll B at each moment: fully where an A clip plays on its own, not at all over B's own
+     * clips (A's gap frames are black), and fading over the overlap of a transition. All transitions blend as a
+     * crossfade on Android for now (iOS also slides, zooms and pops).
+     */
+    private class Crossfades(project: Project, private val w: Int, private val h: Int) : VideoCompositorSettings {
+        private val starts = project.clipStarts
+        private val ends = project.clips.mapIndexed { k, c -> starts[k] + c.duration }
+        private val n = project.clips.size
+
+        fun alphaA(t: Double): Float {
+            // the clip on top at t and whether it is inside an overlap
+            for (k in 0 until n) {
+                if (t < starts[k] - 1e-6 || t >= ends[k]) continue
+                val nextStarts = if (k + 1 < n) starts[k + 1] else Double.MAX_VALUE
+                if (t >= nextStarts) {
+                    // overlap of k and k + 1: k fades out over k + 1
+                    val f = ((t - nextStarts) / maxOf(ends[k] - nextStarts, 1e-6)).coerceIn(0.0, 1.0)
+                    return (if (k % 2 == 0) 1 - f else f).toFloat()
+                }
+                return if (k % 2 == 0) 1f else 0f
+            }
+            return 0f
+        }
+
+        override fun getOutputSize(inputSizes: List<Size>): Size = Size(w, h)
+
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings =
+            if (inputId != 0) StaticOverlaySettings.Builder().build()
+            else StaticOverlaySettings.Builder().setAlphaScale(alphaA(presentationTimeUs / 1_000_000.0)).build()
+    }
+
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
     fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {
         if (project.clips.isEmpty()) return null
         val n = project.clips.size
-        val items = project.clips.mapIndexed { k, c ->
-            item(c, width, height, head = project.overlap(k) / 2, tail = if (k + 1 < n) project.overlap(k + 1) / 2 else 0.0)
+        val blends = (1 until n).any { project.overlap(it) > 0.01 }
+        val video: List<EditedMediaItemSequence>
+        var settings: VideoCompositorSettings? = null
+        if (blends) {
+            // transitions: A / B rolls like an editor's two tracks. Even clips on A (drawn on top), odd ones on B,
+            // each at its timeline start with gaps between; over an overlap A fades out (or in) over B.
+            video = abRolls(project, width, height)
+            settings = Crossfades(project, width, height)
+        } else {
+            val items = project.clips.map { item(it, width, height) }
+            video = listOf(EditedMediaItemSequence.Builder(items).build())
         }
-        val seq = EditedMediaItemSequence.Builder(items).build()
-        val b = Composition.Builder(listOf(seq) + soundSequences(project))
+        val b = Composition.Builder(video + soundSequences(project))
+        settings?.let { b.setVideoCompositorSettings(it) }
         // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
         val video = listOfNotNull(
             TextLayer.effect(project, width, height, livePreview),
