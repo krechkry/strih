@@ -9688,12 +9688,12 @@
         }
       }
     },
-    "Tip: bring your own look: import a .cube LUT in Filters & LUT.": {
+    "Tip: bring your own look: import a .cube LUT in Filters.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tip: vlastní look: importuj .cube LUT ve Filtry a LUT."
+            "value": "Tip: vlastní look: importuj .cube LUT ve Filtrech."
           }
         }
       }
@@ -11178,12 +11178,12 @@
         }
       }
     },
-    "Tip: filmed in ProRes Log on an iPhone? The Apple Log tab in Filters & LUT turns it into a finished look.": {
+    "Tip: filmed in ProRes Log on an iPhone? The Apple Log tab in Filters turns it into a finished look.": {
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tip: točíš na iPhonu v ProRes Log? Záložka Apple Log ve Filtry a LUT z něj udělá hotový look."
+            "value": "Tip: točíš na iPhonu v ProRes Log? Záložka Apple Log ve Filtrech z něj udělá hotový look."
           }
         }
       }
@@ -11334,6 +11334,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "%d BPM. Střihy, texty i zvuky se na značky přichytí."
+          }
+        }
+      }
+    },
+    "Filters & LUTs": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filtry a LUTy"
+          }
+        }
+      }
+    },
+    "Put it in": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kam to dát"
+          }
+        }
+      }
+    },
+    "New category": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nová kategorie"
+          }
+        }
+      }
+    },
+    "Category name": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Název kategorie"
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importovat"
+          }
+        }
+      }
+    },
+    "Save a look in Adjust with Save as filter, or Import a .cube LUT: they show up here.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulož si look v Úpravách přes Uložit jako filtr nebo importuj LUT .cube: objeví se tady."
+          }
+        }
+      }
+    },
+    "Hold a filter and drag it onto this category up top.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Podrž filtr a přetáhni ho nahoře na tuhle kategorii."
           }
         }
       }

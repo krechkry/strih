@@ -874,7 +874,7 @@ struct EditorView: View {
                     }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
                     if o.isMedia {
-                        ToolButton(icon: "camera.filters", label: "Filters & LUT") { model.pause(); sheet = .filters }
+                        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
                     }
                     if o.isMedia {
                         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
@@ -914,7 +914,7 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "scissors", label: "Split") { model.split() }
                     if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
-                    ToolButton(icon: "camera.filters", label: "Filters & LUT") { model.pause(); sheet = .filters }
+                    ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
                     if clip.stack != nil {
                         ToolButton(icon: "square.stack.3d.up.slash", label: "Unstack") { model.unstackSelected() }
                     }
@@ -1029,7 +1029,7 @@ struct EditorView: View {
     private var adjustmentTools: some View {
         ToolButton(icon: "scissors", label: "Split") { model.splitOverlay() }
         ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust }
-        ToolButton(icon: "camera.filters", label: "Filters & LUT") { model.pause(); sheet = .filters }
+        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
         ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
         ToolButton(icon: "circle.lefthalf.filled", label: "Opacity") { openOverlay(.blend) }
         ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
@@ -1048,7 +1048,7 @@ struct EditorView: View {
         ToolButton(icon: "square.stack.3d.up", label: "Open stack") { model.toggleStackOpen(st.id) }
         ToolButton(icon: "scissors", label: "Split") { model.splitStack() }
         if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
-        ToolButton(icon: "camera.filters", label: "Filters & LUT") { model.pause(); sheet = .filters }
+        ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
         ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
         ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
         if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }

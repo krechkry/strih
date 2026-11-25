@@ -2,13 +2,27 @@ import SwiftUI
 
 /// Filters for the selected clip, Stack or picture / video layer: tiles showing the frame at the playhead with
 /// each look. Tap applies a filter (tap the one you have to take it off), the sliders icon on the one you have opens
-/// its Adjust menu (strength and its film effects), double tap the one you have to like it (Liked tab). Imported
-/// .cube LUTs have their own tab. With a filter on, "Apply to" floats at the bottom.
+/// its Adjust menu (strength and its film effects), double tap the one you have to like it (Liked tab).
+/// Top row: Mine, Liked, All, Apple Log, your own categories, then Import (.cube LUTs; a new one asks which
+/// category it goes in, or a new one). Hold a filter and drag it onto a category to move it there.
+/// With a filter on, "Apply to" floats at the bottom.
 struct FiltersSheet: View {
     @ObservedObject var model: EditorModel
 
     @AppStorage("likedFilters") private var likedRaw = ""
     @AppStorage("filterTab") private var tabRaw = "all"
+    @AppStorage(FilterFolders.mapKey) private var foldersRaw = ""
+    @AppStorage(FilterFolders.namesKey) private var namesRaw = ""
+    /// A category tab a dragged filter is over.
+    @State private var dropTarget: String?
+    /// Import was tapped: the LUTs that arrive next ask which category they go in.
+    @State private var importing = false
+    /// Just imported, waiting for a category.
+    @State private var placing: [String] = []
+    @State private var askName = false
+    @State private var typedName = ""
+    /// Renaming this category (nil: making a new one).
+    @State private var renaming: String?
     @Environment(\.panelHeight) private var panelHeight
     @State private var thumbs: [String: UIImage] = [:]
     @State private var luts: [String] = []
@@ -19,9 +33,15 @@ struct FiltersSheet: View {
     @State private var pendingRemove: Task<Void, Never>?
     @State private var source: CIImage?
 
-    private enum Tab: String, CaseIterable { case liked, all, log, mine, imported }
-
-    private var tab: Tab { Tab(rawValue: tabRaw) ?? .all }
+    /// The tab shown: mine, liked, all, log or one of your categories ("imported" from before is Mine now).
+    private var tab: String {
+        if tabRaw == "imported" { return FilterFolders.mine }
+        if let n = FilterFolders.name(tabRaw), !categories.contains(n) { return FilterFolders.all }
+        return tabRaw
+    }
+    private var folderMap: [String: String] { FilterFolders.decodeMap(foldersRaw) }
+    private var categories: [String] { FilterFolders.decodeNames(namesRaw) }
+    private var logIDs: Set<String> { Set(FilterLibrary.appleLog.map(\.id)) }
     private var liked: [String] { likedRaw.split(separator: ",").map(String.init) }
     private var active: LookFilter? { model.editedFilter }
 
@@ -51,18 +71,33 @@ struct FiltersSheet: View {
         .overlay(alignment: .bottom) { floatingApply }
         .task(id: model.selectedClipID ?? model.selectedStackID ?? model.selectedOverlayID) { await loadSource() }
         .onAppear { luts = LUTLibrary.files(); mine = MyFilterStore.load() }
-        .onChange(of: model.lutsVersion) { reloadLibrary() }
+        .onChange(of: model.lutsVersion) { reloadLibrary(asking: true) }
         .onReceive(NotificationCenter.default.publisher(for: CloudPrefs.presetsChanged)) { _ in reloadLibrary() }
         .onChange(of: active?.id) { _, id in if id == nil { adjusting = false } }
         .panelMenu(isPresented: $adjusting, height: panelHeight) {
             FilterAdjustMenu(model: model)
+        }
+        // a new LUT: which category it goes in
+        .confirmationDialog("Put it in", isPresented: Binding(get: { !placing.isEmpty && !askName },
+                                                              set: { if !$0 && !askName { placing = [] } }),
+                            titleVisibility: .visible) {
+            Button(loc("Mine")) { place(FilterFolders.mine) }
+            Button(String("Apple Log")) { place(FilterFolders.log) }
+            ForEach(categories, id: \.self) { n in Button(n) { place(FilterFolders.key(n)) } }
+            Button(loc("New category")) { renaming = nil; typedName = ""; askName = true }
+            Button("Cancel", role: .cancel) { place(FilterFolders.mine) }
+        }
+        .alert(loc(renaming == nil ? "New category" : "Rename"), isPresented: $askName) {
+            TextField("Category name", text: $typedName)
+            Button("OK") { nameTyped() }
+            Button("Cancel", role: .cancel) { if renaming == nil { place(FilterFolders.mine) }; renaming = nil }
         }
     }
 
     /// "Filters", and Reset (takes the filter off) where the filter's name used to be.
     private var header: some View {
         HStack(spacing: 10) {
-            Text("Filters").font(.title3.weight(.heavy))
+            Text("Filters & LUTs").font(.title3.weight(.heavy))
             Spacer()
             Button {
                 model.setFilter(nil)
@@ -107,67 +142,113 @@ struct FiltersSheet: View {
 
     // MARK: Tabs
 
+    /// Mine, Liked, All, Apple Log, your categories, Import. Each category takes a filter dropped on it.
     private var tabs: some View {
-        HStack(spacing: 6) {
-            tabButton(.liked) { Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
-            tabButton(.all) { Text("All").font(.footnote.weight(.bold)).lineLimit(1) }
-            tabButton(.log) { Text(verbatim: "Apple Log").font(.footnote.weight(.bold)).lineLimit(1) }
-            tabButton(.mine) { Image(systemName: "person.fill").font(.system(size: 12, weight: .bold)).frame(width: 16) }
-            tabButton(.imported) { Text(verbatim: "LUT").font(.footnote.weight(.bold)).lineLimit(1) }   // your imported .cube files
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                tabButton(FilterFolders.mine, label: loc("Mine")) {
+                    Image(systemName: "person.fill").font(.system(size: 12, weight: .bold)).frame(width: 16)
+                }
+                tabButton(FilterFolders.liked, label: loc("Liked")) {
+                    Image(systemName: "heart.fill").font(.system(size: 12, weight: .bold)).frame(width: 16)
+                }
+                tabButton(FilterFolders.all, label: loc("All")) { Text("All").font(.footnote.weight(.bold)).lineLimit(1) }
+                tabButton(FilterFolders.log, label: "Apple Log") {
+                    Text(verbatim: "Apple Log").font(.footnote.weight(.bold)).lineLimit(1)
+                }
+                ForEach(categories, id: \.self) { n in
+                    tabButton(FilterFolders.key(n), label: n) { Text(verbatim: n).font(.footnote.weight(.bold)).lineLimit(1) }
+                        .contextMenu {
+                            Button { renaming = n; typedName = n; askName = true } label: {
+                                Label(loc("Rename"), systemImage: "pencil")
+                            }
+                            Button(role: .destructive) { deleteCategory(n) } label: {
+                                Label(loc("Delete"), systemImage: "trash")
+                            }
+                        }
+                }
+                Button { importing = true; model.requestLUTImport = true } label: {
+                    Label(loc("Import"), systemImage: "plus")
+                        .font(.footnote.weight(.bold)).lineLimit(1)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 11).frame(height: 26)
+                        .background(Theme.panel2, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 2)
         }
     }
 
-    private func tabButton<L: View>(_ t: Tab, @ViewBuilder _ label: () -> L) -> some View {
-        let on = tab == t
-        return Button { tabRaw = t.rawValue } label: {
+    private func tabButton<L: View>(_ key: String, label name: String, @ViewBuilder _ label: () -> L) -> some View {
+        let on = tab == key
+        let over = dropTarget == key
+        return Button { tabRaw = key } label: {
             label()
-                .foregroundStyle(on ? .black : .white.opacity(0.85))
+                .foregroundStyle(on || over ? .black : .white.opacity(0.85))
                 .padding(.horizontal, 11).frame(height: 26)
-                .background(on ? Color.white : Theme.panel2, in: Capsule())
+                .background(over ? Theme.accent : on ? Color.white : Theme.panel2, in: Capsule())
+                .scaleEffect(over ? 1.12 : 1)
+                .animation(.easeOut(duration: 0.12), value: over)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(t == .log ? "Apple Log"
-                            : (t == .imported ? "LUT" : loc(t == .liked ? "Liked" : t == .mine ? "Mine" : "All")))
+        .accessibilityLabel(name)
+        // hold a filter and drop it here: it moves to this category (All: out of every category, Liked: liked)
+        .dropDestination(for: String.self) { ids, _ in
+            guard let id = ids.first else { return false }
+            dropped(id, on: key)
+            return true
+        } isTargeted: { t in
+            if t { dropTarget = key } else if dropTarget == key { dropTarget = nil }
+        }
     }
 
     // MARK: Tiles
 
+    /// Every filter, your own first: your looks, your LUTs, the built-in ones, the Apple Log ones.
+    private var allDefs: [FilterDef] {
+        mine.map(FilterLibrary.def)
+            + luts.compactMap { FilterLibrary.def(FilterLibrary.lutID($0)) }
+            + FilterLibrary.builtIn + FilterLibrary.appleLog
+    }
+
+    private func inFolder(_ key: String) -> [FilterDef] {
+        let map = folderMap, logs = logIDs
+        return allDefs.filter { FilterFolders.folder(of: $0.id, map: map, logIDs: logs) == key }
+    }
+
     @ViewBuilder
     private var content: some View {
         switch tab {
-        case .liked:
+        case FilterFolders.liked:
             let defs = liked.compactMap(def)
             if defs.isEmpty {
                 note("Double tap the filter you have picked: it shows up here for quick access.")
             } else {
                 grid { ForEach(defs) { tile($0) } }
             }
-        case .all:
-            // everything: your own filters first, then the built-in ones
-            grid {
-                ForEach(mine) { tile(FilterLibrary.def($0)) }
-                ForEach(FilterLibrary.builtIn) { tile($0) }
-            }
-        case .log:
+        case FilterFolders.all:
+            // everything except the Apple Log looks (they only suit log footage): your own first
+            let logs = logIDs
+            grid { ForEach(allDefs.filter { !logs.contains($0.id) }) { tile($0) } }
+        case FilterFolders.log:
             VStack(alignment: .leading, spacing: 12) {
-                grid { ForEach(FilterLibrary.appleLog) { tile($0) } }
+                grid { ForEach(inFolder(FilterFolders.log)) { tile($0) } }
                 note("For clips shot in ProRes Log (Apple Log) on iPhone 15 Pro and newer: they turn the flat log picture into a finished one. On other clips they look too dark and contrasty.")
             }
-        case .mine:
-            if mine.isEmpty {
-                note("Save a look in Adjust with Save as filter and it shows up here.")
+        case FilterFolders.mine:
+            let defs = inFolder(FilterFolders.mine)
+            if defs.isEmpty {
+                note("Save a look in Adjust with Save as filter, or Import a .cube LUT: they show up here.")
             } else {
-                grid { ForEach(mine) { tile(FilterLibrary.def($0)) } }
+                grid { ForEach(defs) { tile($0) } }
             }
-        case .imported:
-            VStack(alignment: .leading, spacing: 12) {
-                grid {
-                    addTile
-                    ForEach(luts, id: \.self) { f in
-                        if let d = FilterLibrary.def(FilterLibrary.lutID(f)) { tile(d) }
-                    }
-                }
-                note("Add .cube LUTs from Files (DaVinci Resolve and other apps). Tap the sliders on the one you picked for its strength or to remove it.")
+        default:
+            let defs = inFolder(tab)
+            if defs.isEmpty {
+                note("Hold a filter and drag it onto this category up top.")
+            } else {
+                grid { ForEach(defs) { tile($0) } }
             }
         }
     }
@@ -179,25 +260,6 @@ struct FiltersSheet: View {
     private func note(_ text: String) -> some View {
         Text(loc(text)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    /// Built like a filter tile (same size): a plus in the middle of the picture square, the name under it.
-    private var addTile: some View {
-        Button { model.requestLUTImport = true } label: {
-            VStack(spacing: 5) {
-                Theme.panel
-                    .aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                        Image(systemName: "plus").font(.system(size: 26, weight: .bold))
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 9))
-                Text("Add LUT").font(.caption2.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
-            }
-            .foregroundStyle(.white)
-            .padding(5)
-            .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
     }
 
     private func tile(_ d: FilterDef) -> some View {
@@ -226,6 +288,10 @@ struct FiltersSheet: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .onTapGesture { tapped(d.id) }
+        // hold and drag onto a category in the top row
+        .draggable(d.id) {
+            picture(d).frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 9))
+        }
         .id(d.id)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(loc(d.name))
@@ -300,15 +366,11 @@ struct FiltersSheet: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
-    /// Opening the panel on a clip with a filter: its tab, scrolled to it.
+    /// Opening the panel on a clip with a filter: its category (or All), scrolled to it.
     private func jumpToActive(_ proxy: ScrollViewProxy) {
         guard let a = active else { return }
-        if a.id.hasPrefix("lut:") {
-            tabRaw = Tab.imported.rawValue
-        } else if a.id.hasPrefix("my:") {
-            if !(tab == .liked && liked.contains(a.id)) { tabRaw = Tab.mine.rawValue }
-        } else if !(tab == .liked && liked.contains(a.id)) {
-            tabRaw = Tab.all.rawValue
+        if !(tab == FilterFolders.liked && liked.contains(a.id)) {
+            tabRaw = FilterFolders.folder(of: a.id, map: folderMap, logIDs: logIDs) ?? FilterFolders.all
         }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(80))
@@ -331,7 +393,7 @@ struct FiltersSheet: View {
 
     private func renderThumbs() async {
         guard let src = source else { return }
-        let ids = FilterLibrary.builtIn.map(\.id) + LUTLibrary.files().map(FilterLibrary.lutID)
+        let ids = (FilterLibrary.builtIn + FilterLibrary.appleLog).map(\.id) + LUTLibrary.files().map(FilterLibrary.lutID)
         let filters = ids.map { LookFilter(id: $0) } + MyFilterStore.load().map { LookFilter(id: $0.id, own: $0) }
         let made: [String: UIImage] = await Task.detached(priority: .userInitiated) {
             FilterThumbs.render(src, filters)
@@ -339,10 +401,76 @@ struct FiltersSheet: View {
         thumbs = made
     }
 
-    private func reloadLibrary() {
+    private func reloadLibrary(asking: Bool = false) {
+        let before = Set(luts)
         luts = LUTLibrary.files()
         mine = MyFilterStore.load()
+        // LUTs that just came in through Import: ask which category they go in
+        if asking && importing {
+            importing = false
+            let new = luts.filter { !before.contains($0) }.map(FilterLibrary.lutID)
+            if !new.isEmpty { placing = new }
+        }
         Task { await renderThumbs() }
+    }
+
+    // MARK: Categories
+
+    /// A filter dropped on a tab: Liked likes it, All takes it out of its category, the others move it there.
+    private func dropped(_ id: String, on key: String) {
+        dropTarget = nil
+        switch key {
+        case FilterFolders.liked:
+            if !liked.contains(id) { toggleLike(id) }
+            return
+        case FilterFolders.all:
+            foldersRaw = FilterFolders.encode(FilterFolders.moving(id, to: nil, map: folderMap, logIDs: logIDs))
+        default:
+            foldersRaw = FilterFolders.encode(FilterFolders.moving(id, to: key, map: folderMap, logIDs: logIDs))
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// The new LUTs go into this category, and its tab opens.
+    private func place(_ key: String) {
+        var m = folderMap
+        for id in placing { m = FilterFolders.moving(id, to: key, map: m, logIDs: logIDs) }
+        foldersRaw = FilterFolders.encode(m)
+        placing = []
+        tabRaw = key
+    }
+
+    /// The name typed for a new category (the LUTs waiting go in it) or a renamed one.
+    private func nameTyped() {
+        var names = categories
+        if let old = renaming {
+            renaming = nil
+            guard let n = FilterFolders.cleanName(typedName, existing: names.filter { $0 != old }),
+                  let i = names.firstIndex(of: old) else { return }
+            names[i] = n
+            namesRaw = FilterFolders.encode(names)
+            let from = FilterFolders.key(old), to = FilterFolders.key(n)
+            foldersRaw = FilterFolders.encode(folderMap.mapValues { $0 == from ? to : $0 })
+            if tabRaw == from { tabRaw = to }
+            return
+        }
+        guard let n = FilterFolders.cleanName(typedName, existing: names) else {
+            // empty or already there: an existing one with that name, else Mine
+            let t = typedName.trimmingCharacters(in: .whitespaces)
+            place(names.first { $0.caseInsensitiveCompare(t) == .orderedSame }.map(FilterFolders.key) ?? FilterFolders.mine)
+            return
+        }
+        names.append(n)
+        namesRaw = FilterFolders.encode(names)
+        place(FilterFolders.key(n))
+    }
+
+    /// The category goes; its filters go back to where they started.
+    private func deleteCategory(_ n: String) {
+        let k = FilterFolders.key(n)
+        namesRaw = FilterFolders.encode(categories.filter { $0 != n })
+        foldersRaw = FilterFolders.encode(folderMap.filter { $0.value != k })
+        if tabRaw == k { tabRaw = FilterFolders.all }
     }
 
     /// A tile's filter from the lists already loaded (saved filters without reading the file again).

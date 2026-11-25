@@ -17,7 +17,7 @@ final class CloudPrefs {
     /// subtitle languages: each needs its model downloaded on the device) and panel tabs. The iCloud switches
     /// themselves follow the Apple ID even with this off (`CloudSwitches`).
     static let keys: [String] = [
-        UIMode.key, FavoriteColors.key, FontPicking.likedKey, "likedFilters", AppLanguage.key, AudioMix.key,
+        UIMode.key, FavoriteColors.key, FontPicking.likedKey, "likedFilters", FilterFolders.mapKey, FilterFolders.namesKey, AppLanguage.key, AudioMix.key,
         "safeZone", "safeZoneAlways", "guides", "guidesOn", "guideFrame",
         "export.autoBitrate", "export.bitrate", "export.customW", "export.customH", "export.endCard",
         "defTransition", "defStill", "defLayer", "defFill", "quickActions",
