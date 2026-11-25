@@ -130,7 +130,7 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
                 LaneBlock(x0 + (o.start * px).dp, (o.duration * px).toFloat(), y, LaneLayout.layer,
                           Theme.panel2, if (o.isText) o.title else loc(o.title), Color.White,
                           selected = model.selectedOverlayID == o.id, px = px,
-                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragOverlay(o.id, m, dt) }, { model.laneDragEnded() })) {
+                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragOverlay(o.id, m, dt, reach = 10.0 / px) }, { model.laneDragEnded() })) {
                     if (model.selectedOverlayID == o.id) model.selectOverlay(null)
                     else { model.selectOverlay(o.id); pick(if (o.isText) "text" else "picture") }
                 }
@@ -142,7 +142,7 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
             row.forEach { a -> androidx.compose.runtime.key(a.id) {
                 LaneBlock(x0 + (a.start * px).dp, (a.duration * px).toFloat(), y, LaneLayout.sound,
                           Color(0xFF1F6F4A), a.name, Color.White, selected = model.selectedAudioID == a.id, px = px,
-                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragAudio(a.id, m, dt) }, { model.laneDragEnded() })) {
+                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragAudio(a.id, m, dt, reach = 10.0 / px) }, { model.laneDragEnded() })) {
                     if (model.selectedAudioID == a.id) model.selectAudio(null) else { model.selectAudio(a.id); pick("sound") }
                 }
             } }

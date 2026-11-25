@@ -248,26 +248,61 @@ fun SoundSheet(model: EditorModel) {
 
 enum class LaneDrag { move, head, tail }
 
+/**
+ * Where an edge that the finger put at `t` lands: on the playhead, a clip's start or end, or another block's edge
+ * when one is within `reach` seconds (iOS snaps the same way), else where it is.
+ */
+fun EditorModel.snapped(t: Double, reach: Double, skip: UUID): Double {
+    val p = project
+    val targets = mutableListOf(0.0, p.duration, currentTime)
+    val starts = p.clipStarts
+    p.clips.forEachIndexed { k, c -> targets += starts[k]; targets += starts[k] + c.duration }
+    for (o in p.overlays) if (o.id != skip) { targets += o.start; targets += o.end }
+    for (a in p.audio) if (a.id != skip) { targets += a.start; targets += a.end }
+    val best = targets.minByOrNull { kotlin.math.abs(it - t) } ?: return t
+    return if (kotlin.math.abs(best - t) <= reach) best else t
+}
+
+/** How far `start` / `end` move so the nearer of them snaps (a moved block keeps its length). */
+private fun EditorModel.moveSnap(start: Double, end: Double, reach: Double, skip: UUID): Double {
+    val a = snapped(start, reach, skip) - start
+    val b = snapped(end, reach, skip) - end
+    return when {
+        a == 0.0 -> b
+        b == 0.0 -> a
+        else -> if (kotlin.math.abs(a) <= kotlin.math.abs(b)) a else b
+    }
+}
+
 /** A layer moved or trimmed by `dt` seconds from where it was when the drag began. */
-fun EditorModel.dragOverlay(id: UUID, mode: LaneDrag, dt: Double) = laneDragChanged { p ->
+fun EditorModel.dragOverlay(id: UUID, mode: LaneDrag, dt: Double, reach: Double = 0.0) = laneDragChanged { p ->
     val i = p.overlays.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return@laneDragChanged p
     val o = p.overlays[i]
     val total = p.duration
     val n = when (mode) {
-        LaneDrag.move -> o.copy(start = (o.start + dt).coerceIn(0.0, maxOf(0.0, total - o.duration)))
+        LaneDrag.move -> {
+            var s = o.start + dt
+            s += moveSnap(s, s + o.duration, reach, id)
+            o.copy(start = s.coerceIn(0.0, maxOf(0.0, total - o.duration)))
+        }
         LaneDrag.head -> {
-            val s = (o.start + dt).coerceIn(0.0, o.end - 0.2)
+            val s = snapped(o.start + dt, reach, id).coerceIn(0.0, o.end - 0.2)
             o.copy(start = s, duration = o.end - s)
         }
-        LaneDrag.tail -> o.copy(duration = (o.duration + dt).coerceIn(0.2, maxOf(0.2, total - o.start)))
+        LaneDrag.tail -> o.copy(duration = (snapped(o.end + dt, reach, id) - o.start).coerceIn(0.2, maxOf(0.2, total - o.start)))
     }
     p.copy(overlays = p.overlays.toMutableList().also { it[i] = n })
 }
 
 /** A sound moved or trimmed; trimming its start trims into the file (its in point follows). */
-fun EditorModel.dragAudio(id: UUID, mode: LaneDrag, dt: Double) = laneDragChanged { p ->
+fun EditorModel.dragAudio(id: UUID, mode: LaneDrag, dt0: Double, reach: Double = 0.0) = laneDragChanged { p ->
     val i = p.audio.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return@laneDragChanged p
     val a = p.audio[i]
+    val dt = when (mode) {
+        LaneDrag.move -> dt0 + moveSnap(a.start + dt0, a.end + dt0, reach, id)
+        LaneDrag.head -> snapped(a.start + dt0, reach, id) - a.start
+        LaneDrag.tail -> snapped(a.end + dt0, reach, id) - a.end
+    }
     val n = when (mode) {
         LaneDrag.move -> a.copy(start = maxOf(0.0, a.start + dt))
         LaneDrag.head -> {
