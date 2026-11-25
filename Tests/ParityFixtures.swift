@@ -315,11 +315,15 @@ final class ParityFixtures: XCTestCase {
     /// Words of a few sentences with speech-like timing: longer words take longer, a pause after a full stop.
     private func timed(_ text: String, from t0: Double = 0.2) -> [CaptionWord] {
         var t = t0
-        return text.split(separator: " ").map { w in
+        var out: [CaptionWord] = []
+        for part in text.split(separator: " ") {
+            let w: String = String(part)
             let d = 0.12 + 0.045 * Double(w.count)
-            defer { t += d + (".?!".contains(w.last!) ? 0.9 : ",".contains(w.last!) ? 0.25 : 0.04) }
-            return CaptionWord(text: String(w), start: t, end: t + d)
+            out.append(CaptionWord(text: w, start: t, end: t + d))
+            let last: Character = w.last ?? " "
+            t += d + (".?!".contains(last) ? 0.9 : last == "," ? 0.25 : 0.04)
         }
+        return out
     }
 
     func testWriteCaptions() throws {
