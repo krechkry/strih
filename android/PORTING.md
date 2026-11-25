@@ -14,10 +14,11 @@ stub = placeholder. - = not started.
 | App/BombocutApp.swift (Theme, Fmt, loc) | app/BombocutApp.kt | ad3827a | 1:1 (Fmt tested) |
 | Model/Languages.swift (AppLanguage) | app/AppLanguage.kt | ad3827a | rework (reads the xcstrings asset) |
 | Model/Languages.swift (CaptionLanguage) | model/Languages.kt | a28b16c | 1:1 (the 25 languages) |
-| Engine/Speech.swift (Transcriber, SpeechEngine) | engine/Transcriber.kt | a28b16c | `words` 1:1; rework: Transformer 16 kHz mono export, sherpa-onnx (Parakeet Ultra int8), ~20 s pieces cut at quiet spots; not yet: SpellCheck, typed names, one line heard again |
-| Engine/ModelDownload.swift + SpeechModels | engine/SpeechModel.kt | a28b16c | rework: HTTPS Range resume, size + SHA-256 per file; not yet: Storage screen, pause button, mobile-data question |
+| Engine/Speech.swift (Transcriber, SpeechEngine) | engine/Transcriber.kt | a28b16c | `words` 1:1; rework: Transformer 16 kHz mono export, sherpa-onnx (Parakeet Ultra int8), ~20 s pieces cut at quiet spots; Regenerate one line (CaptionLineSheet, Captions.replacingWords); not yet: SpellCheck, typed names |
+| Engine/ModelDownload.swift + SpeechModels | engine/SpeechModel.kt + engine/SpeechDownload.kt | a28b16c | rework: HTTPS Range resume, size + SHA-256 per file, own GitHub release first (Hugging Face fallback); one app-wide download with pause / resume / delete, mobile-data question |
 | Editor/CaptionsSheet.swift (generate page) | editor/CaptionsSheet.kt | a28b16c | rework: language, Generate / Generate again / New captions track, phases, cancel; not yet: pick clips, names, translation |
 | Home/HomeView.swift | home/HomeView.kt | ad3827a | partly: list, sort, new project, rename, delete (not yet: share / .bbc, iCloud rows, trial pill, import game) |
+| Home/StorageView.swift | home/StorageView.kt | a28b16c | rework: temporary files, Automatic Captions model, kept media and projects (no iCloud, voice model, translation packs yet) |
 | Model/Models.swift | model/Models.kt + model/Project.kt | ad3827a | 1:1 (parity: timing.json, projects.json) |
 | Model/Look.swift | model/Look.kt | ad3827a | 1:1 data + math (LookState for the compositor comes with the look engine) |
 | Model/Motion.swift | model/Motion.kt | ad3827a | 1:1 |
