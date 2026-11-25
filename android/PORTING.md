@@ -39,6 +39,10 @@ stub = placeholder. - = not started.
 | Engine/CompositionBuilder.swift | engine/CompositionBuilder.kt | ad3827a | rework on Media3: clips, speed curves, pitch, volume / fades, fit / fill, sound items (audio sequences); not yet: transitions, picture / video layers |
 | Engine/EffectsRenderer.swift (color) | engine/LookMath.kt + LookLut.kt | ad3827a | 1:1 math as a 33-point LUT: exposure, contrast, saturation, temperature, tint, shadows, highlights match colors.json within 3 levels (4 for white balance) |
 | Engine/CaptionRenderer.swift + OverlayRenderer text | engine/TextRenderer.kt + TextLayer.kt | ad3827a | rework on Canvas: size, wrap, box, outline, shadow, keyframes, in / out animations, caption fade / pop / slide; not yet: app fonts, per-word animations, pinned texts |
+| Model/Captions.swift CaptionCutter, absorbEdits, restyle | model/CaptionCutter.kt | ad3827a | 1:1, captions.json parity (130 cuts, wraps, edit-then-recut) |
+| Engine/Silence.swift | engine/Silence.kt | ad3827a | 1:1 math + MediaCodec loudness, silence.json parity |
+| Engine/Beats.swift BeatDetector, BeatCache | engine/BeatDetector.kt | ad3827a | 1:1 (plain FFT), beats.json parity |
+| Model/ProjectFile.swift (.bbc) | model/ProjectFile.kt | ad3827a | open + share (format 1, everything inside); fonts / LUTs / light files not yet |
 | App/Purchases.swift + PaywallView | app/Purchases.kt + home/Paywall.kt | ad3827a | rework on Play Billing 8.3: trial kept on the phone (Play trials are subscription-only), one-time product cz.krechler.bombocut.full |
 
 ## Notes for the JSON contract
