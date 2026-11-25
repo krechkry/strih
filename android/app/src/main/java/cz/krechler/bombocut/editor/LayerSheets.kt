@@ -92,6 +92,21 @@ fun EditorModel.changeOverlay(id: UUID, change: (Overlay) -> Overlay) {
     mutate { p -> p.copy(overlays = p.overlays.toMutableList().also { it[i] = n }) }
 }
 
+/** A copy right after the original (iOS Duplicate), picked. */
+fun EditorModel.duplicateOverlay(id: UUID) {
+    val o = project.overlays.firstOrNull { it.id == id } ?: return
+    val c = o.copy(id = UUID.randomUUID(), start = minOf(o.end, maxOf(0.0, duration - o.duration)))
+    mutate { p -> p.copy(overlays = p.overlays + c) }
+    selectOverlay(c.id)
+}
+
+fun EditorModel.duplicateAudio(id: UUID) {
+    val a = project.audio.firstOrNull { it.id == id } ?: return
+    val c = a.copy(id = UUID.randomUUID(), start = a.end)
+    mutate { p -> p.copy(audio = p.audio + c) }
+    selectAudio(c.id)
+}
+
 fun EditorModel.deleteOverlay(id: UUID) {
     mutate { p -> p.copy(overlays = p.overlays.filter { it.id != id }) }
     selectedOverlayID = null
@@ -154,7 +169,10 @@ fun PictureSheet(model: EditorModel) {
         Text("${(sc * 100).toInt()} %", color = Color.White, fontWeight = FontWeight.Bold)
     }
     BSlider(sc, 0.1..3.0, { sc = it }, { model.changeOverlay(o.id) { it.copy(transform = it.transform.copy(scale = sc)) } })
-    TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    Row {
+        TextButton({ model.duplicateOverlay(o.id) }) { Text(loc("Duplicate"), color = Color.White, fontWeight = FontWeight.Bold) }
+        TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    }
 }
 
 object SoundImport {
@@ -218,7 +236,10 @@ fun TextSheet(model: EditorModel) {
     BSlider(outline, 0.0..1.0, { outline = it }, { model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(strokeWidth = outline)) } })
     OnOffRow("Shadow", isOn = o.style.shadow) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(shadow = on)) } }
     OnOffRow("Box", isOn = o.style.box) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(box = on)) } }
-    TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    Row {
+        TextButton({ model.duplicateOverlay(o.id) }) { Text(loc("Duplicate"), color = Color.White, fontWeight = FontWeight.Bold) }
+        TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    }
 }
 
 @Composable
@@ -244,7 +265,10 @@ fun SoundSheet(model: EditorModel) {
     }
     BSlider(fout, 0.0..3.0, { fout = it }, { model.changeAudio(a.id) { it.copy(fadeOut = fout.takeIf { v -> v > 0.01 }) } })
     BeatsRow(model, a)
-    TextButton({ model.deleteAudio(a.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    Row {
+        TextButton({ model.duplicateAudio(a.id) }) { Text(loc("Duplicate"), color = Color.White, fontWeight = FontWeight.Bold) }
+        TextButton({ model.deleteAudio(a.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    }
 }
 
 /** Beats on a sound (iOS toggleBeats): found once on the phone, marked on the sound, things snap to them. */
