@@ -19,8 +19,15 @@ object SpeechModel {
     /** One file of the model (from the model card: tpmaerk/parakeet-ultra-sherpa-onnx-int8, CC BY 4.0). */
     data class Part(val name: String, val bytes: Long, val sha256: String)
 
-    // TODO(mirror): serve these from Krystof's own GitHub release / Hugging Face once mirrored (same files, same hashes)
-    private const val BASE = "https://huggingface.co/tpmaerk/parakeet-ultra-sherpa-onnx-int8/resolve/main/"
+    /**
+     * Where the files come from, in order: Bombocut's own GitHub release (copied and checked by the
+     * "Speech model mirror" workflow), then the original Hugging Face repo. Same files, same hashes; a failed
+     * attempt moves to the next place, and the SHA-256 check decides either way.
+     */
+    val sources = listOf(
+        "https://github.com/krechkry/strih/releases/download/models-$VERSION/",
+        "https://huggingface.co/tpmaerk/parakeet-ultra-sherpa-onnx-int8/resolve/main/",
+    )
 
     val parts = listOf(
         Part("encoder.int8.onnx", 652_282_347, "f4d06712d32431b1718eceba2153c314ac4425e8fe708a3534f5e56c5ad53697"),
@@ -59,13 +66,15 @@ object SpeechModel {
             val part = partial(p)
             if (part.length() > p.bytes) part.delete()
             var attempts = 0
+            var source = 0
             while (part.length() < p.bytes) {
                 if (cancelled()) throw IOException("cancelled")
                 try {
-                    fetch(p, part, progress, cancelled)
+                    fetch(sources[source], p, part, progress, cancelled)
                 } catch (e: IOException) {
-                    if (cancelled() || ++attempts >= 5) throw e
-                    Thread.sleep(1500L * attempts)
+                    if (cancelled() || ++attempts >= 6) throw e
+                    source = (source + 1) % sources.size
+                    Thread.sleep(1000L * attempts)
                 }
             }
             if (sha256(part) != p.sha256) { part.delete(); throw IOException("The speech model download was damaged. Try again.") }
@@ -75,9 +84,9 @@ object SpeechModel {
         progress(1.0)
     }
 
-    private fun fetch(p: Part, part: File, progress: (Double) -> Unit, cancelled: () -> Boolean) {
+    private fun fetch(base: String, p: Part, part: File, progress: (Double) -> Unit, cancelled: () -> Boolean) {
         val have = part.length()
-        val c = URL(BASE + p.name).openConnection() as HttpURLConnection
+        val c = URL(base + p.name).openConnection() as HttpURLConnection
         c.connectTimeout = 20_000; c.readTimeout = 30_000
         c.instanceFollowRedirects = true
         if (have > 0) c.setRequestProperty("Range", "bytes=$have-")

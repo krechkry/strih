@@ -1,0 +1,67 @@
+name: Speech model mirror
+
+# Copies the Android speech model (Parakeet Ultra int8 for sherpa-onnx, CC BY 4.0) from Hugging Face into a release
+# on this repo, so the app downloads from Bombocut's own place. Every file is checked by size and SHA-256 (the same
+# values as SpeechModel.kt) before upload. Run by hand; running again only adds files that are missing.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TAG: models-parakeet-ultra-int8-1
+  SRC: https://huggingface.co/tpmaerk/parakeet-ultra-sherpa-onnx-int8/resolve/main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download and check
+        run: |
+          mkdir -p model && cd model
+          while read -r name bytes sha; do
+            curl -fL --retry 5 -o "$name" "$SRC/$name"
+            got=$(stat -c %s "$name")
+            [ "$got" = "$bytes" ] || { echo "$name: size $got, expected $bytes"; exit 1; }
+            echo "$sha  $name" | sha256sum -c -
+          done <<'EOF'
+          encoder.int8.onnx 652282347 f4d06712d32431b1718eceba2153c314ac4425e8fe708a3534f5e56c5ad53697
+          decoder.int8.onnx 11845275 94373c6405c8149d1c9d1e9862514e0e3e88dab1c7de18fac9d5df9c6ba5efdd
+          joiner.int8.onnx 6355277 8a71aaccfdba3d451775507a889afd2257d2e754463fd81095a8c8f290f924c2
+          tokens.txt 93939 d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d
+          EOF
+          cp ../android/model-credits.md CREDITS.md
+          ls -la
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd model
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Speech model: Parakeet Ultra int8 (sherpa-onnx)" \
+              --notes-file CREDITS.md --latest=false
+          fi
+          have=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt CREDITS.md; do
+            echo "$have" | grep -qx "$f" && { echo "$f already there"; continue; }
+            gh release upload "$TAG" "$f"
+          done
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"'
+
+      - name: Check the release downloads
+        run: |
+          cd model
+          for f in decoder.int8.onnx tokens.txt; do
+            curl -fsL -o "/tmp/$f" "https://github.com/${{ github.repository }}/releases/download/$TAG/$f"
+            cmp "$f" "/tmp/$f"
+          done
+          # resuming works (the app sends Range after a broken download)
+          code=$(curl -s -o /tmp/r -w '%{http_code}' -L -H 'Range: bytes=100-199' \
+            "https://github.com/${{ github.repository }}/releases/download/$TAG/tokens.txt")
+          [ "$code" = 206 ] && [ "$(stat -c %s /tmp/r)" = 100 ] || { echo "Range: $code"; exit 1; }
+          echo "release OK"
