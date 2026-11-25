@@ -134,10 +134,20 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
     }
 
     /** delta = seconds of timeline movement of the dragged edge since the drag began. */
-    fun trimChanged(id: UUID, leading: Boolean, delta: Double) {
+    fun trimChanged(id: UUID, leading: Boolean, delta0: Double, reach: Double = 0.0) {
         if (locked) return
         val o = trimOriginal ?: return
         val i = project.clips.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return
+        // the end of a clip snaps to the playhead, other clips' and blocks' edges and beats (iOS does too)
+        var delta = delta0
+        val snap = trimSnapshot
+        if (!leading && snap != null && reach > 0) {
+            val k = snap.clips.indexOfFirst { it.id == id }
+            if (k >= 0) {
+                val edge = snap.clipStarts[k] + o.duration
+                delta = snapped(edge + delta0, reach, id, snap) - edge
+            }
+        }
         var c = project.clips[i]
         val rt = o.retime
         c = if (leading) {

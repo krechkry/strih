@@ -287,7 +287,7 @@ private fun TrimHandle(model: EditorModel, c: Clip, edgeX: Dp, leading: Boolean,
                     onDragCancel = { model.trimEnded() },
                 ) { _, amount ->
                     dx += amount / density
-                    model.trimChanged(c.id, leading, (dx / px).toDouble())
+                    model.trimChanged(c.id, leading, (dx / px).toDouble(), reach = 10.0 / px)
                 }
             },
         contentAlignment = Alignment.Center,

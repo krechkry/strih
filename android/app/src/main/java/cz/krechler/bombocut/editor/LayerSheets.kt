@@ -347,11 +347,12 @@ enum class LaneDrag { move, head, tail }
  * Where an edge that the finger put at `t` lands: on the playhead, a clip's start or end, or another block's edge
  * when one is within `reach` seconds (iOS snaps the same way), else where it is.
  */
-fun EditorModel.snapped(t: Double, reach: Double, skip: UUID): Double {
-    val p = project
+fun EditorModel.snapped(t: Double, reach: Double, skip: UUID, from: cz.krechler.bombocut.model.Project? = null): Double {
+    if (reach <= 0) return t
+    val p = from ?: project
     val targets = mutableListOf(0.0, p.duration, currentTime)
     val starts = p.clipStarts
-    p.clips.forEachIndexed { k, c -> targets += starts[k]; targets += starts[k] + c.duration }
+    p.clips.forEachIndexed { k, c -> if (c.id != skip) { targets += starts[k]; targets += starts[k] + c.duration } }
     for (o in p.overlays) if (o.id != skip) { targets += o.start; targets += o.end }
     for (a in p.audio) if (a.id != skip) { targets += a.start; targets += a.end }
     // the beats of sounds with Beats on (iOS snaps to them too)
