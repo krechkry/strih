@@ -36,7 +36,7 @@ stub = placeholder. - = not started.
 | Engine/Silence.swift | engine/Silence.kt | | - |
 | Editor/EditEffort.swift | editor/EditEffort.kt | | - |
 | Editor/EditorModel.swift | editor/EditorModel.kt | ad3827a | part 1: undo / redo, split, delete, duplicate, move, ripple trim, speed, volume, adjust |
-| Engine/CompositionBuilder.swift | engine/CompositionBuilder.kt | ad3827a | rework on Media3: clips, speed curves, pitch, volume / fades, fit / fill, sound items (audio sequences); not yet: transitions, picture / video layers |
+| Engine/CompositionBuilder.swift | engine/CompositionBuilder.kt | ad3827a | rework on Media3: clips, speed curves, pitch, volume / fades, fit / fill, sound items (audio sequences), transitions as A / B rolls through the compositor (every iOS shape, handles, sound crossfade; Pop on top via roll choice); not yet: moving video layers, motion blur in transitions |
 | Engine/EffectsRenderer.swift (color) | engine/LookMath.kt + LookLut.kt | ad3827a | 1:1 math as a 33-point LUT: exposure, contrast, saturation, temperature, tint, shadows, highlights match colors.json within 3 levels (4 for white balance) |
 | Engine/CaptionRenderer.swift + OverlayRenderer text | engine/TextRenderer.kt + TextLayer.kt | ad3827a | rework on Canvas: size, wrap, box, outline, shadow, keyframes, in / out animations, caption fade / pop / slide; not yet: app fonts, per-word animations, pinned texts |
 | Model/Captions.swift CaptionCutter, absorbEdits, restyle | model/CaptionCutter.kt | ad3827a | 1:1, captions.json parity (130 cuts, wraps, edit-then-recut) |
