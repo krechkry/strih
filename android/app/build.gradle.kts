@@ -1,3 +1,6 @@
+import java.net.URI
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -54,14 +57,14 @@ tasks.named("preBuild") { dependsOn(copyStrings) }
 val sherpaVersion = "2.0.3"
 val sherpaSha256 = "4c766e2e74c9d33d595338c21fe3b305c73ba45d47e96a235675c33142a2ec50"
 val sherpaAar = file("libs/sherpa-onnx-$sherpaVersion.aar")
-fun sha256(f: File): String = java.security.MessageDigest.getInstance("SHA-256").let { md ->
+fun sha256(f: File): String = MessageDigest.getInstance("SHA-256").let { md ->
     f.inputStream().use { i -> val b = ByteArray(1 shl 20); while (true) { val n = i.read(b); if (n < 0) break; md.update(b, 0, n) } }
     md.digest().joinToString("") { "%02x".format(it) }
 }
 if (!sherpaAar.exists() || sha256(sherpaAar) != sherpaSha256) {
     sherpaAar.parentFile.mkdirs()
     val tmp = File(sherpaAar.path + ".part")
-    java.net.URI("https://github.com/k2-fsa/sherpa-onnx/releases/download/v$sherpaVersion/sherpa-onnx-$sherpaVersion.aar")
+    URI("https://github.com/k2-fsa/sherpa-onnx/releases/download/v$sherpaVersion/sherpa-onnx-$sherpaVersion.aar")
         .toURL().openStream().use { i -> tmp.outputStream().use { i.copyTo(it) } }
     check(sha256(tmp) == sherpaSha256) { "sherpa-onnx AAR checksum mismatch" }
     tmp.renameTo(sherpaAar)

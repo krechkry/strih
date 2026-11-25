@@ -1,0 +1,106 @@
+name: Android captions
+
+# Generates captions on the emulator end to end: the real model (Parakeet Ultra int8, cached), a Czech sentence
+# spoken by espeak-ng, the app's Captions panel. Runs when the captions code changes (it takes a while).
+on:
+  push:
+    paths:
+      - 'android/app/src/main/java/cz/krechler/bombocut/engine/Transcriber.kt'
+      - 'android/app/src/main/java/cz/krechler/bombocut/engine/SpeechModel.kt'
+      - 'android/app/src/main/java/cz/krechler/bombocut/editor/CaptionsSheet.kt'
+      - 'android/ci/captions-run.sh'
+      - '.github/workflows/android-captions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-captions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  captions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Build the APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug --stacktrace
+
+      - name: Speech model (cached)
+        id: model
+        uses: actions/cache@v4
+        with:
+          path: ~/model
+          key: parakeet-ultra-int8-1
+
+      - name: Download the speech model
+        if: steps.model.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/model && cd ~/model
+          B=https://huggingface.co/tpmaerk/parakeet-ultra-sherpa-onnx-int8/resolve/main
+          for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do curl -sSL --retry 5 -o $f "$B/$f"; done
+          cat > sums <<SUMS
+          f4d06712d32431b1718eceba2153c314ac4425e8fe708a3534f5e56c5ad53697  encoder.int8.onnx
+          94373c6405c8149d1c9d1e9862514e0e3e88dab1c7de18fac9d5df9c6ba5efdd  decoder.int8.onnx
+          8a71aaccfdba3d451775507a889afd2257d2e754463fd81095a8c8f290f924c2  joiner.int8.onnx
+          d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d  tokens.txt
+          SUMS
+          sed -i 's/^ *//' sums
+          sha256sum -c sums
+
+      - name: A Czech sentence to listen to
+        run: |
+          sudo apt-get update -qq > /dev/null
+          sudo apt-get install -y -qq --fix-missing ffmpeg espeak-ng > /dev/null
+          mkdir -p android/ci/speech
+          espeak-ng -v cs -s 135 -w /tmp/speech.wav "Ahoj lidi. Tohle jsou automatické titulky z Androidu. Bombocut poslouchá a píše, co slyší."
+          ffmpeg -loglevel error -f lavfi -i "color=c=gray:s=360x640:r=30" -i /tmp/speech.wav -shortest -c:v libx264 -pix_fmt yuv420p -c:a aac android/ci/speech/speech.mp4
+          ffprobe -v error -show_entries format=duration -of csv=p=0 android/ci/speech/speech.mp4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Captions on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_7
+          ram-size: 4096M
+          disk-size: 6000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash android/ci/captions-run.sh
+
+      - name: Results to the android-captions branch (readable with git)
+        if: always()
+        run: |
+          [ -d android/ci/out-captions ] || exit 0
+          SHA=$(git rev-parse --short HEAD)
+          cp -r android/ci/out-captions /tmp/captions
+          git config user.name screens-bot; git config user.email screens-bot@users.noreply.github.com
+          git checkout -q --orphan captions-tmp
+          git rm -rfq . > /dev/null
+          cp -r /tmp/captions/* .
+          echo "$SHA" > COMMIT
+          git add -A
+          git commit -qm "captions from $SHA"
+          git push -fq origin captions-tmp:android-captions
+          { echo "### Captions heard"; cat /tmp/captions/words.txt 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
