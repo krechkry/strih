@@ -4,6 +4,7 @@ package cz.krechler.bombocut.editor
 
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.VolumeOff
@@ -131,18 +132,20 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
         "sound" -> model.selectedAudio != null
         "caption" -> model.selectedCueLine != null
         "silence" -> model.selectedIndex != null
+        "captions" -> true
         "picture" -> model.selectedOverlay?.kind is cz.krechler.bombocut.model.OverlayKind.Image
         null -> false
         else -> model.selectedIndex != null
     }
     if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; "caption" -> 620.dp; "silence" -> 360.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; "caption" -> 620.dp; "silence" -> 360.dp; "captions" -> 400.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
                     "text" -> TextSheet(model)
                     "sound" -> SoundSheet(model)
                     "caption" -> CaptionLineSheet(model)
                     "silence" -> SilenceSheet(model)
+                    "captions" -> CaptionsSheet(model)
                     "picture" -> PictureSheet(model)
                     "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)
@@ -170,6 +173,7 @@ private fun ToolRow(model: EditorModel, addSound: () -> Unit, addPicture: () -> 
         }
         if (model.selectedIndex == null) {
             // nothing picked: add a text or a sound at the playhead (iOS: the island's + buttons)
+            ToolButton(Icons.Filled.ClosedCaption, "Captions") { open("captions") }
             ToolButton(Icons.Filled.TextFields, "Text") { model.addText(); open("text") }
             ToolButton(Icons.Filled.MusicNote, "Audio") { addSound() }
             ToolButton(Icons.Filled.Image, "Overlay") { addPicture() }

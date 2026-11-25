@@ -95,7 +95,8 @@ object CompositionBuilder {
      * transition is a cut in its middle: each clip gives up half the overlap, so every clip, text, caption and
      * sound still sits where the timeline (and the iPhone) has it.
      */
-    fun item(c: Clip, width: Int, height: Int, head: Double = 0.0, tail: Double = 0.0, fades: Pair<Double, Double>? = null): EditedMediaItem {
+    fun item(c: Clip, width: Int, height: Int, head: Double = 0.0, tail: Double = 0.0, fades: Pair<Double, Double>? = null,
+             removeVideo: Boolean = false): EditedMediaItem {
         val rt = c.retime
         val h = head.coerceIn(0.0, maxOf(0.0, rt.outDuration - 0.05))
         val t = tail.coerceIn(0.0, maxOf(0.0, rt.outDuration - h - 0.05))
@@ -119,6 +120,7 @@ object CompositionBuilder {
         // CompositionPlayer needs the whole file's length up front (Swift: the asset's time range)
         val b = EditedMediaItem.Builder(media).setEffects(Effects(audio, video)).setDurationUs(us(c.sourceDuration))
         speedProvider(rt, start)?.let { b.setSpeed(SpeedParameters(it, c.pitchCorrect)) }
+        if (removeVideo) b.setRemoveVideo(true)
         return b.build()
     }
 
@@ -395,6 +397,23 @@ object CompositionBuilder {
     fun blends(project: Project): Boolean = BLENDS && (
         (1 until project.clips.size).any { project.cutShape(it).let { s -> s.shrink + s.tail + s.head } > 0.01 } ||
         videoLayers(project).isNotEmpty())
+
+    /**
+     * Only the timeline's sound (Swift Transcriber.exportAudio builds the composition and exports an m4a): clips with
+     * trims, speed, volume, fades, transitions as a cut in the middle (the same spot the picture switches halfway),
+     * and the sounds; `processors` go over the whole mix (mono and 16 kHz for the speech model).
+     */
+    fun buildAudio(project: Project, processors: List<AudioProcessor>): Composition? {
+        if (project.clips.isEmpty()) return null
+        val n = project.clips.size
+        val items = project.clips.mapIndexed { k, c ->
+            item(c, 16, 16, head = project.overlap(k) / 2, tail = if (k + 1 < n) project.overlap(k + 1) / 2 else 0.0, removeVideo = true)
+        }
+        val clips = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO)).addItems(items).build()
+        return Composition.Builder(listOf(clips) + soundSequences(project))
+            .setEffects(Effects(processors, emptyList()))
+            .build()
+    }
 
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
     fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {

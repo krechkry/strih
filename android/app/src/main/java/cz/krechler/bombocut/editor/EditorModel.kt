@@ -2,6 +2,13 @@
 // clipHalves, delete, duplicate, move, trim. Same names and the same rules; Compose state instead of @Published.
 package cz.krechler.bombocut.editor
 
+import kotlinx.coroutines.launch
+import cz.krechler.bombocut.app.loc
+import cz.krechler.bombocut.model.remapped
+import cz.krechler.bombocut.model.timingKey
+import cz.krechler.bombocut.model.CaptionCutter
+import cz.krechler.bombocut.model.Captions
+import cz.krechler.bombocut.model.CaptionTemplate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -35,6 +42,59 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
 
     val duration: Double get() = project.duration
     val selectedIndex: Int? get() = selectedClipID?.let { id -> project.clips.indexOfFirst { it.id == id }.takeIf { it >= 0 } }
+
+    // MARK: Captions (iOS EditorModel.startCaptions)
+
+    /** A caption run: what it is doing, or what went wrong (shown in the Captions panel). */
+    data class CaptionJob(val phase: cz.krechler.bombocut.engine.Transcriber.Phase, val error: String? = null)
+    var captionJob by mutableStateOf<CaptionJob?>(null)
+    /** Set when a run finished (the panel shows "Captions ready"). */
+    var captionsReady by mutableStateOf(false)
+    private var captionTask: kotlinx.coroutines.Job? = null
+    private val scope = kotlinx.coroutines.MainScope()
+
+    /**
+     * Listens to the whole timeline and makes captions: the active track again (its style kept), or a new track
+     * with a look no other track uses. The editor stays usable meanwhile: if the timeline changed, the captions
+     * are moved onto it as it is now. One undo step.
+     */
+    fun startCaptions(context: android.content.Context, language: String, newTrack: Boolean) {
+        if (locked || captionJob?.error == null && captionJob != null) return
+        captionTask?.cancel()
+        captionsReady = false
+        captionJob = CaptionJob(cz.krechler.bombocut.engine.Transcriber.Phase.PreparingAudio)
+        val snapshot = project
+        val adding = newTrack || snapshot.captionTracks.isEmpty()
+        val used = snapshot.captionTracks.mapNotNull { it.templateID }.toSet()
+        val fresh = if (adding) CaptionTemplate.builtIns.firstOrNull { it.id !in used } ?: CaptionTemplate.builtIns[0] else null
+        val old = if (adding) null else snapshot.captions
+        val style = old?.style ?: fresh!!.style
+        val tid = old?.templateID ?: fresh?.id
+        captionTask = scope.launch {
+            try {
+                val words = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot) { captionJob = CaptionJob(it) }
+                if (words.isEmpty()) { captionJob = CaptionJob(cz.krechler.bombocut.engine.Transcriber.Phase.PreparingAudio, loc("No speech found.")); return@launch }
+                var caps = Captions(language, words, CaptionCutter.cues(words, style), style, tid)
+                // you kept editing meanwhile: the captions go onto the timeline as it is now
+                if (snapshot.timingKey != project.timingKey) caps = caps.remapped(snapshot, project)
+                val made = caps
+                mutate { p ->
+                    if (adding) p.copy(captionTracks = p.captionTracks + made, activeCaption = p.captionTracks.size)
+                    else p.copy(captionTracks = p.captionTracks.toMutableList().also { it[p.activeCaption.coerceIn(0, it.size - 1)] = made })
+                }
+                captionJob = null
+                captionsReady = true
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                captionJob = null
+            } catch (e: Exception) {
+                android.util.Log.w("Bombocut", "captions failed", e)
+                captionJob = CaptionJob(cz.krechler.bombocut.engine.Transcriber.Phase.PreparingAudio,
+                    e.message?.takeIf { it.isNotBlank() } ?: loc("Download failed"))
+            }
+        }
+    }
+
+    fun cancelCaptions() { captionTask?.cancel(); captionTask = null; captionJob = null }
 
     // MARK: Undo
 
