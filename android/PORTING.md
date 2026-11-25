@@ -13,6 +13,10 @@ stub = placeholder. - = not started.
 |---|---|---|---|
 | App/BombocutApp.swift (Theme, Fmt, loc) | app/BombocutApp.kt | ad3827a | 1:1 (Fmt tested) |
 | Model/Languages.swift (AppLanguage) | app/AppLanguage.kt | ad3827a | rework (reads the xcstrings asset) |
+| Model/Languages.swift (CaptionLanguage) | model/Languages.kt | a28b16c | 1:1 (the 25 languages) |
+| Engine/Speech.swift (Transcriber, SpeechEngine) | engine/Transcriber.kt | a28b16c | `words` 1:1; rework: Transformer 16 kHz mono export, sherpa-onnx (Parakeet Ultra int8), ~20 s pieces cut at quiet spots; not yet: SpellCheck, typed names, one line heard again |
+| Engine/ModelDownload.swift + SpeechModels | engine/SpeechModel.kt | a28b16c | rework: HTTPS Range resume, size + SHA-256 per file; not yet: Storage screen, pause button, mobile-data question |
+| Editor/CaptionsSheet.swift (generate page) | editor/CaptionsSheet.kt | a28b16c | rework: language, Generate / Generate again / New captions track, phases, cancel; not yet: pick clips, names, translation |
 | Home/HomeView.swift | home/HomeView.kt | ad3827a | partly: list, sort, new project, rename, delete (not yet: share / .bbc, iCloud rows, trial pill, import game) |
 | Model/Models.swift | model/Models.kt + model/Project.kt | ad3827a | 1:1 (parity: timing.json, projects.json) |
 | Model/Look.swift | model/Look.kt | ad3827a | 1:1 data + math (LookState for the compositor comes with the look engine) |
