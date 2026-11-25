@@ -237,7 +237,21 @@ struct EditorView: View {
     }
 
     var body: some View {
-        keyHandlers(audioHandlers(importDialogs(editor)))
+        keyHandlers(audioHandlers(importDialogs(touchLayers(editor))))
+    }
+
+    /// On top of everything: the touch lock while a clip edge is held, and the popups for typing a length
+    /// (kept apart so the compiler can check the body quickly).
+    private func touchLayers<V: View>(_ v: V) -> some View {
+        v
+        .overlay { edgeLock }
+        .overlay {
+            if let p = model.preciseTrim {
+                PreciseTrimPopup(model: model, state: p)
+            } else if let p = model.lengthPrompt {
+                LengthPopup(prompt: p) { model.lengthPrompt = nil }.id(p.id)
+            }
+        }
     }
 
     /// Converting old camera files: the question first, then what didn't make it (kept apart so the compiler can check the body quickly).
@@ -466,14 +480,6 @@ struct EditorView: View {
                 ProgressView(model.audioBusy ? loc("Getting the sound…") : convertStatus ?? loc("Checking the files…"))
                     .padding(24)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            }
-        }
-        .overlay { edgeLock }
-        .overlay {
-            if let p = model.preciseTrim {
-                PreciseTrimPopup(model: model, state: p)
-            } else if let p = model.lengthPrompt {
-                LengthPopup(prompt: p) { model.lengthPrompt = nil }.id(p.id)
             }
         }
         .alert("Rename project", isPresented: $renaming) {
