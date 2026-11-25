@@ -62,3 +62,8 @@ dependencies {
     implementation(libs.billing)
     testImplementation(libs.junit)
 }
+
+// CI log: every unit test with its result (a parity test that skipped for want of fixtures shows as SKIPPED)
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "skipped", "failed") }
+}
