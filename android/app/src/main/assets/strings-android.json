@@ -151,6 +151,26 @@
           }
         }
       }
+    },
+    "Open a project file (.bbc)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevřít soubor projektu (.bbc)"
+          }
+        }
+      }
+    },
+    "%lld videos weren't in the file.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld videí v souboru nebylo."
+          }
+        }
+      }
     }
   }
 }

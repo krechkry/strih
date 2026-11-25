@@ -121,6 +121,22 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
 
     val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { create(it) }
     val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { create(it) }
+    // a .bbc from an iPhone (or another Android): the project with its clips
+    val bbc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            importing = loc("Copying into BOMBOCUT…")
+            val r = cz.krechler.bombocut.model.ProjectFile.open(context, uri, store)
+            importing = null
+            when (r) {
+                is cz.krechler.bombocut.model.ProjectFile.Result.Opened -> {
+                    if (r.missing > 0) importing = locf("%lld videos weren't in the file.", r.missing)
+                    open(r.project.id)
+                }
+                cz.krechler.bombocut.model.ProjectFile.Result.NotAProject -> importing = loc("This file isn't a BOMBOCUT project.")
+                cz.krechler.bombocut.model.ProjectFile.Result.NewerFormat -> importing = loc("This project comes from a newer BOMBOCUT. Update the app and open it again.")
+            }
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Theme.bg).safeDrawingPadding()) {
         Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -136,6 +152,11 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
                     onFiles = { files.launch(arrayOf("video/*")) },
                     status = importing,
                 )
+            }
+            item {
+                TextButton({ bbc.launch(arrayOf("*/*")) }, Modifier.fillMaxWidth()) {
+                    Text(loc("Open a project file (.bbc)"), color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.SemiBold)
+                }
             }
             if (projects.isNotEmpty()) item { ProjectsHeader(sort) { sort = it } }
             items(sort.sorted(projects), key = { it.id }) { p ->
