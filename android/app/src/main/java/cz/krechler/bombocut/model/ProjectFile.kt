@@ -43,10 +43,16 @@ object ProjectFile {
     suspend fun write(context: Context, p: Project): File = withContext(Dispatchers.IO) {
         val dir = File(context.cacheDir, "share").apply { deleteRecursively(); mkdirs() }
         val out = File(dir, fileName(p.name) + ".bbc")
-        val media = p.mediaFiles.filter { Paths.mediaFile(it).exists() }.sorted()
-        val bytes = media.sumOf { Paths.mediaFile(it).length() }
-        val manifest = Manifest(1, "BOMBOCUT Android", p.name, AppleDate.now(), media, emptyList(), emptyList(), bytes)
-        java.util.zip.ZipOutputStream(out.outputStream().buffered()).use { zip ->
+        out.outputStream().buffered().use { pack(p, it) { name -> Paths.mediaFile(name) } }
+        out
+    }
+
+    /** The zip itself, `media` finding each video by its name (testable without a phone). */
+    fun pack(p: Project, to: java.io.OutputStream, media: (String) -> File) {
+        val files = p.mediaFiles.filter { media(it).exists() }.sorted()
+        val bytes = files.sumOf { media(it).length() }
+        val manifest = Manifest(1, "BOMBOCUT Android", p.name, AppleDate.now(), files, emptyList(), emptyList(), bytes)
+        java.util.zip.ZipOutputStream(to).use { zip ->
             zip.setLevel(java.util.zip.Deflater.DEFAULT_COMPRESSION)
             zip.putNextEntry(java.util.zip.ZipEntry("bombocut.json"))
             zip.write(Json.encodeToString(Manifest.serializer(), manifest).encodeToByteArray())
@@ -55,13 +61,12 @@ object ProjectFile {
             zip.write(BomboJson.encodeToString(Project.serializer(), p).encodeToByteArray())
             zip.closeEntry()
             zip.setLevel(java.util.zip.Deflater.NO_COMPRESSION)
-            for (m in media) {
+            for (m in files) {
                 zip.putNextEntry(java.util.zip.ZipEntry("Media/$m"))
-                Paths.mediaFile(m).inputStream().use { it.copyTo(zip) }
+                media(m).inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
         }
-        out
     }
 
     /** Hands the file to the share sheet (Nearby Share, Drive, mail, ...). */
@@ -78,40 +83,58 @@ object ProjectFile {
     /** Names the zip may put files under: no folders, no tricks. */
     private fun safeName(n: String) = n.isNotEmpty() && !n.startsWith(".") && '/' !in n && '\\' !in n && n != ".."
 
-    suspend fun open(context: Context, uri: Uri, store: ProjectStore): Result = withContext(Dispatchers.IO) {
-        Paths.ensure()
-        // first pass: the two small json files (they may come after the media in the zip, so the media go to temp)
-        val temp = File(context.cacheDir, "Unpack-" + UUID.randomUUID()).apply { mkdirs() }
+    sealed class Unpacked {
+        data class Ok(val project: Project) : Unpacked()
+        data object NotAProject : Unpacked()
+        data object NewerFormat : Unpacked()
+    }
+
+    /**
+     * Reads a .bbc: the project, and each video it uses that `dest` says isn't there yet is copied to it (`temp`
+     * holds the videos until the project is known: the zip may list them before project.json).
+     */
+    fun unpack(input: java.io.InputStream, temp: File, dest: (String) -> File): Unpacked {
+        temp.mkdirs()
         var manifest: String? = null
         var body: String? = null
-        try {
-            context.contentResolver.openInputStream(uri)?.use { raw ->
-                ZipInputStream(raw.buffered()).use { zip ->
-                    while (true) {
-                        val e = zip.nextEntry ?: break
-                        if (e.isDirectory) continue
-                        when {
-                            e.name == "bombocut.json" -> manifest = zip.readBytes().decodeToString()
-                            e.name == "project.json" -> body = zip.readBytes().decodeToString()
-                            e.name.startsWith("Media/") -> {
-                                val n = e.name.removePrefix("Media/")
-                                if (safeName(n)) File(temp, n).outputStream().use { zip.copyTo(it) }
-                            }
-                        }
+        ZipInputStream(input.buffered()).use { zip ->
+            while (true) {
+                val e = zip.nextEntry ?: break
+                if (e.isDirectory) continue
+                when {
+                    e.name == "bombocut.json" -> manifest = zip.readBytes().decodeToString()
+                    e.name == "project.json" -> body = zip.readBytes().decodeToString()
+                    e.name.startsWith("Media/") -> {
+                        val n = e.name.removePrefix("Media/")
+                        if (safeName(n)) File(temp, n).outputStream().use { zip.copyTo(it) }
                     }
                 }
-            } ?: return@withContext Result.NotAProject
-            val head = manifest ?: return@withContext Result.NotAProject
-            val f = runCatching { Json.parseToJsonElement(head).jsonObject["format"]?.jsonPrimitive?.intOrNull }.getOrNull()
+            }
+        }
+        val head = manifest ?: return Unpacked.NotAProject
+        val f = runCatching { Json.parseToJsonElement(head).jsonObject["format"]?.jsonPrimitive?.intOrNull }.getOrNull()
+            ?: return Unpacked.NotAProject
+        if (f > format) return Unpacked.NewerFormat
+        val p = runCatching { BomboJson.decodeFromString(Project.serializer(), body ?: "") }.getOrNull()
+            ?: return Unpacked.NotAProject
+        for (name in p.mediaFiles) {
+            val src = File(temp, name)
+            val to = dest(name)
+            if (src.exists() && !to.exists()) { if (!src.renameTo(to)) src.copyTo(to) }
+        }
+        return Unpacked.Ok(p)
+    }
+
+    suspend fun open(context: Context, uri: Uri, store: ProjectStore): Result = withContext(Dispatchers.IO) {
+        Paths.ensure()
+        val temp = File(context.cacheDir, "Unpack-" + UUID.randomUUID())
+        try {
+            val r = context.contentResolver.openInputStream(uri)?.use { unpack(it, temp) { n -> Paths.mediaFile(n) } }
                 ?: return@withContext Result.NotAProject
-            if (f > format) return@withContext Result.NewerFormat
-            var p = runCatching { BomboJson.decodeFromString(Project.serializer(), body ?: "") }.getOrNull()
-                ?: return@withContext Result.NotAProject
-            // the videos the project uses and the app doesn't have yet
-            for (name in p.mediaFiles) {
-                val src = File(temp, name)
-                val dest = Paths.mediaFile(name)
-                if (src.exists() && !dest.exists()) src.renameTo(dest).let { ok -> if (!ok) src.copyTo(dest) }
+            var p = when (r) {
+                is Unpacked.Ok -> r.project
+                Unpacked.NotAProject -> return@withContext Result.NotAProject
+                Unpacked.NewerFormat -> return@withContext Result.NewerFormat
             }
             // already in the list: it comes in as a copy (iOS does the same)
             if (store.project(p.id) != null) p = p.copy(id = UUID.randomUUID())
