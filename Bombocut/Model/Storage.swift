@@ -62,10 +62,12 @@ final class ProjectStore: ObservableObject {
 
     /// Removes imported media no project uses any more. Files from the last few minutes stay: a project being
     /// added (opened, synced, clips coming from iCloud Photos) has its media in before the project is saved.
-    func cleanupMedia() {
+    /// Media no project uses goes. `keepRecent`: files from the last 10 minutes stay (an import may still be
+    /// putting them in a project); Storage's delete (you asked) takes them too, except the last half minute.
+    func cleanupMedia(keepRecent: Bool = true) {
         let used = Set(projects.flatMap { $0.mediaFiles })
         let files = (try? FileManager.default.contentsOfDirectory(atPath: Paths.media.path)) ?? []
-        let recent = Date().addingTimeInterval(-600)
+        let recent = Date().addingTimeInterval(keepRecent ? -600 : -30)
         for f in files where !used.contains(f) {
             let url = Paths.mediaURL(f)
             let made = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate

@@ -15,7 +15,7 @@ struct StorageView: View {
     @State private var pendingVoice = false
 
     enum Confirm: Identifiable {
-        case model(SpeechModel), voice, translation(String), leftovers, temp, caches, optimized, unused
+        case model(SpeechModel), voice, translation(String), leftovers, temp, caches, optimized, unused, all
         var id: String {
             switch self {
             case .model(let m): return m.rawValue
@@ -26,6 +26,7 @@ struct StorageView: View {
             case .caches: return "caches"
             case .optimized: return "optimized"
             case .unused: return "unused"
+            case .all: return "all"
             }
         }
     }
@@ -35,23 +36,8 @@ struct StorageView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     total
-                    section("AI Models") {
-                        ForEach(SpeechModel.allCases, id: \.self) { m in modelRow(m) }
-                        voiceRow
-                        if report.leftovers > 0 {
-                            row(icon: "shippingbox", title: "Unfinished downloads", detail: "Leftovers from stopped downloads",
-                                bytes: report.leftovers) { confirm = .leftovers }
-                        }
-                    }
-                    if !packs.installed.isEmpty {
-                        section("Translation languages") {
-                            ForEach(packs.installed.sorted { TranslationPacks.title($0) < TranslationPacks.title($1) }, id: \.self) { d in
-                                row(icon: "character.bubble", title: TranslationPacks.title(d), detail: "Translates captions offline",
-                                    bytes: packs.size(of: d)) { confirm = .translation(d) }
-                            }
-                        }
-                    }
                     section("Clean up") {
+                        cleanAllButton
                         row(icon: "clock.arrow.circlepath", title: "Temporary files",
                             detail: "Old exports, caption audio, imports in progress", bytes: report.temp) { confirm = .temp }
                         row(icon: "film.stack", title: "Unused videos",
@@ -59,13 +45,29 @@ struct StorageView: View {
                         row(icon: "square.stack.3d.up", title: "Caches",
                             detail: "Thumbnails, playback copies of 4K clips and system caches, rebuilt when needed",
                             bytes: report.caches) { confirm = .caches }
-                        row(icon: "cpu", title: "Voice model optimization",
-                            detail: "Makes the voice model load fast. Deleting means the next load takes minutes again.",
-                            bytes: report.optimized) { confirm = .optimized }
+                        if report.leftovers > 0 {
+                            row(icon: "shippingbox", title: "Unfinished downloads", detail: "Leftovers from stopped downloads",
+                                bytes: report.leftovers) { confirm = .leftovers }
+                        }
                         if locked {
                             Text("Deleting is off while the voice model downloads.")
                                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    section("AI Models") {
+                        ForEach(SpeechModel.allCases, id: \.self) { m in modelRow(m) }
+                        voiceRow
+                        row(icon: "cpu", title: "Voice model optimization",
+                            detail: "Makes the voice model load fast. Deleting means the next load takes minutes again.",
+                            bytes: report.optimized, action: { confirm = .optimized }, green: true)
+                    }
+                    if !packs.installed.isEmpty {
+                        section("Translation languages") {
+                            ForEach(packs.installed.sorted { TranslationPacks.title($0) < TranslationPacks.title($1) }, id: \.self) { d in
+                                row(icon: "character.bubble", title: TranslationPacks.title(d), detail: "Translates captions offline",
+                                    bytes: packs.size(of: d), action: { confirm = .translation(d) }, green: true)
+                            }
                         }
                     }
                     section("Kept") {
@@ -164,7 +166,7 @@ struct StorageView: View {
             }
         }()
         return row(icon: "waveform", title: m.title, detail: detail, bytes: ready ? bytes : nil,
-                   action: ready ? { confirm = .model(m) } : nil, download: download)
+                   action: ready ? { confirm = .model(m) } : nil, download: download, green: true)
     }
 
     /// Restore voice's model (Speech panel), downloaded on its own.
@@ -192,7 +194,7 @@ struct StorageView: View {
         }()
         return row(icon: "waveform.and.person.filled", title: "Enhance voice", detail: detail,
                    bytes: voice.isReady ? report.voice : nil, action: voice.isReady ? { confirm = .voice } : nil,
-                   download: download)
+                   download: download, green: true)
     }
 
     enum Download {
@@ -202,8 +204,9 @@ struct StorageView: View {
         case busy
     }
 
+    /// `green`: the AI models and languages, a dim lime tint (space well spent, not junk).
     private func row(icon: String, title: String, detail: String, bytes: Int64?, action: (() -> Void)?,
-                     download: Download? = nil) -> some View {
+                     download: Download? = nil, green: Bool = false) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.body.weight(.semibold)).frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
@@ -256,7 +259,8 @@ struct StorageView: View {
             }
         }
         .padding(12)
-        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+        .background(green ? Theme.accent.opacity(0.09) : Theme.panel, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(green ? Theme.accent.opacity(0.18) : .clear))
     }
 
     /// What Sync projects keeps in the user's iCloud. Its folder isn't shown in Files on purpose: files moved or
@@ -274,6 +278,27 @@ struct StorageView: View {
         .onAppear { CloudBackup.shared.sync() }
     }
 
+    /// What one tap frees: temporary files, unused videos, caches and unfinished downloads.
+    private var junk: Int64 { report.temp + report.unused + report.caches + report.leftovers }
+
+    /// Clean up: all the junk at once (the models and languages stay).
+    private var cleanAllButton: some View {
+        Button { confirm = .all } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles").font(.subheadline.weight(.heavy))
+                Text("Clean up all").font(.headline.weight(.heavy))
+                Spacer()
+                Text(Self.size(junk)).font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 16).frame(height: 50)
+            .background(Theme.accent, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(locked || junk == 0)
+        .opacity(locked || junk == 0 ? 0.4 : 1)
+    }
+
     private func info(icon: String, title: String, bytes: Int64) -> some View {
         row(icon: icon, title: title, detail: "Delete a project to free this", bytes: bytes, action: nil)
     }
@@ -288,6 +313,7 @@ struct StorageView: View {
         case .caches: return "Clear caches?"
         case .optimized: return "Delete the voice model optimization?"
         case .unused: return "Delete unused videos?"
+        case .all: return "Clean up everything here?"
         }
     }
 
@@ -305,7 +331,13 @@ struct StorageView: View {
             case .translation(let d):
                 packs.delete(d)
             case .unused:
-                store.cleanupMedia()
+                store.cleanupMedia(keepRecent: false)
+            case .all:
+                // the junk: temporary files, unused videos, caches, unfinished downloads (not the models)
+                store.cleanupMedia(keepRecent: false)
+                let urls = StorageReport.children(of: FileManager.default.temporaryDirectory)
+                    + report.cacheFolders + report.leftoverFiles
+                await Task.detached { for u in urls { try? FileManager.default.removeItem(at: u) } }.value
             default:
                 let urls: [URL] = {
                     switch c {

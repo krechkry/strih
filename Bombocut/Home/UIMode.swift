@@ -23,6 +23,18 @@ enum UIMode: String, CaseIterable {
     }
 }
 
+/// Basic | Advanced as one sliding pill switch (`TwoSideToggle`), the way Captions > Translate picks
+/// Add as a new track | Replace.
+struct UIModeSwitch: View {
+    @Binding var mode: String
+
+    var body: some View {
+        TwoSideToggle(left: ("Basic", "square.grid.2x2"), right: ("Advanced", "slider.horizontal.3"),
+                      leftOn: Binding(get: { mode == UIMode.basic.rawValue },
+                                      set: { mode = ($0 ? UIMode.basic : UIMode.pro).rawValue }))
+    }
+}
+
 /// Onboarding: pick Basic or Advanced while a small editor above shows what you get.
 struct ModePickerView: View {
     let done: () -> Void
@@ -47,22 +59,8 @@ struct ModePickerView: View {
                 .animation(.smooth(duration: 0.5), value: picked)
 
             VStack(spacing: 14) {
-                HStack(spacing: 10) {
-                    ForEach(UIMode.allCases, id: \.self) { m in
-                        Button { mode = m.rawValue } label: {
-                            VStack(spacing: 4) {
-                                Text(loc(m.title).uppercased()).font(.system(size: 22, weight: .heavy))
-                                    .lineLimit(1).minimumScaleFactor(0.6)
-                                Text(m == .basic ? loc("Simple") : loc("All features"))
-                                    .font(.caption.weight(.bold)).opacity(0.7)
-                            }
-                            .foregroundStyle(picked == m ? .black : .white)
-                            .frame(maxWidth: .infinity, minHeight: 74)
-                            .background(picked == m ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 18))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                // the same sliding switch as in Settings (and Captions > Translate)
+                UIModeSwitch(mode: $mode)
                 Text(loc(picked.summary))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.muted)
@@ -457,19 +455,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     group("Interface") {
-                        HStack(spacing: 10) {
-                            ForEach(UIMode.allCases, id: \.self) { m in
-                                let on = mode == m.rawValue
-                                Button { mode = m.rawValue } label: {
-                                    Text(loc(m.title).uppercased()).font(.headline.weight(.heavy))
-                                        .lineLimit(1).minimumScaleFactor(0.7)
-                                        .foregroundStyle(on ? .black : .white)
-                                        .frame(maxWidth: .infinity, minHeight: 50)
-                                        .background(on ? Theme.accent : Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        UIModeSwitch(mode: $mode)
                         Text(loc((UIMode(rawValue: mode) ?? .pro).summary))
                             .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)

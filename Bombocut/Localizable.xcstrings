@@ -11487,6 +11487,26 @@
           }
         }
       }
+    },
+    "Clean up all": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uklidit vše"
+          }
+        }
+      }
+    },
+    "Clean up everything here?": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uklidit tady všechno?"
+          }
+        }
+      }
     }
   }
 }
