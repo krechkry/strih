@@ -294,10 +294,17 @@ object CompositionBuilder {
         return project.overlays.filter { it.kind is OverlayKind.Video && it.start < total - 0.01 && it.duration > 0.01 }.asReversed()
     }
 
-    /** A video layer's size on the canvas at scale 1, in pixels (its box already has the video's aspect). */
-    private fun layerSize(o: Overlay, w: Int, h: Int): Pair<Int, Int> {
-        val (bw, bh) = o.baseFraction(w.toDouble() / h)
-        return maxOf(2, (bw * w).roundToInt() / 2 * 2) to maxOf(2, (bh * h).roundToInt() / 2 * 2)
+    /**
+     * A video layer's frames are canvas-size, the video fitted in (Presentation): frames smaller than the output
+     * came out empty in the compositor on the emulator. Its box at scale 1 (Overlay.baseFraction, 70 % of the fit)
+     * is then this share of the canvas-size frame, applied as the compositor's scale.
+     */
+    private fun layerSize(o: Overlay, w: Int, h: Int): Pair<Int, Int> = w to h
+
+    fun layerBase(o: Overlay, canvasAspect: Double): Double {
+        val (bw, bh) = o.baseFraction(canvasAspect)
+        val r = maxOf(o.aspect ?: 1.0, 0.0001) / maxOf(canvasAspect, 0.0001)
+        return maxOf(bw / minOf(1.0, r), bh / minOf(1.0, 1 / r))
     }
 
     private fun layerItem(file: String, sourceDuration: Double, from: Double, to: Double, lw: Int, lh: Int,
@@ -307,7 +314,7 @@ object CompositionBuilder {
             .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionUs(us(from)).setEndPositionUs(us(to)).build())
             .build()
         val audio = listOfNotNull(gain(volume, 0.0 to 0.0, length))
-        val video = listOf(Presentation.createForWidthAndHeight(lw, lh, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+        val video = listOf(Presentation.createForWidthAndHeight(lw, lh, Presentation.LAYOUT_SCALE_TO_FIT))
         val b = EditedMediaItem.Builder(media).setEffects(Effects(audio, video)).setDurationUs(us(sourceDuration))
         speed?.let { b.setSpeed(SpeedParameters(it, true)) }
         return b.build()
@@ -346,11 +353,11 @@ object CompositionBuilder {
     }
 
     /** Where a video layer is at timeline time t (TextLayer's placement): offset from the center, scale, turn. */
-    fun layerPose(o: Overlay, t: Double): RollPose {
+    fun layerPose(o: Overlay, t: Double, canvasAspect: Double = 9.0 / 16): RollPose {
         if (t < o.start - 1e-4 || t >= o.end) return RollPose(0.0)
         val (tr, opacity) = o.pose(t)
         val a = o.anim.pose(t - o.start, o.duration)
-        return RollPose(opacity * a.opacity, tr.x + a.dx, tr.y + a.dy, tr.scale * a.scale, tr.rotation)
+        return RollPose(opacity * a.opacity, tr.x + a.dx, tr.y + a.dy, tr.scale * a.scale * layerBase(o, canvasAspect), tr.rotation)
     }
 
     /**
@@ -366,7 +373,7 @@ object CompositionBuilder {
 
         override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
             val t = presentationTimeUs / 1_000_000.0
-            val p = if (inputId < layers.size) layerPose(layers[inputId], t)
+            val p = if (inputId < layers.size) layerPose(layers[inputId], t, w.toDouble() / h)
                     else rollPose(placed, project, rollOf.getOrElse(inputId - layers.size) { 0 }, t)
             if (p.alpha > 0.01 && p.alpha < 0.99 && logged < 12) { logged++; android.util.Log.i("Bombocut", "blend input $inputId at $presentationTimeUs us: alpha ${p.alpha}") }
             if (inputId < layers.size && p.alpha > 0.01 && logged < 16) { logged++; android.util.Log.i("Bombocut", "layer input $inputId at $presentationTimeUs us: $p") }

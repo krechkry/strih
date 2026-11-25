@@ -33,7 +33,7 @@ class VideoLayerTest {
         val o = layer(1.0, 2.0, ClipTransform(x = 0.2, y = -0.1, scale = 0.5, rotation = 0.3), AnimPair(inAnim = MotionAnim.fade, inDur = 0.4))
         val mid = CompositionBuilder.layerPose(o, 2.0)
         assertEquals(0.2, mid.dx, 1e-9); assertEquals(-0.1, mid.dy, 1e-9)
-        assertEquals(0.5, mid.scale, 1e-9); assertEquals(0.3, mid.rotation, 1e-9); assertEquals(1.0, mid.alpha, 1e-9)
+        assertEquals(0.5 * CompositionBuilder.layerBase(o, 9.0 / 16), mid.scale, 1e-9); assertEquals(0.7, CompositionBuilder.layerBase(o, 9.0 / 16), 1e-9); assertEquals(0.3, mid.rotation, 1e-9); assertEquals(1.0, mid.alpha, 1e-9)
         val fading = CompositionBuilder.layerPose(o, 1.1)
         val want = o.anim.pose(0.1, 2.0).opacity
         assertEquals(want, fading.alpha, 1e-9)
