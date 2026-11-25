@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import cz.krechler.bombocut.app.Theme
 import cz.krechler.bombocut.engine.ThumbnailCache
 import cz.krechler.bombocut.app.loc
+import cz.krechler.bombocut.engine.timelineBeats
 import cz.krechler.bombocut.model.AudioItem
 import cz.krechler.bombocut.model.Clip
 import kotlin.math.roundToInt
@@ -144,6 +145,11 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
                           Color(0xFF1F6F4A), a.name, Color.White, selected = model.selectedAudioID == a.id, px = px,
                           drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragAudio(a.id, m, dt, reach = 10.0 / px) }, { model.laneDragEnded() })) {
                     if (model.selectedAudioID == a.id) model.selectAudio(null) else { model.selectAudio(a.id); pick("sound") }
+                }
+                // beat ticks on the sound (iOS BeatTicks)
+                for (b in a.timelineBeats) {
+                    Box(Modifier.offset(x = x0 + (b * px).dp - 0.5.dp, y = y + LaneLayout.sound - 7.dp).size(1.5.dp, 6.dp)
+                        .background(Theme.accent))
                 }
             } }
         }

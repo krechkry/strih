@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppLanguage.load(this)
         Paths.init(this)
+        cz.krechler.bombocut.engine.BeatCache.folder = java.io.File(cacheDir, "beats")
         Defaults.store = PrefsSettings(this)
         val store = ProjectStore()
         // debug builds (CI's emulator) skip the paywall unless started with --ez paywall true

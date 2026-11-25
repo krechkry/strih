@@ -39,6 +39,7 @@ import cz.krechler.bombocut.model.Overlay
 import cz.krechler.bombocut.model.OverlayKind
 import cz.krechler.bombocut.model.Paths
 import cz.krechler.bombocut.model.restyled
+import cz.krechler.bombocut.engine.timelineBeats
 import java.io.File
 import java.util.UUID
 
@@ -242,7 +243,29 @@ fun SoundSheet(model: EditorModel) {
         Text(Fmt.cFixed(fout, 1) + " s", color = Color.White, fontWeight = FontWeight.Bold)
     }
     BSlider(fout, 0.0..3.0, { fout = it }, { model.changeAudio(a.id) { it.copy(fadeOut = fout.takeIf { v -> v > 0.01 }) } })
+    BeatsRow(model, a)
     TextButton({ model.deleteAudio(a.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+}
+
+/** Beats on a sound (iOS toggleBeats): found once on the phone, marked on the sound, things snap to them. */
+@Composable
+private fun BeatsRow(model: EditorModel, a: AudioItem) {
+    var finding by remember(a.id) { mutableStateOf(false) }
+    var note by remember(a.id) { mutableStateOf<String?>(null) }
+    var found by remember(a.id) { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(a.id, a.beatsOn) {
+        if (a.beatsOn != true || cz.krechler.bombocut.engine.BeatCache.known(a.file) != null) return@LaunchedEffect
+        finding = true
+        val b = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { cz.krechler.bombocut.engine.BeatCache.find(a.file) }
+        finding = false
+        note = if (b.size < 4) loc("No steady beat found in this sound.") else null
+        found++
+        // the lane reads the cache: touching the selection redraws it with the ticks
+        model.selectAudio(null); model.selectAudio(a.id)
+    }
+    OnOffRow("Beats", isOn = a.beatsOn == true) { on -> model.changeAudio(a.id) { it.copy(beatsOn = if (on) true else null) } }
+    if (finding) Text(loc("Finding the beats…"), color = Theme.muted)
+    note?.let { Text(it, color = Theme.muted) }
 }
 
 // MARK: Moving and trimming in the lanes (iOS: hold and slide to move, drag the ends to trim)
@@ -260,6 +283,8 @@ fun EditorModel.snapped(t: Double, reach: Double, skip: UUID): Double {
     p.clips.forEachIndexed { k, c -> targets += starts[k]; targets += starts[k] + c.duration }
     for (o in p.overlays) if (o.id != skip) { targets += o.start; targets += o.end }
     for (a in p.audio) if (a.id != skip) { targets += a.start; targets += a.end }
+    // the beats of sounds with Beats on (iOS snaps to them too)
+    for (a in p.audio) if (a.id != skip) targets += a.timelineBeats
     val best = targets.minByOrNull { kotlin.math.abs(it - t) } ?: return t
     return if (kotlin.math.abs(best - t) <= reach) best else t
 }

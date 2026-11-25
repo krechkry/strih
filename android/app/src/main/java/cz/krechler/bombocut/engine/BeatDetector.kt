@@ -186,3 +186,85 @@ object BeatDetector {
         return beats
     }
 }
+
+/**
+ * Beats of sound files, found once and kept in memory and on disk (cache/beats), like iOS's BeatCache.
+ * `known` answers right away; `find` reads the file (MediaCodec, mono, resampled to 22050 Hz) and detects.
+ */
+object BeatCache {
+    private val known = java.util.concurrent.ConcurrentHashMap<String, List<Double>>()
+    @Volatile var folder: java.io.File? = null
+
+    fun known(file: String): List<Double>? = known[file] ?: folder?.let { java.io.File(it, "$file.beats") }?.takeIf { it.exists() }
+        ?.readText()?.split(',')?.mapNotNull { it.toDoubleOrNull() }?.also { known[file] = it }
+
+    fun find(file: String): List<Double> {
+        known(file)?.let { return it }
+        val x = samples(cz.krechler.bombocut.model.Paths.mediaFile(file)) ?: return emptyList()
+        val b = BeatDetector.beats(x)
+        known[file] = b
+        folder?.let { it.mkdirs(); java.io.File(it, "$file.beats").writeText(b.joinToString(",")) }
+        return b
+    }
+
+    /** The file's sound as mono samples at 22050 Hz (linear resampling). */
+    private fun samples(f: java.io.File): FloatArray? {
+        val ex = android.media.MediaExtractor()
+        try {
+            ex.setDataSource(f.path)
+            val track = (0 until ex.trackCount).firstOrNull {
+                ex.getTrackFormat(it).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: return null
+            ex.selectTrack(track)
+            val fmt = ex.getTrackFormat(track)
+            val codec = android.media.MediaCodec.createDecoderByType(fmt.getString(android.media.MediaFormat.KEY_MIME)!!)
+            codec.configure(fmt, null, null, 0); codec.start()
+            var sr = fmt.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE)
+            var ch = fmt.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+            val mono = ArrayList<Float>()
+            val info = android.media.MediaCodec.BufferInfo()
+            var inDone = false; var outDone = false
+            while (!outDone) {
+                if (!inDone) {
+                    val i = codec.dequeueInputBuffer(10_000)
+                    if (i >= 0) {
+                        val n = ex.readSampleData(codec.getInputBuffer(i)!!, 0)
+                        if (n < 0) { codec.queueInputBuffer(i, 0, 0, 0, android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM); inDone = true }
+                        else { codec.queueInputBuffer(i, 0, n, ex.sampleTime, 0); ex.advance() }
+                    }
+                }
+                val o = codec.dequeueOutputBuffer(info, 10_000)
+                if (o == android.media.MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    codec.outputFormat.let { sr = it.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE); ch = it.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT) }
+                } else if (o >= 0) {
+                    val buf = codec.getOutputBuffer(o)!!.order(java.nio.ByteOrder.nativeOrder()).asShortBuffer()
+                    val frames = info.size / 2 / ch
+                    for (fr in 0 until frames) {
+                        var m = 0f
+                        for (k in 0 until ch) m += buf.get(fr * ch + k) / 32768f
+                        mono.add(m / ch)
+                    }
+                    codec.releaseOutputBuffer(o, false)
+                    if (info.flags and android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outDone = true
+                }
+            }
+            codec.stop(); codec.release()
+            if (mono.isEmpty()) return null
+            val ratio = sr / BeatDetector.sampleRate
+            val n = (mono.size / ratio).toInt()
+            return FloatArray(n) { i ->
+                val p = i * ratio; val a = p.toInt(); val t = (p - a).toFloat()
+                val x0 = mono[a]; val x1 = if (a + 1 < mono.size) mono[a + 1] else x0
+                x0 + (x1 - x0) * t
+            }
+        } catch (e: Exception) { return null } finally { ex.release() }
+    }
+}
+
+/** This sound's beats on the timeline (iOS AudioItem.timelineBeats): only while Beats is on and they're known. */
+val cz.krechler.bombocut.model.AudioItem.timelineBeats: List<Double> get() {
+    if (beatsOn != true) return emptyList()
+    val b = BeatCache.known(file) ?: return emptyList()
+    val sp = maxOf(speed, 0.01)
+    return b.mapNotNull { s -> val t = start + (s - inPoint) / sp; if (t >= start - 1e-6 && t <= end + 1e-6) t else null }
+}
