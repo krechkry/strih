@@ -283,6 +283,11 @@ fun TextSheet(model: EditorModel) {
     BSlider(outline, 0.0..1.0, { outline = it }, { model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(strokeWidth = outline)) } })
     OnOffRow("Shadow", isOn = o.style.shadow) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(shadow = on)) } }
     OnOffRow("Box", isOn = o.style.box) { on -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(box = on)) } }
+    if (o.style.box) Swatches(o.style.boxColor) { c -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(boxColor = c)) } }
+    if (o.style.strokeWidth > 0.001) {
+        Text(loc("Outline"), color = Theme.muted, fontWeight = FontWeight.Bold)
+        Swatches(o.style.stroke) { c -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(stroke = c)) } }
+    }
     Row {
         TextButton({ model.duplicateOverlay(o.id) }) { Text(loc("Duplicate"), color = Color.White, fontWeight = FontWeight.Bold) }
         TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
@@ -529,6 +534,15 @@ private fun CaptionStyleControls(model: EditorModel, k: Int) {
     BSlider(outline, 0.0..1.0, { outline = it }, { model.setCaptionStyle(k) { it.copy(strokeWidth = outline) } })
     OnOffRow("Shadow", isOn = st.shadow) { on -> model.setCaptionStyle(k) { it.copy(shadow = on) } }
     OnOffRow("Box", isOn = st.box) { on -> model.setCaptionStyle(k) { it.copy(box = on) } }
+    if (st.box) Swatches(st.boxColor) { c -> model.setCaptionStyle(k) { it.copy(boxColor = c) } }
+    if (st.strokeWidth > 0.001) {
+        Text(loc("Outline"), color = Theme.muted, fontWeight = FontWeight.Bold)
+        Swatches(st.stroke) { c -> model.setCaptionStyle(k) { it.copy(stroke = c) } }
+    }
+    if (st.anim == cz.krechler.bombocut.model.CaptionAnim.highlight) {
+        Text(loc("Highlight"), color = Theme.muted, fontWeight = FontWeight.Bold)
+        Swatches(st.highlight) { c -> model.setCaptionStyle(k) { it.copy(highlight = c) } }
+    }
     OnOffRow("CAPS", isOn = st.caps) { on -> model.setCaptionStyle(k) { it.copy(caps = on) } }
     Text(loc("Animation"), color = Theme.muted, fontWeight = FontWeight.Bold)
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
