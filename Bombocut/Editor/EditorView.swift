@@ -489,11 +489,11 @@ struct EditorView: View {
         }
     }
 
-    /// A clip edge held (trim or roll): nothing else on the screen takes touches until it is let go. A second
-    /// tap anywhere while trimming opens the precise trim popup.
+    /// A clip or layer edge held (trim or roll): nothing else on the screen takes touches until it is let go. A
+    /// second tap anywhere while trimming (not rolling) opens the precise trim popup.
     @ViewBuilder
     private var edgeLock: some View {
-        if model.edgeEditing {
+        if model.edgeHeld {
             Color.black.opacity(0.001)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())

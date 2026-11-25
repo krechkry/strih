@@ -20,6 +20,8 @@ struct RollState: Equatable {
 struct PreciseTrimState: Equatable {
     var id: UUID
     var leading: Bool
+    /// A text, picture, video or adjustment layer (not a clip).
+    var layer = false
     var startLength: Double    // before the handle was grabbed
     var length: Double         // when the popup opened
     var minLength: Double
@@ -167,6 +169,10 @@ final class EditorModel: ObservableObject {
     /// A clip edge is being dragged (trim or roll): the strip doesn't scroll by itself meanwhile.
     var edgeEditing: Bool { trim != nil || roll != nil }
     @Published private(set) var preciseTrim: PreciseTrimState?
+    /// A layer's (text, picture, video) edge handle is held: which layer and which end.
+    @Published private(set) var laneTrim: (id: UUID, leading: Bool)?
+    /// A clip or layer edge is held: the rest of the editor takes no touches meanwhile.
+    var edgeHeld: Bool { edgeEditing || laneTrim != nil }
     /// A length typed in the middle of the screen (the speed panel's new length).
     @Published var lengthPrompt: LengthPrompt?
     /// The project before the handle was grabbed, and the clip as it was then (Cancel goes back to them).
@@ -2911,6 +2917,7 @@ final class EditorModel: ObservableObject {
     /// A second tap anywhere while a clip's trim handle is held: the popup for typing the length. The held
     /// handle stops trimming from here on (its moves and its release are ignored).
     func openPreciseTrim() {
+        if trim == nil, laneTrim != nil { openPreciseLayerTrim(); return }
         guard preciseTrim == nil, let tr = trim, let o = trimOriginal, let s = trimSnapshot,
               let c = project.clips.first(where: { $0.id == tr.id }) else { return }
         let range = o.trimLengthRange(leading: tr.leading)
@@ -2929,6 +2936,7 @@ final class EditorModel: ObservableObject {
 
     /// OK in the precise popup: the clip trimmed on the grabbed side to `length`, one undo step.
     func applyPreciseTrim(length: Double) {
+        if preciseTrim?.layer == true { applyPreciseLayerTrim(length: length); return }
         guard let p = preciseTrim, let s = preciseSnapshot, let o = preciseOriginal,
               let i = s.clips.firstIndex(where: { $0.id == p.id }) else { cancelPreciseTrim(); return }
         var next = s
@@ -2946,8 +2954,54 @@ final class EditorModel: ObservableObject {
 
     /// Cancel in the precise popup: back to how it was before the handle was grabbed.
     func cancelPreciseTrim() {
+        let layer = preciseTrim?.layer == true
         if let s = preciseSnapshot, s != project { project = s }
         closePreciseTrim()
+        if layer { publishLook() }
+    }
+
+    // MARK: Layer edges (texts, pictures, videos)
+
+    func laneTrimBegan(_ id: UUID, leading: Bool) {
+        guard preciseTrim == nil else { return }
+        laneTrim = (id, leading)
+    }
+
+    func laneTrimEnded() { laneTrim = nil }
+
+    /// The second tap while a layer's edge is held: its length typed in the same popup as a clip's.
+    private func openPreciseLayerTrim() {
+        guard preciseTrim == nil, let lt = laneTrim, let s = overlayTimingSnapshot,
+              let o0 = s.overlays.first(where: { $0.id == lt.id }),
+              let o = project.overlays.first(where: { $0.id == lt.id }) else { return }
+        // how far each end can go: the start not before 0 (a video not before its footage), the end not past the
+        // video's end or the footage's
+        var earliest = 0.0
+        if case .video(_, _, let inPoint) = o0.kind {
+            let back = o0.curveRetime.map { $0.local(atSource: inPoint) } ?? inPoint / max(o0.speed, 0.05)
+            earliest = max(0, o0.start - back)
+        }
+        let longest = lt.leading ? o0.end - earliest : min(o0.maxDuration ?? .infinity, max(0.2, duration - o0.start))
+        preciseSnapshot = s
+        overlayTimingSnapshot = nil
+        laneTrim = nil
+        setSnap(nil)
+        preciseTrim = PreciseTrimState(id: lt.id, leading: lt.leading, layer: true, startLength: o0.duration,
+                                       length: o.duration, minLength: 0.2, maxLength: max(0.2, longest))
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// OK for a layer: the grabbed end moves so the layer lasts `length`, the other end stays. One undo step.
+    private func applyPreciseLayerTrim(length: Double) {
+        guard let p = preciseTrim, let s = preciseSnapshot,
+              let o0 = s.overlays.first(where: { $0.id == p.id }) else { cancelPreciseTrim(); return }
+        let l = min(max(length, p.minLength), p.maxLength)
+        project = s
+        overlayTimingSnapshot = s
+        closePreciseTrim()
+        // the playhead goes to the trimmed end (set first: the rebuild after a video layer keeps it there)
+        currentTime = p.leading ? onFrame(max(0, o0.end - l)) : min(o0.start + l, duration) - 0.001
+        overlayTimingCore(p.id, start: p.leading ? o0.end - l : o0.start, duration: l, done: true)
     }
 
     private func closePreciseTrim() {
@@ -3161,6 +3215,15 @@ final class EditorModel: ObservableObject {
             audioSnapshot = nil
             commit()
         }
+    }
+
+    /// The selected sound, as it is now.
+    var selectedAudio: AudioItem? { selectedAudioIndex.map { project.audio[$0] } }
+
+    /// The volume slider let go: whatever the sound has now becomes one undo step.
+    func audioVolumeDone() {
+        guard let v = selectedAudio?.volume else { audioSnapshot = nil; return }
+        setAudioVolume(v, done: true)
     }
 
     func setAudioVolume(_ v: Double, done: Bool) {
@@ -3761,6 +3824,12 @@ final class EditorModel: ObservableObject {
     /// Drag on the timeline: move (both) or trim (one edge). Times in timeline seconds; live until `done`.
     private var overlayTimingSnapshot: Project?
     func overlayTiming(_ id: UUID, start: Double, duration: Double, done: Bool) {
+        // the precise popup took this layer's trim over: the held edge does nothing more
+        if let p = preciseTrim, p.layer, p.id == id { return }
+        overlayTimingCore(id, start: start, duration: duration, done: done)
+    }
+
+    private func overlayTimingCore(_ id: UUID, start: Double, duration: Double, done: Bool) {
         guard let i = project.overlays.firstIndex(where: { $0.id == id }) else { return }
         if overlayTimingSnapshot == nil { overlayTimingSnapshot = project }
         var o = project.overlays[i]

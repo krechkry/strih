@@ -303,8 +303,10 @@ struct AudioSheet: View {
                     Image(systemName: a.volume < 0.01 ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 28)
                 }
                 .tint(.white)
-                BSlider(value: Binding(get: { a.volume }, set: { model.setAudioVolume($0, done: false) }), in: 0...1,
-                        onEditingChanged: { e in if !e { model.setAudioVolume(a.volume, done: true) } })
+                // read from the model when it is used, never the value this row was drawn with
+                BSlider(value: Binding(get: { model.selectedAudio?.volume ?? a.volume },
+                                       set: { model.setAudioVolume($0, done: false) }), in: 0...1,
+                        onEditingChanged: { e in if !e { model.audioVolumeDone() } })
                     .doubleTapReset { model.setAudioVolume(1, done: true) }
                 Text("\(Int((a.volume * 100).rounded())) %").font(.subheadline.weight(.bold).monospacedDigit())
                     .frame(width: 52, alignment: .trailing)

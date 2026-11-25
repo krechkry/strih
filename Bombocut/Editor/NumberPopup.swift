@@ -162,13 +162,14 @@ struct PreciseTrimPopup: View {
 
     var body: some View {
         PopupCard(title: "Precise trim",
-                  subtitle: state.leading ? "Trimming the start of the clip" : "Trimming the end of the clip",
+                  subtitle: state.layer ? (state.leading ? "Trimming the start of the layer" : "Trimming the end of the layer")
+                      : (state.leading ? "Trimming the start of the clip" : "Trimming the end of the clip"),
                   okEnabled: length.map { $0 > 0 } ?? false,
                   cancel: { model.cancelPreciseTrim() },
                   ok: { if let l = length { model.applyPreciseTrim(length: l) } }) {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    label("Clip length")
+                    label(state.layer ? "Length" : "Clip length")
                     HStack(spacing: 8) {
                         SecondsField(text: $lengthText, focused: $lengthFocus)
                         frameStep(-1)

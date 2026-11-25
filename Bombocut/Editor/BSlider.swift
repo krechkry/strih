@@ -18,6 +18,21 @@ struct BSlider: View {
     @Environment(\.isEnabled) private var enabled
     @State private var startValue: Double?
     @State private var editing = false
+    /// The newest binding and callback. The pan is a UIKit recognizer whose closures can be the ones from when
+    /// the slider first appeared; going through this box they always reach the current ones. (Without it a
+    /// callback that captured a value, like the sound panel's volume, wrote back the old value on letting go:
+    /// the volume jumped back to 100 %.)
+    @State private var live = Live()
+
+    private final class Live {
+        var value: Binding<Double>?
+        var onEditingChanged: (Bool) -> Void = { _ in }
+
+        func update(_ v: Binding<Double>, _ e: @escaping (Bool) -> Void) {
+            value = v
+            onEditingChanged = e
+        }
+    }
 
     init(value: Binding<Double>, in range: ClosedRange<Double>, onEditingChanged: @escaping (Bool) -> Void = { _ in }) {
         _value = value
@@ -49,6 +64,7 @@ struct BSlider: View {
     private static let thumb: CGFloat = 28
 
     var body: some View {
+        let _ = live.update($value, onEditingChanged)
         GeometryReader { g in
             let w = max(1, g.size.width - Self.thumb)
             let span = max(range.upperBound - range.lowerBound, 1e-9)
@@ -76,19 +92,19 @@ struct BSlider: View {
             .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.4)
             // a sideways drag moves it; an up / down swipe is left to the panel, which scrolls
-            .gesture(SidewaysPan(changed: { start, here in
-                guard enabled else { return }
+            .gesture(SidewaysPan(changed: { [live] start, here in
+                guard enabled, let b = live.value else { return }
                 if startValue == nil {
-                    startValue = value
+                    startValue = b.wrappedValue
                     editing = true
-                    onEditingChanged(true)
+                    live.onEditingChanged(true)
                 }
-                let v = (startValue ?? value) + Double((here.x - start.x) / w) * span
-                value = min(max(v, range.lowerBound), range.upperBound)
-            }, ended: {
+                let v = (startValue ?? b.wrappedValue) + Double((here.x - start.x) / w) * span
+                b.wrappedValue = min(max(v, range.lowerBound), range.upperBound)
+            }, ended: { [live] in
                 if editing {
                     editing = false
-                    onEditingChanged(false)
+                    live.onEditingChanged(false)
                 }
                 startValue = nil
             }))

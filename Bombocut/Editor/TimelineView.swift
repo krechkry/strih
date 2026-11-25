@@ -1532,6 +1532,11 @@ struct OverlayLane: View {
     @State private var active: (id: UUID, mode: LaneDragMode, dx: CGFloat)?
     /// Held block moving up / down: how far, and which row it would land in.
     @State private var lift: (id: UUID, dy: CGFloat)?
+    /// A finger on an edge handle. Resets by itself when the system cancels the touch (onEnded doesn't run then),
+    /// so the trim ends and the editor's touch lock lets go.
+    @GestureState private var edgeDown = false
+    /// The precise trim popup took over the held edge: it does nothing until the finger lifts.
+    @State private var handedOver: UUID?
 
     static let rowHeight: CGFloat = 22
     static let rowStep: CGFloat = rowHeight + 3
@@ -1559,6 +1564,20 @@ struct OverlayLane: View {
         .onDisappear { if let a = active { finish(a.id) } }
         // the block let go mid-drag (its trim edge went away with the selection): end the drag so the timeline scrolls
         .onChange(of: model.selectedOverlayID) { _, id in if let a = active, a.id != id { finish(a.id) } }
+        .onChange(of: edgeDown) { _, down in
+            guard !down else { return }
+            handedOver = nil
+            if let a = active, a.mode != .move { finish(a.id) }
+        }
+        // a second tap opened the precise popup: the drag is over here (the popup has the values)
+        .onChange(of: model.preciseTrim?.id) { _, id in
+            if let id, let a = active, a.id == id, a.mode != .move {
+                handedOver = id
+                dragStart = nil
+                active = nil
+                model.laneDragEnded()
+            }
+        }
     }
 
     /// Where a block held and moved up / down lands: a new row between the others, or below / above them all.
@@ -1737,16 +1756,21 @@ struct OverlayLane: View {
         LaneEdge(leading: leading, height: Self.rowHeight)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                    .updating($edgeDown) { _, down, _ in down = true }
                     .onChanged { v in
+                        guard handedOver != o.id else { return }
                         if dragStart == nil {
                             dragStart = (o.start, o.duration)
                             model.laneDragBegan(v.location.x)
+                            model.laneTrimBegan(o.id, leading: leading)
                         }
                         active = (o.id, leading ? .head : .tail, v.translation.width)
                         model.laneDragMoved(v.location.x)
                         apply()
                     }
-                    .onEnded { _ in finish(o.id) }
+                    .onEnded { _ in
+                        if handedOver == o.id { handedOver = nil } else { finish(o.id) }
+                    }
             )
     }
 
@@ -1780,6 +1804,7 @@ struct OverlayLane: View {
         dragStart = nil
         active = nil
         model.laneDragEnded()
+        model.laneTrimEnded()
     }
 }
 

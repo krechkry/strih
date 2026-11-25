@@ -11257,6 +11257,26 @@
           }
         }
       }
+    },
+    "Trimming the start of the layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stříháš začátek vrstvy"
+          }
+        }
+      }
+    },
+    "Trimming the end of the layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stříháš konec vrstvy"
+          }
+        }
+      }
     }
   }
 }
