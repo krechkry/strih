@@ -64,17 +64,24 @@ object CompositionBuilder {
     /** Volume and the sound fades (Swift: volume ramps on the audio mix), on timeline time after the speed change. */
     fun gain(volume: Double, fades: Pair<Double, Double>, length: Double): AudioProcessor? {
         if (abs(volume - 1) < 1e-4 && fades.first < 0.01 && fades.second < 0.01) return null
-        return GainProcessor(object : GainProcessor.GainProvider {
+        return GainProcessor(gainProvider(volume, fades, length))
+    }
+
+    fun gainProvider(volume: Double, fades: Pair<Double, Double>, length: Double): GainProcessor.GainProvider {
+        return (object : GainProcessor.GainProvider {
             override fun getGainFactorAtSamplePosition(samplePosition: Long, sampleRate: Int): Float {
                 val t = samplePosition.toDouble() / sampleRate
                 return (volume * Fade.gain(t, length, fades)).toFloat().coerceIn(0f, 1f)
             }
-            override fun isUnityUntil(samplePosition: Long, sampleRate: Int): Long = C.TIME_UNSET.let {
-                // never unity unless the volume is 1 and we are between the fades
-                if (abs(volume - 1) > 1e-4) samplePosition else {
-                    val t = samplePosition.toDouble() / sampleRate
-                    if (t >= fades.first && t < length - fades.second) ((length - fades.second) * sampleRate).toLong() else samplePosition
-                }
+            /**
+             * GainProcessor asks only where the gain is exactly 1 and copies up to the answer: answering the same
+             * position there made it loop forever (the first sample of a fade-out, or a volume over 100 % clamped
+             * to 1), freezing the preview and the export. A unity sample always moves on by at least one.
+             */
+            override fun isUnityUntil(samplePosition: Long, sampleRate: Int): Long {
+                if (getGainFactorAtSamplePosition(samplePosition, sampleRate) != 1f) return samplePosition
+                if (fades.second < 0.01) return C.TIME_END_OF_SOURCE
+                return maxOf(samplePosition + 1, ((length - fades.second) * sampleRate).toLong())
             }
         })
     }
