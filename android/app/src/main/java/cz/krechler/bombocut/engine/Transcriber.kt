@@ -90,7 +90,8 @@ object Transcriber {
     /** The timeline's sound as a 16 kHz mono .m4a in the cache (Transformer, the same mix as the export). */
     private suspend fun exportAudio(context: Context, project: Project): File {
         val mono = ChannelMixingAudioProcessor().apply {
-            for (ch in 1..8) putChannelMixingMatrix(ChannelMixingMatrix.createForConstantGain(ch, 1))
+            // every channel an equal share (Media3's own defaults only go up to stereo)
+            for (ch in 1..8) putChannelMixingMatrix(ChannelMixingMatrix(ch, 1, FloatArray(ch) { 1f / ch }))
         }
         val rate = SonicAudioProcessor().apply { setOutputSampleRateHz(RATE) }
         val comp = CompositionBuilder.buildAudio(project, listOf(mono, rate)) ?: throw IOException("Nothing to listen to.")

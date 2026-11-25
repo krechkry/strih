@@ -51,6 +51,7 @@ for i in $(seq 1 100); do
   [ $i = 2 ] && adb exec-out screencap -p > $OUT/03-working.png
   adb shell "run-as $APP cat files/Projects/00000000-0000-0000-0000-00000000A0C1.json" > $OUT/project.json
   if grep -q '"words":\[{' $OUT/project.json; then break; fi
+  if adb logcat -d | grep -q "Bombocut: captions failed"; then echo "captions failed"; break; fi
 done
 echo "seconds: $(( $(date +%s) - START ))" > $OUT/time.txt
 sleep 2
