@@ -417,6 +417,162 @@
         "rotation": 0
       },
       "volume": 1
+    },
+    {
+      "anim": {
+        "inAnim": "fade",
+        "inDur": 0.3,
+        "outAnim": "none",
+        "outDur": 0.3
+      },
+      "behindSubject": false,
+      "blend": "normal",
+      "duration": 1.4,
+      "effects": {
+        "aberration": 0,
+        "bloom": 0,
+        "bloomSize": 0.4,
+        "bloomThreshold": 0,
+        "clarity": 0,
+        "contrast": 0,
+        "curve": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveB": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveG": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "curveR": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "exposure": 0,
+        "grain": 0,
+        "grainSize": 0.4,
+        "halation": 0,
+        "halationSize": 0.4,
+        "halationThreshold": 0.5,
+        "highlights": 0,
+        "hslHue": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslLum": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "hslSat": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "motionBlur": 0,
+        "saturation": 0,
+        "shadows": 0,
+        "temperature": 0,
+        "texture": 0,
+        "tint": 0,
+        "vignette": 0
+      },
+      "id": "00000000-0000-0000-0000-00000000C001",
+      "keys": [],
+      "kind": {
+        "video": {
+          "file": "blue.mp4",
+          "sourceDuration": 3,
+          "inPoint": 0.5
+        }
+      },
+      "opacity": 1,
+      "speed": 1,
+      "start": 1.0,
+      "style": {
+        "anim": "none",
+        "behindSubject": false,
+        "box": false,
+        "boxColor": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "boxOpacity": 0.7,
+        "caps": false,
+        "font": "heavy",
+        "highlight": {
+          "a": 1,
+          "b": 0.353,
+          "g": 1,
+          "r": 0.894
+        },
+        "lineSpacing": 1,
+        "lines": 3,
+        "maxChars": 32,
+        "naturalBreaks": true,
+        "punctuation": true,
+        "rotation": 0,
+        "shadow": false,
+        "shadowAngle": 90,
+        "shadowBlur": 0.18,
+        "shadowDistance": 0.05,
+        "shadowOpacity": 0.75,
+        "size": 0.075,
+        "stroke": {
+          "a": 1,
+          "b": 0,
+          "g": 0,
+          "r": 0
+        },
+        "strokeOutside": true,
+        "strokeWidth": 0,
+        "text": {
+          "a": 1,
+          "b": 1,
+          "g": 1,
+          "r": 1
+        },
+        "tracking": 0,
+        "x": 0,
+        "y": 0.72
+      },
+      "transform": {
+        "x": 0.2,
+        "y": 0.15,
+        "scale": 0.8,
+        "rotation": 0.25
+      },
+      "volume": 0,
+      "aspect": 0.5625
     }
   ]
 }

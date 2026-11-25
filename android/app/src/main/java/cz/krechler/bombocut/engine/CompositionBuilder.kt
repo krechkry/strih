@@ -2,7 +2,8 @@
 // iOS inserts one time-scaled piece per Retime segment; Media3 takes the same pieces as a SpeedProvider.
 // Covered so far: clips in order, trims, constant speed and speed curves (pitch kept or not), clip volume and
 // sound fades, fit / fill on the canvas, the look (LookLut), text layers and captions (TextLayer), transitions
-// (A / B rolls with every iOS shape: fade, slides, zooms, pop). Not yet: video layers, motion blur in
+// (A / B rolls with every iOS shape: fade, slides, zooms, pop), video layers as their own compositor inputs
+// (placement, keyframes, animations, speed, volume). Not yet: video layers' look / crop / mask / blend mode, motion blur in
 // transitions, Speech / Reverse on sounds. Sound items: soundSequences.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class)
 package cz.krechler.bombocut.engine
@@ -26,10 +27,13 @@ import cz.krechler.bombocut.model.AudioItem
 import cz.krechler.bombocut.model.Clip
 import cz.krechler.bombocut.model.Fade
 import cz.krechler.bombocut.model.MotionAnim
+import cz.krechler.bombocut.model.Overlay
+import cz.krechler.bombocut.model.OverlayKind
 import cz.krechler.bombocut.model.Paths
 import cz.krechler.bombocut.model.Project
 import cz.krechler.bombocut.model.Retime
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 object CompositionBuilder {
@@ -220,9 +224,9 @@ object CompositionBuilder {
      * composites when every roll's first item has video, so the roll without the first clip opens with that clip
      * again (silent by volume, hidden by the compositor) up to where its own first clip starts.
      */
-    private fun rolls(project: Project, placed: List<Placed>, width: Int, height: Int): List<EditedMediaItemSequence> {
+    private fun rolls(project: Project, placed: List<Placed>, width: Int, height: Int): List<Pair<Int, EditedMediaItemSequence>> {
         val total = placed.last().end
-        return (0..1).map { r ->
+        return (0..1).filter { r -> placed.any { it.roll == r } }.map { r -> r to run {
             val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
             var t = 0.0
             val first = placed.firstOrNull { it.roll == r }
@@ -240,11 +244,11 @@ object CompositionBuilder {
             }
             if (total - t > 0.001) b.addGap(us(total - t))
             b.build()
-        }
+        } }
     }
 
     /** How one roll shows at one moment: opacity, offset (canvas fractions, + = right / down) and scale. */
-    data class RollPose(val alpha: Double, val dx: Double = 0.0, val dy: Double = 0.0, val scale: Double = 1.0)
+    data class RollPose(val alpha: Double, val dx: Double = 0.0, val dy: Double = 0.0, val scale: Double = 1.0, val rotation: Double = 0.0)
 
     /**
      * Roll `roll` at timeline time t. In a transition: the iOS poses (CutTransition.poses) of the clip going out
@@ -270,27 +274,109 @@ object CompositionBuilder {
         return RollPose(if (q.roll == roll) 1.0 else 0.0)
     }
 
-    /** The compositor's side of the blend: each roll's pose as Media3 overlay settings (canvas-size inputs). */
-    private class Blends(private val project: Project, private val placed: List<Placed>, private val w: Int, private val h: Int) : VideoCompositorSettings {
+    /** Video layers that play over the clips, top first (the last in the project's list is drawn on top, like TextLayer). */
+    fun videoLayers(project: Project): List<Overlay> {
+        val total = project.duration
+        return project.overlays.filter { it.kind is OverlayKind.Video && it.start < total - 0.01 && it.duration > 0.01 }.asReversed()
+    }
+
+    /** A video layer's size on the canvas at scale 1, in pixels (its box already has the video's aspect). */
+    private fun layerSize(o: Overlay, w: Int, h: Int): Pair<Int, Int> {
+        val (bw, bh) = o.baseFraction(w.toDouble() / h)
+        return maxOf(2, (bw * w).roundToInt() / 2 * 2) to maxOf(2, (bh * h).roundToInt() / 2 * 2)
+    }
+
+    private fun layerItem(file: String, sourceDuration: Double, from: Double, to: Double, lw: Int, lh: Int,
+                          volume: Double, length: Double, speed: SpeedProvider?): EditedMediaItem {
+        val media = MediaItem.Builder()
+            .setUri(Uri.fromFile(Paths.mediaFile(file)))
+            .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionUs(us(from)).setEndPositionUs(us(to)).build())
+            .build()
+        val audio = listOfNotNull(gain(volume, 0.0 to 0.0, length))
+        val video = listOf(Presentation.createForWidthAndHeight(lw, lh, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+        val b = EditedMediaItem.Builder(media).setEffects(Effects(audio, video)).setDurationUs(us(sourceDuration))
+        speed?.let { b.setSpeed(SpeedParameters(it, true)) }
+        return b.build()
+    }
+
+    /**
+     * One video layer as its own compositor input: a hidden, silent opener from its own file (Transformer wants
+     * every input to start with video), the layer at its time with its speed (or speed curve) and volume, then gaps
+     * to the end. A layer starting in the first 40 ms starts that much earlier in its footage instead.
+     */
+    private fun layerSequence(o: Overlay, total: Double, width: Int, height: Int): EditedMediaItemSequence {
+        val v = o.kind as OverlayKind.Video
+        val (lw, lh) = layerSize(o, width, height)
+        val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+        val length = minOf(o.duration, total - o.start)
+        var t = 0.0
+        var lead = 0.0
+        if (o.start >= 0.04) {
+            val len = minOf(o.start, v.sourceDuration)
+            b.addItem(layerItem(v.file, v.sourceDuration, 0.0, len, lw, lh, 0.0, len, null))
+            t = len
+            if (o.start - t > 0.001) b.addGap(us(o.start - t))
+            t = o.start
+        } else lead = o.start
+        val rt = o.curveRetime
+        if (rt != null) {
+            val from = v.inPoint
+            val to = rt.source(rt.local(v.inPoint) + length)
+            b.addItem(layerItem(v.file, v.sourceDuration, from, to, lw, lh, o.volume, length, speedProvider(rt, from)))
+        } else {
+            val from = maxOf(0.0, v.inPoint - lead * o.speed)
+            val to = minOf(v.sourceDuration, v.inPoint + length * o.speed)
+            val sp = if (abs(o.speed - 1) > 1e-4) constantSpeed(o.speed.toFloat()) else null
+            b.addItem(layerItem(v.file, v.sourceDuration, from, to, lw, lh, o.volume, length + lead, sp))
+        }
+        t += length + lead
+        if (total - t > 0.001) b.addGap(us(total - t))
+        return b.build()
+    }
+
+    /** Where a video layer is at timeline time t (TextLayer's placement): offset from the center, scale, turn. */
+    fun layerPose(o: Overlay, t: Double): RollPose {
+        if (t < o.start - 1e-4 || t >= o.end) return RollPose(0.0)
+        val (tr, opacity) = o.pose(t)
+        val a = o.anim.pose(t - o.start, o.duration)
+        return RollPose(opacity * a.opacity, tr.x + a.dx, tr.y + a.dy, tr.scale * a.scale, tr.rotation)
+    }
+
+    /**
+     * The compositor's side: inputs are the video layers (top first), then the clip rolls. Media3 draws its inputs
+     * top to bottom in that order. Each input's pose as overlay settings, implemented directly because the
+     * builder only takes anchors inside the frame and a slide moves a whole frame.
+     */
+    private class Layout(private val project: Project, private val placed: List<Placed>, private val layers: List<Overlay>,
+                         private val rollOf: List<Int>, private val w: Int, private val h: Int) : VideoCompositorSettings {
         override fun getOutputSize(inputSizes: List<Size>): Size = Size(w, h)
 
         private var logged = 0
 
         override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
-            val p = rollPose(placed, project, inputId, presentationTimeUs / 1_000_000.0)
+            val t = presentationTimeUs / 1_000_000.0
+            val p = if (inputId < layers.size) layerPose(layers[inputId], t)
+                    else rollPose(placed, project, rollOf.getOrElse(inputId - layers.size) { 0 }, t)
             if (p.alpha > 0.01 && p.alpha < 0.99 && logged < 12) { logged++; android.util.Log.i("Bombocut", "blend input $inputId at $presentationTimeUs us: alpha ${p.alpha}") }
-            // implemented directly: the builder only takes anchors inside the frame, a slide moves a whole frame
+            if (inputId < layers.size && p.alpha > 0.01 && logged < 16) { logged++; android.util.Log.i("Bombocut", "layer input $inputId at $presentationTimeUs us: $p") }
             return object : OverlaySettings {
                 override fun getAlphaScale(): Float = p.alpha.toFloat().coerceAtLeast(0f)
                 override fun getBackgroundFrameAnchor(): android.util.Pair<Float, Float> =
                     android.util.Pair((2 * p.dx).toFloat(), (-2 * p.dy).toFloat())
                 override fun getScale(): android.util.Pair<Float, Float> = android.util.Pair(p.scale.toFloat(), p.scale.toFloat())
+                // ours turns clockwise in radians, Media3's counter-clockwise in degrees
+                override fun getRotationDegrees(): Float = (-Math.toDegrees(p.rotation)).toFloat()
             }
         }
     }
 
-    /** Whether the project's transitions blend (two rolls and the compositor) or play as a cut in the middle. */
-    fun blends(project: Project): Boolean = BLENDS && (1 until project.clips.size).any { project.cutShape(it).let { s -> s.shrink + s.tail + s.head } > 0.01 }
+    /**
+     * Whether the project goes through the compositor (transitions blend, video layers play) or plays as one roll
+     * (a transition as a cut in its middle).
+     */
+    fun blends(project: Project): Boolean = BLENDS && (
+        (1 until project.clips.size).any { project.cutShape(it).let { s -> s.shrink + s.tail + s.head } > 0.01 } ||
+        videoLayers(project).isNotEmpty())
 
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
     fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {
@@ -301,8 +387,11 @@ object CompositionBuilder {
         if (blends(project)) {
             // transitions: A / B rolls blended by the compositor (the preview needs MultipleInputVideoGraph)
             val placed = placeRolls(project)
-            video = rolls(project, placed, width, height)
-            settings = Blends(project, placed, width, height)
+            // video layers first (drawn on top), then the clip rolls (only those that hold clips)
+            val layers = videoLayers(project)
+            val rolls = rolls(project, placed, width, height)
+            video = layers.map { layerSequence(it, placed.last().end, width, height) } + rolls.map { it.second }
+            settings = Layout(project, placed, layers, rolls.map { it.first }, width, height)
         } else {
             // no transitions, or blending off: one roll, a transition plays as a cut in its middle
             val items = project.clips.mapIndexed { k, c ->

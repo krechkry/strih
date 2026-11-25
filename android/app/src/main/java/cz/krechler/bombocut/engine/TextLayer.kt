@@ -1,7 +1,7 @@
 // Text layers and captions over the picture (iOS: OverlayRenderer text + CaptionRenderer in FrameCompositor),
 // as one Media3 BitmapOverlay the size of the canvas, used by the preview and the export alike. The frame is
 // drawn again only when what shows changes (a new line, a layer coming in, a keyframe or an animation moving).
-// Pictures are drawn too (fit, keyframes, animations), video layers as their first frame. Not yet: moving video layers, blend modes, crop / mask / effects
+// Pictures are drawn too (fit, keyframes, animations); video layers play in the compositor. Not yet: blend modes, crop / mask / effects
 // on pictures, pinned (tracked) layers, per-word caption animations.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class)
 package cz.krechler.bombocut.engine
@@ -75,9 +75,9 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
         }
         for (o in project.overlays) {
             val pic = o.kind as? OverlayKind.Image
-            val vid = o.kind as? OverlayKind.Video
+            // video layers play as their own compositor inputs (CompositionBuilder.layerSequence)
             val text = (o.kind as? OverlayKind.Text)?.text
-            if (text == null && pic == null && vid == null) continue
+            if (text == null && pic == null) continue
             if (t < o.start - 1e-4 || t >= o.end) continue
             val (tr, opacity) = o.pose(t)
             val a = o.anim.pose(t - o.start, o.duration)
@@ -85,9 +85,8 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
             if (alpha <= 0.004) continue
             out.add(Piece("o${o.id}", text ?: "", o.style, true, (w / 2 + (tr.x + a.dx) * w).toFloat(), (h / 2 + (tr.y + a.dy) * h).toFloat(),
                           (tr.scale * a.scale).toFloat(), Math.toDegrees(tr.rotation).toFloat(), alpha.toFloat(),
-                          // a video layer shows its first frame for now (moving video layers need the compositor)
-                          file = pic?.file ?: vid?.let { "video:${it.file}@${it.inPoint}" },
-                          base = if (pic != null || vid != null) o.baseFraction(w.toDouble() / h) else null))
+                          file = pic?.file,
+                          base = if (pic != null) o.baseFraction(w.toDouble() / h) else null))
         }
         return out
     }
@@ -96,15 +95,6 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
 
     /** A picture layer's file, at most 2400 px on its long side (iOS keeps big photos manageable the same way). */
     private fun picture(file: String): Bitmap? = pictures.getOrPut(file) {
-        if (file.startsWith("video:")) return@getOrPut runCatching {
-            val name = file.removePrefix("video:").substringBeforeLast('@')
-            val at = file.substringAfterLast('@').toDouble()
-            val r = android.media.MediaMetadataRetriever()
-            try {
-                r.setDataSource(cz.krechler.bombocut.model.Paths.mediaFile(name).path)
-                r.getFrameAtTime((at * 1e6).toLong(), android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            } finally { r.release() }
-        }.getOrNull()
         runCatching {
             val f = cz.krechler.bombocut.model.Paths.mediaFile(file)
             val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -151,7 +141,7 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
     companion object {
         /** The layer as an effect, or null when the project has no text and no captions. */
         fun hasAny(project: Project): Boolean =
-            project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind !is OverlayKind.Adjustment }
+            project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind !is OverlayKind.Adjustment && it.kind !is OverlayKind.Video }
 
         /** `live`: the preview, reading LiveLayers; export takes the project as it is. */
         fun effect(project: Project, w: Int, h: Int, live: Boolean = false): OverlayEffect? {

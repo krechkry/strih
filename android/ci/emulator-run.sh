@@ -94,6 +94,7 @@ if [ -n "$F" ]; then
   # around the transition (the cut sits in its middle): which source frame shows
   for t in 2.7 2.8 2.87 2.95; do ffmpeg -loglevel error -ss $t -i $OUT/export.mp4 -frames:v 1 $OUT/export-at-$t.png; done
   ffmpeg -loglevel error -ss 1 -i $OUT/export.mp4 -frames:v 1 $OUT/10-export-frame-1s.png
+  ffmpeg -loglevel error -ss 1.8 -i $OUT/export.mp4 -frames:v 1 $OUT/10b-export-layer-1.8s.png
   ffmpeg -loglevel error -ss 3.5 -i $OUT/export.mp4 -frames:v 1 $OUT/11-export-frame-3.5s.png
   rm $OUT/export.mp4
 else
