@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
@@ -308,4 +309,57 @@ fun CaptionLineSheet(model: EditorModel) {
     )
     Text(Fmt.cFixed(cue.start, 1) + " s  -  " + Fmt.cFixed(cue.end, 1) + " s", color = Theme.muted, fontWeight = FontWeight.Bold)
     TextButton({ model.deleteCue(k, id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    CaptionStyleControls(model, k)
+}
+
+/** The look of a whole captions track (iOS: Captions > Style). Lines and characters per line come later (they cut
+ *  the lines again, which needs the cutter on Android). */
+fun EditorModel.setCaptionStyle(track: Int, change: (cz.krechler.bombocut.model.CaptionStyle) -> cz.krechler.bombocut.model.CaptionStyle) = mutate { p ->
+    val tracks = p.captionTracks.toMutableList()
+    val caps = tracks.getOrNull(track) ?: return@mutate p
+    val n = change(caps.style)
+    if (n == caps.style) return@mutate p
+    tracks[track] = caps.copy(style = n)
+    p.copy(captionTracks = tracks)
+}
+
+@Composable
+private fun CaptionStyleControls(model: EditorModel, k: Int) {
+    val st = model.project.captionTracks.getOrNull(k)?.style ?: return
+    Text(loc("Style"), color = Color.White, fontWeight = FontWeight.Black)
+    var size by remember(k, st.size) { mutableStateOf(st.size) }
+    Row {
+        Text(loc("Size"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(size * 1000).toInt()}", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(size, 0.03..0.16, { size = it }, { model.setCaptionStyle(k) { it.copy(size = size) } })
+    var y by remember(k, st.y) { mutableStateOf(st.y) }
+    Row {
+        Text(loc("Position"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(y * 100).toInt()} %", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(y, 0.05..0.95, { y = it }, { model.setCaptionStyle(k) { it.copy(y = y) } })
+    Text(loc("Color"), color = Theme.muted, fontWeight = FontWeight.Bold)
+    Swatches(st.text) { c -> model.setCaptionStyle(k) { it.copy(text = c) } }
+    var outline by remember(k, st.strokeWidth) { mutableStateOf(st.strokeWidth) }
+    Row {
+        Text(loc("Outline"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(outline * 100).toInt()}", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(outline, 0.0..1.0, { outline = it }, { model.setCaptionStyle(k) { it.copy(strokeWidth = outline) } })
+    OnOffRow("Shadow", isOn = st.shadow) { on -> model.setCaptionStyle(k) { it.copy(shadow = on) } }
+    OnOffRow("Box", isOn = st.box) { on -> model.setCaptionStyle(k) { it.copy(box = on) } }
+    OnOffRow("CAPS", isOn = st.caps) { on -> model.setCaptionStyle(k) { it.copy(caps = on) } }
+    Text(loc("Animation"), color = Theme.muted, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        // the ones Android draws today (Highlight and Word by word need per-word drawing)
+        for ((a, name) in listOf(cz.krechler.bombocut.model.CaptionAnim.none to "None", cz.krechler.bombocut.model.CaptionAnim.fade to "Fade",
+                                 cz.krechler.bombocut.model.CaptionAnim.pop to "Pop", cz.krechler.bombocut.model.CaptionAnim.slide to "Slide up")) {
+            val on = st.anim == a
+            Text(loc(name), color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
+                 modifier = Modifier.background(if (on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                     .clickable { model.setCaptionStyle(k) { it.copy(anim = a) } }
+                     .padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+    }
 }

@@ -111,6 +111,9 @@ sleep 1
 python3 android/ci/tap.py "Ahoj lidi" || true
 sleep 3
 adb exec-out screencap -p > $OUT/15-caption.png
+adb shell input swipe 540 2000 540 1300 400
+sleep 1
+adb exec-out screencap -p > $OUT/15b-caption-style.png
 # the paywall (debug builds skip it unless asked): a fresh start shows the free week offer
 adb shell am force-stop $APP
 adb shell run-as $APP rm -f shared_prefs/purchases.xml || true
