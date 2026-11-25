@@ -77,6 +77,16 @@ for i in $(seq 1 60); do
 done
 sleep 3
 adb exec-out screencap -p > $OUT/09-export-done.png
+# the app's own warnings and errors so far (preview and export), and when the export is stuck: every thread's stack
+PID=$(adb shell pidof $APP | tr -d '\r')
+adb logcat -d -v threadtime --pid=$PID 2>/dev/null | grep -E " [WEF] |blend input" | head -800 > $OUT/app-log.txt || true
+if ! adb shell ls /sdcard/Movies/BOMBOCUT/ 2>/dev/null | grep -q mp4 && [ -n "$PID" ]; then
+  adb root > /dev/null 2>&1; sleep 3
+  adb shell kill -3 $PID; sleep 4
+  T=$(adb shell ls -t /data/anr 2>/dev/null | head -1 | tr -d '\r')
+  [ -n "$T" ] && adb shell cat /data/anr/$T > $OUT/threads.txt
+  adb unroot > /dev/null 2>&1 || true; sleep 3; adb wait-for-device
+fi
 F=$(adb shell ls /sdcard/Movies/BOMBOCUT/ | tr -d '\r' | grep mp4 | head -1)
 if [ -n "$F" ]; then
   adb pull "/sdcard/Movies/BOMBOCUT/$F" $OUT/export.mp4
