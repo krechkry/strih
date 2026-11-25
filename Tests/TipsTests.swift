@@ -21,6 +21,7 @@ final class TipsTests: XCTestCase {
 }
 
 /// Czech captions: Polish / Slovak spellings the speech model sometimes writes (2026-11-25).
+@MainActor
 final class CzechSpellingTests: XCTestCase {
     func testPolishAndSlovakSpellingsBecomeCzechCandidates() {
         XCTAssertTrue(SpellCheck.czechSpellings("najdesz").contains("najdeš"))
