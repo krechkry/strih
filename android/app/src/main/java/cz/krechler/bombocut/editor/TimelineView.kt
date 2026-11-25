@@ -101,7 +101,7 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
                     }
                 }
             }
-            .pointerInput(Unit) { detectTapGestures { model.selectedClipID = null; model.selectedOverlayID = null; model.selectedAudioID = null } },
+            .pointerInput(Unit) { detectTapGestures { model.selectedClipID = null; model.selectedOverlayID = null; model.selectedAudioID = null; model.selectedCue = null } },
     ) {
         val center = maxWidth / 2
         val px = tl.pxPerSec
@@ -116,7 +116,11 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
             val y = LaneLayout.top + (LaneLayout.caption + LaneLayout.rowGap.dp) * k
             caps.cues.forEach { cue ->
                 LaneBlock(x0 + (cue.start * px).dp, ((cue.end - cue.start) * px).toFloat(), y, LaneLayout.caption,
-                          Theme.accent.copy(alpha = if (p.activeCaption == k) 0.4f else 0.22f), cue.text, Color.White)
+                          Theme.accent.copy(alpha = if (p.activeCaption == k) 0.4f else 0.22f), cue.text, Color.White,
+                          selected = model.selectedCue == (k to cue.id)) {
+                    // tap a line: its words in the panel
+                    if (model.selectedCue == (k to cue.id)) model.selectCue(k, null) else { model.selectCue(k, cue.id); pick("caption") }
+                }
             }
         }
         // layers: the higher row is drawn on top, the lowest sits right above the clips

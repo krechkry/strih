@@ -16,7 +16,22 @@ data class CaptionCue(
     val end: Double,
     val text: String,
     val words: List<CaptionWord>,
-)
+) {
+    /** Swift setText: the new text, its words spread evenly over the line (by letters), after a manual edit. */
+    fun withText(t: String): CaptionCue {
+        val tokens = t.split(' ', '\n').filter { it.isNotEmpty() }
+        if (tokens.isEmpty()) return copy(text = t, words = emptyList())
+        val total = tokens.sumOf { it.length }.toDouble()
+        var cursor = start
+        val ws = tokens.map { w ->
+            val d = (end - start) * w.length / maxOf(total, 1.0)
+            val word = CaptionWord(w, cursor, cursor + d)
+            cursor += d
+            word
+        }
+        return copy(text = t, words = ws)
+    }
+}
 
 @Serializable enum class CaptionFont { heavy, rounded, condensed, avenir, futura, serif, typewriter, mono }
 

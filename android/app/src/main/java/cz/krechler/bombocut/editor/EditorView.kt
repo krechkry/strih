@@ -127,16 +127,18 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
     val fits = when (open) {
         "text" -> model.selectedOverlay?.isText == true
         "sound" -> model.selectedAudio != null
+        "caption" -> model.selectedCueLine != null
         "picture" -> model.selectedOverlay?.kind is cz.krechler.bombocut.model.OverlayKind.Image
         null -> false
         else -> model.selectedIndex != null
     }
     if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; "caption" -> 300.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
                     "text" -> TextSheet(model)
                     "sound" -> SoundSheet(model)
+                    "caption" -> CaptionLineSheet(model)
                     "picture" -> PictureSheet(model)
                     "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)

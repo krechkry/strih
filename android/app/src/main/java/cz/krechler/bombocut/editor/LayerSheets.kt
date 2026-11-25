@@ -38,8 +38,35 @@ import cz.krechler.bombocut.model.Paths
 import java.io.File
 import java.util.UUID
 
-fun EditorModel.selectOverlay(id: UUID?) { selectedOverlayID = id; if (id != null) { selectedClipID = null; selectedAudioID = null } }
-fun EditorModel.selectAudio(id: UUID?) { selectedAudioID = id; if (id != null) { selectedClipID = null; selectedOverlayID = null } }
+fun EditorModel.selectOverlay(id: UUID?) { selectedOverlayID = id; if (id != null) { selectedClipID = null; selectedAudioID = null; selectedCue = null } }
+fun EditorModel.selectAudio(id: UUID?) { selectedAudioID = id; if (id != null) { selectedClipID = null; selectedOverlayID = null; selectedCue = null } }
+fun EditorModel.selectCue(track: Int, id: UUID?) {
+    selectedCue = id?.let { track to it }
+    if (id != null) { selectedClipID = null; selectedOverlayID = null; selectedAudioID = null }
+}
+
+val EditorModel.selectedCueLine: cz.krechler.bombocut.model.CaptionCue? get() {
+    val (k, id) = selectedCue ?: return null
+    return project.captionTracks.getOrNull(k)?.cues?.firstOrNull { it.id == id }
+}
+
+/** A caption line's words typed again (iOS: CaptionCue.setText), or the line gone. */
+fun EditorModel.setCueText(track: Int, id: UUID, text: String) = mutate { p ->
+    val tracks = p.captionTracks.toMutableList()
+    val caps = tracks.getOrNull(track) ?: return@mutate p
+    tracks[track] = caps.copy(cues = caps.cues.map { if (it.id == id) it.withText(text) else it })
+    p.copy(captionTracks = tracks)
+}
+
+fun EditorModel.deleteCue(track: Int, id: UUID) {
+    mutate { p ->
+        val tracks = p.captionTracks.toMutableList()
+        val caps = tracks.getOrNull(track) ?: return@mutate p
+        tracks[track] = caps.copy(cues = caps.cues.filter { it.id != id })
+        p.copy(captionTracks = tracks)
+    }
+    selectedCue = null
+}
 
 val EditorModel.selectedOverlay: Overlay? get() = selectedOverlayID?.let { id -> project.overlays.firstOrNull { it.id == id } }
 val EditorModel.selectedAudio: AudioItem? get() = selectedAudioID?.let { id -> project.audio.firstOrNull { it.id == id } }
@@ -266,4 +293,19 @@ private fun Swatches(current: cz.krechler.bombocut.model.RGBA, pick: (cz.krechle
             )
         }
     }
+}
+
+@Composable
+fun CaptionLineSheet(model: EditorModel) {
+    val (k, id) = model.selectedCue ?: return
+    val cue = model.selectedCueLine ?: return
+    var text by remember(id) { mutableStateOf(cue.text) }
+    OutlinedTextField(
+        text, { text = it; model.setCueText(k, id, it) },
+        Modifier.fillMaxWidth(),
+        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                                  focusedBorderColor = Theme.accent, cursorColor = Theme.accent),
+    )
+    Text(Fmt.cFixed(cue.start, 1) + " s  -  " + Fmt.cFixed(cue.end, 1) + " s", color = Theme.muted, fontWeight = FontWeight.Bold)
+    TextButton({ model.deleteCue(k, id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
 }

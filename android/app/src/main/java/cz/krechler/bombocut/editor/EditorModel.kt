@@ -21,6 +21,8 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
     /** A text / layer or a sound picked in its lane (picking one lets go of the others, like iOS). */
     var selectedOverlayID by mutableStateOf<UUID?>(null)
     var selectedAudioID by mutableStateOf<UUID?>(null)
+    /** A caption line picked in its lane (track, line). */
+    var selectedCue by mutableStateOf<Pair<Int, UUID>?>(null)
     var canUndo by mutableStateOf(false)
         private set
     var canRedo by mutableStateOf(false)
