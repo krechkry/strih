@@ -11277,6 +11277,36 @@
           }
         }
       }
+    },
+    "Edit existing track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravit stávající stopu"
+          }
+        }
+      }
+    },
+    "Edit track %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravit stopu %lld"
+          }
+        }
+      }
+    },
+    "Create new track": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvořit novou stopu"
+          }
+        }
+      }
     }
   }
 }

@@ -1217,6 +1217,10 @@ struct CaptionLane: View {
         // told us, which froze the timeline's scrolling)
         .onChange(of: selected) { _, on in if !on && dragStart != nil { finish() } }
         .onDisappear { if dragStart != nil { finish() } }
+        // the playhead left the picked line (it stays on the track), or reached a neighbour while merging
+        .onChange(of: model.currentTime) { old, new in
+            if selected && dragStart == nil { model.captionPlayheadMoved(from: old, to: new) }
+        }
     }
 
     private func block(_ cue: CaptionCue, px: CGFloat) -> some View {
@@ -1225,10 +1229,12 @@ struct CaptionLane: View {
         let moving = dragStart?.id == cue.id
         let width: CGFloat = max(4, CGFloat(cue.end - cue.start) * px - 1)
         let role = mergeRole(cue)
-        let lit = on || tapped || role == .target
+        // merging: the picked line full lime, the two it can join a dimmer lime (so they read apart), the rest faded
+        let lit = (on || tapped) && role != .target
+        let fill: Color = role == .target ? Theme.accent.opacity(0.45) : lit ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22)
         return label(cue, width: width, on: on, dark: lit, px: px)
             .frame(width: width, height: Self.height, alignment: .leading)
-            .background(lit ? Theme.accent : Theme.accent.opacity(selected ? 0.4 : 0.22), in: RoundedRectangle(cornerRadius: 4))
+            .background(fill, in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Theme.accent : .clear, lineWidth: 1))
             .overlay {
                 // merging: the lines it can join wear a dashed white edge
@@ -1240,7 +1246,8 @@ struct CaptionLane: View {
             .clipped()
             .opacity(role == .dim ? 0.25 : 1)
             .overlay(alignment: .leading) {
-                if tapped {
+                // no ends to drag while merging
+                if tapped && model.mergePick == nil {
                     HStack(spacing: 0) {
                         edge(cue, leading: true, px: px)
                         Color.clear.frame(width: max(4, CGFloat(cue.end - cue.start) * px - 1)).allowsHitTesting(false)
@@ -1259,7 +1266,7 @@ struct CaptionLane: View {
                         .offset(y: 20)
                 }
             }
-            .contentShape(OutsetX(dx: tapped ? LaneEdge.width + 8 : 0))
+            .contentShape(OutsetX(dx: tapped && model.mergePick == nil ? LaneEdge.width + 8 : 0))
             .onTapGesture {
                 switch role {
                 case .none: model.tapCaption(cue, track: track)

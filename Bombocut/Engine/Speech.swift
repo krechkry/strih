@@ -183,6 +183,8 @@ enum Transcriber {
         }
         let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
         words = SpellCheck.applyNames(words, typed)
+        // Polish / Slovak spellings back to Czech first, then the usual second look at unsure words
+        if language == "cs" { words = SpellCheck.czech(words, keep: Set(typed.map { $0.lowercased() })) }
         words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
         return words
     }
@@ -430,6 +432,47 @@ enum SpellCheck {
             out.text = w.text.replacingOccurrences(of: core, with: sameCase(g, as: core))
             return out
         }
+    }
+
+    /// Czech picked, but the model (it has no "only this language" switch) now and then writes a word the Polish
+    /// or Slovak way ("najdesz", "môžeš"). A word the Czech dictionary doesn't know is spelled again the Czech way
+    /// (sz -> š, cz -> č, rz -> ř, ł -> l, ô -> ů, ...) and swapped only when that gives a real Czech word.
+    static func czech(_ words: [CaptionWord], keep: Set<String>) -> [CaptionWord] {
+        guard let lang = UITextChecker.availableLanguages.first(where: { $0.hasPrefix("cs") }) else { return words }
+        let checker = UITextChecker()
+        func known(_ w: String) -> Bool {
+            let r = NSRange(location: 0, length: (w as NSString).length)
+            return checker.rangeOfMisspelledWord(in: w, range: r, startingAt: 0, wrap: false, language: lang).location == NSNotFound
+        }
+        return words.map { w in
+            let core = w.text.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+            guard core.count >= 2, core.allSatisfy({ $0.isLetter }), !keep.contains(core.lowercased()),
+                  !known(core) else { return w }
+            for c in czechSpellings(core.lowercased()) where c != core.lowercased() && known(c) {
+                var out = w
+                out.text = w.text.replacingOccurrences(of: core, with: sameCase(c, as: core))
+                return out
+            }
+            return w
+        }
+    }
+
+    /// Polish and Slovak spellings of a sound, written the Czech way.
+    static let czechRules: [(String, String)] = [
+        ("sz", "š"), ("cz", "č"), ("rz", "ř"), ("ł", "l"), ("ś", "š"), ("ć", "č"), ("ź", "ž"), ("ż", "ž"),
+        ("ń", "ň"), ("ó", "ů"), ("ę", "e"), ("ą", "a"), ("w", "v"),
+        ("ä", "e"), ("ô", "ů"), ("ľ", "l"), ("ĺ", "l"), ("ŕ", "r"), ("ia", "ie"),
+    ]
+
+    /// Every rule at once first, then each one on its own (a word can need just one of them).
+    static func czechSpellings(_ w: String) -> [String] {
+        let rules = czechRules.filter { w.contains($0.0) && $0.0 != $0.1 }
+        guard !rules.isEmpty else { return [] }
+        var all = w
+        for (a, b) in rules { all = all.replacingOccurrences(of: a, with: b) }
+        var out = [all]
+        for (a, b) in rules where rules.count > 1 { out.append(w.replacingOccurrences(of: a, with: b)) }
+        return out
     }
 
     /// Names and slang you typed win over what Whisper heard when they sound alike ("Krištof" -> "Kryštof").

@@ -265,15 +265,16 @@ struct CaptionsSheet: View {
                     HStack(spacing: 6) {
                         tabButton("Text", 0)
                         tabButton("Style", 1)
-                        tabButton("Presets", 4)
                         tabButton("Translate", 3)
                             .overlay {
                                 Capsule().strokeBorder(Theme.accent, lineWidth: 2)
                                     .opacity(translateGlow)
                                     .allowsHitTesting(false)
                             }
+                        tabButton("Presets", 4)
                     }
                 }
+                regenerateButton
             }
             .onAppear { glowTranslate() }
             .onChange(of: model.hintTranslate) { glowTranslate() }
@@ -283,14 +284,8 @@ struct CaptionsSheet: View {
             .onAppear { showCaptionForStyling() }
             .onDisappear { model.captionLayoutOpen = false }
             }
-            if let scope = model.captionScope, tab == 1 || tab == 4, !scopedCues(caps).isEmpty {
-                trackRow(scope)
-            } else if model.captionScope == nil && tab != 3 && !compact {
-                tracksRow
-            } else if model.captionScope != nil && tab == 3 {
-                Text("Translation covers the whole captions track.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-            }
+            // which track: picked when the captions open (Edit existing / New track) or with the captions mark
+            // beside a lane, so no track row here
             switch tab {
             case 0: textList(caps)
             case 1, 2: styleEditor(caps)
@@ -361,6 +356,24 @@ struct CaptionsSheet: View {
             try? await Task.sleep(for: .milliseconds(450))
             withAnimation(.easeOut(duration: 2.4)) { translateGlow = 0 }
         }
+    }
+
+    /// Far right of the tab row: the generate page again (language, names, all or picked clips).
+    private var regenerateButton: some View {
+        Button {
+            focusedCue = nil
+            model.closeClipCaptions()
+            model.captionsNewTrack = false
+            model.captionsGenerator = true
+        } label: {
+            Image(systemName: "arrow.clockwise")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Theme.panel2, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc("Regenerate"))
     }
 
     private func tabButton(_ title: String, _ i: Int) -> some View {
@@ -510,11 +523,8 @@ struct CaptionsSheet: View {
         .accessibilityLabel(loc("Regenerate"))
     }
 
-    /// Opened from a clip: only the lines on that clip.
-    private func scopedCues(_ caps: Captions) -> [CaptionCue] {
-        guard let id = model.captionScope, let r = model.clipRange(id) else { return caps.cues }
-        return caps.cues.filter { r.contains(($0.start + $0.end) / 2) }
-    }
+    /// The lines the panel lists: the whole track, opened from a clip or not (the same panel everywhere).
+    private func scopedCues(_ caps: Captions) -> [CaptionCue] { caps.cues }
 
     /// Tapped a caption in the timeline: scroll to its line and start editing it.
     private func focusRequested(_ proxy: ScrollViewProxy) {
@@ -596,8 +606,8 @@ struct CaptionsSheet: View {
 
     // MARK: Style sections
 
-    /// How the words are cut into lines and where they sit: 1 or 2 lines, characters per line, position,
-    /// punctuation, natural breaks, behind the subject.
+    /// How the words are cut into lines: 1 or 2 lines, characters per line, punctuation, natural breaks, behind
+    /// the subject. Where they sit: drag them in the preview (pinch to size them).
     @ViewBuilder
     private func layoutSection(_ s: CaptionStyle) -> some View {
         // lines and characters per line side by side (one row, the wheel shows the line length as you spin it)
@@ -608,7 +618,6 @@ struct CaptionsSheet: View {
                         live: { v in liveChars(v) }) { v in setLines(s.lines, v) }
                 .accessibilityLabel(loc("Characters per line"))
         }
-        slider("Position", value: s.y, def: Self.base.y, in: 0.08...0.92) { v in { $0.y = v } }
         PanelBreak()
         OnOffRow(title: "Commas and full stops", isOn: s.punctuation) { v in
             CaptionPrefs.remember(punctuation: v)
@@ -812,58 +821,6 @@ struct CaptionsSheet: View {
         guard var c = model.project.captions else { return }
         c.restyle(change)
         model.setCaptions(c)
-    }
-
-    /// The captions tracks (each with its own lines and style): which one the panel works on, and a new one.
-    private var tracksRow: some View {
-        let tracks = model.project.captionTracks.count
-        let on = model.project.activeCaption
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                if tracks > 1 {
-                    ForEach(0..<tracks, id: \.self) { k in
-                        pill(String(format: loc("Track %lld"), k + 1), on: k == on) { model.pickCaptionTrack(k) }
-                    }
-                }
-                Button { model.newCaptionTrack() } label: {
-                    Label("New captions track", systemImage: "plus")
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                        .font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 14).frame(height: 36)
-                        .background(Theme.panel2, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    /// Opened from a clip: which captions track this clip's lines are on. Each track has its own style, so
-    /// moving the lines to another track (or a new one) styles them apart from the rest.
-    private func trackRow(_ clip: UUID) -> some View {
-        let tracks = model.project.captionTracks.count
-        let on = model.project.activeCaption
-        return VStack(alignment: .leading, spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(0..<tracks, id: \.self) { k in
-                        pill(String(format: loc("Track %lld"), k + 1), on: k == on) {
-                            model.moveClipCaptions(clip, to: k)
-                        }
-                    }
-                    Button { model.moveClipCaptions(clip, to: nil) } label: {
-                        Label("New track", systemImage: "plus")
-                            .lineLimit(1).minimumScaleFactor(0.7)
-                            .font(.subheadline.weight(.bold)).foregroundStyle(.white)
-                            .padding(.horizontal, 14).frame(height: 36)
-                            .background(Theme.panel2, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            Text("Style applies to the whole track. Put this clip's captions on their own track to style them differently.")
-                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     private func setStyle(recut: Bool = false, _ change: (inout CaptionStyle) -> Void) {

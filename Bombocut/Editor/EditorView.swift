@@ -252,6 +252,19 @@ struct EditorView: View {
                 LengthPopup(prompt: p) { model.lengthPrompt = nil }.id(p.id)
             }
         }
+        // Captions with captions already made: edit a track or make a new one
+        .confirmationDialog("Captions", isPresented: $model.askCaptionsTrack, titleVisibility: .visible) {
+            let n = model.project.captionTracks.count
+            if n == 1 {
+                Button("Edit existing track") { model.openCaptionTrack(0) }
+            } else {
+                ForEach(0..<n, id: \.self) { k in
+                    Button(String(format: loc("Edit track %lld"), k + 1)) { model.openCaptionTrack(k) }
+                }
+            }
+            Button("Create new track") { model.newCaptionTrack() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     /// Converting old camera files: the question first, then what didn't make it (kept apart so the compiler can check the body quickly).
@@ -871,17 +884,17 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
                 } else if model.captionsSelected, model.project.captions != nil {
-                    ToolButton(icon: "text.cursor", label: "Edit text") {
-                        model.pause(); model.captionTab = 0; model.captionFocus = model.tappedCue; sheet = .captions
-                    }
                     ToolButton(icon: "scissors", label: "Split") { model.splitCaption() }
                         .disabled(!model.canSplitCaption)
                     ToolButton(icon: "arrow.triangle.merge", label: "Merge",
                                tint: model.mergePick != nil ? Theme.accent : .white) { model.mergeCaption() }
                         .disabled(!model.canMergeCaption)
+                    ToolButton(icon: "text.cursor", label: "Edit text") {
+                        model.pause(); model.captionTab = 0; model.captionFocus = model.captionLineForEditing; sheet = .captions
+                    }
                     ToolButton(icon: "paintbrush", label: "Style") { model.pause(); model.captionTab = 1; sheet = .captions }
-                    ToolButton(icon: "square.grid.2x2", label: "Presets") { model.pause(); model.captionTab = 4; sheet = .captions }
                     ToolButton(icon: "character.bubble", label: "Translate") { model.pause(); model.captionTab = 3; sheet = .captions }
+                    ToolButton(icon: "square.grid.2x2", label: "Presets") { model.pause(); model.captionTab = 4; sheet = .captions }
                     ToolButton(icon: "arrow.clockwise", label: "Regenerate") {
                         model.pause(); model.captionsGenerator = true; sheet = .captions
                     }
@@ -972,7 +985,10 @@ struct EditorView: View {
                     } label: {
                         ToolLabel(icon: "music.note", label: "Audio")
                     }
-                    ToolButton(icon: "captions.bubble", label: "Captions") { model.pause(); sheet = .captions }
+                    ToolButton(icon: "captions.bubble", label: "Captions") {
+                        model.pause()
+                        if model.project.captions == nil { sheet = .captions } else { model.askCaptionsTrack = true }
+                    }
                     if !model.project.clips.isEmpty {
                         ToolButton(icon: "waveform.path.badge.minus", label: "Remove silence") { model.pause(); sheet = .silence }
                     }

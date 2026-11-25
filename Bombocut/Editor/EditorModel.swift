@@ -1408,7 +1408,28 @@ final class EditorModel: ObservableObject {
     /// (the style still belongs to the whole track). Lines belong to the clip they sit on.
     @Published var captionScope: UUID?
 
+    /// The Captions button with captions already made: asks "Edit existing track" or "Create new track" first.
+    @Published var askCaptionsTrack = false
+
+    /// Edit text: the line tapped, else the one under the playhead.
+    var captionLineForEditing: UUID? { tappedCue ?? project.captions?.cue(at: currentTime)?.id }
+
+    /// Captions from a clip's (or Stack's) toolbar. With lines on it already: the same captions panel as
+    /// everywhere, on the track those lines are on. Without: the generate page for this clip only.
     func openClipCaptions() {
+        let id = selectedStack?.id ?? selectedClipID
+        if let id, captionTrack(of: id) != nil {
+            pause()
+            showTrack(of: id)
+            captionScope = nil
+            captionClips = nil
+            captionsNewTrack = false
+            captionsGenerator = false
+            captionsSelected = true
+            captionTab = 0
+            openCaptions = true
+            return
+        }
         if let st = selectedStack {
             pause()
             showTrack(of: st.id)
@@ -4032,7 +4053,30 @@ final class EditorModel: ObservableObject {
 
     /// The finger moved this far (canvas points) since it grabbed the captions.
     func captionDragChanged(_ d: CGSize, canvas: CGSize) {
-        captionTransformChanged(CGAffineTransform(translationX: d.width, y: d.height), canvas: canvas)
+        captionMove = d
+        applyCaptionGesture(canvas)
+    }
+
+    private var captionMove: CGSize = .zero
+    private var captionScale: CGFloat = 1
+
+    /// A second finger pinching while the captions are held: they grow or shrink (the same size as in Style >
+    /// Font). False when the captions aren't held (the pinch zooms the view as usual).
+    func captionPinchChanged(_ k: CGFloat, canvas: CGSize) -> Bool {
+        guard captionStart != nil else { return false }
+        captionScale = k
+        applyCaptionGesture(canvas)
+        return true
+    }
+
+    /// Move and size together: the captions' middle follows the finger, their size the pinch.
+    private func applyCaptionGesture(_ canvas: CGSize) {
+        guard let s0 = captionStart, canvas.width > 0 else { return }
+        let c0 = CGPoint(x: canvas.width / 2 + s0.x * canvas.width, y: s0.y * canvas.height)
+        let k = captionScale
+        let g = CGAffineTransform(a: k, b: 0, c: 0, d: k,
+                                  tx: c0.x * (1 - k) + captionMove.width, ty: c0.y * (1 - k) + captionMove.height)
+        captionTransformChanged(g, canvas: canvas)
     }
 
     func captionDragEnded() {
@@ -4042,6 +4086,8 @@ final class EditorModel: ObservableObject {
 
     private func captionTransformBegan() {
         guard let caps = project.captions else { return }
+        captionMove = .zero
+        captionScale = 1
         pause()
         captionStart = caps.style
         overlaySnapshot = project
@@ -5178,6 +5224,25 @@ extension EditorModel {
         tappedCue = cue.id
         mergePick = cue.id
         UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    /// The playhead moved while the captions track is selected. Merging: reaching one of the two lines it can join
+    /// merges with that one (like tapping it). Otherwise, leaving the picked line lets go of the line (its ends
+    /// and the merge pick) while the track stays selected, so the captions tools stay.
+    func captionPlayheadMoved(from old: Double, to t: Double) {
+        guard captionsSelected, let caps = project.captions else { return }
+        if mergePick != nil {
+            guard !isPlaying else { return }
+            for id in mergeNeighbours {
+                guard let c = caps.cues.first(where: { $0.id == id }) else { continue }
+                let inNow = t >= c.start && t < c.end, inBefore = old >= c.start && old < c.end
+                if inNow && !inBefore { finishMerge(with: id); return }
+            }
+            return
+        }
+        guard laneFinger == nil, edgeHeld == false, let id = tappedCue,
+              let c = caps.cues.first(where: { $0.id == id }) else { return }
+        if t < c.start - 0.05 || t >= c.end + 0.05 { tappedCue = nil }
     }
 
     /// The neighbour was tapped: the two lines become one (one undo step).

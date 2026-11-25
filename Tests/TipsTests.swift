@@ -19,3 +19,13 @@ final class TipsTests: XCTestCase {
         }
     }
 }
+
+/// Czech captions: Polish / Slovak spellings the speech model sometimes writes (2026-11-25).
+final class CzechSpellingTests: XCTestCase {
+    func testPolishAndSlovakSpellingsBecomeCzechCandidates() {
+        XCTAssertTrue(SpellCheck.czechSpellings("najdesz").contains("najdeš"))
+        XCTAssertTrue(SpellCheck.czechSpellings("przecież").contains { $0.contains("ř") && $0.contains("ž") })
+        XCTAssertTrue(SpellCheck.czechSpellings("môžeš").contains("můžeš"))
+        XCTAssertEqual(SpellCheck.czechSpellings("pes"), [])
+    }
+}

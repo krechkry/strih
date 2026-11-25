@@ -28,6 +28,8 @@ struct PreviewArea: View {
     @State private var dragIsPan: Bool?
     /// Captions > Layout: this drag grabbed the captions (nil until it starts).
     @State private var dragMovesCaptions: Bool?
+    /// A pinch that started while the captions were held: it sizes them (not the view) until it ends.
+    @State private var pinchSizesCaptions = false
     /// Fingers on the preview with nothing selected: they zoom and move the view (the view when they began).
     @State private var viewGrab: (zoom: CGFloat, offset: CGSize)?
     @State private var stroke: [CGPoint] = []      // the stroke being painted (canvas points)
@@ -333,11 +335,17 @@ struct PreviewArea: View {
     private func viewPinch(_ canvas: CGSize, area: CGSize) -> some Gesture {
         MagnifyGesture()
             .onChanged { v in
+                // holding the captions (Captions > Layout): the pinch sizes them, the view stays
+                if dragMovesCaptions == true || pinchSizesCaptions {
+                    pinchSizesCaptions = model.captionPinchChanged(v.magnification, canvas: canvas)
+                    if pinchSizesCaptions { return }
+                }
                 pinching = true
                 viewZoom = min(max(zoomBase * v.magnification, 1), 8)
                 viewOffset = clampedOffset(viewOffset, canvas, area)
             }
             .onEnded { _ in
+                if pinchSizesCaptions { pinchSizesCaptions = false; return }
                 pinching = false
                 zoomBase = viewZoom
                 panBase = viewOffset
