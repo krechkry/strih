@@ -36,6 +36,7 @@ import cz.krechler.bombocut.model.Media
 import cz.krechler.bombocut.model.Overlay
 import cz.krechler.bombocut.model.OverlayKind
 import cz.krechler.bombocut.model.Paths
+import cz.krechler.bombocut.model.restyled
 import java.io.File
 import java.util.UUID
 
@@ -323,10 +324,38 @@ fun EditorModel.setCaptionStyle(track: Int, change: (cz.krechler.bombocut.model.
     p.copy(captionTracks = tracks)
 }
 
+/** Lines and length cut the lines again from the words (your edits kept, like iOS restyle). */
+fun EditorModel.recutCaptions(track: Int, lines: Int, maxChars: Int) = mutate { p ->
+    val tracks = p.captionTracks.toMutableList()
+    val caps = tracks.getOrNull(track) ?: return@mutate p
+    if (caps.style.lines == lines && caps.style.maxChars == maxChars) return@mutate p
+    tracks[track] = caps.restyled { it.copy(lines = lines, maxChars = maxChars) }
+    p.copy(captionTracks = tracks)
+}
+
 @Composable
 private fun CaptionStyleControls(model: EditorModel, k: Int) {
     val st = model.project.captionTracks.getOrNull(k)?.style ?: return
     Text(loc("Style"), color = Color.White, fontWeight = FontWeight.Black)
+    // 1 or 2 lines and the characters per line in one row (like iOS Layout)
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        for (n in 1..2) {
+            val on = st.lines == n
+            Text(loc(if (n == 1) "1 line" else "2 lines"), color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
+                 modifier = Modifier.background(if (on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                     .clickable { model.recutCaptions(k, n, st.maxChars) }
+                     .padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+        Text("-", color = Color.White, fontWeight = FontWeight.Black,
+             modifier = Modifier.background(Theme.panel2, androidx.compose.foundation.shape.CircleShape)
+                 .clickable { model.recutCaptions(k, st.lines, maxOf(8, st.maxChars - 2)) }.padding(horizontal = 14.dp, vertical = 6.dp))
+        Text("${st.maxChars}", color = Color.White, fontWeight = FontWeight.Black)
+        Text("+", color = Color.White, fontWeight = FontWeight.Black,
+             modifier = Modifier.background(Theme.panel2, androidx.compose.foundation.shape.CircleShape)
+                 .clickable { model.recutCaptions(k, st.lines, minOf(48, st.maxChars + 2)) }.padding(horizontal = 14.dp, vertical = 6.dp))
+    }
     var size by remember(k, st.size) { mutableStateOf(st.size) }
     Row {
         Text(loc("Size"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
