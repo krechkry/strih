@@ -174,19 +174,30 @@ final class SmoothFrames: @unchecked Sendable {
     @available(iOS 26.0, *)
     private func frame(_ src: CVPixelBuffer, in s: Session, time: CMTime) -> VTFrameProcessorFrame? {
         guard let b = s.buffer(s.inPool) else { return nil }
+        // the same color tags as the source, so a YCbCr buffer is written and read with the source's matrix
+        CVBufferPropagateAttachments(src, b)
         var img = CIImage(video: src)
         let sx = CGFloat(CVPixelBufferGetWidth(b)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(b)) / img.extent.height
         if abs(sx - 1) > 0.001 || abs(sy - 1) > 0.001 {
             img = img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
         }
         ctx.render(img, to: b, bounds: CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(b), height: CVPixelBufferGetHeight(b)),
-                   colorSpace: FrameCompositor.videoSpace)
+                   colorSpace: Self.space(of: src))
         return VTFrameProcessorFrame(buffer: b, presentationTimeStamp: time)
+    }
+
+    /// The color space a source frame is read in (CIImage(video:)): HLG for the HDR pipeline's half-float frames,
+    /// Rec. 709 otherwise. The engine's own buffers are written and read back in the source's space.
+    private static func space(of src: CVPixelBuffer) -> CGColorSpace {
+        CVPixelBufferGetPixelFormatType(src) == kCVPixelFormatType_64RGBAHalf ? FrameCompositor.hlgSpace : FrameCompositor.videoSpace
     }
 
     /// The engine's output, scaled back to the source size so the rest of the pipeline is unchanged.
     private func back(_ out: CVPixelBuffer, to src: CVPixelBuffer) -> CIImage {
-        let img = CIImage(video: out)
+        // read in the space it was written in: the engine works in half floats, and CIImage(video:) takes a
+        // half-float frame for HLG, which made every invented frame darker, more saturated and warmer
+        CVBufferPropagateAttachments(src, out)
+        let img = CIImage(cvPixelBuffer: out, options: [.colorSpace: Self.space(of: src)])
         let sx = CGFloat(CVPixelBufferGetWidth(src)) / img.extent.width, sy = CGFloat(CVPixelBufferGetHeight(src)) / img.extent.height
         if abs(sx - 1) < 0.001 && abs(sy - 1) < 0.001 { return img }
         return img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
