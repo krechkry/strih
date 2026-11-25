@@ -234,7 +234,12 @@
         "x": 0,
         "y": 0
       },
-      "volume": 1
+      "volume": 1,
+      "cut": {
+        "kind": "fade",
+        "duration": 0.5,
+        "handles": false
+      }
     }
   ],
   "created": 785000000,
