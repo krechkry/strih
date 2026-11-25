@@ -81,7 +81,7 @@ if [ -n "$F" ]; then
   adb pull "/sdcard/Movies/BOMBOCUT/$F" $OUT/export.mp4
   ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate,duration,nb_frames -of default=nw=1 $OUT/export.mp4 > $OUT/export.txt
   # around the transition (the cut sits in its middle): which source frame shows
-  for t in 2.3 2.45 2.55 2.7; do ffmpeg -loglevel error -ss $t -i $OUT/export.mp4 -frames:v 1 $OUT/export-at-$t.png; done
+  for t in 2.7 2.8 2.87 2.95; do ffmpeg -loglevel error -ss $t -i $OUT/export.mp4 -frames:v 1 $OUT/export-at-$t.png; done
   ffmpeg -loglevel error -ss 1 -i $OUT/export.mp4 -frames:v 1 $OUT/10-export-frame-1s.png
   ffmpeg -loglevel error -ss 3.5 -i $OUT/export.mp4 -frames:v 1 $OUT/11-export-frame-3.5s.png
   rm $OUT/export.mp4
