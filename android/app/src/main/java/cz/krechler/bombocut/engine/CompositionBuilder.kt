@@ -71,24 +71,34 @@ object CompositionBuilder {
         })
     }
 
-    fun item(c: Clip, width: Int, height: Int): EditedMediaItem {
+    /**
+     * One clip. `head` / `tail`: output seconds left off its start / end. Until transitions blend on Android, a
+     * transition is a cut in its middle: each clip gives up half the overlap, so every clip, text, caption and
+     * sound still sits where the timeline (and the iPhone) has it.
+     */
+    fun item(c: Clip, width: Int, height: Int, head: Double = 0.0, tail: Double = 0.0): EditedMediaItem {
+        val rt = c.retime
+        val h = head.coerceIn(0.0, maxOf(0.0, rt.outDuration - 0.05))
+        val t = tail.coerceIn(0.0, maxOf(0.0, rt.outDuration - h - 0.05))
+        val start = if (h > 0) rt.source(h) else c.inPoint
+        val end = if (t > 0) rt.source(rt.outDuration - t) else c.outPoint
+        val length = rt.outDuration - h - t
         val media = MediaItem.Builder()
             .setUri(Uri.fromFile(Paths.mediaFile(c.mediaFile)))
             .setClippingConfiguration(
                 MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionUs(us(c.inPoint))
-                    .setEndPositionUs(us(c.outPoint))
+                    .setStartPositionUs(us(start))
+                    .setEndPositionUs(us(end))
                     .build()
             )
             .build()
-        val rt = c.retime
-        val audio = listOfNotNull(gain(c.volume, c.fades, c.duration))
+        val audio = listOfNotNull(gain(c.volume, c.fades, length))
         val layout = if (c.fill) Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP else Presentation.LAYOUT_SCALE_TO_FIT
         // the look first (on the clip's own picture, like iOS), then placed on the canvas
         val video = listOfNotNull(LookLut.effect(c.look(c.inPoint).effects), Presentation.createForWidthAndHeight(width, height, layout))
         // CompositionPlayer needs the whole file's length up front (Swift: the asset's time range)
         val b = EditedMediaItem.Builder(media).setEffects(Effects(audio, video)).setDurationUs(us(c.sourceDuration))
-        speedProvider(rt, c.inPoint)?.let { b.setSpeed(SpeedParameters(it, c.pitchCorrect)) }
+        speedProvider(rt, start)?.let { b.setSpeed(SpeedParameters(it, c.pitchCorrect)) }
         return b.build()
     }
 
@@ -143,7 +153,10 @@ object CompositionBuilder {
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
     fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {
         if (project.clips.isEmpty()) return null
-        val items = project.clips.map { item(it, width, height) }
+        val n = project.clips.size
+        val items = project.clips.mapIndexed { k, c ->
+            item(c, width, height, head = project.overlap(k) / 2, tail = if (k + 1 < n) project.overlap(k + 1) / 2 else 0.0)
+        }
         val seq = EditedMediaItemSequence.Builder(items).build()
         val b = Composition.Builder(listOf(seq) + soundSequences(project))
         // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
