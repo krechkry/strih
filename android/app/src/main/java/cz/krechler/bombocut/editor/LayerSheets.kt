@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.OutlinedTextField
@@ -198,6 +199,7 @@ fun TextSheet(model: EditorModel) {
         Text("${(size * 1000).toInt()}", color = Color.White, fontWeight = FontWeight.Bold)
     }
     BSlider(size, 0.03..0.28, { size = it }, { model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(size = size)) } })
+    FontPills(o.style.font) { f -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(font = f, fontName = null)) } }
     Text(loc("Color"), color = Theme.muted, fontWeight = FontWeight.Bold)
     Swatches(o.style.text) { c -> model.changeOverlay(o.id) { ov -> ov.copy(style = ov.style.copy(text = c)) } }
     var outline by remember(o.id, o.style.strokeWidth) { mutableStateOf(o.style.strokeWidth) }
@@ -368,6 +370,7 @@ private fun CaptionStyleControls(model: EditorModel, k: Int) {
         Text("${(y * 100).toInt()} %", color = Color.White, fontWeight = FontWeight.Bold)
     }
     BSlider(y, 0.05..0.95, { y = it }, { model.setCaptionStyle(k) { it.copy(y = y) } })
+    FontPills(st.font) { f -> model.setCaptionStyle(k) { it.copy(font = f, fontName = null) } }
     Text(loc("Color"), color = Theme.muted, fontWeight = FontWeight.Bold)
     Swatches(st.text) { c -> model.setCaptionStyle(k) { it.copy(text = c) } }
     var outline by remember(k, st.strokeWidth) { mutableStateOf(st.strokeWidth) }
@@ -388,6 +391,29 @@ private fun CaptionStyleControls(model: EditorModel, k: Int) {
             Text(loc(name), color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
                  modifier = Modifier.background(if (on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))
                      .clickable { model.setCaptionStyle(k) { it.copy(anim = a) } }
+                     .padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+    }
+}
+
+/** The phone's own fonts (iOS FontPicker.builtIn, named for what they are on Android). */
+private val fontChoices = listOf(
+    cz.krechler.bombocut.model.CaptionFont.heavy to "System", cz.krechler.bombocut.model.CaptionFont.rounded to "Rounded",
+    cz.krechler.bombocut.model.CaptionFont.condensed to "Condensed", cz.krechler.bombocut.model.CaptionFont.serif to "Serif",
+    cz.krechler.bombocut.model.CaptionFont.typewriter to "Typewriter", cz.krechler.bombocut.model.CaptionFont.mono to "Mono",
+)
+
+@Composable
+fun FontPills(current: cz.krechler.bombocut.model.CaptionFont, pick: (cz.krechler.bombocut.model.CaptionFont) -> Unit) {
+    Text(loc("Font"), color = Theme.muted, fontWeight = FontWeight.Bold)
+    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        for ((f, name) in fontChoices) {
+            val on = f == current
+            Text(loc(name), color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
+                 fontFamily = androidx.compose.ui.text.font.FontFamily(cz.krechler.bombocut.engine.TextRenderer.typeface(f)),
+                 modifier = Modifier.background(if (on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                     .clickable { pick(f) }
                      .padding(horizontal = 14.dp, vertical = 8.dp))
         }
     }

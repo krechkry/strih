@@ -121,6 +121,36 @@
           }
         }
       }
+    },
+    "System": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systémové"
+          }
+        }
+      }
+    },
+    "Condensed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úzké"
+          }
+        }
+      }
+    },
+    "Serif": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patkové"
+          }
+        }
+      }
     }
   }
 }
