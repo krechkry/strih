@@ -5,7 +5,8 @@ import XCTest
 final class BeatTests: XCTestCase {
     private func drums(bpm: Double, seconds: Double = 20, offset: Double) -> (samples: [Float], beats: [Double]) {
         let sr = BeatDetector.sampleRate
-        var g = SystemRandomNumberGenerator()
+        // the same noise every run (random noise now and then made 174 BPM read as 87 and failed CI)
+        var g = SeededNoise(seed: UInt64(bpm * 1000))
         func noise() -> Float { Float.random(in: -1...1, using: &g) }
         let n = Int(seconds * sr)
         var x = (0..<n).map { _ in 0.02 * noise() }
@@ -59,5 +60,18 @@ final class BeatTests: XCTestCase {
     func testSilenceHasNoBeats() {
         let x = [Float](repeating: 0, count: Int(BeatDetector.sampleRate * 5))
         XCTAssertTrue(BeatDetector.beats(x).count < 2)
+    }
+}
+
+/// SplitMix64: a fixed sequence for test signals.
+private struct SeededNoise: RandomNumberGenerator {
+    var state: UInt64
+    init(seed: UInt64) { state = seed }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 }
