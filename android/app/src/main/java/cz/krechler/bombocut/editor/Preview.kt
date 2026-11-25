@@ -46,8 +46,12 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
     val surface = remember { SurfaceView(context) }
     val (w, h) = project.canvas.size(720)
 
-    DisposableEffect(Unit) {
-        val p = CompositionPlayer.Builder(context).build()
+    // transitions are two rolls blended by the compositor: that player needs the multiple-input video graph
+    val blends = CompositionBuilder.blends(project)
+    DisposableEffect(blends) {
+        val b = CompositionPlayer.Builder(context)
+        if (blends) b.setVideoGraphFactory(androidx.media3.effect.MultipleInputVideoGraph.Factory())
+        val p = b.build()
         p.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { state.playing = isPlaying }
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -62,7 +66,7 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
     }
     // rebuilt when the timing or the shape changes (like iOS `rebuild()`)
     // (texts and captions are read live by the text layer: changing them only redraws the frame)
-    LaunchedEffect(project.clips, project.canvas, project.audio, TextLayer.hasAny(project)) {
+    LaunchedEffect(project.clips, project.canvas, project.audio, TextLayer.hasAny(project), blends) {
         val p = state.player ?: return@LaunchedEffect
         LiveLayers.project = project
         val comp = CompositionBuilder.build(project, w, h, livePreview = true) ?: return@LaunchedEffect
