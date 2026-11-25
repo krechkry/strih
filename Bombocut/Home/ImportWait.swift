@@ -28,8 +28,8 @@ struct ImportWaitView: View {
         if lit { return CardText(note: loc("Almost done! Shoot the ball in here")) }
         var tip: ImportTip?
         if let from = tipsFrom, now >= from, !tips.isEmpty {
-            // a new tip every 8 s (the iCloud one first when clips come from iCloud)
-            let list = work.fromCloud ? [ImportTip.cloud] + tips : tips
+            // a new tip every 8 s, in a random order, always the iCloud storage one first
+            let list = [ImportTip.cloud] + tips
             tip = list[Int(now.timeIntervalSince(from) / 8) % list.count]
         }
         if work.playing {
@@ -98,16 +98,17 @@ struct ImportWaitView: View {
     private static let space = "importWait"
 }
 
-/// When the waiting extras come up: tips from 5 s in (import and export), the import's game only from 20 s
+/// When the import's extras come up: tips from 5 s in (export shows them right away), the game only from 20 s
 /// (most imports are done before it).
 enum WaitTiming {
     static let tipsAfter: TimeInterval = 5
     static let gameAfter: TimeInterval = 20
 }
 
-/// A tip under the export progress: from 5 s in, a new one every 8 s (the same tips as the import).
+/// A tip under the export progress: right away, then a new one every 8 s, in a random order (the same tips as
+/// the import, without the iCloud one).
 struct RotatingTip: View {
-    var after: TimeInterval = WaitTiming.tipsAfter
+    var after: TimeInterval = 0
     @State private var tips: [ImportTip] = []
     @State private var index: Int?
 
@@ -128,7 +129,7 @@ struct RotatingTip: View {
         .animation(.easeInOut(duration: 0.35), value: index)
         .task {
             tips = ImportTip.all.shuffled()
-            try? await Task.sleep(for: .seconds(after))
+            if after > 0 { try? await Task.sleep(for: .seconds(after)) }
             var i = 0
             while !Task.isCancelled {
                 index = i
@@ -145,7 +146,7 @@ struct CardText: Equatable {
     var tip: ImportTip?
 }
 
-/// Tips about BOMBOCUT shown during the waiting game (English keys, translated when shown).
+/// Tips about BOMBOCUT shown while importing and exporting, in a random order (English keys, translated when shown).
 struct ImportTip: Equatable {
     let text: String
     var icon = "lightbulb"
@@ -168,6 +169,44 @@ struct ImportTip: Equatable {
         ImportTip(text: "Tip: double-tap a slider to set it back to its default.", icon: "slider.horizontal.3"),
         ImportTip(text: "Tip: Socials overlay shows where TikTok and Instagram buttons will cover your video.", icon: "rectangle.dashed"),
         ImportTip(text: "Tip: share a whole project as a .bbc file and open it in BOMBOCUT on another device.", icon: "square.and.arrow.up"),
+        ImportTip(text: "Tip: select a song and tap Beats. Clip edges, texts and captions snap to its beats.", icon: "metronome"),
+        ImportTip(text: "Tip: Remove silence cuts the pauses out of talking clips in one step. Red shows what goes before you tap.", icon: "waveform"),
+        ImportTip(text: "Tip: holding a trim handle? Tap anywhere with another finger and type the clip's exact length.", icon: "ruler"),
+        ImportTip(text: "Tip: in Speed, tap the new length and type it. The speed works itself out.", icon: "speedometer"),
+        ImportTip(text: "Tip: hold a clip's edge handle still for a moment, then drag: the cut between two clips slides and the video keeps its length.", icon: "arrow.left.and.right"),
+        ImportTip(text: "Tip: Speed > Curve lets you draw your own speed ramp. Tap the line to add a point.", icon: "point.topleft.down.to.point.bottomright.curvepath"),
+        ImportTip(text: "Tip: Smooth slow motion in Speed invents the in-between frames, so slowed clips don't stutter.", icon: "wand.and.rays"),
+        ImportTip(text: "Tip: Keep pitch in Speed stops sped-up voices from sounding like chipmunks.", icon: "waveform"),
+        ImportTip(text: "Tip: an Adjustment layer changes the look of everything under it on the timeline, and it can fade in and out.", icon: "square.stack.3d.up"),
+        ImportTip(text: "Tip: like a look you made in Adjust? Save it as your own filter and find it in the Mine tab.", icon: "camera.filters"),
+        ImportTip(text: "Tip: select a few clips and Stack them. Speed, Mask, Track and keyframes then work on all of them at once.", icon: "square.stack"),
+        ImportTip(text: "Tip: flip a clip left to right or upside down with Mirror, at the top of the Crop panel.", icon: "arrow.left.and.right.righttriangle.left.righttriangle.right"),
+        ImportTip(text: "Tip: Guides next to Socials overlay show thirds, the center, the golden ratio and frames for other shapes.", icon: "squareshape.split.3x3"),
+        ImportTip(text: "Tip: set up your Quick menu by holding and dragging the tools you use most.", icon: "square.grid.2x2"),
+        ImportTip(text: "Tip: swipe a selected clip up off the track and it becomes an overlay, picture in picture.", icon: "rectangle.on.rectangle"),
+        ImportTip(text: "Tip: copied a picture, a video or some text? The Paste button drops it straight into your project.", icon: "doc.on.clipboard"),
+        ImportTip(text: "Tip: the diamond button adds a keyframe at the playhead. Change a value somewhere else and it moves between the two.", icon: "diamond"),
+        ImportTip(text: "Tip: Retain size in Track keeps a tracked subject the same size, even when it walks toward the camera.", icon: "scope"),
+        ImportTip(text: "Tip: shaky footage? Stabilize smooths it right on your phone.", icon: "camera.viewfinder"),
+        ImportTip(text: "Tip: Motion blur makes fast moves and speed ramps look like they were filmed that way.", icon: "wind"),
+        ImportTip(text: "Tip: wind or traffic behind your voice? Speech > Remove noise takes it out.", icon: "speaker.wave.2"),
+        ImportTip(text: "Tip: sounds fade in and out, and you can split, speed up or reverse them just like clips.", icon: "music.note"),
+        ImportTip(text: "Tip: made a text look you like? Save it as a preset and give it to any other text in one tap.", icon: "textformat"),
+        ImportTip(text: "Tip: add your own fonts, any weight or italic, and use them in every text and in captions.", icon: "textformat.alt"),
+        ImportTip(text: "Tip: the eyedropper in the color menu picks any color straight from your video.", icon: "eyedropper"),
+        ImportTip(text: "Tip: Crop isn't just a rectangle. Try Ellipse or draw your own Curve, with a soft edge.", icon: "crop"),
+        ImportTip(text: "Tip: one caption line came out wrong? Generate just that line again, the rest stays as it is.", icon: "captions.bubble"),
+        ImportTip(text: "Tip: turn on iCloud sync in Settings and your projects show up on your iPad too, clips included.", icon: "icloud"),
+        ImportTip(text: "Tip: on iPad, Cmd+B splits a clip, just like on a computer.", icon: "keyboard"),
+        ImportTip(text: "Tip: old camera files (.mts, .avi, .mkv) come straight in from Files or an SD card reader.", icon: "video"),
+        ImportTip(text: "Tip: filmed in ProRes Log on an iPhone? The Apple Log tab in Filters & LUT turns it into a finished look.", icon: "camera.filters"),
+        ImportTip(text: "Tip: pinch the preview with nothing selected to look closer at the details.", icon: "plus.magnifyingglass"),
+        ImportTip(text: "Tip: the export presets are made for Instagram and YouTube, so there are no settings to figure out.", icon: "square.and.arrow.up"),
+        ImportTip(text: "Tip: the BOMBOCUT end card can be switched off on the export page.", icon: "film"),
+        ImportTip(text: "Tip: everything can be undone, so go ahead and try things out.", icon: "arrow.uturn.backward"),
+        ImportTip(text: "Tip: hold Reset in Adjust to set every slider back at once.", icon: "arrow.counterclockwise"),
+        ImportTip(text: "Tip: Freeze holds a frame as a still picture, great for a dramatic pause.", icon: "pause.rectangle"),
+        ImportTip(text: "Tip: clips and texts can get an In and an Out animation in Animation.", icon: "sparkles"),
     ]
 }
 

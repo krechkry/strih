@@ -10877,6 +10877,386 @@
           }
         }
       }
+    },
+    "Tip: select a song and tap Beats. Clip edges, texts and captions snap to its beats.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: vyber písničku a ťukni na Beaty. Okraje klipů, texty i titulky se přichytí na její beaty."
+          }
+        }
+      }
+    },
+    "Tip: Remove silence cuts the pauses out of talking clips in one step. Red shows what goes before you tap.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Odstranit ticho vystřihne pauzy z mluvených klipů jedním krokem. Červeně vidíš, co zmizí, ještě než ťukneš."
+          }
+        }
+      }
+    },
+    "Tip: holding a trim handle? Tap anywhere with another finger and type the clip's exact length.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: držíš úchyt klipu? Ťukni jiným prstem kamkoli a napiš přesnou délku klipu."
+          }
+        }
+      }
+    },
+    "Tip: in Speed, tap the new length and type it. The speed works itself out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: v Rychlosti ťukni na novou délku a napiš ji. Rychlost se dopočítá sama."
+          }
+        }
+      }
+    },
+    "Tip: hold a clip's edge handle still for a moment, then drag: the cut between two clips slides and the video keeps its length.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: podrž chvíli úchyt na okraji klipu a pak táhni: střih mezi dvěma klipy se posune a video si nechá svou délku."
+          }
+        }
+      }
+    },
+    "Tip: Speed > Curve lets you draw your own speed ramp. Tap the line to add a point.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: v Rychlost > Křivka si nakreslíš vlastní zrychlení a zpomalení. Ťuknutím na čáru přidáš bod."
+          }
+        }
+      }
+    },
+    "Tip: Smooth slow motion in Speed invents the in-between frames, so slowed clips don't stutter.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Plynulé zpomalení v Rychlosti dopočítá snímky mezi snímky, takže zpomalený klip necuká."
+          }
+        }
+      }
+    },
+    "Tip: Keep pitch in Speed stops sped-up voices from sounding like chipmunks.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Zachovat výšku tónu v Rychlosti nenechá zrychlené hlasy pištět."
+          }
+        }
+      }
+    },
+    "Tip: an Adjustment layer changes the look of everything under it on the timeline, and it can fade in and out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Vrstva úprav změní vzhled všeho, co je pod ní na časové ose, a umí nástup i doznění."
+          }
+        }
+      }
+    },
+    "Tip: like a look you made in Adjust? Save it as your own filter and find it in the Mine tab.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: líbí se ti look z Úprav? Ulož ho jako vlastní filtr a najdeš ho v záložce Moje."
+          }
+        }
+      }
+    },
+    "Tip: select a few clips and Stack them. Speed, Mask, Track and keyframes then work on all of them at once.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: vyber pár klipů a Seskupit. Rychlost, Maska, Tracking i keyframy pak platí pro všechny najednou."
+          }
+        }
+      }
+    },
+    "Tip: flip a clip left to right or upside down with Mirror, at the top of the Crop panel.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: klip otočíš zleva doprava nebo vzhůru nohama pomocí Zrcadlit, nahoře v panelu Ořez."
+          }
+        }
+      }
+    },
+    "Tip: Guides next to Socials overlay show thirds, the center, the golden ratio and frames for other shapes.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Vodítka vedle Sociálních sítí ukážou třetiny, střed, zlatý řez a rámečky pro jiné formáty."
+          }
+        }
+      }
+    },
+    "Tip: set up your Quick menu by holding and dragging the tools you use most.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Rychlé menu si poskládáš podržením a přetažením nástrojů, které používáš nejvíc."
+          }
+        }
+      }
+    },
+    "Tip: swipe a selected clip up off the track and it becomes an overlay, picture in picture.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: vybraný klip švihni nahoru z časové osy a stane se z něj překrytí, obraz v obraze."
+          }
+        }
+      }
+    },
+    "Tip: copied a picture, a video or some text? The Paste button drops it straight into your project.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: zkopíroval sis obrázek, video nebo text? Tlačítkem Vložit ho dáš rovnou do projektu."
+          }
+        }
+      }
+    },
+    "Tip: the diamond button adds a keyframe at the playhead. Change a value somewhere else and it moves between the two.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: tlačítko s kosočtvercem přidá keyframe na playheadu. Změň hodnotu jinde a mezi nimi se to rozpohybuje."
+          }
+        }
+      }
+    },
+    "Tip: Retain size in Track keeps a tracked subject the same size, even when it walks toward the camera.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Zachovat velikost v Trackingu drží sledovaný objekt stejně velký, i když jde ke kameře."
+          }
+        }
+      }
+    },
+    "Tip: shaky footage? Stabilize smooths it right on your phone.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: roztřesený záběr? Stabilizace ho uhladí přímo v telefonu."
+          }
+        }
+      }
+    },
+    "Tip: Motion blur makes fast moves and speed ramps look like they were filmed that way.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: s Motion blur vypadají rychlé pohyby a zrychlení, jako by tak byly natočené."
+          }
+        }
+      }
+    },
+    "Tip: wind or traffic behind your voice? Speech > Remove noise takes it out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: vítr nebo provoz za hlasem? Řeč > Odstranit šum ho odstraní."
+          }
+        }
+      }
+    },
+    "Tip: sounds fade in and out, and you can split, speed up or reverse them just like clips.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: zvuky umí Fade in a Fade out a rozdělíš, zrychlíš nebo otočíš pozpátku stejně jako klipy."
+          }
+        }
+      }
+    },
+    "Tip: made a text look you like? Save it as a preset and give it to any other text in one tap.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: máš text, který se ti líbí? Ulož ho jako preset a dej ho jinému textu jedním ťuknutím."
+          }
+        }
+      }
+    },
+    "Tip: add your own fonts, any weight or italic, and use them in every text and in captions.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: přidej si vlastní písma, jakýkoli řez i kurzívu, a používej je v každém textu i v titulcích."
+          }
+        }
+      }
+    },
+    "Tip: the eyedropper in the color menu picks any color straight from your video.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: kapátkem v menu barev vybereš jakoukoli barvu přímo z videa."
+          }
+        }
+      }
+    },
+    "Tip: Crop isn't just a rectangle. Try Ellipse or draw your own Curve, with a soft edge.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Ořez není jen obdélník. Zkus Elipsu nebo si nakresli vlastní Křivku s měkkým okrajem."
+          }
+        }
+      }
+    },
+    "Tip: one caption line came out wrong? Generate just that line again, the rest stays as it is.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: jeden řádek titulků se nepovedl? Vytvoř znovu jen ten řádek, zbytek zůstane, jak je."
+          }
+        }
+      }
+    },
+    "Tip: turn on iCloud sync in Settings and your projects show up on your iPad too, clips included.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: zapni v Nastavení synchronizaci přes iCloud a projekty máš i na iPadu, i s klipy."
+          }
+        }
+      }
+    },
+    "Tip: on iPad, Cmd+B splits a clip, just like on a computer.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: na iPadu klip rozstřihneš zkratkou Cmd+B, stejně jako na počítači."
+          }
+        }
+      }
+    },
+    "Tip: old camera files (.mts, .avi, .mkv) come straight in from Files or an SD card reader.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: videa ze starých kamer (.mts, .avi, .mkv) nahraješ rovnou ze Souborů nebo ze čtečky karet."
+          }
+        }
+      }
+    },
+    "Tip: filmed in ProRes Log on an iPhone? The Apple Log tab in Filters & LUT turns it into a finished look.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: točíš na iPhonu v ProRes Log? Záložka Apple Log ve Filtry a LUT z něj udělá hotový look."
+          }
+        }
+      }
+    },
+    "Tip: pinch the preview with nothing selected to look closer at the details.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: sevřením náhledu bez výběru si přiblížíš detaily."
+          }
+        }
+      }
+    },
+    "Tip: the export presets are made for Instagram and YouTube, so there are no settings to figure out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: předvolby exportu jsou stavěné pro Instagram a YouTube, takže nastavení nemusíš řešit."
+          }
+        }
+      }
+    },
+    "Tip: the BOMBOCUT end card can be switched off on the export page.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: koncovou kartu BOMBOCUT vypneš na stránce exportu."
+          }
+        }
+      }
+    },
+    "Tip: everything can be undone, so go ahead and try things out.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: všechno se dá vrátit, tak klidně zkoušej."
+          }
+        }
+      }
+    },
+    "Tip: hold Reset in Adjust to set every slider back at once.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: podržením Resetovat v Úpravách vrátíš všechny posuvníky najednou."
+          }
+        }
+      }
+    },
+    "Tip: Freeze holds a frame as a still picture, great for a dramatic pause.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: Zmrazit podrží snímek jako fotku, ideální na dramatickou pauzu."
+          }
+        }
+      }
+    },
+    "Tip: clips and texts can get an In and an Out animation in Animation.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tip: klipy i texty dostanou v Animaci Příchod a Odchod."
+          }
+        }
+      }
     }
   }
 }
