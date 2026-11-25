@@ -128,6 +128,28 @@ object CompositionBuilder {
         override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = C.TIME_UNSET
     }
 
+    /**
+     * `seconds` of nothing on a video input: the black filler clip, at the input's size, silent. Not Media3 gaps:
+     * a gap switches the input to 16 x 16 blank frames, which rebuilds its texture pool while the compositor still
+     * holds its frames, and another input's picture then showed up in them (a layer showing the clip under it,
+     * transitions flickering between mixed and unmixed frames).
+     */
+    private fun fill(b: EditedMediaItemSequence.Builder, seconds: Double, w: Int, h: Int) {
+        val f = Paths.filler
+        if (f == null || seconds < 0.05) { if (seconds > 0.001) b.addGap(us(seconds)); return }
+        var left = seconds
+        while (left > 0.001) {
+            // pieces of the 2 s filler, never a sliver at the end
+            val len = if (left <= 2.0) left else if (left < 2.1) left / 2 else 2.0
+            val media = MediaItem.Builder().setUri(Uri.fromFile(f))
+                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionUs(0).setEndPositionUs(us(len)).build())
+                .build()
+            val video = listOf(Presentation.createForWidthAndHeight(w, h, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+            b.addItem(EditedMediaItem.Builder(media).setEffects(Effects(emptyList(), video)).setDurationUs(us(2.0)).build())
+            left -= len
+        }
+    }
+
     /** One sound item (music, a voice-over, sound from a video), its own volume and fades, pitch kept. */
     fun soundItem(a: AudioItem, length: Double): EditedMediaItem {
         val media = MediaItem.Builder()
@@ -219,30 +241,22 @@ object CompositionBuilder {
     }
 
     /**
-     * Each roll as one sequence: its clips at their timeline starts with gaps between, both rolls to the very end
-     * (a roll ending early made the compositor fail when a last frame of it still came in). Transformer only
-     * composites when every roll's first item has video, so the roll without the first clip opens with that clip
-     * again (silent by volume, hidden by the compositor) up to where its own first clip starts.
+     * Each roll as one sequence: its clips at their timeline starts with the filler between, both rolls to the very
+     * end (a roll ending early made the compositor fail when a last frame of it still came in). The filler is video,
+     * so every roll also starts with video, which Transformer needs to composite.
      */
     private fun rolls(project: Project, placed: List<Placed>, width: Int, height: Int): List<Pair<Int, EditedMediaItemSequence>> {
         val total = placed.last().end
         return (0..1).filter { r -> placed.any { it.roll == r } }.map { r -> r to run {
             val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
             var t = 0.0
-            val first = placed.firstOrNull { it.roll == r }
-            if (placed[0].roll != r && first != null) {
-                val c0 = project.clips[0].copy(volume = 0.0)
-                val len = minOf(c0.duration, first.start)
-                b.addItem(item(c0, width, height, tail = c0.duration - len))
-                t = len
-            }
             for (q in placed) {
                 if (q.roll != r) continue
-                if (q.start - t > 0.001) b.addGap(us(q.start - t))
+                fill(b, q.start - t, width, height)
                 b.addItem(item(q.clip, width, height, fades = q.fades))
                 t = q.end
             }
-            if (total - t > 0.001) b.addGap(us(total - t))
+            fill(b, total - t, width, height)
             b.build()
         } }
     }
@@ -300,9 +314,9 @@ object CompositionBuilder {
     }
 
     /**
-     * One video layer as its own compositor input: a hidden, silent opener from its own file (Transformer wants
-     * every input to start with video), the layer at its time with its speed (or speed curve) and volume, then gaps
-     * to the end. A layer starting in the first 40 ms starts that much earlier in its footage instead.
+     * One video layer as its own compositor input: the filler until it starts (Transformer also wants every input
+     * to start with video), the layer at its time with its speed (or speed curve) and volume, then the filler to the
+     * end. A layer starting in the first 50 ms starts that much earlier in its footage instead.
      */
     private fun layerSequence(o: Overlay, total: Double, width: Int, height: Int): EditedMediaItemSequence {
         val v = o.kind as OverlayKind.Video
@@ -311,11 +325,8 @@ object CompositionBuilder {
         val length = minOf(o.duration, total - o.start)
         var t = 0.0
         var lead = 0.0
-        if (o.start >= 0.04) {
-            val len = minOf(o.start, v.sourceDuration)
-            b.addItem(layerItem(v.file, v.sourceDuration, 0.0, len, lw, lh, 0.0, len, null))
-            t = len
-            if (o.start - t > 0.001) b.addGap(us(o.start - t))
+        if (o.start >= 0.05) {
+            fill(b, o.start, lw, lh)
             t = o.start
         } else lead = o.start
         val rt = o.curveRetime
@@ -330,7 +341,7 @@ object CompositionBuilder {
             b.addItem(layerItem(v.file, v.sourceDuration, from, to, lw, lh, o.volume, length + lead, sp))
         }
         t += length + lead
-        if (total - t > 0.001) b.addGap(us(total - t))
+        fill(b, total - t, lw, lh)
         return b.build()
     }
 

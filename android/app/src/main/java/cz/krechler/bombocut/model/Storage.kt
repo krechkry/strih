@@ -23,9 +23,18 @@ object Paths {
     val media: File get() = File(docs, "Media")
     val projects: File get() = File(docs, "Projects")
 
+    /** A 2 s black 64 x 64 clip with silence (assets): what a video input shows where it has nothing (CompositionBuilder). */
+    var filler: File? = null
+        private set
+
     fun init(context: Context) {
         docs = context.filesDir
         ensure()
+        filler = runCatching {
+            File(context.noBackupFilesDir, "filler-1.mp4").also { f ->
+                if (!f.exists() || f.length() == 0L) context.assets.open("filler.mp4").use { i -> f.outputStream().use { i.copyTo(it) } }
+            }
+        }.getOrNull()
     }
 
     fun ensure() { media.mkdirs(); projects.mkdirs() }

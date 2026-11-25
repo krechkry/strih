@@ -61,7 +61,7 @@ sleep 2
 adb exec-out screencap -p > $OUT/07-undo.png
 adb shell "run-as cz.krechler.bombocut cat files/Projects/00000000-0000-0000-0000-00000000A001.json" > $OUT/project-after.json
 adb logcat -d -b crash > $OUT/crash.txt || true
-adb logcat -d | grep -E "blend input|Bombocut: clip" | head -40 > $OUT/blend.txt || true
+adb logcat -d | grep -E "blend input|layer input|Bombocut: clip" | head -40 > $OUT/blend.txt || true
 adb logcat -d | grep -A60 "FATAL EXCEPTION" > $OUT/logcat.txt || true
 adb logcat -d | grep -iE "Media3|CompositionPlayer|ExoPlayer|bombocut" | tail -300 > $OUT/media.txt || true
 ls -la $OUT
@@ -132,4 +132,4 @@ adb shell am start -W -n $APP/.app.MainActivity --ez paywall true
 sleep 4
 adb exec-out screencap -p > $OUT/12-paywall.png
 adb logcat -d -b crash > $OUT/crash.txt || true
-adb logcat -d | grep -E "blend input|Bombocut: clip" | head -40 > $OUT/blend.txt || true
+adb logcat -d | grep -E "blend input|layer input|Bombocut: clip" | head -40 > $OUT/blend.txt || true
