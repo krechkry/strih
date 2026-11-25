@@ -6,6 +6,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.VolumeOff
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -129,17 +130,19 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
         "text" -> model.selectedOverlay?.isText == true
         "sound" -> model.selectedAudio != null
         "caption" -> model.selectedCueLine != null
+        "silence" -> model.selectedIndex != null
         "picture" -> model.selectedOverlay?.kind is cz.krechler.bombocut.model.OverlayKind.Image
         null -> false
         else -> model.selectedIndex != null
     }
     if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; "caption" -> 620.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 560.dp; "sound" -> 460.dp; "picture" -> 320.dp; "caption" -> 620.dp; "silence" -> 360.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
                     "text" -> TextSheet(model)
                     "sound" -> SoundSheet(model)
                     "caption" -> CaptionLineSheet(model)
+                    "silence" -> SilenceSheet(model)
                     "picture" -> PictureSheet(model)
                     "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)
@@ -167,6 +170,7 @@ private fun ToolRow(model: EditorModel, addSound: () -> Unit, addPicture: () -> 
         }
         if (model.selectedIndex != null) {
             ToolButton(Icons.Filled.Tune, "Adjust") { open("adjust") }
+            ToolButton(Icons.Filled.VolumeOff, "Remove silence") { open("silence") }
             ToolButton(Icons.Filled.Speed, "Speed") { open("speed") }
             ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Volume") { open("volume") }
             ToolButton(Icons.Filled.ContentCopy, "Duplicate") { model.duplicateSelected() }

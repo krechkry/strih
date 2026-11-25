@@ -377,4 +377,47 @@ final class ParityFixtures: XCTestCase {
         }
         try write(CaptionFixture(cuts: cases, restyles: restyles, wraps: wraps), "captions.json")
     }
+
+    // MARK: Remove silence: threshold, quiet stretches, cuts, the clip in pieces
+
+    struct QuietCase: Codable { var levels: [Float]; var auto: Double; var minSilence: Double; var quiet: [[Double]]; var length: Double; var cuts: [[Double]] }
+    struct PiecesCase: Codable { var clipIndex: Int; var cuts: [[Double]]; var fade: Double; var pieces: [Clip]? }
+    struct SilenceFixture: Codable { var quiet: [QuietCase]; var pieces: [PiecesCase] }
+
+    @MainActor func testWriteSilence() throws {
+        // talking (-18...-24 dB) with pauses (-52 dB), a click inside one pause and a quiet start and end
+        func talk(_ secs: Double, _ db: Float) -> [Float] { (0..<Int(secs * 100)).map { db + Float($0 % 7) - 3 } }
+        func pause(_ secs: Double) -> [Float] { (0..<Int(secs * 100)).map { _ in -52 } }
+        let tracks: [[Float]] = [
+            pause(0.8) + talk(2.3, -20) + pause(0.7) + talk(1.1, -22) + pause(0.3) + talk(1.5, -19) + pause(1.2),
+            talk(1.0, -24) + pause(0.4) + [-15, -15, -15, -15] + pause(0.5) + talk(2.0, -21) + pause(0.6),
+            pause(0.2) + talk(3.0, -30) + pause(2.0) + talk(0.5, -30),
+        ]
+        var quiet: [QuietCase] = []
+        for lv in tracks {
+            let auto = Silence.autoThreshold(lv)
+            for minS in [0.3, 0.5, 1.0] {
+                let q = Silence.quiet(lv, threshold: auto, minSilence: minS)
+                let length = Double(lv.count) / Silence.rate
+                let c = Silence.cuts(q, length: length, settings: Silence.Settings())
+                quiet.append(QuietCase(levels: lv, auto: auto, minSilence: minS, quiet: q.map { [$0.lowerBound, $0.upperBound] },
+                                       length: length, cuts: c.map { [$0.lowerBound, $0.upperBound] }))
+            }
+        }
+        let rich = Self.richProject()
+        var pieces: [PiecesCase] = []
+        for (i, c) in rich.clips.enumerated() {
+            let len = c.outPoint - c.inPoint
+            let sets: [[ClosedRange<Double>]] = [
+                [0...min(0.4, len * 0.2)],
+                [len * 0.3...len * 0.45, len * 0.6...len * 0.7],
+                [len * 0.8...len],
+            ]
+            for cuts in sets {
+                pieces.append(PiecesCase(clipIndex: i, cuts: cuts.map { [$0.lowerBound, $0.upperBound] }, fade: 0.03,
+                                         pieces: Silence.pieces(c, cutting: cuts, fade: 0.03)))
+            }
+        }
+        try write(SilenceFixture(quiet: quiet, pieces: pieces), "silence.json")
+    }
 }
