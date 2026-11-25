@@ -62,8 +62,11 @@ done
 echo "seconds: $(( $(date +%s) - START ))" > $OUT/time.txt
 sleep 2
 adb exec-out screencap -p > $OUT/04-done.png
-# the new captions in the preview: play a moment (the playhead starts before the first word)
-python3 android/ci/tap.py "Play" && sleep 2.5 && adb exec-out screencap -p > $OUT/05-playing.png
+# the new captions in the preview: panel closed, play a moment (at 0 s the first line is still fading in)
+python3 android/ci/tap.py "Hotovo" || python3 android/ci/tap.py "Done"
+sleep 2
+adb exec-out screencap -p > $OUT/05-closed.png
+python3 android/ci/tap.py "Play" && sleep 1.5 && adb exec-out screencap -p > $OUT/06-playing.png
 python3 android/ci/tap.py "Pause" || true
 python3 - <<PY > $OUT/words.txt
 import json
