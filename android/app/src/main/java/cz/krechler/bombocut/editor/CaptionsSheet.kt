@@ -1,6 +1,7 @@
 // Ported from Bombocut/Editor/CaptionsSheet.swift (iOS a28b16c), the generate page: the language, the speech model
 // note (downloaded once), Generate captions / New captions track, what the run is doing, what went wrong.
-// Not yet: picking clips, typed names, Regenerate one line, translation.
+// The model download is the app's one SpeechDownload: Pause / Resume here, asked first on mobile data (iOS alert).
+// Regenerate one line is in the line's own panel (CaptionLineSheet). Not yet: picking clips, typed names, translation.
 package cz.krechler.bombocut.editor
 
 import androidx.compose.foundation.background
@@ -29,6 +30,7 @@ import cz.krechler.bombocut.app.PrefsSettings
 import cz.krechler.bombocut.app.Theme
 import cz.krechler.bombocut.app.loc
 import cz.krechler.bombocut.app.locf
+import cz.krechler.bombocut.engine.SpeechDownload
 import cz.krechler.bombocut.engine.SpeechModel
 import cz.krechler.bombocut.engine.Transcriber
 import cz.krechler.bombocut.model.CaptionLanguage
@@ -45,6 +47,9 @@ fun CaptionsSheet(model: EditorModel) {
     var more by remember { mutableStateOf(false) }
     // generating again replaces your text edits: the first tap asks (iOS confirmation dialog)
     var confirm by remember { mutableStateOf(false) }
+    // iOS: "Download on mobile data?" once per panel; the next tap is the answer
+    var askCellular by remember { mutableStateOf<Boolean?>(null) }
+    val download = SpeechDownload.state
     val job = model.captionJob
     val running = job != null && job.error == null
     val hasTracks = model.project.captionTracks.isNotEmpty()
@@ -71,7 +76,9 @@ fun CaptionsSheet(model: EditorModel) {
         job?.error != null -> Text(job.error, color = Color(0xFFFF453A), fontWeight = FontWeight.SemiBold)
         running -> {
             val (text, f) = when (val p = job!!.phase) {
-                is Transcriber.Phase.Downloading -> locf("Downloading speech model %lld %%", (p.fraction * 100).toInt()) to p.fraction
+                is Transcriber.Phase.Downloading ->
+                    (if (download is SpeechDownload.State.Paused) locf("Speech model paused at %lld %%", (p.fraction * 100).toInt())
+                     else locf("Downloading speech model %lld %%", (p.fraction * 100).toInt())) to p.fraction
                 Transcriber.Phase.PreparingAudio -> loc("Listening to the sound…") to null
                 Transcriber.Phase.LoadingModel -> loc("Preparing the model…") to null
                 is Transcriber.Phase.Listening -> locf("Listening %lld %%", (p.fraction * 100).toInt()) to p.fraction
@@ -82,10 +89,35 @@ fun CaptionsSheet(model: EditorModel) {
             else LinearProgressIndicator(color = Theme.accent, trackColor = Theme.panel2, modifier = Modifier.fillMaxWidth())
         }
         model.captionsReady -> Text(loc("Captions ready"), color = Theme.accent, fontWeight = FontWeight.Bold)
+        askCellular == true -> Text(loc("Download on mobile data?") + " " + loc("The speech model is about 650 MB. Wi-Fi is better."),
+                                    color = Color.White, fontWeight = FontWeight.SemiBold)
+        download is SpeechDownload.State.Paused ->
+            Text(locf("Speech model paused at %lld %%", (download.fraction * 100).toInt()), color = Theme.muted)
+        download is SpeechDownload.State.Downloading ->
+            Text(locf("Downloading speech model %lld %%", (download.fraction * 100).toInt()), color = Theme.muted)
         !SpeechModel.isReady -> Text(loc("The speech model is about 650 MB. Wi-Fi is better."), color = Theme.muted)
     }
 
+    /** The model isn't here and the phone is on mobile data: the first tap asks, the second downloads anyway. */
+    fun cellularOK(): Boolean {
+        if (SpeechModel.isReady || askCellular == true || askCellular == false) {
+            if (askCellular == true) askCellular = false
+            return true
+        }
+        if (SpeechDownload.onMobileData(context)) { askCellular = true; return false }
+        return true
+    }
+
     if (running) {
+        // while the model downloads: pause / resume it (the run waits), or stop everything
+        if (job!!.phase is Transcriber.Phase.Downloading) {
+            val paused = download is SpeechDownload.State.Paused
+            TextButton({ if (paused) SpeechDownload.start() else SpeechDownload.pause() },
+                       modifier = Modifier.fillMaxWidth().background(if (paused) Theme.accent else Theme.panel2, RoundedCornerShape(14.dp))) {
+                Text(loc(if (paused) "Resume download" else "Pause download"), color = if (paused) Color.Black else Color.White,
+                     fontWeight = FontWeight.Bold)
+            }
+        }
         TextButton({ model.cancelCaptions() }, modifier = Modifier.fillMaxWidth().background(Theme.panel2, RoundedCornerShape(14.dp))) {
             Text(loc("Cancel"), color = Color.White, fontWeight = FontWeight.Bold)
         }
@@ -93,13 +125,22 @@ fun CaptionsSheet(model: EditorModel) {
         if (confirm) Text(loc("Generate captions again? Your text edits will be replaced."), color = Color.White, fontWeight = FontWeight.SemiBold)
         TextButton({
             if (hasTracks && !confirm) { confirm = true; return@TextButton }
+            if (!cellularOK()) return@TextButton
             confirm = false
             model.startCaptions(context, language, newTrack = false)
         },
                    modifier = Modifier.fillMaxWidth().background(Theme.accent, RoundedCornerShape(14.dp))) {
-            Text(loc(if (hasTracks) "Generate again" else "Generate captions"), color = Color.Black, fontWeight = FontWeight.Bold)
+            Text(loc(when {
+                askCellular == true -> "Download anyway"
+                hasTracks -> "Generate again"
+                else -> "Generate captions"
+            }), color = Color.Black, fontWeight = FontWeight.Bold)
         }
-        if (hasTracks) TextButton({ confirm = false; model.startCaptions(context, language, newTrack = true) },
+        if (askCellular == true) TextButton({ askCellular = null },
+                                            modifier = Modifier.fillMaxWidth().background(Theme.panel2, RoundedCornerShape(14.dp))) {
+            Text(loc("Cancel"), color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        if (hasTracks && askCellular != true) TextButton({ if (!cellularOK()) return@TextButton; confirm = false; model.startCaptions(context, language, newTrack = true) },
                                   modifier = Modifier.fillMaxWidth().background(Theme.panel2, RoundedCornerShape(14.dp))) {
             Text(loc("New captions track"), color = Color.White, fontWeight = FontWeight.Bold)
         }

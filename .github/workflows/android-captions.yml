@@ -7,7 +7,9 @@ on:
     paths:
       - 'android/app/src/main/java/cz/krechler/bombocut/engine/Transcriber.kt'
       - 'android/app/src/main/java/cz/krechler/bombocut/engine/SpeechModel.kt'
+      - 'android/app/src/main/java/cz/krechler/bombocut/engine/SpeechDownload.kt'
       - 'android/app/src/main/java/cz/krechler/bombocut/editor/CaptionsSheet.kt'
+      - 'android/app/src/main/java/cz/krechler/bombocut/home/StorageView.kt'
       - 'android/ci/captions-run.sh'
       - '.github/workflows/android-captions.yml'
   workflow_dispatch:
@@ -50,7 +52,8 @@ jobs:
         if: steps.model.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/model && cd ~/model
-          B=https://huggingface.co/tpmaerk/parakeet-ultra-sherpa-onnx-int8/resolve/main
+          # the same place the app downloads from (Speech model mirror workflow)
+          B=https://github.com/${{ github.repository }}/releases/download/models-parakeet-ultra-int8-1
           for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do curl -sSL --retry 5 -o $f "$B/$f"; done
           cat > sums <<SUMS
           f4d06712d32431b1718eceba2153c314ac4425e8fe708a3534f5e56c5ad53697  encoder.int8.onnx

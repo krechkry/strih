@@ -38,6 +38,12 @@ adb shell "run-as $APP cp /data/local/tmp/p.json files/Projects/00000000-0000-00
 
 adb shell am start -W -n $APP/.app.MainActivity
 sleep 5
+# the Storage screen (the model shows as downloaded), then back home
+python3 android/ci/tap.py "Úložiště" || python3 android/ci/tap.py "Storage"
+sleep 2
+adb exec-out screencap -p > $OUT/00-storage.png
+python3 android/ci/tap.py "Hotovo" || python3 android/ci/tap.py "Done"
+sleep 2
 python3 android/ci/tap.py "Titulky test"
 sleep 5
 adb exec-out screencap -p > $OUT/01-editor.png
@@ -56,6 +62,9 @@ done
 echo "seconds: $(( $(date +%s) - START ))" > $OUT/time.txt
 sleep 2
 adb exec-out screencap -p > $OUT/04-done.png
+# the new captions in the preview: play a moment (the playhead starts before the first word)
+python3 android/ci/tap.py "Play" && sleep 2.5 && adb exec-out screencap -p > $OUT/05-playing.png
+python3 android/ci/tap.py "Pause" || true
 python3 - <<PY > $OUT/words.txt
 import json
 p=json.load(open("$OUT/project.json"))

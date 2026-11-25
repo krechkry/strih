@@ -26,7 +26,6 @@ import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
 import cz.krechler.bombocut.model.CaptionWord
 import cz.krechler.bombocut.model.Project
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.job
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,11 +57,13 @@ object Transcriber {
     suspend fun run(context: Context, project: Project, range: ClosedFloatingPointRange<Double>? = null,
                     phase: (Phase) -> Unit): List<CaptionWord> {
         if (!SpeechModel.isReady) {
-            phase(Phase.Downloading(SpeechModel.downloadedBytes().toDouble() / SpeechModel.totalBytes))
-            val main = android.os.Handler(android.os.Looper.getMainLooper())
-            withContext(Dispatchers.IO) {
-                val job = coroutineContext.job
-                SpeechModel.download({ f -> main.post { phase(Phase.Downloading(f)) } }, cancelled = { !job.isActive })
+            // the app's one download (the Storage screen shows the same); paused, this keeps waiting
+            SpeechDownload.await { st ->
+                when (st) {
+                    is SpeechDownload.State.Downloading -> phase(Phase.Downloading(st.fraction))
+                    is SpeechDownload.State.Paused -> phase(Phase.Downloading(st.fraction))
+                    else -> {}
+                }
             }
         }
         phase(Phase.PreparingAudio)

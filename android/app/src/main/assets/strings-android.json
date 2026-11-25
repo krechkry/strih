@@ -171,6 +171,26 @@
           }
         }
       }
+    },
+    "The speech model isn't downloaded yet.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hlasový model ještě není stažený."
+          }
+        }
+      }
+    },
+    "Your originals in the gallery are never touched. Deleting here is permanent, there is no trash bin.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originálů v galerii se nic nedotkne. Co tu smažeš, je pryč navždy, koš tu není."
+          }
+        }
+      }
     }
   }
 }

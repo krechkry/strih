@@ -4,6 +4,7 @@
 // Download: plain HTTPS with Range requests (resumes where it stopped), each file checked by size and SHA-256.
 package cz.krechler.bombocut.engine
 
+import cz.krechler.bombocut.app.loc
 import cz.krechler.bombocut.model.Paths
 import java.io.File
 import java.io.FileOutputStream
@@ -72,13 +73,16 @@ object SpeechModel {
                 try {
                     fetch(sources[source], p, part, progress, cancelled)
                 } catch (e: IOException) {
-                    if (cancelled() || ++attempts >= 6) throw e
+                    if (cancelled()) throw e
+                    if (++attempts >= 6) throw if (e is java.net.UnknownHostException || e is java.net.ConnectException ||
+                                                   e is java.net.SocketTimeoutException)
+                        IOException(loc("Can't reach the download server. Check your connection."), e) else e
                     source = (source + 1) % sources.size
                     Thread.sleep(1000L * attempts)
                 }
             }
-            if (sha256(part) != p.sha256) { part.delete(); throw IOException("The speech model download was damaged. Try again.") }
-            if (!part.renameTo(done)) throw IOException("Could not save the speech model.")
+            if (sha256(part) != p.sha256) { part.delete(); throw IOException(loc("The download was incomplete. Try again.")) }
+            if (!part.renameTo(done)) throw IOException(loc("The download didn't finish. Try again."))
         }
         checked().writeText(VERSION)
         progress(1.0)
@@ -91,7 +95,7 @@ object SpeechModel {
         c.instanceFollowRedirects = true
         if (have > 0) c.setRequestProperty("Range", "bytes=$have-")
         val code = c.responseCode
-        if (code != 200 && code != 206) throw IOException("Speech model download failed ($code).")
+        if (code != 200 && code != 206) throw IOException(loc("The download server didn't answer properly. Try again later.") + " ($code)")
         // a server that ignores the range sends everything again: start the file over
         val append = code == 206
         val before = parts.takeWhile { it != p }.sumOf { it.bytes }

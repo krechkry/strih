@@ -5,6 +5,7 @@ package cz.krechler.bombocut.editor
 import kotlinx.coroutines.launch
 import cz.krechler.bombocut.app.loc
 import cz.krechler.bombocut.model.remapped
+import cz.krechler.bombocut.model.replacingWords
 import cz.krechler.bombocut.model.timingKey
 import cz.krechler.bombocut.model.CaptionCutter
 import cz.krechler.bombocut.model.Captions
@@ -62,6 +63,10 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         if (locked || captionJob?.error == null && captionJob != null) return
         captionTask?.cancel()
         captionsReady = false
+        cueNote = null
+        // tapping Generate is the go-ahead: a paused download continues
+        if (cz.krechler.bombocut.engine.SpeechDownload.state is cz.krechler.bombocut.engine.SpeechDownload.State.Paused)
+            cz.krechler.bombocut.engine.SpeechDownload.start()
         captionJob = CaptionJob(cz.krechler.bombocut.engine.Transcriber.Phase.PreparingAudio)
         val snapshot = project
         val adding = newTrack || snapshot.captionTracks.isEmpty()
@@ -94,7 +99,52 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         }
     }
 
-    fun cancelCaptions() { captionTask?.cancel(); captionTask = null; captionJob = null }
+    /** Stops the run; while it was still downloading the model, the download pauses too (no data used behind your back). */
+    fun cancelCaptions() {
+        if (captionJob?.phase is cz.krechler.bombocut.engine.Transcriber.Phase.Downloading) cz.krechler.bombocut.engine.SpeechDownload.pause()
+        captionTask?.cancel(); captionTask = null; captionJob = null
+    }
+
+    /** The line being heard again (its Regenerate button spins). */
+    var regeneratingCue by mutableStateOf<UUID?>(null)
+        private set
+    /** What went wrong for a line heard again (shown under it until the next try). */
+    data class CueNote(val id: UUID, val text: String)
+    var cueNote by mutableStateOf<CueNote?>(null)
+
+    /**
+     * iOS regenerateCue: listens to one caption line again (a little before and after it, for context) and puts what
+     * it heard into that line only. One undo step. Needs the model on the phone (no download from here).
+     */
+    fun regenerateCue(context: android.content.Context, track: Int, id: UUID) {
+        if (locked || regeneratingCue != null || captionJob != null && captionJob?.error == null) return
+        val caps = project.captionTracks.getOrNull(track) ?: return
+        val cue = caps.cues.firstOrNull { it.id == id } ?: return
+        if (!cz.krechler.bombocut.engine.SpeechModel.isReady) { cueNote = CueNote(id, loc("The speech model isn't downloaded yet.")); return }
+        regeneratingCue = id
+        cueNote = null
+        val snapshot = project
+        val lo = maxOf(0.0, cue.start - 0.6)
+        val hi = minOf(maxOf(snapshot.duration, cue.end), cue.end + 0.6)
+        scope.launch {
+            try {
+                val heard = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot, lo..hi) {}
+                // the timeline moved meanwhile: the times would be off, leave the line alone
+                if (project.timingKey != snapshot.timingKey) return@launch
+                val now = project.captionTracks.getOrNull(track) ?: return@launch
+                val fixed = now.replacingWords(id, heard)
+                if (fixed == null) { cueNote = CueNote(id, loc("No speech found.")); return@launch }
+                mutate { p -> p.copy(captionTracks = p.captionTracks.toMutableList().also { if (track < it.size) it[track] = fixed }) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("Bombocut", "line again failed", e)
+                cueNote = CueNote(id, e.message?.takeIf { it.isNotBlank() } ?: loc("No speech found."))
+            } finally {
+                regeneratingCue = null
+            }
+        }
+    }
 
     // MARK: Undo
 

@@ -245,6 +245,26 @@ fun Captions.absorbedEdits(): Captions {
     return copy(words = out.sortedBy { it.start })
 }
 
+/**
+ * Swift Captions.replaceWords(ofCue:with:): the words heard again go into that one line (and the words under it);
+ * null when nothing heard falls inside the line. Your edits elsewhere are kept (absorbed first).
+ */
+fun Captions.replacingWords(id: java.util.UUID, heard: List<CaptionWord>): Captions? {
+    val a = absorbedEdits()
+    val i = a.cues.indexOfFirst { it.id == id }
+    if (i < 0) return null
+    val lo = a.cues[i].start - 0.001; val hi = a.cues[i].end + 0.001
+    fun inside(w: CaptionWord): Boolean { val m = (w.start + w.end) / 2; return m >= lo && m <= hi }
+    val fresh = heard.filter(::inside)
+    if (fresh.isEmpty()) return null
+    val words = (a.words.filter { !inside(it) } + fresh).sortedBy { it.start }
+    val shown = if (a.style.punctuation) fresh else fresh.mapNotNull { w ->
+        val t = CaptionCutter.stripPunctuation(w.text); if (t.isEmpty()) null else w.copy(text = t)
+    }
+    val text = CaptionCutter.wrap(shown.joinToString(" ") { it.text }, a.style.maxChars, maxOf(1, a.style.lines))
+    return a.copy(words = words, cues = a.cues.toMutableList().also { it[i] = it[i].copy(words = shown, text = text) })
+}
+
 /** Swift Captions.restyle: edits go into the words first, then the style changes and the lines are cut again. */
 fun Captions.restyled(change: (CaptionStyle) -> CaptionStyle): Captions {
     val a = absorbedEdits()

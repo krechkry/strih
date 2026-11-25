@@ -3,6 +3,8 @@
 
     <!-- only for downloading the speech model once (captions run offline); nothing is sent anywhere -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- to ask before the 650 MB model downloads over mobile data -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"

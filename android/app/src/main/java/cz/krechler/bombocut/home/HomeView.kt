@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.runtime.Composable
@@ -94,6 +95,7 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
     var renaming by remember { mutableStateOf<Project?>(null) }
     var deleting by remember { mutableStateOf<Project?>(null) }
     var importing by remember { mutableStateOf<String?>(null) }
+    var showStorage by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -141,6 +143,10 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
     Column(Modifier.fillMaxSize().background(Theme.bg).safeDrawingPadding()) {
         Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
             Text("BOMBOCUT", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            // iOS: the drive icon in the home toolbar
+            androidx.compose.material3.IconButton({ showStorage = true }, Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) {
+                androidx.compose.material3.Icon(Icons.Filled.Storage, loc("Storage"), tint = Color.White)
+            }
         }
         LazyColumn(
             Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -174,6 +180,7 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
         }
     }
 
+    if (showStorage) StorageView { showStorage = false }
     renaming?.let { p ->
         var text by remember(p.id) { mutableStateOf(p.name) }
         AlertDialog(

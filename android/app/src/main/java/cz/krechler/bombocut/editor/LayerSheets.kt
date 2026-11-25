@@ -464,7 +464,20 @@ fun CaptionLineSheet(model: EditorModel) {
                                                   focusedBorderColor = Theme.accent, cursorColor = Theme.accent),
     )
     Text(Fmt.cFixed(cue.start, 1) + " s  -  " + Fmt.cFixed(cue.end, 1) + " s", color = Theme.muted, fontWeight = FontWeight.Bold)
-    TextButton({ model.deleteCue(k, id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    model.cueNote?.takeIf { it.id == id }?.let { Text(it.text, color = Color(0xFFFF453A), fontWeight = FontWeight.SemiBold) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // what was heard comes back into the field (it starts from the line as it is now)
+    androidx.compose.runtime.LaunchedEffect(cue.text) { if (model.regeneratingCue == null) text = cue.text }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        // iOS: the arrow beside a line in Captions > Text; listens to just this line again
+        val running = model.regeneratingCue == id
+        TextButton({ model.regenerateCue(context, k, id) }, enabled = model.regeneratingCue == null) {
+            if (running) androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+            else Text("↻", color = Color.White, fontWeight = FontWeight.Black)
+            Text("  " + loc("Regenerate"), color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        TextButton({ model.deleteCue(k, id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+    }
     CaptionStyleControls(model, k)
 }
 
