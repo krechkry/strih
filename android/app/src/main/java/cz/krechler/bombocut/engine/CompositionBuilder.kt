@@ -176,35 +176,41 @@ object CompositionBuilder {
     }
 
     /**
-     * How roll A shows over roll B at each moment: fully where an A clip plays on its own, not at all over B's own
-     * clips (A's gap frames are black), and fading over the overlap of a transition. All transitions blend as a
-     * crossfade on Android for now (iOS also slides, zooms and pops).
+     * How each roll shows at each moment (see `alpha`). All transitions blend as a crossfade on Android for now
+     * (iOS also slides, zooms and pops).
      */
     private class Crossfades(project: Project, private val w: Int, private val h: Int) : VideoCompositorSettings {
         private val starts = project.clipStarts
         private val ends = project.clips.mapIndexed { k, c -> starts[k] + c.duration }
         private val n = project.clips.size
 
-        fun alphaA(t: Double): Float {
-            // the clip on top at t and whether it is inside an overlap
+        /**
+         * How much of roll `roll` shows at t: none while it is in a gap (its gap frames are black), all of it while
+         * its clip plays alone, and the incoming clip fades in over the outgoing one across an overlap.
+         */
+        fun alpha(roll: Int, t: Double): Float {
             for (k in 0 until n) {
                 if (t < starts[k] - 1e-6 || t >= ends[k]) continue
                 val nextStarts = if (k + 1 < n) starts[k + 1] else Double.MAX_VALUE
                 if (t >= nextStarts) {
-                    // overlap of k and k + 1: k fades out over k + 1
+                    // overlap of k (out) and k + 1 (in)
                     val f = ((t - nextStarts) / maxOf(ends[k] - nextStarts, 1e-6)).coerceIn(0.0, 1.0)
-                    return (if (k % 2 == 0) 1 - f else f).toFloat()
+                    return if ((k + 1) % 2 == roll) f.toFloat() else 1f
                 }
-                return if (k % 2 == 0) 1f else 0f
+                return if (k % 2 == roll) 1f else 0f
             }
             return 0f
         }
 
         override fun getOutputSize(inputSizes: List<Size>): Size = Size(w, h)
 
-        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings =
-            if (inputId != 0) StaticOverlaySettings.Builder().build()
-            else StaticOverlaySettings.Builder().setAlphaScale(alphaA(presentationTimeUs / 1_000_000.0)).build()
+        private var logged = 0
+
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+            val a = alpha(inputId, presentationTimeUs / 1_000_000.0)
+            if (a > 0.01f && a < 0.99f && logged < 12) { logged++; android.util.Log.i("Bombocut", "blend input $inputId at $presentationTimeUs us: alpha $a") }
+            return StaticOverlaySettings.Builder().setAlphaScale(a).build()
+        }
     }
 
     /** The project as one Media3 Composition, `width` x `height` (preview and export use the same one). */
