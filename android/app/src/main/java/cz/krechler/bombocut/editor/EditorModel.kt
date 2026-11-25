@@ -156,6 +156,24 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         trimOriginal = null
     }
 
+    // MARK: Live lane drags (one undo step when the finger lifts)
+
+    private var laneSnapshot: Project? = null
+
+    fun laneDragBegan() { if (laneSnapshot == null) laneSnapshot = project }
+
+    /** `change` gets the project as it was when the drag began (so a drag never adds up rounding). */
+    fun laneDragChanged(change: (Project) -> Project) {
+        val s = laneSnapshot ?: return
+        project = change(s)
+    }
+
+    fun laneDragEnded() {
+        val s = laneSnapshot ?: return
+        laneSnapshot = null
+        if (s != project) { pushUndo(s); commit() }
+    }
+
     companion object {
         /** A clip cut in two at source time `src` (nil when either piece would be too short). */
         fun clipHalves(c: Clip, src: Double): Pair<Clip, Clip>? {

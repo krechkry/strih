@@ -193,3 +193,41 @@ fun SoundSheet(model: EditorModel) {
     BSlider(fout, 0.0..3.0, { fout = it }, { model.changeAudio(a.id) { it.copy(fadeOut = fout.takeIf { v -> v > 0.01 }) } })
     TextButton({ model.deleteAudio(a.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
 }
+
+// MARK: Moving and trimming in the lanes (iOS: hold and slide to move, drag the ends to trim)
+
+enum class LaneDrag { move, head, tail }
+
+/** A layer moved or trimmed by `dt` seconds from where it was when the drag began. */
+fun EditorModel.dragOverlay(id: UUID, mode: LaneDrag, dt: Double) = laneDragChanged { p ->
+    val i = p.overlays.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return@laneDragChanged p
+    val o = p.overlays[i]
+    val total = p.duration
+    val n = when (mode) {
+        LaneDrag.move -> o.copy(start = (o.start + dt).coerceIn(0.0, maxOf(0.0, total - o.duration)))
+        LaneDrag.head -> {
+            val s = (o.start + dt).coerceIn(0.0, o.end - 0.2)
+            o.copy(start = s, duration = o.end - s)
+        }
+        LaneDrag.tail -> o.copy(duration = (o.duration + dt).coerceIn(0.2, maxOf(0.2, total - o.start)))
+    }
+    p.copy(overlays = p.overlays.toMutableList().also { it[i] = n })
+}
+
+/** A sound moved or trimmed; trimming its start trims into the file (its in point follows). */
+fun EditorModel.dragAudio(id: UUID, mode: LaneDrag, dt: Double) = laneDragChanged { p ->
+    val i = p.audio.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return@laneDragChanged p
+    val a = p.audio[i]
+    val n = when (mode) {
+        LaneDrag.move -> a.copy(start = maxOf(0.0, a.start + dt))
+        LaneDrag.head -> {
+            val shift = dt.coerceIn(-a.inPoint / a.speed, a.duration - 0.2).coerceAtLeast(-a.start)
+            a.copy(start = a.start + shift, duration = a.duration - shift, inPoint = a.inPoint + shift * a.speed)
+        }
+        LaneDrag.tail -> {
+            val most = (a.sourceDuration - a.inPoint) / a.speed
+            a.copy(duration = (a.duration + dt).coerceIn(0.2, most))
+        }
+    }
+    p.copy(audio = p.audio.toMutableList().also { it[i] = n })
+}

@@ -1,7 +1,7 @@
 // Ported in part from Bombocut/Editor/TimelineView.swift (iOS ad3827a): ruler, clip strip with a filmstrip,
 // fixed center playhead, pinch zoom, drag to scrub, tap to select, ripple trim handles, and the lanes in desktop
 // order (captions, layers, clips, sound) showing what is where.
-// Not yet: editing in the lanes (select, move, trim), hold-to-reorder, transitions, stacks, snapping lines, slip.
+// Layers and sounds: tap to pick, slide to move, drag the lime ends to trim. Not yet: caption lines, hold-to-reorder, transitions, stacks, snapping lines, slip.
 package cz.krechler.bombocut.editor
 
 import androidx.compose.foundation.Canvas
@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,24 +122,26 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
         // layers: the higher row is drawn on top, the lowest sits right above the clips
         layerRows.forEachIndexed { r, row ->
             val y = LaneLayout.top + withGap(capH) + (LaneLayout.layer + LaneLayout.rowGap.dp) * r
-            row.forEach { o ->
+            row.forEach { o -> androidx.compose.runtime.key(o.id) {
                 LaneBlock(x0 + (o.start * px).dp, (o.duration * px).toFloat(), y, LaneLayout.layer,
                           Theme.panel2, if (o.isText) o.title else loc(o.title), Color.White,
-                          selected = model.selectedOverlayID == o.id) {
+                          selected = model.selectedOverlayID == o.id, px = px,
+                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragOverlay(o.id, m, dt) }, { model.laneDragEnded() })) {
                     if (model.selectedOverlayID == o.id) model.selectOverlay(null)
                     else { model.selectOverlay(o.id); pick(if (o.isText) "text" else "picture") }
                 }
-            }
+            } }
         }
         // sound below the clips
         soundRows.forEachIndexed { r, row ->
             val y = stripY + LaneLayout.strip + LaneLayout.gap + (LaneLayout.sound + LaneLayout.rowGap.dp) * r
-            row.forEach { a ->
+            row.forEach { a -> androidx.compose.runtime.key(a.id) {
                 LaneBlock(x0 + (a.start * px).dp, (a.duration * px).toFloat(), y, LaneLayout.sound,
-                          Color(0xFF1F6F4A), a.name, Color.White, selected = model.selectedAudioID == a.id) {
+                          Color(0xFF1F6F4A), a.name, Color.White, selected = model.selectedAudioID == a.id, px = px,
+                          drag = LaneDragHandler({ model.laneDragBegan() }, { m, dt -> model.dragAudio(a.id, m, dt) }, { model.laneDragEnded() })) {
                     if (model.selectedAudioID == a.id) model.selectAudio(null) else { model.selectAudio(a.id); pick("sound") }
                 }
-            }
+            } }
         }
         // the fixed playhead
         Box(Modifier.offset(x = center - 1.dp).width(2.dp).fillMaxHeight().background(Color.White))
@@ -163,21 +167,55 @@ private fun Ruler(x0: Dp, px: Float, duration: Double) {
 
 @Composable
 private fun LaneBlock(x: Dp, widthDp: Float, y: Dp, height: Dp, fill: Color, label: String, ink: Color,
-                      selected: Boolean = false, tap: (() -> Unit)? = null) {
+                      selected: Boolean = false, px: Float = 60f, drag: LaneDragHandler? = null, tap: (() -> Unit)? = null) {
+    val w = maxOf(4f, widthDp - 1).dp
     Box(
         Modifier
             .offset(x = x, y = y)
-            .size(maxOf(4f, widthDp - 1).dp, height)
+            .size(w, height)
             .clip(RoundedCornerShape(4.dp))
             .background(fill)
             .border(if (selected) 2.dp else 0.dp, if (selected) Theme.accent else Color.Transparent, RoundedCornerShape(4.dp))
-            .then(if (tap != null) Modifier.pointerInput(tap) { detectTapGestures { tap() } } else Modifier),
+            .then(if (tap != null) Modifier.pointerInput(tap) { detectTapGestures { tap() } } else Modifier)
+            // picked: slide it sideways to move it (iOS: select first, then hold and slide)
+            .then(if (selected && drag != null) Modifier.laneDrag(drag, LaneDrag.move, px) else Modifier),
         contentAlignment = Alignment.CenterStart,
     ) {
         androidx.compose.material3.Text(label, color = ink, maxLines = 1,
             fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             modifier = Modifier.offset(x = 5.dp))
+    }
+    if (selected && drag != null) {
+        // lime ends just outside the block: drag them to trim
+        val e = 14.dp
+        Box(Modifier.offset(x = x - e, y = y).size(e, height)
+            .background(Theme.accent, RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp))
+            .laneDrag(drag, LaneDrag.head, px))
+        Box(Modifier.offset(x = x + w, y = y).size(e, height)
+            .background(Theme.accent, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+            .laneDrag(drag, LaneDrag.tail, px))
+    }
+}
+
+/** What a lane drag does: began, moved by `dt` seconds since it began (move / head / tail), ended. */
+class LaneDragHandler(val began: () -> Unit, val changed: (LaneDrag, Double) -> Unit, val ended: () -> Unit)
+
+// the block redraws while it moves: the gesture keeps going with the newest handler (keyed only by its kind)
+private fun Modifier.laneDrag(h: LaneDragHandler, mode: LaneDrag, px: Float): Modifier = composed {
+    val handler by rememberUpdatedState(h)
+    val scale by rememberUpdatedState(px)
+    pointerInput(mode) {
+        var dx = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { dx = 0f; handler.began() },
+            onDragEnd = { handler.ended() },
+            onDragCancel = { handler.ended() },
+        ) { change, amount ->
+            change.consume()
+            dx += amount / density
+            handler.changed(mode, (dx / scale).toDouble())
+        }
     }
 }
 
