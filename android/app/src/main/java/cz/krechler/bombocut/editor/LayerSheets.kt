@@ -511,30 +511,47 @@ private fun TypingStep(model: EditorModel, text: String) {
 
 @Composable
 fun SilenceSheet(model: EditorModel) {
-    val i = model.selectedIndex ?: return
-    val clip = model.project.clips[i]
-    var levels by remember(clip.id, clip.inPoint, clip.outPoint) { mutableStateOf<List<Float>?>(null) }
-    var reading by remember(clip.id) { mutableStateOf(true) }
-    androidx.compose.runtime.LaunchedEffect(clip.id, clip.inPoint, clip.outPoint) {
+    val sel = model.selectedIndex ?: return
+    var all by remember { mutableStateOf(false) }
+    val clips = model.project.clips
+    // which clips, by id (their loudness is read once per clip and range)
+    val targets = if (all) clips.filter { !it.still } else listOf(clips[sel])
+    val key = targets.map { Triple(it.id, it.inPoint, it.outPoint) }
+    var levels by remember { mutableStateOf<Map<java.util.UUID, List<Float>?>>(emptyMap()) }
+    var reading by remember { mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(key) {
         reading = true
-        levels = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { cz.krechler.bombocut.engine.Silence.levels(clip) }
+        val got = HashMap(levels)
+        for (c in targets) if (!got.containsKey(c.id)) {
+            got[c.id] = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { cz.krechler.bombocut.engine.Silence.levels(c) }
+            levels = HashMap(got)
+        }
         reading = false
     }
     var minSilence by remember { mutableStateOf(0.5) }
-    val lv = levels
     val s = cz.krechler.bombocut.engine.Silence.Settings(minSilence = minSilence)
-    val cuts = lv?.let {
-        val q = cz.krechler.bombocut.engine.Silence.quiet(it, cz.krechler.bombocut.engine.Silence.autoThreshold(it), minSilence)
-        cz.krechler.bombocut.engine.Silence.cuts(q, clip.outPoint - clip.inPoint, s)
-    } ?: emptyList()
-    // seconds of footage that go, on the timeline (speed included)
-    val shorter = cuts.sumOf { it.endInclusive - it.start } / maxOf(clip.speed, 0.01)
+    val plan = targets.mapNotNull { c ->
+        val lv = levels[c.id] ?: return@mapNotNull null
+        val q = cz.krechler.bombocut.engine.Silence.quiet(lv, cz.krechler.bombocut.engine.Silence.autoThreshold(lv), minSilence)
+        val cuts = cz.krechler.bombocut.engine.Silence.cuts(q, c.outPoint - c.inPoint, s)
+        if (cuts.isEmpty()) null else c to cuts
+    }
+    val pauses = plan.sumOf { it.second.size }
+    val shorter = plan.sumOf { (c, cuts) -> cuts.sumOf { it.endInclusive - it.start } / maxOf(c.speed, 0.01) }
     Text(loc("Remove silence"), color = Color.White, fontWeight = FontWeight.Black)
+    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        for ((on, name) in listOf(false to "This clip", true to "All clips")) {
+            Text(loc(name), color = if (all == on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
+                 modifier = Modifier.background(if (all == on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                     .clickable { all = on }.padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+    }
+    val noSound = !reading && targets.all { levels.containsKey(it.id) && levels[it.id] == null }
     Text(when {
-        reading -> loc("Listening to the sound…")
-        lv == null -> loc("No clips with sound.")
-        cuts.isEmpty() -> loc("No pauses to cut with these settings.")
-        else -> locf("Pauses to cut: %d, %@ shorter.", cuts.size, Fmt.duration(shorter))
+        reading && pauses == 0 -> loc("Listening to the sound…")
+        noSound -> loc("No clips with sound.")
+        pauses == 0 -> loc("No pauses to cut with these settings.")
+        else -> locf("Pauses to cut: %d, %@ shorter.", pauses, Fmt.duration(shorter))
     }, color = Theme.muted, fontWeight = FontWeight.SemiBold)
     Row {
         Text(loc("Shortest pause"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -542,10 +559,12 @@ fun SilenceSheet(model: EditorModel) {
     }
     BSlider(minSilence, 0.2..2.0, { minSilence = it }, {})
     TextButton({
-        val pieces = cz.krechler.bombocut.engine.Silence.pieces(clip, cuts, s.fade) ?: return@TextButton
-        model.mutate { p -> p.copy(clips = p.clips.toMutableList().also { it.removeAt(i); it.addAll(i, pieces) }) }
-    }, enabled = cuts.isNotEmpty(), modifier = Modifier.fillMaxWidth().background(if (cuts.isNotEmpty()) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))) {
-        Text(loc("Remove silence"), color = if (cuts.isNotEmpty()) Color.Black else Theme.muted, fontWeight = FontWeight.Bold)
+        // one undo step for every clip; each clip is replaced by its pieces, by id (indexes shift as pieces go in)
+        val pieces = plan.mapNotNull { (c, cuts) -> cz.krechler.bombocut.engine.Silence.pieces(c, cuts, s.fade)?.let { c.id to it } }.toMap()
+        if (pieces.isEmpty()) return@TextButton
+        model.mutate { p -> p.copy(clips = p.clips.flatMap { pieces[it.id] ?: listOf(it) }) }
+    }, enabled = pauses > 0, modifier = Modifier.fillMaxWidth().background(if (pauses > 0) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))) {
+        Text(loc("Remove silence"), color = if (pauses > 0) Color.Black else Theme.muted, fontWeight = FontWeight.Bold)
     }
     Text(loc("Captions, texts and sounds move along with their footage. Undo brings everything back."), color = Theme.muted)
 }
