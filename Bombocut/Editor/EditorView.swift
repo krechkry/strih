@@ -141,7 +141,8 @@ struct EditorView: View {
     @ViewBuilder
     private var panelLayer: some View {
         if let s = sheet, s != .export {
-            Panel(height: typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra, check: !typing,
+            // Remove silence has its own Remove pill in the check's spot
+            Panel(height: typing ? compactPanel : panelHeight(s) + Panel<EmptyView>.extra, check: !typing && s != .silence,
                   grabAbove: ![.crop, .autoZoom, .mask, .trackPick].contains(s),
                   close: { sheet = nil }) {
                 if scrollsItself(s) || typing {

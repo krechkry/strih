@@ -10,14 +10,12 @@ struct SilenceSheet: View {
     private var targets: [Clip] { model.silenceTargets(all: all) }
     private var oneClip: Bool { model.selectedIndex != nil }
 
+    @Environment(\.closePanel) private var close
+
     var body: some View {
-        ScrollView {
-            PanelStack(spacing: 16, span: 2) {
-                HStack {
-                    Text("Remove silence").font(.title3.weight(.heavy))
-                    Spacer()
-                    if model.silenceReading { ProgressView().tint(.white) }
-                }
+        VStack(spacing: 0) {
+            // always on top: which clips and the picture (the panel at its lowest still shows what goes)
+            VStack(spacing: 12) {
                 if oneClip {
                     Picker("", selection: $all) {
                         Text("This clip").tag(false)
@@ -26,34 +24,61 @@ struct SilenceSheet: View {
                     .pickerStyle(.segmented)
                 }
                 picture
+                    .overlay(alignment: .topTrailing) {
+                        if model.silenceReading { ProgressView().tint(.white).padding(6) }
+                    }
                 summary
-                PanelBreak()
-                thresholdRow
-                row("Shortest pause", s.minSilence, 0.2...2, "%.1f s") { s.minSilence = $0 }
-                row("Keep before speech", s.before, 0...0.5, "%.2f s") { s.before = $0 }
-                row("Keep after speech", s.after, 0...0.5, "%.2f s") { s.after = $0 }
-                row("Soft cuts", s.fade, 0...0.2, "%.2f s") { s.fade = $0 }
-                Button {
-                    model.removeSilence(targets, s)
-                } label: {
-                    Text("Remove silence").font(.headline.weight(.heavy)).foregroundStyle(.black)
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .background(Theme.accent, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(totals.pauses == 0)
-                .opacity(totals.pauses == 0 ? 0.4 : 1)
-                Text("Captions, texts and sounds move along with their footage. Undo brings everything back.")
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 10)
+            ScrollView {
+                PanelStack(spacing: 16, span: 2) {
+                    thresholdRow
+                    row("Shortest pause", s.minSilence, 0.2...2, "%.1f s") { s.minSilence = $0 }
+                    row("Keep before speech", s.before, 0...0.5, "%.2f s") { s.before = $0 }
+                    row("Keep after speech", s.after, 0...0.5, "%.2f s") { s.after = $0 }
+                    row("Soft cuts", s.fade, 0...0.2, "%.2f s") { s.fade = $0 }
+                    Button { remove() } label: {
+                        Text("Remove silence").font(.headline.weight(.heavy)).foregroundStyle(.black)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(totals.pauses == 0)
+                    .opacity(totals.pauses == 0 ? 0.4 : 1)
+                    Text("Captions, texts and sounds move along with their footage. Undo brings everything back.")
+                        .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .scrollIndicators(.hidden)
-        .scrollBounceBehavior(.basedOnSize)
+        // in the panel's check spot (top right): Remove does it and closes the panel
+        .overlay(alignment: .topTrailing) {
+            Button { remove() } label: {
+                Text("Remove").font(.subheadline.weight(.heavy)).foregroundStyle(.black)
+                    .padding(.horizontal, 16).frame(height: 32)
+                    .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .opacity(totals.pauses == 0 ? 0.4 : 1)
+            .disabled(totals.pauses == 0)
+            .padding(.trailing, 16)
+            .offset(y: -36)
+        }
         .onAppear { model.readSilence(targets) }
         .onChange(of: all) { model.readSilence(targets) }
         .onChange(of: model.selectedClipID) { model.readSilence(targets) }
+    }
+
+    /// The pauses go (one undo step) and the panel closes.
+    private func remove() {
+        guard totals.pauses > 0 else { return }
+        model.removeSilence(targets, s)
+        close()
     }
 
     // MARK: Picture
