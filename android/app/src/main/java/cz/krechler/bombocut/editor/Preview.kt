@@ -47,8 +47,7 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
     val (w, h) = project.canvas.size(720)
 
     DisposableEffect(Unit) {
-        // several video inputs (transitions are A / B rolls blended by the compositor)
-        val p = CompositionPlayer.Builder(context).setVideoGraphFactory(androidx.media3.effect.MultipleInputVideoGraph.Factory()).build()
+        val p = CompositionPlayer.Builder(context).build()
         p.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { state.playing = isPlaying }
             override fun onPlaybackStateChanged(playbackState: Int) {

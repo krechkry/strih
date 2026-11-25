@@ -32,6 +32,9 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 
 object CompositionBuilder {
+    /** Real transition blends (two rolls and the compositor); see build(). */
+    private const val BLENDS = false
+
     fun us(seconds: Double): Long = (seconds * 1_000_000).roundToLong()
 
     /**
@@ -226,7 +229,10 @@ object CompositionBuilder {
     fun build(project: Project, width: Int, height: Int, fps: Double? = null, livePreview: Boolean = false): Composition? {
         if (project.clips.isEmpty()) return null
         val n = project.clips.size
-        val blends = (1 until n).any { project.overlap(it) > 0.01 }
+        // A / B blending (abRolls + Crossfades) is off until the compositor's output is right: on the emulator the
+        // export alternated between the rolls' frames instead of mixing them (see strih/night-log-android.md).
+        // Meanwhile a transition is a cut in its middle, which keeps every clip, text and sound where it belongs.
+        val blends = BLENDS && (1 until n).any { project.overlap(it) > 0.01 }
         val video: List<EditedMediaItemSequence>
         var settings: VideoCompositorSettings? = null
         if (blends) {
@@ -235,7 +241,9 @@ object CompositionBuilder {
             video = abRolls(project, width, height)
             settings = Crossfades(project, width, height)
         } else {
-            val items = project.clips.map { item(it, width, height) }
+            val items = project.clips.mapIndexed { k, c ->
+                item(c, width, height, head = project.overlap(k) / 2, tail = if (k + 1 < n) project.overlap(k + 1) / 2 else 0.0)
+            }
             video = listOf(EditedMediaItemSequence.Builder(items).build())
         }
         val b = Composition.Builder(video + soundSequences(project))
