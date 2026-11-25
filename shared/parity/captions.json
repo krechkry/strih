@@ -4,7 +4,7 @@
       "cues" : [
         {
           "end" : 1.035,
-          "id" : "AF43D335-CBB3-4D26-915C-3F074DEC4A44",
+          "id" : "5FD66CA7-6EAC-48CA-8CD2-F68C4EC1F9B1",
           "start" : 0.2,
           "text" : "Ahoj lidi",
           "words" : [
@@ -22,7 +22,7 @@
         },
         {
           "end" : 1.9549999999999998,
-          "id" : "E2700BD0-3D46-4062-BA70-891E8EC2706C",
+          "id" : "8D730526-2AE5-40AD-B43D-56B20323751B",
           "start" : 1.135,
           "text" : "dneska jedeme",
           "words" : [
@@ -40,7 +40,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "5D51D83A-C84B-42CB-9668-41700FA18BE7",
+          "id" : "B9408F4B-533B-4A66-AEA6-6C5426D7E72D",
           "start" : 1.9949999999999999,
           "text" : "do skateparku",
           "words" : [
@@ -58,7 +58,7 @@
         },
         {
           "end" : 3.6999999999999997,
-          "id" : "EB823CAF-E67D-4F49-BDD9-78F922C76A17",
+          "id" : "8DE63672-187D-44CD-B9E8-F57B1A62FD7C",
           "start" : 2.855,
           "text" : "a ukážu vám",
           "words" : [
@@ -81,7 +81,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "F96FE56F-BED9-4424-A5FF-95A145139432",
+          "id" : "1122CB85-3AA9-4441-83C2-8FB14FAE2C09",
           "start" : 3.7399999999999998,
           "text" : "nový trik",
           "words" : [
@@ -99,7 +99,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "325FBDF5-FEC9-4455-9DBD-11270C87D394",
+          "id" : "2DFB6C91-E02A-409B-912C-B62609AF56B8",
           "start" : 5.325,
           "text" : "Je to backflip",
           "words" : [
@@ -122,7 +122,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "DDBB733C-B6B9-44FE-B31C-06DCD4C5505D",
+          "id" : "00DF8C33-8C67-456D-A9A4-1F0F974313EB",
           "start" : 6.6,
           "text" : "který jsem",
           "words" : [
@@ -140,7 +140,7 @@
         },
         {
           "end" : 7.804999999999999,
-          "id" : "8FF08187-9489-491E-9263-0FC8E550B1E8",
+          "id" : "5E7CF29A-7CE4-442D-A9F6-5EB897F95C8D",
           "start" : 7.324999999999999,
           "text" : "trénoval",
           "words" : [
@@ -153,7 +153,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "670613EC-E295-432A-A55E-F5FBF55A9674",
+          "id" : "692E1BE5-FE03-4918-BA14-999ECD820CA6",
           "start" : 7.844999999999999,
           "text" : "celé léto",
           "words" : [
@@ -325,7 +325,7 @@
       "cues" : [
         {
           "end" : 1.035,
-          "id" : "98463872-EB2E-49AD-81C8-BABB816D7D4C",
+          "id" : "C2B0B294-E683-4E82-94E4-1C58160EA9A5",
           "start" : 0.2,
           "text" : "Ahoj lidi,",
           "words" : [
@@ -343,7 +343,7 @@
         },
         {
           "end" : 1.9549999999999998,
-          "id" : "BC977B47-D893-46E6-82EF-7A17156FE99D",
+          "id" : "9D022403-CDB7-44E9-9562-EE2C97225688",
           "start" : 1.135,
           "text" : "dneska jedeme",
           "words" : [
@@ -361,7 +361,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "954925E5-CA4E-4477-B505-2E1ACDBF6DF4",
+          "id" : "D5BCB6A4-B969-415F-AA27-FC832A211F88",
           "start" : 1.9949999999999999,
           "text" : "do skateparku",
           "words" : [
@@ -379,7 +379,7 @@
         },
         {
           "end" : 3.6999999999999997,
-          "id" : "BD3C440E-C41F-4A4D-91F7-257D909F6BF2",
+          "id" : "BAB4E4C0-0761-422A-9CAC-072F4B340156",
           "start" : 2.855,
           "text" : "a ukážu vám",
           "words" : [
@@ -402,7 +402,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "D8584265-843F-42EC-9E4B-A6254CB2A591",
+          "id" : "23DDCDCB-C025-409B-82D1-E47F594F2E2D",
           "start" : 3.7399999999999998,
           "text" : "nový trik.",
           "words" : [
@@ -420,7 +420,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "3202A593-27FF-429E-B71F-3CC52D10EE2F",
+          "id" : "23DD528F-D069-424A-99A4-E2302928C4FF",
           "start" : 5.325,
           "text" : "Je to backflip,",
           "words" : [
@@ -443,7 +443,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "417F3A69-9FC3-47E7-9A2A-C0EB4DEEBFC3",
+          "id" : "5B27EADC-0E68-4234-BAE4-749F74374AD2",
           "start" : 6.6,
           "text" : "který jsem",
           "words" : [
@@ -461,7 +461,7 @@
         },
         {
           "end" : 7.804999999999999,
-          "id" : "A29D5112-9F93-4817-96D8-C36DCA36C390",
+          "id" : "897D50A3-0285-450A-BD7F-F5A8E237E4F9",
           "start" : 7.324999999999999,
           "text" : "trénoval",
           "words" : [
@@ -474,7 +474,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "9E2AAB5A-8696-4A02-9BF6-92EDECA9D41C",
+          "id" : "D9BBB5B3-C13E-4F48-811D-4C23691E5E31",
           "start" : 7.844999999999999,
           "text" : "celé léto.",
           "words" : [
@@ -646,7 +646,7 @@
       "cues" : [
         {
           "end" : 1.035,
-          "id" : "7517D6FF-8886-4D3B-96B5-796C0463FDC6",
+          "id" : "042D1366-0D5E-41A5-8AFD-3BDF60C43EAB",
           "start" : 0.2,
           "text" : "Ahoj lidi",
           "words" : [
@@ -664,7 +664,7 @@
         },
         {
           "end" : 1.9549999999999998,
-          "id" : "DEFA0C98-3D14-4260-ACDF-A7E54ABB6DA2",
+          "id" : "899AEA02-6992-493A-B307-BE67E98D2B25",
           "start" : 1.135,
           "text" : "dneska jedeme",
           "words" : [
@@ -682,7 +682,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "BC151979-EA6C-4EA6-98B1-3739EA70613C",
+          "id" : "DC8947B3-D1A9-457E-B62A-EE5A90470855",
           "start" : 1.9949999999999999,
           "text" : "do skateparku",
           "words" : [
@@ -700,7 +700,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "BA18B89C-383A-4B41-9B27-DE9A11923487",
+          "id" : "5471C553-F59C-40BB-8EBE-7A2F5C00544A",
           "start" : 2.855,
           "text" : "a ukážu vám nový",
           "words" : [
@@ -728,7 +728,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "1FD1B035-548C-4E8D-B71C-4CB7F5D6C27C",
+          "id" : "64BA6F76-C5EC-49AD-B892-C8C6859B2FC5",
           "start" : 4.08,
           "text" : "trik",
           "words" : [
@@ -741,7 +741,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "F1DCC3E0-E2BE-42EE-9E3A-F6653F0DA3AC",
+          "id" : "F046DCDA-3BA7-4150-B870-3A9A99778889",
           "start" : 5.325,
           "text" : "Je to backflip",
           "words" : [
@@ -764,7 +764,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "745A8CDD-7C37-4567-82A7-5B6F6687D960",
+          "id" : "B6DFDF0D-4858-4092-BC0B-FBAAD21F9E25",
           "start" : 6.6,
           "text" : "který jsem",
           "words" : [
@@ -782,7 +782,7 @@
         },
         {
           "end" : 8.145,
-          "id" : "D4EE2379-EA24-45D5-B877-F021AC1E14DB",
+          "id" : "889F52C0-9FA6-4949-A5FC-E154F4E64DDB",
           "start" : 7.324999999999999,
           "text" : "trénoval celé",
           "words" : [
@@ -800,7 +800,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "FDB92036-F133-481F-9252-8A35CB0E1364",
+          "id" : "F9088D9C-2C75-4832-8ACC-DA44D9177346",
           "start" : 8.184999999999999,
           "text" : "léto",
           "words" : [
@@ -967,7 +967,7 @@
       "cues" : [
         {
           "end" : 1.035,
-          "id" : "FD28E1A3-41B3-4BC2-830F-B499754C66A2",
+          "id" : "95140BC7-C3DD-44A4-BC5F-C060EAC18A5A",
           "start" : 0.2,
           "text" : "Ahoj lidi,",
           "words" : [
@@ -985,7 +985,7 @@
         },
         {
           "end" : 1.9549999999999998,
-          "id" : "EC4A8765-4CAA-4F38-9321-1E8772890D2A",
+          "id" : "6979AA92-8BAE-4BB1-8082-A4B32C37E0E6",
           "start" : 1.135,
           "text" : "dneska jedeme",
           "words" : [
@@ -1003,7 +1003,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "A5C70559-B259-4063-B6A3-B3BE614A21D9",
+          "id" : "6499901C-DD55-4995-9508-6D8882FD6DDD",
           "start" : 1.9949999999999999,
           "text" : "do skateparku",
           "words" : [
@@ -1021,7 +1021,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "33EB3A72-999E-419F-BC7C-7A7CA1C41B21",
+          "id" : "FAF45214-65CD-4CD6-9195-3D6EFB4E841A",
           "start" : 2.855,
           "text" : "a ukážu vám nový",
           "words" : [
@@ -1049,7 +1049,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "79BACB2A-1FB3-4984-AEF9-829A6096FB1F",
+          "id" : "E776D9CA-3AD0-4CC4-915D-460F915105F7",
           "start" : 4.08,
           "text" : "trik.",
           "words" : [
@@ -1062,7 +1062,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "E93C5BF1-F759-4BA9-A9EF-BFE6761AB627",
+          "id" : "B224079F-1428-483C-BA49-E83D2C3C06F5",
           "start" : 5.325,
           "text" : "Je to backflip,",
           "words" : [
@@ -1085,7 +1085,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "FDC41BCE-A9AD-4B78-9A6D-A5C504F6E78F",
+          "id" : "13E2C722-90FD-413B-80ED-8B02558E954E",
           "start" : 6.6,
           "text" : "který jsem",
           "words" : [
@@ -1103,7 +1103,7 @@
         },
         {
           "end" : 8.145,
-          "id" : "FA59A160-741B-46EA-98D7-8B47078B59F4",
+          "id" : "1BFFCC50-F971-477C-9254-990EDA10462A",
           "start" : 7.324999999999999,
           "text" : "trénoval celé",
           "words" : [
@@ -1121,7 +1121,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "AB4931A2-0C43-4315-B384-7C392110ECB3",
+          "id" : "539B9714-9839-424C-82D5-7E908802193B",
           "start" : 8.184999999999999,
           "text" : "léto.",
           "words" : [
@@ -1288,7 +1288,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "9A1D1D64-A12E-4046-9A93-B2E36C93CEEA",
+          "id" : "0D0C520B-4D2A-471E-ADC4-B9C1C81A65F6",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska",
           "words" : [
@@ -1311,7 +1311,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "7B2D8D48-2A0E-458B-947F-EB3905CAEEFB",
+          "id" : "B4EFD2ED-8D2D-4590-90C6-39DE763A53A4",
           "start" : 1.565,
           "text" : "jedeme do skateparku",
           "words" : [
@@ -1334,7 +1334,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "7EF322C3-CB82-4055-8202-6C3E79313645",
+          "id" : "16EDD2C1-7272-44F0-9C33-93147B76C41E",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik",
           "words" : [
@@ -1367,7 +1367,7 @@
         },
         {
           "end" : 6.944999999999999,
-          "id" : "D90258EB-5F36-4FB4-8E1F-329910E8D857",
+          "id" : "588BBD50-C750-42A1-8813-407B6675B0DD",
           "start" : 5.325,
           "text" : "Je to backflip který",
           "words" : [
@@ -1395,7 +1395,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "C944AAFF-64AF-4DAC-B193-71CB2EE2AF50",
+          "id" : "94564FC3-4D58-4AC6-9CF6-06E4A932B5F8",
           "start" : 6.984999999999999,
           "text" : "jsem trénoval celé léto",
           "words" : [
@@ -1577,7 +1577,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "D1C1FC4C-AA2A-485E-8C91-1C2E78D39355",
+          "id" : "513A247E-C4F2-4DCE-9E7B-895946FA8483",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska",
           "words" : [
@@ -1600,7 +1600,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "C09E3433-A826-4BFD-9D1A-8555442189E5",
+          "id" : "161DBA84-D8AC-4B48-B770-91313FD1EAB2",
           "start" : 1.565,
           "text" : "jedeme do skateparku",
           "words" : [
@@ -1623,7 +1623,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "8D1C7BC3-5619-48D5-80D1-5DD7A26FB45B",
+          "id" : "403BB3A1-91A4-4C24-8FC7-7CDF299DEA25",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik.",
           "words" : [
@@ -1656,7 +1656,7 @@
         },
         {
           "end" : 6.944999999999999,
-          "id" : "B4899713-93EB-4B89-846B-B638299F24AA",
+          "id" : "CC5796C4-DCD4-439A-AC55-47A064142E5C",
           "start" : 5.325,
           "text" : "Je to backflip, který",
           "words" : [
@@ -1684,7 +1684,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "9A773385-32F9-46BC-93FA-5FD35E9694E9",
+          "id" : "62C07307-99A1-41DF-990D-616FDC1B3EC9",
           "start" : 6.984999999999999,
           "text" : "jsem trénoval celé léto.",
           "words" : [
@@ -1866,7 +1866,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "89F77034-0FD3-4B23-8690-0BAA8450946F",
+          "id" : "60D52C31-CA55-4C16-8C8B-BC09D825B1E3",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme",
           "words" : [
@@ -1894,7 +1894,7 @@
         },
         {
           "end" : 3.6999999999999997,
-          "id" : "636A524D-C6D2-47DA-AD7E-2591AAC27819",
+          "id" : "81EC1FC3-2A8A-4190-BE69-FD7D1C1DEBD7",
           "start" : 1.9949999999999999,
           "text" : "do skateparku a ukážu vám",
           "words" : [
@@ -1927,7 +1927,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "C0969D8B-B081-4B80-BD9C-F5EE8D6B434F",
+          "id" : "8806AF5C-1592-46F6-A640-6A49EB486052",
           "start" : 3.7399999999999998,
           "text" : "nový trik",
           "words" : [
@@ -1945,7 +1945,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "6EA33502-B6F4-457F-81D3-6A59DB3469FA",
+          "id" : "0FC478DF-6C19-400B-BD79-12C1160A0377",
           "start" : 5.325,
           "text" : "Je to backflip který jsem",
           "words" : [
@@ -1978,7 +1978,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "EDCD4613-88A9-4853-BACA-AB3EAF757A72",
+          "id" : "A22159A7-FC3B-4B7C-956D-2EB43C6FF00C",
           "start" : 7.324999999999999,
           "text" : "trénoval celé léto",
           "words" : [
@@ -2155,7 +2155,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "0E05EA90-4D3E-4BF7-B821-8CDA2325F96E",
+          "id" : "B651AA66-37E9-459C-BFA4-B298C4D386C7",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska jedeme",
           "words" : [
@@ -2183,7 +2183,7 @@
         },
         {
           "end" : 3.6999999999999997,
-          "id" : "4AA3C803-2FAB-4420-ABC7-D309CEAF7FF6",
+          "id" : "3519A825-6840-4FA0-A28E-C4FAE17870B5",
           "start" : 1.9949999999999999,
           "text" : "do skateparku a ukážu vám",
           "words" : [
@@ -2216,7 +2216,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "9A6FDE98-1AA3-4EA8-96D5-9C0288D6F104",
+          "id" : "B5126EC0-38EC-4575-A37D-3BBE5411A316",
           "start" : 3.7399999999999998,
           "text" : "nový trik.",
           "words" : [
@@ -2234,7 +2234,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "1284DA55-170C-4AC7-973E-5EB429A8616F",
+          "id" : "57F814F0-E5BE-47FA-AC3A-5A89224D0332",
           "start" : 5.325,
           "text" : "Je to backflip, který jsem",
           "words" : [
@@ -2267,7 +2267,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "0B11F520-29F1-4E2A-B756-7FE743205213",
+          "id" : "41A4F1A5-FE89-4753-8D4A-357584DFC4EB",
           "start" : 7.324999999999999,
           "text" : "trénoval celé léto.",
           "words" : [
@@ -2444,7 +2444,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "40608156-56B5-4282-9676-6140728F83DE",
+          "id" : "7BFB4677-B3A2-4C99-AF03-87A2C6154048",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska",
           "words" : [
@@ -2467,7 +2467,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "EB733862-8660-4A63-9875-2DC0014205B1",
+          "id" : "6F9859D7-4D58-45CC-AE8A-28F104E8360E",
           "start" : 1.565,
           "text" : "jedeme do skateparku",
           "words" : [
@@ -2490,7 +2490,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "D4A0228D-9E79-4858-B1A1-88A0C78C130C",
+          "id" : "E6833D9D-BF0D-4D6A-9404-0755A7E1B78D",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik",
           "words" : [
@@ -2523,7 +2523,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "CCD739E5-9D15-4947-B847-B610B619DDBB",
+          "id" : "1292929F-CAC2-494E-9F2C-8833EF9B82C1",
           "start" : 5.325,
           "text" : "Je to backflip",
           "words" : [
@@ -2546,7 +2546,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "3EBFB285-BED5-474E-B1EA-78039D5AC34A",
+          "id" : "325EF0D5-E8B3-4AE9-BDC8-CD84FDC81C5F",
           "start" : 6.6,
           "text" : "který jsem trénoval celé léto",
           "words" : [
@@ -2733,7 +2733,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "F69502EC-793B-4AB5-90CA-35DB646867F5",
+          "id" : "2EDC8A3F-93C2-4BE1-933C-023B9635BCF0",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska",
           "words" : [
@@ -2756,7 +2756,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "B390F697-57F7-4D49-96D8-8C73B93607C2",
+          "id" : "CA4D48DF-5E2D-43FA-B90D-309C55FA8FB4",
           "start" : 1.565,
           "text" : "jedeme do skateparku",
           "words" : [
@@ -2779,7 +2779,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "E144E349-C540-470E-A533-F27727BD7EB8",
+          "id" : "8C7DD833-5CE0-40EB-8A01-2593B2AB0E2C",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik.",
           "words" : [
@@ -2812,7 +2812,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "E3DF7658-2B93-4FF4-BDBD-49B754FBB4AE",
+          "id" : "58685236-3EA6-4141-8FB6-57DCCF6E091F",
           "start" : 5.325,
           "text" : "Je to backflip,",
           "words" : [
@@ -2835,7 +2835,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "35F6D196-7998-4E5C-BB1B-BE9320D29AF6",
+          "id" : "A148A792-F40A-48CA-86AC-454E8FA0B3C6",
           "start" : 6.6,
           "text" : "který jsem trénoval celé léto.",
           "words" : [
@@ -3022,7 +3022,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "46267CC4-5FC1-40A4-87FB-6AE66A50AC45",
+          "id" : "8C6B7EA2-E0E4-4ED5-821C-180BE1DFDC20",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme",
           "words" : [
@@ -3050,7 +3050,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "4FF55317-EFF4-4C0C-B484-039CF3520E9F",
+          "id" : "B028EFBF-FEBC-4A9C-8774-6A3DFBC135B3",
           "start" : 1.9949999999999999,
           "text" : "do skateparku a ukážu vám nový",
           "words" : [
@@ -3088,7 +3088,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "CA37E57B-94ED-4AD0-830E-03CECD57EA09",
+          "id" : "D21B3D01-A5BA-4E4A-8732-6FCE1ADB6AD8",
           "start" : 4.08,
           "text" : "trik",
           "words" : [
@@ -3101,7 +3101,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "230043AE-38F6-4125-9697-1D330ADBFE40",
+          "id" : "969B4055-C477-4D33-90A8-144710BE888E",
           "start" : 5.325,
           "text" : "Je to backflip který jsem",
           "words" : [
@@ -3134,7 +3134,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "373FF20B-D2A6-4086-A96B-0EB27C1F6346",
+          "id" : "62D7C1F2-90CD-43AB-B220-59BA8DB11B63",
           "start" : 7.324999999999999,
           "text" : "trénoval celé léto",
           "words" : [
@@ -3311,7 +3311,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "88ACFFAB-26A6-4E3B-8008-917B3BBC0809",
+          "id" : "FCE8E763-1A40-4472-A407-7DBCAE37490F",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska jedeme",
           "words" : [
@@ -3339,7 +3339,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "A21BA168-ACF3-4615-9114-3B13012DBF33",
+          "id" : "33ACCBDB-BA76-4A94-A894-9FC90340DC84",
           "start" : 1.9949999999999999,
           "text" : "do skateparku a ukážu vám nový",
           "words" : [
@@ -3377,7 +3377,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "06853326-BBF7-4FCC-A06D-A893C08B3945",
+          "id" : "494DC7C8-F0C9-4493-962C-A8383770D2E6",
           "start" : 4.08,
           "text" : "trik.",
           "words" : [
@@ -3390,7 +3390,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "425B65D4-133C-4E73-833C-4399534D5ABB",
+          "id" : "BD810A85-55A4-4420-9D1B-C22D2470D054",
           "start" : 5.325,
           "text" : "Je to backflip, který jsem",
           "words" : [
@@ -3423,7 +3423,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "F613D88F-DCF1-4548-8C56-3F1CE0A3745D",
+          "id" : "7D07B7ED-DA9D-475A-96D5-E926A83F0B45",
           "start" : 7.324999999999999,
           "text" : "trénoval celé léto.",
           "words" : [
@@ -3600,7 +3600,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "83246FF9-393A-4038-BC0D-08E8A44B4B22",
+          "id" : "F2C87EA7-2D9E-4D6C-AE8F-662F6300C82A",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska",
           "words" : [
@@ -3623,7 +3623,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "5A391514-8242-46BA-AFC3-F0D59F280F78",
+          "id" : "038CC39E-A24E-4767-A97A-575BAD1CAF50",
           "start" : 1.565,
           "text" : "jedeme\ndo skateparku",
           "words" : [
@@ -3646,7 +3646,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "9C0DADAB-D523-4C21-A559-4F339E6D3815",
+          "id" : "8C64D6BB-B3D4-4886-A030-C969BAC033EE",
           "start" : 2.855,
           "text" : "a ukážu vám\nnový trik",
           "words" : [
@@ -3679,7 +3679,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "0BA965D1-557B-4D4D-BD03-35857C58D2D4",
+          "id" : "8F5AF157-A3B7-4FE8-AECA-BE08EDDC3DFD",
           "start" : 5.325,
           "text" : "Je to backflip",
           "words" : [
@@ -3702,7 +3702,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "325A162A-842D-45AE-84AA-2161C31A2FB1",
+          "id" : "EA01FE92-7EBA-4436-AFF4-249AB9278641",
           "start" : 6.6,
           "text" : "který jsem\ntrénoval celé léto",
           "words" : [
@@ -3889,7 +3889,7 @@
       "cues" : [
         {
           "end" : 1.525,
-          "id" : "D5DEC5E3-4E13-405D-8399-54C0578C2A12",
+          "id" : "283F26C8-D421-4FB0-B123-40342F264E65",
           "start" : 0.2,
           "text" : "Ahoj lidi,\ndneska",
           "words" : [
@@ -3912,7 +3912,7 @@
         },
         {
           "end" : 2.815,
-          "id" : "0A417254-3C6F-451A-95E7-D66EE9E48ED3",
+          "id" : "23302F16-62DE-4A8E-9C41-7E8838D3EF5B",
           "start" : 1.565,
           "text" : "jedeme\ndo skateparku",
           "words" : [
@@ -3935,7 +3935,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "8A7BC27A-E1EF-447E-ADC7-151EA28D59FA",
+          "id" : "50EA22AD-E16F-4443-9670-4A7461C65320",
           "start" : 2.855,
           "text" : "a ukážu vám\nnový trik.",
           "words" : [
@@ -3968,7 +3968,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "2806E7E2-4668-46F9-BCC8-4A5116E8BD18",
+          "id" : "23FAF892-381C-48B5-B40A-0EF16569E21A",
           "start" : 5.325,
           "text" : "Je to backflip,",
           "words" : [
@@ -3991,7 +3991,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "697BB21F-9A53-4213-AC67-D453A91A9241",
+          "id" : "09F4097E-569F-4CB4-A211-29E17EADA77B",
           "start" : 6.6,
           "text" : "který jsem\ntrénoval celé léto.",
           "words" : [
@@ -4178,7 +4178,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "760D1D4E-78A7-4984-B859-8050CFEE3800",
+          "id" : "206FFA7E-AE59-49A3-A975-DDF3E9979951",
           "start" : 0.2,
           "text" : "Ahoj lidi\ndneska jedeme",
           "words" : [
@@ -4206,7 +4206,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "0B96B468-93FB-4401-971C-EC09BB63FAFA",
+          "id" : "13254B0D-53BC-40CE-901B-BC25B81A96DC",
           "start" : 1.9949999999999999,
           "text" : "do skateparku\na ukážu vám nový",
           "words" : [
@@ -4244,7 +4244,7 @@
         },
         {
           "end" : 5.08,
-          "id" : "CB242CAB-214E-4387-B189-F57481208FFF",
+          "id" : "767FA70C-01B2-4C16-BA1D-FF38B2796035",
           "start" : 4.08,
           "text" : "trik",
           "words" : [
@@ -4257,7 +4257,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "6098B2F2-4D58-4467-90E5-5750C9F224CD",
+          "id" : "1CE8644E-36AB-4BCE-BBD0-6764FE4172E9",
           "start" : 5.325,
           "text" : "Je to backflip\nkterý jsem",
           "words" : [
@@ -4290,7 +4290,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "CD7B6DA9-1CFA-45C5-AD57-9D2D098B2AC2",
+          "id" : "C4F05579-9064-417D-B60B-BA0F703FFD0F",
           "start" : 7.324999999999999,
           "text" : "trénoval\ncelé léto",
           "words" : [
@@ -4467,7 +4467,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "415DF515-C35D-4C48-A259-0363BB87A51E",
+          "id" : "89B15EF4-0625-49BE-8D3B-8D39C5C0DAFA",
           "start" : 0.2,
           "text" : "Ahoj lidi,\ndneska jedeme",
           "words" : [
@@ -4495,7 +4495,7 @@
         },
         {
           "end" : 4.04,
-          "id" : "7ACF78D0-94FA-4317-9E18-F228A52D7575",
+          "id" : "9F8888DD-7277-440A-BDE5-4FE5FCA73347",
           "start" : 1.9949999999999999,
           "text" : "do skateparku\na ukážu vám nový",
           "words" : [
@@ -4533,7 +4533,7 @@
         },
         {
           "end" : 5.08,
-          "id" : "DFE9F132-D9A8-44A7-BD15-1F1C064B81B7",
+          "id" : "55C6A1CA-18DD-46D7-B9CC-F7437DDB97D7",
           "start" : 4.08,
           "text" : "trik.",
           "words" : [
@@ -4546,7 +4546,7 @@
         },
         {
           "end" : 7.284999999999999,
-          "id" : "6B25EC59-02F8-45AE-BDC3-89C271F189BF",
+          "id" : "9C82C79F-6C8F-4B25-90BB-9B81601F177D",
           "start" : 5.325,
           "text" : "Je to backflip,\nkterý jsem",
           "words" : [
@@ -4579,7 +4579,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "82257A30-0E2D-4D9A-AB55-DA3A88E5AC41",
+          "id" : "0628E357-ED4B-4404-9EA8-70B1AF02BE8A",
           "start" : 7.324999999999999,
           "text" : "trénoval\ncelé léto.",
           "words" : [
@@ -4756,7 +4756,7 @@
       "cues" : [
         {
           "end" : 2.815,
-          "id" : "261E6863-914D-4239-8C43-10B272B13077",
+          "id" : "74CAD1D5-7414-4DEB-81CD-706B2DB44AE8",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska\njedeme do skateparku",
           "words" : [
@@ -4794,7 +4794,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "32A8891A-CF27-4DEB-BE39-60FC048BEF57",
+          "id" : "D8987231-6D50-4A69-99B4-54884D74E79C",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik",
           "words" : [
@@ -4827,7 +4827,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "619747F0-ABA4-4E07-A229-D7E6344BAC46",
+          "id" : "3628E145-9D8B-47F0-B08C-B1A67A03D4E2",
           "start" : 5.325,
           "text" : "Je to backflip který\njsem trénoval celé léto",
           "words" : [
@@ -5029,7 +5029,7 @@
       "cues" : [
         {
           "end" : 2.815,
-          "id" : "4992E1A5-A711-4B49-8FA3-0A542285CC0B",
+          "id" : "16455BB5-36F7-45BC-9AFF-2F4871548C6E",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska\njedeme do skateparku",
           "words" : [
@@ -5067,7 +5067,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "742F55D5-EF68-4E2B-BF3D-E7CFD25CEE6C",
+          "id" : "319D8ADA-CA90-4AE1-82F2-199313C957FD",
           "start" : 2.855,
           "text" : "a ukážu vám nový trik.",
           "words" : [
@@ -5100,7 +5100,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "801287AD-38A9-42F5-B710-EBD7A96C2013",
+          "id" : "3F273165-233E-48C0-B675-3AAE1C56E51D",
           "start" : 5.325,
           "text" : "Je to backflip, který\njsem trénoval celé léto.",
           "words" : [
@@ -5302,7 +5302,7 @@
       "cues" : [
         {
           "end" : 3.6999999999999997,
-          "id" : "4B12EAF6-E4F5-4441-82CC-3743CFF98C0A",
+          "id" : "7DB5CDCC-3A96-4FA2-A27A-EC36EF0DEAD0",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme\ndo skateparku a ukážu vám",
           "words" : [
@@ -5355,7 +5355,7 @@
         },
         {
           "end" : 4.74,
-          "id" : "A23A8837-24B9-4807-82D0-AB49A5C831BD",
+          "id" : "03BC7CD9-2901-4224-B637-E5A89448F72D",
           "start" : 3.7399999999999998,
           "text" : "nový trik",
           "words" : [
@@ -5373,7 +5373,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "9B20358D-10CF-4B7F-974C-193D3A500012",
+          "id" : "1337BF50-06E5-4294-901D-EB17A497ADA1",
           "start" : 5.325,
           "text" : "Je to backflip který\njsem trénoval celé léto",
           "words" : [
@@ -5575,7 +5575,7 @@
       "cues" : [
         {
           "end" : 3.6999999999999997,
-          "id" : "98B52158-5CA0-49A0-AACA-9F482637174C",
+          "id" : "55A5262D-E69A-4CC3-9BF8-F8BC8B1F9D32",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska jedeme\ndo skateparku a ukážu vám",
           "words" : [
@@ -5628,7 +5628,7 @@
         },
         {
           "end" : 4.74,
-          "id" : "0FF6E473-E7D9-4510-861A-327EA3A51FD0",
+          "id" : "21809FFB-CC4A-465D-8932-9D15C85D193E",
           "start" : 3.7399999999999998,
           "text" : "nový trik.",
           "words" : [
@@ -5646,7 +5646,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "0806AAB6-50DB-4DEC-BBFF-088FA137B217",
+          "id" : "9A46EA04-14C5-4E6A-9C60-C3CC38758A1E",
           "start" : 5.325,
           "text" : "Je to backflip, který\njsem trénoval celé léto.",
           "words" : [
@@ -5848,7 +5848,7 @@
       "cues" : [
         {
           "end" : 4.575,
-          "id" : "663F9BD7-4889-449F-808E-1422A7594D71",
+          "id" : "760B0736-9FE9-44ED-B07F-B031A57220AC",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme\ndo skateparku a ukážu vám nový trik",
           "words" : [
@@ -5911,7 +5911,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "73253553-47F8-485C-B0C0-CEE383569060",
+          "id" : "4A428ACE-A28B-4CD4-92CA-103D9F4F719E",
           "start" : 5.325,
           "text" : "Je to backflip který\njsem trénoval celé léto",
           "words" : [
@@ -6113,7 +6113,7 @@
       "cues" : [
         {
           "end" : 4.575,
-          "id" : "15E38EBF-6FC3-439E-B327-FB528C95772D",
+          "id" : "DA158E46-CDDA-4B08-BBD7-A07AC8031AF0",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska jedeme\ndo skateparku a ukážu vám nový trik.",
           "words" : [
@@ -6176,7 +6176,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "01775FA9-5C0B-4BA2-B694-DDB06ADD4626",
+          "id" : "C1F8E003-0011-4E66-B526-412F6FDB4185",
           "start" : 5.325,
           "text" : "Je to backflip, který\njsem trénoval celé léto.",
           "words" : [
@@ -6378,7 +6378,7 @@
       "cues" : [
         {
           "end" : 4.575,
-          "id" : "0FC5AB3E-9658-44FD-9B5B-DBD5949952B1",
+          "id" : "7084C98F-3603-4802-BCBC-EEC99281DCF5",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme\ndo skateparku a ukážu vám nový trik",
           "words" : [
@@ -6441,7 +6441,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "5B84687C-3BC9-4FCD-99CC-5CF85CE5DEC3",
+          "id" : "E31BE202-742B-4379-93C7-CD41C82E3091",
           "start" : 5.325,
           "text" : "Je to backflip který\njsem trénoval celé léto",
           "words" : [
@@ -6643,7 +6643,7 @@
       "cues" : [
         {
           "end" : 4.575,
-          "id" : "0E8BBC5B-9EF0-4B03-9C58-E0E58D9A48F0",
+          "id" : "85B1AC4B-7D72-46B0-8F12-02EAC40C0F1C",
           "start" : 0.2,
           "text" : "Ahoj lidi, dneska jedeme\ndo skateparku a ukážu vám nový trik.",
           "words" : [
@@ -6706,7 +6706,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "31B96CF3-5117-41E5-AC76-791D49C23828",
+          "id" : "D766F4AA-08F7-4DC1-B6FC-45F9CB8A6D6B",
           "start" : 5.325,
           "text" : "Je to backflip, který\njsem trénoval celé léto.",
           "words" : [
@@ -6908,7 +6908,7 @@
       "cues" : [
         {
           "end" : 3.6999999999999997,
-          "id" : "86F20903-491D-41AC-9973-EDF47C7F6AE8",
+          "id" : "22F401A9-83B9-4479-89D4-01499EB48A58",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme\ndo skateparku a ukážu vám",
           "words" : [
@@ -6961,7 +6961,7 @@
         },
         {
           "end" : 4.74,
-          "id" : "CE61C89D-87C5-4D0C-8693-F7F85C566145",
+          "id" : "B0EAA8E6-2B31-4EC1-B0AE-3CD4109108A3",
           "start" : 3.7399999999999998,
           "text" : "nový trik",
           "words" : [
@@ -6979,7 +6979,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "FA95F15E-6F48-4601-85B2-1FF6DEA75283",
+          "id" : "406BCF3A-C616-4819-958B-8B64C9BB9CF9",
           "start" : 5.325,
           "text" : "Je to backflip který\njsem trénoval celé léto",
           "words" : [
@@ -7181,7 +7181,7 @@
       "cues" : [
         {
           "end" : 1.9549999999999998,
-          "id" : "58DCB2AB-64E0-413E-8A73-1519287CE4AA",
+          "id" : "5BD6D5D2-1080-43E8-BD05-3A88DC86192A",
           "start" : 0.2,
           "text" : "Ahoj lidi dneska jedeme",
           "words" : [
@@ -7209,7 +7209,7 @@
         },
         {
           "end" : 3.6999999999999997,
-          "id" : "F9462437-75CF-4E0A-990C-069147C30F03",
+          "id" : "58BD35B1-AE6A-4C2B-AE8C-1DFB22042452",
           "start" : 1.9949999999999999,
           "text" : "do skateparku a ukážu vám",
           "words" : [
@@ -7242,7 +7242,7 @@
         },
         {
           "end" : 4.575,
-          "id" : "630831ED-F3C6-4D96-A59E-91F2C4894AC9",
+          "id" : "F2B00C49-7AAF-4B59-91AF-F812D9725DF8",
           "start" : 3.7399999999999998,
           "text" : "nový trik",
           "words" : [
@@ -7260,7 +7260,7 @@
         },
         {
           "end" : 6.5,
-          "id" : "ADF95FB7-441D-4D01-9CA9-A22B47C07DE4",
+          "id" : "8CE0518A-A5D1-43CB-8B4C-5A8A373FAFC3",
           "start" : 5.325,
           "text" : "Je to backflip",
           "words" : [
@@ -7283,7 +7283,7 @@
         },
         {
           "end" : 8.68,
-          "id" : "BA95E98E-49E8-4C74-8C63-E9F8320BBA74",
+          "id" : "AC0A40C5-1D27-4E21-A762-405B152F54DC",
           "start" : 6.6,
           "text" : "který jsem trénoval celé léto",
           "words" : [
@@ -7470,7 +7470,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "0A9720D6-DDEF-4C3F-BC06-77D4DB7326E6",
+          "id" : "94B31563-7F9E-4022-BBC6-1913643FFADA",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -7493,7 +7493,7 @@
         },
         {
           "end" : 2.9000000000000004,
-          "id" : "711B17E1-8CFE-4EDA-9F83-C28320AEE934",
+          "id" : "1266BF7C-A55E-4C69-B441-816AFE1BE883",
           "start" : 2.08,
           "text" : "Počasí vypadá",
           "words" : [
@@ -7511,7 +7511,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "462D6E01-CA3A-4CA6-BDC9-D1DEDFC4CA19",
+          "id" : "F0131044-6D84-4F6D-A76E-0751757367B0",
           "start" : 2.9400000000000004,
           "text" : "dobře ale vítr",
           "words" : [
@@ -7534,7 +7534,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "0EE9EA2C-037F-4409-A146-67295B0F777A",
+          "id" : "D7D1FA25-A41E-4FF7-A67E-EAD1913D5432",
           "start" : 4.215000000000001,
           "text" : "je trochu",
           "words" : [
@@ -7552,7 +7552,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "8062BCA7-C555-4962-A1A0-D8D407A527BC",
+          "id" : "E019F15A-98A6-4A7E-8FF7-844F80956AEE",
           "start" : 4.8950000000000005,
           "text" : "silnější",
           "words" : [
@@ -7565,7 +7565,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "27AD84D1-34C4-4E51-92C3-A9FB0F8A30DA",
+          "id" : "0831B30A-712B-445E-B7A1-016EF81E4947",
           "start" : 5.67,
           "text" : "než jsem čekal",
           "words" : [
@@ -7588,7 +7588,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "994A78F2-F49C-430C-AC41-A7D61EF82EB9",
+          "id" : "E4A16F2C-AA09-41F5-94A2-C52A2D847940",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -7745,7 +7745,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "C0524DBB-D203-4093-8730-9F2C80903F4F",
+          "id" : "E564984A-3213-454C-9257-2089BEB3A5B7",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -7768,7 +7768,7 @@
         },
         {
           "end" : 2.9000000000000004,
-          "id" : "AE3A0253-1B74-4B04-8C72-762DEBD44859",
+          "id" : "7999002F-0B5C-4457-B53B-E8C501339D65",
           "start" : 2.08,
           "text" : "Počasí vypadá",
           "words" : [
@@ -7786,7 +7786,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "5097638F-18FD-4C99-B1E2-9C458F48F373",
+          "id" : "BA4D3CEA-5324-48A3-9201-ECFC070CA103",
           "start" : 2.9400000000000004,
           "text" : "dobře, ale vítr",
           "words" : [
@@ -7809,7 +7809,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "78A61FED-E273-466A-AC09-843038B4C42A",
+          "id" : "FF6AA372-BD3D-4966-AF18-FA4DFF7F4A71",
           "start" : 4.215000000000001,
           "text" : "je trochu",
           "words" : [
@@ -7827,7 +7827,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "32ADAD4E-CB97-4038-AD76-E8942B1098DA",
+          "id" : "83DF5BA0-8105-4832-AB5F-797C3185A5F7",
           "start" : 4.8950000000000005,
           "text" : "silnější,",
           "words" : [
@@ -7840,7 +7840,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "3D526616-864A-43BC-9225-E85B606F46A0",
+          "id" : "7513ABB9-44C5-4360-A829-F2ACB125B234",
           "start" : 5.67,
           "text" : "než jsem čekal,",
           "words" : [
@@ -7863,7 +7863,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "C2CA9A4A-460A-4084-9CE8-65D1DDDF080F",
+          "id" : "805E1C89-6D2E-4E3F-B89E-99FE40AEC7CA",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -8020,7 +8020,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "484D3F40-6D69-4051-B28C-0EBBBA0E7FCE",
+          "id" : "C47C5F2A-A1BD-4228-8D28-5A772BF6E047",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -8043,7 +8043,7 @@
         },
         {
           "end" : 2.9000000000000004,
-          "id" : "9E0354C1-2ADF-42F6-A903-730289214974",
+          "id" : "D6DE6082-1333-4E45-924F-83E8D28F5FAE",
           "start" : 2.08,
           "text" : "Počasí vypadá",
           "words" : [
@@ -8061,7 +8061,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "9891D6A9-1455-4E55-9217-914D7E021366",
+          "id" : "15A94D6D-9A06-48FA-A49C-09DE6D32CEBB",
           "start" : 2.9400000000000004,
           "text" : "dobře ale vítr",
           "words" : [
@@ -8084,7 +8084,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "D417C737-060E-4E9B-A541-57719CDCA733",
+          "id" : "A47B2CFE-D5A0-4D7B-ABEB-B1FEB3736761",
           "start" : 4.215000000000001,
           "text" : "je trochu",
           "words" : [
@@ -8102,7 +8102,7 @@
         },
         {
           "end" : 5.925,
-          "id" : "581C4592-D41F-4A0D-BFF6-665BE635D283",
+          "id" : "E280FFD5-13CF-4FF8-A904-9FB9F234BD1D",
           "start" : 4.8950000000000005,
           "text" : "silnější než",
           "words" : [
@@ -8120,7 +8120,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "1E20E073-DAEB-483D-BD24-77F3DB5C352B",
+          "id" : "277CE7B6-0F17-42F1-B402-BFCACEB6CD8E",
           "start" : 5.965,
           "text" : "jsem čekal",
           "words" : [
@@ -8138,7 +8138,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "FCA636D4-D398-49F5-A6DA-04CB2EEC616C",
+          "id" : "62DF891A-CBBC-4D71-963A-0EAA5E8859EE",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -8295,7 +8295,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "17F57870-5E32-43E5-A0D3-FFB818972511",
+          "id" : "9E299D10-B7E8-49C5-BDE2-A61CE35C9A43",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -8318,7 +8318,7 @@
         },
         {
           "end" : 2.9000000000000004,
-          "id" : "BF18EFBF-F165-4733-9D48-4830455AF754",
+          "id" : "27B81BBC-6B97-4989-9362-3ED5942B0883",
           "start" : 2.08,
           "text" : "Počasí vypadá",
           "words" : [
@@ -8336,7 +8336,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "A7FEC7F8-3DF8-4A86-A806-E51174FB5893",
+          "id" : "C9AF1270-7AD4-4E93-9B23-917053D01E7D",
           "start" : 2.9400000000000004,
           "text" : "dobře, ale vítr",
           "words" : [
@@ -8359,7 +8359,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "934F948F-6C78-4E2D-BB49-9B2F0F9257D3",
+          "id" : "981B482B-3053-41B9-8244-1E1C3F11F746",
           "start" : 4.215000000000001,
           "text" : "je trochu",
           "words" : [
@@ -8377,7 +8377,7 @@
         },
         {
           "end" : 5.925,
-          "id" : "C2A87AF4-A932-43EE-8254-57A37A48C4B5",
+          "id" : "35F124AA-87E6-4A0E-9B35-A9921D7C3517",
           "start" : 4.8950000000000005,
           "text" : "silnější, než",
           "words" : [
@@ -8395,7 +8395,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "A66BB667-6AC0-4177-8B3C-CEF7D44710F8",
+          "id" : "4076B07B-0B66-4231-9378-BDF1A5176B86",
           "start" : 5.965,
           "text" : "jsem čekal,",
           "words" : [
@@ -8413,7 +8413,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "651D6997-E364-4685-BCD0-CE0451C91496",
+          "id" : "70AF5CC4-A59D-47CF-9B78-8AAB43F88E59",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -8570,7 +8570,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "0E3E7503-B515-417C-8967-3B67458ADF8D",
+          "id" : "3A10E87D-E285-40F1-AE42-A3D424CAFB96",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -8593,7 +8593,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "AE1335AA-7433-4C24-89EC-6C4D40250E13",
+          "id" : "B743DEE8-E8A1-4DF8-966C-3C4134F89C8D",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře",
           "words" : [
@@ -8616,7 +8616,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "51AC1B41-4B3E-424D-93AC-789685A83EC3",
+          "id" : "6963403E-455B-4AAA-B981-F2AF2C6CF7B8",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu",
           "words" : [
@@ -8644,7 +8644,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "15A2B741-9A7E-46DC-84DC-8519906366EE",
+          "id" : "D5E6F9A5-3490-4B1C-A662-327D533B67BA",
           "start" : 4.8950000000000005,
           "text" : "silnější než jsem čekal",
           "words" : [
@@ -8672,7 +8672,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "9DAA53DB-0EE9-4FAA-948A-E08926C9C489",
+          "id" : "67F2F1BE-0CA4-40DD-8163-F53E92E70B41",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -8829,7 +8829,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "6D84909C-29CE-4360-A4CA-A8C75370DEF5",
+          "id" : "4D5224AB-95EB-44C3-A187-1CD4DDB8BB37",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -8852,7 +8852,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "6C0BC391-C48D-4134-8CDB-F60DDB6FDEE2",
+          "id" : "49C56F02-6CEF-4640-835A-B1BD2D637DA3",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře,",
           "words" : [
@@ -8875,7 +8875,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "4C9B6571-7E19-4CD3-BBD2-EF24596C11B0",
+          "id" : "77B9293F-277D-43B3-AE74-0A3C5CB0899C",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu",
           "words" : [
@@ -8903,7 +8903,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "E49E587B-7268-40B9-AB51-2377195272B2",
+          "id" : "940049ED-C737-44C1-834F-F162498C42E6",
           "start" : 4.8950000000000005,
           "text" : "silnější, než jsem čekal,",
           "words" : [
@@ -8931,7 +8931,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "B34A9273-316F-4C42-B012-A01021589AF6",
+          "id" : "2572C4C6-BED3-4406-878F-335ACB4CDF54",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -9088,7 +9088,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "CFCD5B59-9CF1-4485-A4DE-0C555C3CAA79",
+          "id" : "CD37028B-FC7E-4122-918E-B82BC4FF0406",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -9111,7 +9111,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "EC886238-F94A-4E18-B6AA-D3FA522EED54",
+          "id" : "AF78BF56-3252-4BE3-A517-0C911D85240E",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře",
           "words" : [
@@ -9134,7 +9134,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "AC44BB4F-E5AA-4E9E-8B8C-7DAB6106F046",
+          "id" : "AAEC103B-8179-4E8E-B17D-6C3AA5CFE301",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu",
           "words" : [
@@ -9162,7 +9162,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "9F2AC6F6-8698-4748-B4C5-6F526A7C158A",
+          "id" : "C7B9B902-0C24-4822-A295-D623B77BAE9B",
           "start" : 4.8950000000000005,
           "text" : "silnější než jsem čekal",
           "words" : [
@@ -9190,7 +9190,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "3E3A8533-7094-41BA-92AD-C7AAF5D3F9F9",
+          "id" : "9B6DF881-E9C8-439C-B4CB-1B872D952DD3",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -9347,7 +9347,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "E70E5CB3-0994-4EF9-8D5A-F0A14492ECB9",
+          "id" : "B9949100-E33B-4FBF-A56F-F059A90EBF4B",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -9370,7 +9370,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "9A568E67-FAC2-4C13-81A9-8954EDC8AD73",
+          "id" : "E2BB929C-8F18-48A1-9084-161C0E77E1D1",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře,",
           "words" : [
@@ -9393,7 +9393,7 @@
         },
         {
           "end" : 4.855,
-          "id" : "387E4B45-B2CC-4C86-9CA6-0469DA6C86D6",
+          "id" : "F56C3510-1454-431A-B281-14AADC26DD8C",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu",
           "words" : [
@@ -9421,7 +9421,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "97F80314-EB77-40F4-B536-FB65C8860E45",
+          "id" : "C747ACEE-F1CC-4966-8503-05EBFEB44F03",
           "start" : 4.8950000000000005,
           "text" : "silnější, než jsem čekal,",
           "words" : [
@@ -9449,7 +9449,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "209CF89B-315F-458D-BA2E-BECBFEB16949",
+          "id" : "442FB72A-0A9C-45C0-A2FE-2A435FE97500",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -9606,7 +9606,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "223BFEC3-FCC7-4068-B30D-930222A02869",
+          "id" : "971D9F7C-DA5F-4AB2-9843-5F31F66FB5B1",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -9629,7 +9629,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "784FEF97-5B06-42FC-B2F4-54EB3AEC4562",
+          "id" : "8EEDBD56-10F5-4F25-8BDB-81B5B30625BB",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře",
           "words" : [
@@ -9652,7 +9652,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "8B9A93E2-10BA-4183-B0B4-8E9C95C3C974",
+          "id" : "736B1E80-DB0A-4A0F-A61B-2E58FCE471FC",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu silnější",
           "words" : [
@@ -9685,7 +9685,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "CA422A61-40F4-4005-BB48-2525ED1CB922",
+          "id" : "1B204918-DC8D-4600-BB3E-6C0E9C13A3F8",
           "start" : 5.67,
           "text" : "než jsem čekal takže uvidíme",
           "words" : [
@@ -9857,7 +9857,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "E1BF700E-244C-45C5-A4EF-3FC1AF9D199B",
+          "id" : "897A01C0-E377-4E6F-8215-45E0F7392928",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -9880,7 +9880,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "2D8D13CB-A095-4BE9-94EE-FDB84BA49FDA",
+          "id" : "4A572FA3-2B01-4E46-86D5-EEF3B4A6301C",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře,",
           "words" : [
@@ -9903,7 +9903,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "40926766-42D9-4F37-9C5A-259910C3568E",
+          "id" : "EE393F53-94E6-41F9-9218-8D38A22B2D79",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je trochu silnější,",
           "words" : [
@@ -9936,7 +9936,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "B2C300F0-069A-4235-933A-10DCB44F0189",
+          "id" : "30163ED9-CB0C-4091-BFDF-C423A35C7E01",
           "start" : 5.67,
           "text" : "než jsem čekal, takže uvidíme.",
           "words" : [
@@ -10108,7 +10108,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "97D035BE-A22A-4137-973D-A739F7F84481",
+          "id" : "69FDD290-D688-4AE0-8098-025107D8071F",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -10131,7 +10131,7 @@
         },
         {
           "end" : 4.425000000000001,
-          "id" : "28DC4E9F-F461-4486-83D6-747E7EC702C8",
+          "id" : "31EE8B86-B1A4-448B-8C33-B210644126D2",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale vítr je",
           "words" : [
@@ -10169,7 +10169,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "5CF8FDF1-DF7A-4A23-A7C9-430F9E0F5C4C",
+          "id" : "29A6D43C-4C63-4A9A-8DF7-62A9FE6E30C5",
           "start" : 4.465000000000001,
           "text" : "trochu silnější než jsem čekal",
           "words" : [
@@ -10202,7 +10202,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "397FE187-4551-4E0E-BA14-180E3A4F1045",
+          "id" : "B4463C95-C9D5-420C-A213-6AB0322ECD69",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -10359,7 +10359,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "C6E2501F-1AF2-4F9F-97DD-04FAA1A38022",
+          "id" : "BCD29A64-2B9D-4B41-AF6E-8D23888A2468",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -10382,7 +10382,7 @@
         },
         {
           "end" : 4.425000000000001,
-          "id" : "132EA202-0424-48E6-AF9E-611FAD8DAA96",
+          "id" : "874112D0-EDB9-41AE-8D67-DB30EDB6B8C4",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře, ale vítr je",
           "words" : [
@@ -10420,7 +10420,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "46BDA728-C279-416E-A6AA-97149E356441",
+          "id" : "2A80812A-A2DD-4A1B-A2E6-6887D9A31D13",
           "start" : 4.465000000000001,
           "text" : "trochu silnější, než jsem čekal,",
           "words" : [
@@ -10453,7 +10453,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "B30980FD-12DA-4812-A7D8-1C01B636FF52",
+          "id" : "8AFBF5BD-CBFD-497A-A1A0-014A5538B83B",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -10610,7 +10610,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "6EAC0D04-B720-487E-B7AB-03700E3BEFAD",
+          "id" : "4AAD4BC4-1D21-428B-BF62-105FCC80D3AC",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -10633,7 +10633,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "E6C392D0-367F-4F6B-926C-809AF8FB7490",
+          "id" : "F64D8812-3828-4E2D-B40A-89E00761CA13",
           "start" : 2.08,
           "text" : "Počasí\nvypadá dobře",
           "words" : [
@@ -10656,7 +10656,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "D4EE2D77-3F1B-4B6C-B65D-763EF02BC6B2",
+          "id" : "8797629C-D427-4F8E-96FF-CDCAA4DB0320",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je\ntrochu silnější",
           "words" : [
@@ -10689,7 +10689,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "FE98841E-D8D9-47C2-861A-C903891AFD9F",
+          "id" : "2CFA927D-BC49-40F4-9D9A-BD7BA5FA19FE",
           "start" : 5.67,
           "text" : "než jsem čekal\ntakže uvidíme",
           "words" : [
@@ -10861,7 +10861,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "EDCA0876-C7C5-4094-BCDE-D299A02410C9",
+          "id" : "18E6C91C-9897-4BCE-B49B-D6B0902352D0",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -10884,7 +10884,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "18C3B335-9EB9-4033-90EE-23784562F0B5",
+          "id" : "0EC4B402-B2D1-4706-BD59-E9B225FC3A93",
           "start" : 2.08,
           "text" : "Počasí\nvypadá dobře,",
           "words" : [
@@ -10907,7 +10907,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "16AB53FB-5D6F-43CA-B3BC-097C3EE3E923",
+          "id" : "2AC47681-1252-4AA6-AE61-FBA6FE62FB81",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je\ntrochu silnější,",
           "words" : [
@@ -10940,7 +10940,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "9644A4A0-801A-4D17-ADFD-03B1928ED015",
+          "id" : "68E0FA44-EDE3-48B9-81E7-AE1A32C71377",
           "start" : 5.67,
           "text" : "než jsem čekal,\ntakže uvidíme.",
           "words" : [
@@ -11112,7 +11112,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "B61E6529-0D4B-4F54-8565-06FB26A544DC",
+          "id" : "6FDD79D3-00FC-4C60-BD4E-E11A5ECEC5C9",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -11135,7 +11135,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "6BCA9021-3B54-4B35-9ADC-397304FC2651",
+          "id" : "F9B150F8-3C4E-4C22-839E-DA1EB778D932",
           "start" : 2.08,
           "text" : "Počasí\nvypadá dobře",
           "words" : [
@@ -11158,7 +11158,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "BC8421B8-CE1C-4405-90B7-5B2619DF8433",
+          "id" : "58C15491-99CB-4E40-A231-66E0C409442C",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je\ntrochu silnější",
           "words" : [
@@ -11191,7 +11191,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "330950D0-B702-4AB6-9731-9CDCC784B472",
+          "id" : "2136644F-8EC3-4DBC-BF8B-7B0CC52997A7",
           "start" : 5.67,
           "text" : "než jsem čekal\ntakže uvidíme",
           "words" : [
@@ -11363,7 +11363,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "CF19C404-98FF-454A-B249-8CC4C286BF3A",
+          "id" : "9C1AF66E-3B74-45CE-9019-9696D5BAAFE6",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -11386,7 +11386,7 @@
         },
         {
           "end" : 3.4800000000000004,
-          "id" : "E6E87C40-FE5C-4A51-B359-A5A712337997",
+          "id" : "BA4ADF7D-B169-4635-8715-F3B3467A256A",
           "start" : 2.08,
           "text" : "Počasí\nvypadá dobře,",
           "words" : [
@@ -11409,7 +11409,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "A9815715-6A9B-47D4-8DE2-1DB6145AFE55",
+          "id" : "8D046754-74A6-42D6-84BF-2B2A4FFE6F20",
           "start" : 3.5800000000000005,
           "text" : "ale vítr je\ntrochu silnější,",
           "words" : [
@@ -11442,7 +11442,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "10139F8F-8EEA-4023-B934-7AD068B4CD39",
+          "id" : "387540FA-02B6-42FB-B671-EAB970F19E0B",
           "start" : 5.67,
           "text" : "než jsem čekal,\ntakže uvidíme.",
           "words" : [
@@ -11614,7 +11614,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "25BEDE9C-51AA-4E52-8AD3-999B9B4462E9",
+          "id" : "CC23046F-BF07-48AC-94DF-E9CEACA32040",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -11637,7 +11637,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "C4193D45-60B6-41A5-908C-75086525F9FA",
+          "id" : "C5D3DE57-DF23-4395-8978-2441B0CF4CE8",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale\nvítr je trochu silnější",
           "words" : [
@@ -11685,7 +11685,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "9A7EE9F6-F171-42EF-B22C-0208E03A0170",
+          "id" : "F7DB51F8-7E3B-4981-8295-BAAA621BBDC7",
           "start" : 5.67,
           "text" : "než jsem čekal\ntakže uvidíme",
           "words" : [
@@ -11857,7 +11857,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "C759A0AF-72CF-483C-8061-5319053A96B3",
+          "id" : "C8ACBB15-3738-436B-AE6F-4770C3553800",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -11880,7 +11880,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "8738889B-78CB-4066-B757-351CCD57345E",
+          "id" : "9C2EDA57-D30D-4580-8129-806D5F7B84FD",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře, ale\nvítr je trochu silnější,",
           "words" : [
@@ -11928,7 +11928,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "70D94D8A-A7E4-45B1-A95E-DE26A89B4613",
+          "id" : "ABC78083-DDBB-49A3-ABF5-2740B5AB5AB7",
           "start" : 5.67,
           "text" : "než jsem čekal,\ntakže uvidíme.",
           "words" : [
@@ -12100,7 +12100,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "907D92DC-99CA-4603-8463-33B25D5C81AD",
+          "id" : "0E8821F6-2ECC-42CC-9952-8175B9E2F183",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -12123,7 +12123,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "62ECCDB4-583E-4601-B692-36E69A450FE3",
+          "id" : "D760C5CA-6BEE-44D9-9F62-AD22AD3EEB42",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale\nvítr je trochu silnější",
           "words" : [
@@ -12171,7 +12171,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "A3FA3F27-D77F-4059-938B-19BB025A8444",
+          "id" : "BD736D14-2429-439D-9E98-B5C417D4BCB4",
           "start" : 5.67,
           "text" : "než jsem čekal\ntakže uvidíme",
           "words" : [
@@ -12343,7 +12343,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "7ED5A36E-2B7A-4AD1-9F16-E0AA55AF16F2",
+          "id" : "2C5E0645-0ED6-4D81-89FC-0A7DDBA7DFBC",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -12366,7 +12366,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "22AE21A1-F54B-4AF5-8AFD-4B4FA4E0CF69",
+          "id" : "DA8AEE72-08FE-427D-8563-1A90A9653466",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře, ale\nvítr je trochu silnější,",
           "words" : [
@@ -12414,7 +12414,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "264924F5-51AC-4C0C-898A-BE8EB8DA186E",
+          "id" : "71E2F3D6-1840-42F5-B567-E823A373F377",
           "start" : 5.67,
           "text" : "než jsem čekal,\ntakže uvidíme.",
           "words" : [
@@ -12586,7 +12586,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "49F899F1-01C2-4A6B-B6FA-B6A27B18AB6D",
+          "id" : "5E188B31-34EF-454A-8F32-DE737AFE0FA5",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -12609,7 +12609,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "41B4A2AF-3A24-4377-812D-1BF4572EA23E",
+          "id" : "06AC8376-B0EC-486D-8A24-CC0E98D65C1B",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale vítr je trochu\nsilnější než jsem čekal takže uvidíme",
           "words" : [
@@ -12821,7 +12821,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "50F4B9D2-1B94-4CBB-A395-4C843DB6510F",
+          "id" : "16E6F3F1-73A4-4894-853D-75E63E4CE83E",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -12844,7 +12844,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "E9686934-CBF5-44F0-83E0-FFC6D9548730",
+          "id" : "5CF7EB0F-5332-4AD1-8511-CDEFC63E2C54",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře, ale vítr je trochu\nsilnější, než jsem čekal, takže uvidíme.",
           "words" : [
@@ -13056,7 +13056,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "2D58B9FD-DB16-4EEC-B9D4-52327387D924",
+          "id" : "00629793-3C65-4C98-BAB7-66414ED245C9",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -13079,7 +13079,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "7382DA69-D349-4F39-998E-2C6495108B6D",
+          "id" : "91AE8133-6ACC-447E-81A4-B3971314F07C",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale vítr je\ntrochu silnější než jsem čekal",
           "words" : [
@@ -13142,7 +13142,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "4CCE4797-D9A4-4EA4-9F9F-25546309291C",
+          "id" : "E8758D10-47A3-4EDF-86F4-88F52FAD1679",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme",
           "words" : [
@@ -13299,7 +13299,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "F6ECB758-229B-4C5D-AE06-E0652FF07512",
+          "id" : "D01271CF-9A26-42FA-8690-39DCE18E5DA2",
           "start" : 0.2,
           "text" : "Tak jsme tady.",
           "words" : [
@@ -13322,7 +13322,7 @@
         },
         {
           "end" : 6.845,
-          "id" : "4D8186F3-FCE0-4587-8262-1F69A4F47571",
+          "id" : "1F4AFD07-28D5-4158-A496-063F68C7B101",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře, ale vítr je\ntrochu silnější, než jsem čekal,",
           "words" : [
@@ -13385,7 +13385,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "1442738F-F43B-410B-8AD4-1500983B6AF7",
+          "id" : "DC3CA87E-7A42-4C09-96B2-E09C27CBB64E",
           "start" : 6.944999999999999,
           "text" : "takže uvidíme.",
           "words" : [
@@ -13542,7 +13542,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "B9DF4A30-0813-4F2B-A42A-EFBAAD602664",
+          "id" : "43B04FCB-5906-44FB-9E7D-B8D5FB9121F9",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -13565,7 +13565,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "06016964-842C-42DD-8F5A-62C3C381210E",
+          "id" : "999A6BE4-AC16-49CA-B869-C9748AB5B33B",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale vítr",
           "words" : [
@@ -13598,7 +13598,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "2829F78F-26BF-43DB-A524-C6BAD23C5A24",
+          "id" : "E6C01111-17B8-4993-9098-76990FED5698",
           "start" : 4.215000000000001,
           "text" : "je trochu silnější než\njsem čekal takže uvidíme",
           "words" : [
@@ -13785,7 +13785,7 @@
       "cues" : [
         {
           "end" : 1.3299999999999998,
-          "id" : "957A4086-CD7E-4E93-B80B-EB8A01E5F6AE",
+          "id" : "6E709709-8800-4E2D-A1C9-04CC157AE9B4",
           "start" : 0.2,
           "text" : "Tak jsme tady",
           "words" : [
@@ -13808,7 +13808,7 @@
         },
         {
           "end" : 4.175000000000001,
-          "id" : "1E4B2F68-086B-4811-A236-F9F1AE3257D5",
+          "id" : "0E172004-D0E5-47C7-A617-D229249BDB18",
           "start" : 2.08,
           "text" : "Počasí vypadá dobře ale vítr",
           "words" : [
@@ -13841,7 +13841,7 @@
         },
         {
           "end" : 5.57,
-          "id" : "32C1B8FB-92A7-428D-B522-393B27BED120",
+          "id" : "82F6E995-8C8D-4C15-9ED9-542C86B5322C",
           "start" : 4.215000000000001,
           "text" : "je trochu silnější",
           "words" : [
@@ -13864,7 +13864,7 @@
         },
         {
           "end" : 7.959999999999999,
-          "id" : "60463528-AC03-4CF0-A2FF-75192F0DF825",
+          "id" : "7F98FFF8-3F92-4F21-8427-39C7B9439A8C",
           "start" : 5.67,
           "text" : "než jsem čekal takže uvidíme",
           "words" : [
@@ -14036,7 +14036,7 @@
       "cues" : [
         {
           "end" : 1,
-          "id" : "B1D7680B-780D-4EFC-AF41-E0D7054EE760",
+          "id" : "6B87C686-45F6-4146-8C65-52106D53D063",
           "start" : 0.2,
           "text" : "So this is",
           "words" : [
@@ -14059,7 +14059,7 @@
         },
         {
           "end" : 1.6349999999999998,
-          "id" : "F629190D-6552-4A4C-BCFE-D11F63279E33",
+          "id" : "6771154F-0902-443D-9AB9-12E2E4AB3BB4",
           "start" : 1.04,
           "text" : "the spot",
           "words" : [
@@ -14077,7 +14077,7 @@
         },
         {
           "end" : 2.6999999999999997,
-          "id" : "29E505F5-CC59-459F-8B21-26E44344C249",
+          "id" : "8FD6D29C-4771-4002-8CAB-6235464DD614",
           "start" : 1.6749999999999998,
           "text" : "where we filmed",
           "words" : [
@@ -14100,7 +14100,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "EAEB7D0C-12AB-417F-959A-1C1F10A465C1",
+          "id" : "33272573-71AA-4DA9-9835-2595CDC85EB4",
           "start" : 2.7399999999999998,
           "text" : "the whole part",
           "words" : [
@@ -14123,7 +14123,7 @@
         },
         {
           "end" : 5.849999999999999,
-          "id" : "22A9DA61-2169-444E-BFE8-9028B666E1C9",
+          "id" : "FBE5E310-BAFA-4253-843A-B9F12DEBDC47",
           "start" : 4.664999999999999,
           "text" : "It took us three",
           "words" : [
@@ -14151,7 +14151,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "72104803-D1D3-4EDE-851C-2A3C7EAAE8C1",
+          "id" : "7EC28E77-2D7F-4DF7-B43C-AF4B95120D90",
           "start" : 5.889999999999999,
           "text" : "weeks but it",
           "words" : [
@@ -14174,7 +14174,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "1810DD38-637C-4D42-9D59-E5A71CB1CF3C",
+          "id" : "22373FD1-EB4A-4699-AB46-5E95A65DED13",
           "start" : 7.074999999999998,
           "text" : "was worth it",
           "words" : [
@@ -14197,7 +14197,7 @@
         },
         {
           "end" : 9.149999999999999,
-          "id" : "86F3CF10-0F80-48DD-8D8D-0665E261C8A9",
+          "id" : "5E6E0B77-5AA1-42BB-B396-E43B6D34DEC3",
           "start" : 8.259999999999998,
           "text" : "and the crew",
           "words" : [
@@ -14220,7 +14220,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "17C100E7-FE11-474C-ADD8-AA6C52640403",
+          "id" : "45302697-6435-4C8A-9237-E62E88405004",
           "start" : 9.189999999999998,
           "text" : "was amazing",
           "words" : [
@@ -14427,7 +14427,7 @@
       "cues" : [
         {
           "end" : 1,
-          "id" : "7EB35A51-24C1-4FE3-8840-E2A913FFBD6B",
+          "id" : "EDBE41B2-C1F1-4D4B-B0F5-515E14FD968A",
           "start" : 0.2,
           "text" : "So this is",
           "words" : [
@@ -14450,7 +14450,7 @@
         },
         {
           "end" : 1.6349999999999998,
-          "id" : "D65F64D1-C583-4AEE-B2DC-B14AF5DD175C",
+          "id" : "6D8FBC85-9315-4484-87B9-ED215A4D6A5B",
           "start" : 1.04,
           "text" : "the spot",
           "words" : [
@@ -14468,7 +14468,7 @@
         },
         {
           "end" : 2.6999999999999997,
-          "id" : "6AA68C37-D06C-4E93-9EBB-3D211AAFF51D",
+          "id" : "0360B68D-4016-4F1D-95E4-95B40452E5C8",
           "start" : 1.6749999999999998,
           "text" : "where we filmed",
           "words" : [
@@ -14491,7 +14491,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "9D1B58B2-36F0-405D-9AE7-EAE31D50FD5E",
+          "id" : "7D937DDE-5F04-4880-AA76-240CBA417CF4",
           "start" : 2.7399999999999998,
           "text" : "the whole part.",
           "words" : [
@@ -14514,7 +14514,7 @@
         },
         {
           "end" : 5.849999999999999,
-          "id" : "41CAF139-1123-4CDC-B419-EFD4646EDC3C",
+          "id" : "830CD0B8-81A5-418B-9732-9FD1D5BAF387",
           "start" : 4.664999999999999,
           "text" : "It took us three",
           "words" : [
@@ -14542,7 +14542,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "C395B93C-997F-4EE6-9583-09742DC4AC79",
+          "id" : "B75CE43F-3AB7-4B53-A534-729E370116BE",
           "start" : 5.889999999999999,
           "text" : "weeks, but it",
           "words" : [
@@ -14565,7 +14565,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "0C4EE8EF-C74D-4DB7-A104-2248F470D7E1",
+          "id" : "05FCD96C-67FE-4436-8ACE-C6828FE829B7",
           "start" : 7.074999999999998,
           "text" : "was worth it,",
           "words" : [
@@ -14588,7 +14588,7 @@
         },
         {
           "end" : 9.149999999999999,
-          "id" : "D945C5CD-8620-4B73-A881-629F7D0AE566",
+          "id" : "1CC7360D-FEDE-472B-8966-B1BE20238F3C",
           "start" : 8.259999999999998,
           "text" : "and the crew",
           "words" : [
@@ -14611,7 +14611,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "DFE7F91F-E094-4B76-AD72-71C36871F270",
+          "id" : "FF2928AA-0D3B-420E-8FA3-88F865EB5073",
           "start" : 9.189999999999998,
           "text" : "was amazing.",
           "words" : [
@@ -14818,7 +14818,7 @@
       "cues" : [
         {
           "end" : 1.295,
-          "id" : "B56242D0-72CC-47A5-B8E5-35D2D3786931",
+          "id" : "9449A2B2-3665-46B9-AB68-0C31705B06A4",
           "start" : 0.2,
           "text" : "So this is the",
           "words" : [
@@ -14846,7 +14846,7 @@
         },
         {
           "end" : 2.2699999999999996,
-          "id" : "10BEFF8B-9C3A-4948-B1C3-DA707E08DA5F",
+          "id" : "CD4A64AC-CFDA-4912-AD08-02BB49EF4796",
           "start" : 1.335,
           "text" : "spot where we",
           "words" : [
@@ -14869,7 +14869,7 @@
         },
         {
           "end" : 3.3799999999999994,
-          "id" : "4481F67F-FFEB-44E8-A7F6-D6E967726B7F",
+          "id" : "1E4F6C72-D6CB-4236-B4D2-2F7AFC28024D",
           "start" : 2.3099999999999996,
           "text" : "filmed the whole",
           "words" : [
@@ -14892,7 +14892,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "0D2AA38B-75C2-4A23-B2C5-B22263ED092B",
+          "id" : "D9EE00AD-FF30-44E3-ABB3-EFFFD27131B3",
           "start" : 3.4199999999999995,
           "text" : "part",
           "words" : [
@@ -14905,7 +14905,7 @@
         },
         {
           "end" : 5.849999999999999,
-          "id" : "0E97DFFE-6DD1-4775-AEB0-3EC51310E1BC",
+          "id" : "B6F1BDEE-3760-46B6-B17D-8EAFD1D68433",
           "start" : 4.664999999999999,
           "text" : "It took us three",
           "words" : [
@@ -14933,7 +14933,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "A52E12FB-E72F-46D0-B584-F710B0F5C319",
+          "id" : "894FFA7B-FFC5-426F-AE9C-EBF37FF5A7EE",
           "start" : 5.889999999999999,
           "text" : "weeks but it",
           "words" : [
@@ -14956,7 +14956,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "733EA2D5-D536-48A8-BDD5-597EF8FE2438",
+          "id" : "F145A33C-8C63-4CC0-A7C3-9901F9054F07",
           "start" : 7.074999999999998,
           "text" : "was worth it",
           "words" : [
@@ -14979,7 +14979,7 @@
         },
         {
           "end" : 9.444999999999999,
-          "id" : "82C65E7F-0EB8-4BA8-A657-E0B4CA6CE46E",
+          "id" : "A3B3D28B-2A96-4A5D-83B8-81DEEDB3AAFA",
           "start" : 8.259999999999998,
           "text" : "and the crew was",
           "words" : [
@@ -15007,7 +15007,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "19C1D4F3-CE3D-41C9-8FB4-D1EDF1A5DEC3",
+          "id" : "B2134DFB-BFD3-4B52-AE51-07B73F27894E",
           "start" : 9.484999999999998,
           "text" : "amazing",
           "words" : [
@@ -15209,7 +15209,7 @@
       "cues" : [
         {
           "end" : 1.295,
-          "id" : "807EF8D4-3955-4161-9E61-EC54375DFFF7",
+          "id" : "EE88E6AA-9E57-44FA-8E7F-7CDDE52F674A",
           "start" : 0.2,
           "text" : "So this is the",
           "words" : [
@@ -15237,7 +15237,7 @@
         },
         {
           "end" : 2.2699999999999996,
-          "id" : "4DD66238-D0E4-4E26-871B-F90EB2D38DD9",
+          "id" : "14B3B4E8-A4D5-4ADA-9447-DEBAD4491F8D",
           "start" : 1.335,
           "text" : "spot where we",
           "words" : [
@@ -15260,7 +15260,7 @@
         },
         {
           "end" : 3.3799999999999994,
-          "id" : "53314901-C11D-4C6B-A314-7EBDC3852DC1",
+          "id" : "C53B6F3C-8B9D-4FFD-B9D4-9FD3773100CE",
           "start" : 2.3099999999999996,
           "text" : "filmed the whole",
           "words" : [
@@ -15283,7 +15283,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "37CFA924-BFA1-4094-A7B6-3143D5D087FB",
+          "id" : "7B2494BB-38F2-44FB-ACE8-3ABF20A4A99D",
           "start" : 3.4199999999999995,
           "text" : "part.",
           "words" : [
@@ -15296,7 +15296,7 @@
         },
         {
           "end" : 5.849999999999999,
-          "id" : "7B11DEA2-F838-4628-B763-18C8EEC32CC2",
+          "id" : "B0A7EC8F-F7A3-4B72-92D3-71A2B42747F3",
           "start" : 4.664999999999999,
           "text" : "It took us three",
           "words" : [
@@ -15324,7 +15324,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "A20FD704-6983-4DBA-8B50-09639B3AE6F9",
+          "id" : "4AB1A11D-C886-4F97-96C8-7C80DC02E969",
           "start" : 5.889999999999999,
           "text" : "weeks, but it",
           "words" : [
@@ -15347,7 +15347,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "A5F2910C-8F0D-4DE7-BE7C-BE726B8924C0",
+          "id" : "2268EC6A-80A9-4F35-B49E-2566EF841799",
           "start" : 7.074999999999998,
           "text" : "was worth it,",
           "words" : [
@@ -15370,7 +15370,7 @@
         },
         {
           "end" : 9.444999999999999,
-          "id" : "B76DA784-F6D1-415C-8F85-79F6A3DC22C3",
+          "id" : "80B933E2-4532-4893-BFB1-06CA58B3D5FA",
           "start" : 8.259999999999998,
           "text" : "and the crew was",
           "words" : [
@@ -15398,7 +15398,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "7A1EA39C-6A34-4FCA-B4E8-C8E212B0E4B8",
+          "id" : "25FE6BB0-63F4-4094-ACE0-D5CEBCC7E7CB",
           "start" : 9.484999999999998,
           "text" : "amazing.",
           "words" : [
@@ -15600,7 +15600,7 @@
       "cues" : [
         {
           "end" : 2.0199999999999996,
-          "id" : "23E6B231-9F25-4D4C-8605-12CAB0F342A8",
+          "id" : "814C01DC-3191-4664-8172-F0B84CD8992D",
           "start" : 0.2,
           "text" : "So this is the spot where",
           "words" : [
@@ -15638,7 +15638,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "A17E5DE1-AAFC-44E6-9D9B-DD6CDB1861A6",
+          "id" : "6182A131-469E-4193-BBF2-BE6DD515DBE5",
           "start" : 2.0599999999999996,
           "text" : "we filmed the whole part",
           "words" : [
@@ -15671,7 +15671,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "F9F173FA-8865-45E5-87E7-B3F8120B9BA6",
+          "id" : "3D8A6E87-C951-45BC-BD49-1CB9E48711D5",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks",
           "words" : [
@@ -15704,7 +15704,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "B3C7D250-6CA7-4833-9594-E563324AE98F",
+          "id" : "CA594EC5-40D6-413E-A123-7D7B1AC744CE",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it",
           "words" : [
@@ -15737,7 +15737,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "ACBA9CF9-C510-40D6-8833-3CF84FE04347",
+          "id" : "A23349DA-258F-4D1B-9F3A-60A6741FB4FF",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -15959,7 +15959,7 @@
       "cues" : [
         {
           "end" : 2.0199999999999996,
-          "id" : "38AA7052-E103-4872-842E-D956CE3A593D",
+          "id" : "90BC98DA-65D9-4E7C-B7B0-1CFCE6E2A521",
           "start" : 0.2,
           "text" : "So this is the spot where",
           "words" : [
@@ -15997,7 +15997,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "E0D40FE3-6C33-463D-95EC-CC7451454F41",
+          "id" : "24E47062-9437-4D1B-952E-6D87E03C1235",
           "start" : 2.0599999999999996,
           "text" : "we filmed the whole part.",
           "words" : [
@@ -16030,7 +16030,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "D0F4B7F2-7CEB-4A16-8CF3-2CE8201AD464",
+          "id" : "EE03F7FB-0638-4D0D-A6CD-C222A28F5E62",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks,",
           "words" : [
@@ -16063,7 +16063,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "1949E73F-1819-405F-830B-E094E66014A1",
+          "id" : "3472D66A-B26D-461A-AFDA-C322F1D93B14",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it,",
           "words" : [
@@ -16096,7 +16096,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "033B182A-4E3E-4834-A042-962E7C938470",
+          "id" : "EBAD1676-465F-4666-908F-F1BCED7712DB",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing.",
           "words" : [
@@ -16318,7 +16318,7 @@
       "cues" : [
         {
           "end" : 2.0199999999999996,
-          "id" : "A0077F9E-8889-4AA1-9896-D46AD46AC532",
+          "id" : "D644D1D0-9737-4F7F-A1D9-017D38A5EA30",
           "start" : 0.2,
           "text" : "So this is the spot where",
           "words" : [
@@ -16356,7 +16356,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "446AB42B-8FF0-4BE4-AC0A-AC6A076F99DF",
+          "id" : "EC5276AF-72C1-4090-95DB-52BFD742F8FB",
           "start" : 2.0599999999999996,
           "text" : "we filmed the whole part",
           "words" : [
@@ -16389,7 +16389,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "BB0DAD0A-6D18-4E01-B309-638455E0A324",
+          "id" : "CEFBA9EC-E42D-470E-8D17-3746992CBCEE",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks",
           "words" : [
@@ -16422,7 +16422,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "7713B10C-FB13-4C50-A5A7-BEAEBA7F5F6F",
+          "id" : "B8F8F1B6-2E77-4C9E-8E13-62D4E2B9064F",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it",
           "words" : [
@@ -16455,7 +16455,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "A424371B-7B04-4070-81B6-5217036617AB",
+          "id" : "FA017933-9DAE-4D69-B004-74C340A2E9B1",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -16677,7 +16677,7 @@
       "cues" : [
         {
           "end" : 2.0199999999999996,
-          "id" : "AAEFF272-6893-467D-8255-7B99CCD1FA69",
+          "id" : "735FADF7-A497-4967-A3A2-C45FFA0D05C9",
           "start" : 0.2,
           "text" : "So this is the spot where",
           "words" : [
@@ -16715,7 +16715,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "D53AEF28-5EF9-40AA-BFCD-3369C37DD381",
+          "id" : "144E8059-43E8-4C49-AA9B-BBB5F4B4DFD2",
           "start" : 2.0599999999999996,
           "text" : "we filmed the whole part.",
           "words" : [
@@ -16748,7 +16748,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "496313E4-6CCD-4938-8BAA-DFEEB3E20FB5",
+          "id" : "771BD4FF-4735-421B-8F87-B00E67D85EDF",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks,",
           "words" : [
@@ -16781,7 +16781,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "74FAF2D5-9EA8-4305-A027-6EE5AD3D902A",
+          "id" : "1AC21A44-65B4-408F-84C0-CD13F89270B0",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it,",
           "words" : [
@@ -16814,7 +16814,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "ADBCA482-EB9E-4AB9-84DA-4C8D78235737",
+          "id" : "32A7D398-3433-408D-A5D7-3EE65570BF5E",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing.",
           "words" : [
@@ -17036,7 +17036,7 @@
       "cues" : [
         {
           "end" : 1.6349999999999998,
-          "id" : "7FA6F6B8-EEC3-4E51-A0A3-4EA4D4623543",
+          "id" : "CFC2DD44-8D2F-4B0F-9CD8-94DE16DCCC4A",
           "start" : 0.2,
           "text" : "So this is the spot",
           "words" : [
@@ -17069,7 +17069,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "10D290C0-3700-4DFF-B5E1-77900A560219",
+          "id" : "EB919468-DEC5-4740-811F-B5B0CCB6AD89",
           "start" : 1.6749999999999998,
           "text" : "where we filmed the whole part",
           "words" : [
@@ -17107,7 +17107,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "3B2F5122-5DF4-480D-B68E-16527278247D",
+          "id" : "620E5288-51AD-4E92-B0F1-4A62A806EEBC",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks",
           "words" : [
@@ -17140,7 +17140,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "2D744DA5-65CB-47D4-B365-4B9BA8EA707B",
+          "id" : "EBF6AC0A-9028-419D-BEA1-511CC34DDC3E",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it",
           "words" : [
@@ -17173,7 +17173,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "D2FFD0FF-41BA-486B-A66A-E84026BD35EC",
+          "id" : "FC43CE4F-61CC-4A25-916D-C7775EBE9E77",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -17395,7 +17395,7 @@
       "cues" : [
         {
           "end" : 1.6349999999999998,
-          "id" : "C7131176-7F1D-467E-B022-A612C5E05018",
+          "id" : "9EFB2EF8-8002-445C-8F2A-DFCE99D1F713",
           "start" : 0.2,
           "text" : "So this is the spot",
           "words" : [
@@ -17428,7 +17428,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "2E85AE27-4C8D-452B-8ADF-92008467A690",
+          "id" : "2CBE04B1-28B3-4A7E-BEDC-E8B68D3CDC82",
           "start" : 1.6749999999999998,
           "text" : "where we filmed the whole part.",
           "words" : [
@@ -17466,7 +17466,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "C4802BA6-39F1-4A48-BF34-0B2548B2FA35",
+          "id" : "5D0F0F37-ADB8-4B8B-B820-0140C59ACBE0",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks,",
           "words" : [
@@ -17499,7 +17499,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "25B44790-9096-4212-9EDD-5FF52191768D",
+          "id" : "D0E8372B-0F77-4CA6-B568-56FBF2E91EFF",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it,",
           "words" : [
@@ -17532,7 +17532,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "83EFAEBD-8E0C-43E0-ABDF-9DB9BD9E03E0",
+          "id" : "7A949DBF-A591-4115-9936-4B8C6D587684",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing.",
           "words" : [
@@ -17754,7 +17754,7 @@
       "cues" : [
         {
           "end" : 2.2699999999999996,
-          "id" : "5925434A-DEFC-4D50-94AB-58122ED855E0",
+          "id" : "E971D3CC-6B7C-4A1A-9215-61BB6D030886",
           "start" : 0.2,
           "text" : "So this is the spot where we",
           "words" : [
@@ -17797,7 +17797,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "3B75E049-4A6A-427D-9249-7D290440837F",
+          "id" : "2607190B-6CD3-4BE8-93D5-9F20BCF4FAF4",
           "start" : 2.3099999999999996,
           "text" : "filmed the whole part",
           "words" : [
@@ -17825,7 +17825,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "903ACB2B-B86F-43CE-96B4-359A1058AD02",
+          "id" : "694E381E-DB99-4123-9FF4-B4244647E755",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks but it",
           "words" : [
@@ -17868,7 +17868,7 @@
         },
         {
           "end" : 9.444999999999999,
-          "id" : "761E6BC9-8794-46B4-B06F-1B001ED947C1",
+          "id" : "C96A36FB-31AF-401D-BE23-D865D41CA028",
           "start" : 7.074999999999998,
           "text" : "was worth it and the crew was",
           "words" : [
@@ -17911,7 +17911,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "153E6A22-0CB7-4F84-915B-4C61A0C839E7",
+          "id" : "6CF2BEAE-1100-4EB1-AA6D-AA11991DFCA2",
           "start" : 9.484999999999998,
           "text" : "amazing",
           "words" : [
@@ -18113,7 +18113,7 @@
       "cues" : [
         {
           "end" : 2.2699999999999996,
-          "id" : "B34503AE-BCE0-43D7-B30F-A3BF46EBF458",
+          "id" : "36DDB796-BCFC-4EED-BE1E-5AF90B0A3903",
           "start" : 0.2,
           "text" : "So this is the spot where we",
           "words" : [
@@ -18156,7 +18156,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "ACEAB00D-969A-4E09-A419-1A9EBFB1EBD2",
+          "id" : "5EE8926A-4E35-4CEE-B6EA-B00E4517D977",
           "start" : 2.3099999999999996,
           "text" : "filmed the whole part.",
           "words" : [
@@ -18184,7 +18184,7 @@
         },
         {
           "end" : 7.034999999999998,
-          "id" : "881802B8-77B3-4B8E-A5DB-A595C408F875",
+          "id" : "2CD0B157-E63B-4505-97D5-92C243892660",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks, but it",
           "words" : [
@@ -18227,7 +18227,7 @@
         },
         {
           "end" : 9.444999999999999,
-          "id" : "42DFD698-D062-4DC2-8EF1-B4C06B32636D",
+          "id" : "D458148D-1BB2-4AF6-AAEE-17F0582609B7",
           "start" : 7.074999999999998,
           "text" : "was worth it, and the crew was",
           "words" : [
@@ -18270,7 +18270,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "2A49EDA3-9687-4566-ABA5-B0733B999FCD",
+          "id" : "1603B947-C174-40BF-A84B-61A8C1E0B1C8",
           "start" : 9.484999999999998,
           "text" : "amazing.",
           "words" : [
@@ -18472,7 +18472,7 @@
       "cues" : [
         {
           "end" : 1.6349999999999998,
-          "id" : "DFBF6BAE-96CF-49DF-8053-486071369D9E",
+          "id" : "7ACF878E-9FEB-4F0E-AA16-CAA487241E37",
           "start" : 0.2,
           "text" : "So this is\nthe spot",
           "words" : [
@@ -18505,7 +18505,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "96054F71-C1C4-41A1-8173-2E195C89496E",
+          "id" : "3B1395A9-3DAB-4EBC-808A-77B96415353C",
           "start" : 1.6749999999999998,
           "text" : "where we filmed\nthe whole part",
           "words" : [
@@ -18543,7 +18543,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "C5B90D2C-365D-47DE-80F3-DCC4668104E8",
+          "id" : "C1F34CE8-FC50-4B71-BDAE-5AD7C7F94ED5",
           "start" : 4.664999999999999,
           "text" : "It took us\nthree weeks",
           "words" : [
@@ -18576,7 +18576,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "8AE59730-4DD6-474C-BCCE-1FBBEB7A127A",
+          "id" : "E77A072B-EA24-4201-AE90-50F093B2CB72",
           "start" : 6.5299999999999985,
           "text" : "but it was\nworth it",
           "words" : [
@@ -18609,7 +18609,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "A413E4CF-FADF-4E6A-B064-70652EE4088C",
+          "id" : "41D8ADD6-A41A-43D8-9933-CF3AE1DEFEED",
           "start" : 8.259999999999998,
           "text" : "and the crew\nwas amazing",
           "words" : [
@@ -18831,7 +18831,7 @@
       "cues" : [
         {
           "end" : 1.6349999999999998,
-          "id" : "2ECCE385-CA2C-4290-A485-7DA5E32CF17C",
+          "id" : "F07D6A9A-FB50-49E4-A689-2FFC33CF00E5",
           "start" : 0.2,
           "text" : "So this is\nthe spot",
           "words" : [
@@ -18864,7 +18864,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "31C100F0-351B-4E22-8D53-9F8D8F65185F",
+          "id" : "C3FDEDB5-F50C-423C-B267-BB1CFAFA7759",
           "start" : 1.6749999999999998,
           "text" : "where we filmed\nthe whole part.",
           "words" : [
@@ -18902,7 +18902,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "EA5F2E9A-F815-4B1C-BA61-FD6D0F1FE60A",
+          "id" : "DA9439FB-A3E7-4B52-9116-93E3A9C7B904",
           "start" : 4.664999999999999,
           "text" : "It took us\nthree weeks,",
           "words" : [
@@ -18935,7 +18935,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "5101AF46-E21E-4232-9785-3269AED0FB5B",
+          "id" : "7283C9AA-5F4B-4F4D-A221-EACA64863F4C",
           "start" : 6.5299999999999985,
           "text" : "but it was\nworth it,",
           "words" : [
@@ -18968,7 +18968,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "5B9E0C7D-70EA-49F6-B074-BC4756E41404",
+          "id" : "3C5D21D1-F7EC-4BBF-A0B2-7262C404299C",
           "start" : 8.259999999999998,
           "text" : "and the crew\nwas amazing.",
           "words" : [
@@ -19190,7 +19190,7 @@
       "cues" : [
         {
           "end" : 2.2699999999999996,
-          "id" : "69997068-A70C-4BDC-8EE6-07073F795548",
+          "id" : "6A0D9A91-F0B9-4BE3-AE95-D91D0528BC53",
           "start" : 0.2,
           "text" : "So this is the\nspot where we",
           "words" : [
@@ -19233,7 +19233,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "B7356D67-144B-4811-BFAE-670D739976AE",
+          "id" : "50181336-5CCC-4BFE-8D72-1FDF5E1B65E6",
           "start" : 2.3099999999999996,
           "text" : "filmed the\nwhole part",
           "words" : [
@@ -19261,7 +19261,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "7A9BE6D9-B886-4590-855B-2C99F5468C68",
+          "id" : "0CFDCB3F-6761-48A6-840F-AF440A87D699",
           "start" : 4.664999999999999,
           "text" : "It took us\nthree weeks",
           "words" : [
@@ -19294,7 +19294,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "1BE0AD1F-C129-45AD-9BED-43B771AE290F",
+          "id" : "1EEC3D1D-4429-48C9-85F2-F8DAAF3AEDC6",
           "start" : 6.5299999999999985,
           "text" : "but it was\nworth it",
           "words" : [
@@ -19327,7 +19327,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "0455379B-CAC3-48C2-8B3A-95D402824D42",
+          "id" : "1A469B96-77DF-4DDE-903D-A1061CFDD2E9",
           "start" : 8.259999999999998,
           "text" : "and the crew\nwas amazing",
           "words" : [
@@ -19549,7 +19549,7 @@
       "cues" : [
         {
           "end" : 2.2699999999999996,
-          "id" : "CC909FC8-C1AC-4A9E-A583-07BB78B8F5BA",
+          "id" : "36376F39-9E35-4AA4-88A3-7D50F0F1B7F8",
           "start" : 0.2,
           "text" : "So this is the\nspot where we",
           "words" : [
@@ -19592,7 +19592,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "59CDA7D6-5D48-47F0-BC12-4492FF31C2A7",
+          "id" : "F96700DB-DAB2-45F4-8B4B-9A206B715998",
           "start" : 2.3099999999999996,
           "text" : "filmed the\nwhole part.",
           "words" : [
@@ -19620,7 +19620,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "B612ABA0-817D-40A8-8095-0EBB0FDABB61",
+          "id" : "5DB81067-F291-4FDF-AACC-949B32B62DB2",
           "start" : 4.664999999999999,
           "text" : "It took us\nthree weeks,",
           "words" : [
@@ -19653,7 +19653,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "A2079661-7915-4381-AB5F-F2D2C6F34177",
+          "id" : "7315AA99-2E4D-4695-A403-186526EE29C1",
           "start" : 6.5299999999999985,
           "text" : "but it was\nworth it,",
           "words" : [
@@ -19686,7 +19686,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "8446E13B-1F45-4628-A431-3CB18DD59D01",
+          "id" : "BA840CE6-BECE-46A2-B303-E78DF68F6568",
           "start" : 8.259999999999998,
           "text" : "and the crew\nwas amazing.",
           "words" : [
@@ -19908,7 +19908,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "1453A732-8C96-484E-BC70-331E326A8F2A",
+          "id" : "4D09491E-19ED-419A-91E6-C9D0C294800C",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part",
           "words" : [
@@ -19971,7 +19971,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "C78492DE-72F3-421E-A283-132600EDA957",
+          "id" : "769B5132-74AC-4BEB-AF82-70FE24D119BF",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks\nbut it was worth it",
           "words" : [
@@ -20029,7 +20029,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "780A0113-8743-4B89-AA88-49005841E027",
+          "id" : "1DD583F7-6034-42D6-A85F-81C9004B9F72",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -20251,7 +20251,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "02DDE010-126D-4564-9F4E-514B7143AC98",
+          "id" : "85282097-F430-45B8-8A50-356177B841BB",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part.",
           "words" : [
@@ -20314,7 +20314,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "9769228D-4789-4D2E-A093-902AF0105D68",
+          "id" : "7FEC86AF-0C2E-4E33-AC67-84B4954C0F3E",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks,\nbut it was worth it,",
           "words" : [
@@ -20372,7 +20372,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "C65CDE76-8CF6-467F-B277-CA482927F996",
+          "id" : "BED31C8B-F6A4-4DF2-8127-B494F80680F6",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing.",
           "words" : [
@@ -20594,7 +20594,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "163F2C50-8500-433E-A718-67CF932B300A",
+          "id" : "9E8A7416-BF44-4B5C-A3E1-AF7404F5D211",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part",
           "words" : [
@@ -20657,7 +20657,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "52CFF5FD-DC37-4C31-BD65-275CE6ED72A9",
+          "id" : "563F227B-8B5A-40A5-8537-44F1EB0FC263",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks\nbut it was worth it",
           "words" : [
@@ -20715,7 +20715,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "6124FF34-ADB4-4101-99B1-A042DEEFDB33",
+          "id" : "EF727A7C-4EAA-4EAB-8863-FD356CA66D3A",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -20937,7 +20937,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "5AFD3085-EC6F-4B1C-9D23-0E2ED79EA225",
+          "id" : "99392B9F-4230-473A-A60D-6BE8D3B56AAD",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part.",
           "words" : [
@@ -21000,7 +21000,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "64F67556-7676-46AF-993E-4C59EB6A1117",
+          "id" : "79D93167-0C46-4F25-B685-DDA04DE2D79E",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks,\nbut it was worth it,",
           "words" : [
@@ -21058,7 +21058,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "44C2F931-95CB-49BE-AC85-FF03CDAB256F",
+          "id" : "9D16C6DD-335C-4A18-AC6C-E41976226ACB",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing.",
           "words" : [
@@ -21280,7 +21280,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "58248F0E-8A6E-4AD1-9C69-13DD10D6F567",
+          "id" : "C2414391-E66C-448F-9DCB-B0E489F1BC46",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part",
           "words" : [
@@ -21343,7 +21343,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "A15B329B-0804-45F6-8767-5FFE92208315",
+          "id" : "AFCAC7D4-AD80-4311-98B0-ECFEC3330320",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks but it was\nworth it and the crew was amazing",
           "words" : [
@@ -21615,7 +21615,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "90D65D64-DDFA-478E-B470-5937D06C2314",
+          "id" : "E646D4D3-26DC-4A3C-B2A3-D19C1C12B4A7",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part.",
           "words" : [
@@ -21678,7 +21678,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "1B5A642D-E8DD-4F6E-92D4-FA430A5A7584",
+          "id" : "9307FA4E-19A7-43F8-A2F9-9671BD395AD8",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks, but it was\nworth it, and the crew was amazing.",
           "words" : [
@@ -21950,7 +21950,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "A74A34E6-9645-4262-B0EB-29A72C2D37BD",
+          "id" : "2EFACB7F-47D3-4EF9-A858-5C4064BCFA7C",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part",
           "words" : [
@@ -22013,7 +22013,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "E6A6FB25-77C9-4831-B457-656ADC2B3553",
+          "id" : "61FB16CD-966C-4681-95D2-D77B814C2625",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks but it was\nworth it and the crew was amazing",
           "words" : [
@@ -22285,7 +22285,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "F1DAC92A-918A-4992-8B2D-675C5E4D4267",
+          "id" : "0C3DE5DD-1BF0-414D-914D-63B4CA96DA4C",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part.",
           "words" : [
@@ -22348,7 +22348,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "66335654-E8F8-4A2B-A192-68CB1239E59E",
+          "id" : "E92E7145-3572-4A6F-A9ED-1D6A37546A3D",
           "start" : 4.664999999999999,
           "text" : "It took us three weeks, but it was\nworth it, and the crew was amazing.",
           "words" : [
@@ -22620,7 +22620,7 @@
       "cues" : [
         {
           "end" : 3.9149999999999996,
-          "id" : "AB722AEA-F6A1-4C42-A513-C48CF05EBF0A",
+          "id" : "0BD6E249-FC97-40CB-A6B8-62D403C59310",
           "start" : 0.2,
           "text" : "So this is the spot where\nwe filmed the whole part",
           "words" : [
@@ -22683,7 +22683,7 @@
         },
         {
           "end" : 5.214999999999999,
-          "id" : "BBF77DEE-0CF8-4578-A116-D9B4C6756FEC",
+          "id" : "7EB1AAA9-FCE5-434F-88DF-95FC0E3CC2CE",
           "start" : 4.664999999999999,
           "text" : "It took",
           "words" : [
@@ -22701,7 +22701,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "07E70885-B154-4665-80DB-64337E541D5C",
+          "id" : "86C37E94-5215-4EDD-85A5-131451AB91F4",
           "start" : 5.254999999999999,
           "text" : "us three weeks but it was worth\nit and the crew was amazing",
           "words" : [
@@ -22963,7 +22963,7 @@
       "cues" : [
         {
           "end" : 1.6349999999999998,
-          "id" : "44401C4B-7EB8-4009-B8DE-C4EEFBBD86DF",
+          "id" : "844F0431-7B73-415C-9F7B-83FAA41B6EAF",
           "start" : 0.2,
           "text" : "So this is the spot",
           "words" : [
@@ -22996,7 +22996,7 @@
         },
         {
           "end" : 3.9149999999999996,
-          "id" : "21E3BE1E-07C8-4178-A45B-F91E99BBEA7B",
+          "id" : "CDFC4F6A-93C1-40C2-A38A-F07C1F3CC830",
           "start" : 1.6749999999999998,
           "text" : "where we filmed the whole part",
           "words" : [
@@ -23034,7 +23034,7 @@
         },
         {
           "end" : 5.214999999999999,
-          "id" : "A0B32864-F739-443A-A047-71AE13337450",
+          "id" : "7D9481F5-38B8-42F0-A107-CA194555CA30",
           "start" : 4.664999999999999,
           "text" : "It took",
           "words" : [
@@ -23052,7 +23052,7 @@
         },
         {
           "end" : 6.429999999999999,
-          "id" : "E13B1F25-4725-45A3-B529-8FE131861127",
+          "id" : "896DE61A-7676-42C5-8337-56640102F20B",
           "start" : 5.254999999999999,
           "text" : "us three weeks",
           "words" : [
@@ -23075,7 +23075,7 @@
         },
         {
           "end" : 8.159999999999998,
-          "id" : "77665A59-EE65-4C1E-90F1-0575CCFC86D5",
+          "id" : "FF35D9F6-F172-432B-A29A-A391CB43C124",
           "start" : 6.5299999999999985,
           "text" : "but it was worth it",
           "words" : [
@@ -23108,7 +23108,7 @@
         },
         {
           "end" : 10.114999999999998,
-          "id" : "B91E110C-7DF5-42CC-A457-93E9800695D7",
+          "id" : "FF033D40-E4E7-4BAA-AD09-02FA705D123E",
           "start" : 8.259999999999998,
           "text" : "and the crew was amazing",
           "words" : [
@@ -23330,7 +23330,7 @@
       "cues" : [
         {
           "end" : 1.0899999999999999,
-          "id" : "E75569FC-61D3-4D2D-8288-0452FA9833EE",
+          "id" : "BB0881BC-DC37-4301-9A0A-657B1F0A52D7",
           "start" : 0.2,
           "text" : "Já si myslím",
           "words" : [
@@ -23353,7 +23353,7 @@
         },
         {
           "end" : 1.8399999999999999,
-          "id" : "6469F62B-B4B9-445B-A9E6-CD989B0C6C4D",
+          "id" : "C326F831-AF5F-49A7-A7B4-00DD19544B3D",
           "start" : 1.13,
           "text" : "že to je",
           "words" : [
@@ -23376,7 +23376,7 @@
         },
         {
           "end" : 3.18,
-          "id" : "2C25D77A-2B39-480B-BACA-24AA9760B003",
+          "id" : "46D01CA1-FD3B-4956-83C2-7AFD761D31BC",
           "start" : 1.88,
           "text" : "v pohodě a že to",
           "words" : [
@@ -23409,7 +23409,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "D17CD3FF-0E7D-4978-9A16-168970F71202",
+          "id" : "C4FDE2A9-2AF8-4367-90DA-339B57F5E90F",
           "start" : 3.22,
           "text" : "zvládneme",
           "words" : [
@@ -23422,7 +23422,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "4E1727CC-E095-4176-BB44-1E51087FA9C0",
+          "id" : "01E37399-20FF-4589-96E3-FF459E9A598F",
           "start" : 3.785,
           "text" : "s klukama",
           "words" : [
@@ -23440,7 +23440,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "6BE394CC-A066-419E-9120-924986A22202",
+          "id" : "82472738-3528-4CD8-8792-5F5A9C805688",
           "start" : 4.465,
           "text" : "za dvě hodiny",
           "words" : [
@@ -23607,7 +23607,7 @@
       "cues" : [
         {
           "end" : 1.0899999999999999,
-          "id" : "BC298609-D82F-4114-AF0D-2C8C7FBA54D0",
+          "id" : "66D9DC67-8A57-48CD-A84C-C09D1CA6545C",
           "start" : 0.2,
           "text" : "Já si myslím",
           "words" : [
@@ -23630,7 +23630,7 @@
         },
         {
           "end" : 1.8399999999999999,
-          "id" : "C5079A2F-EC77-4632-9AC1-D6FE2C6C5B0F",
+          "id" : "1F79C832-C3D4-4D5D-826D-CAEA5329AD8B",
           "start" : 1.13,
           "text" : "že to je",
           "words" : [
@@ -23653,7 +23653,7 @@
         },
         {
           "end" : 3.18,
-          "id" : "B8B5152E-F227-44BF-917E-FCF3E9C75D5F",
+          "id" : "C2812BB8-F7AC-4F44-BCC5-F29219264683",
           "start" : 1.88,
           "text" : "v pohodě a že to",
           "words" : [
@@ -23686,7 +23686,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "0BDE03A3-915D-4125-8435-17974BE76C61",
+          "id" : "7C1F0AE1-6298-4AB8-AB92-753C55BCEEB1",
           "start" : 3.22,
           "text" : "zvládneme",
           "words" : [
@@ -23699,7 +23699,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "30BCADE4-7FC9-411F-8FEA-18F565856ACB",
+          "id" : "3F312558-14C7-4452-8749-C21D9D4F714A",
           "start" : 3.785,
           "text" : "s klukama",
           "words" : [
@@ -23717,7 +23717,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "B2C45A44-507C-4D9B-92FF-ABB6C9F18FFB",
+          "id" : "7F8AF6E4-2415-4FC4-8D92-60FCA02032FD",
           "start" : 4.465,
           "text" : "za dvě hodiny.",
           "words" : [
@@ -23884,7 +23884,7 @@
       "cues" : [
         {
           "end" : 1.0899999999999999,
-          "id" : "FC92A7CE-AD0F-4FCB-B442-E682FCC79CC4",
+          "id" : "D2BCD00D-F815-4842-9A21-02AAD32B0782",
           "start" : 0.2,
           "text" : "Já si myslím",
           "words" : [
@@ -23907,7 +23907,7 @@
         },
         {
           "end" : 1.8399999999999999,
-          "id" : "FCCC9E8A-3BF1-42E5-BE40-A3E2184AF723",
+          "id" : "4796C220-50E8-40E8-9B88-F41D9434A227",
           "start" : 1.13,
           "text" : "že to je",
           "words" : [
@@ -23930,7 +23930,7 @@
         },
         {
           "end" : 3.18,
-          "id" : "4028F51E-2550-46AA-B02B-AC961D5CE43E",
+          "id" : "9A85F647-3BA2-4E61-B41A-5C53D2A3F316",
           "start" : 1.88,
           "text" : "v pohodě a že to",
           "words" : [
@@ -23963,7 +23963,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "C04838AC-988B-4CB6-B7FA-FD9037DC5C61",
+          "id" : "834DB222-8894-44A4-9608-77F86F47D0B0",
           "start" : 3.22,
           "text" : "zvládneme",
           "words" : [
@@ -23976,7 +23976,7 @@
         },
         {
           "end" : 4.97,
-          "id" : "31AF2CE8-BB57-4728-9C72-EEFC85AACAE2",
+          "id" : "6CAA24D1-254E-4BD9-AE87-ED4298BB2C40",
           "start" : 3.785,
           "text" : "s klukama za dvě",
           "words" : [
@@ -24004,7 +24004,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "9264DD48-AA38-43A2-80C3-D9041FEC4E53",
+          "id" : "40EC4D6A-6FD5-4378-AEEC-6845581A6D8A",
           "start" : 5.01,
           "text" : "hodiny",
           "words" : [
@@ -24161,7 +24161,7 @@
       "cues" : [
         {
           "end" : 1.0899999999999999,
-          "id" : "0048C779-5044-4D42-A9BE-3984D978C8CE",
+          "id" : "3F329A91-72EE-447B-AF92-32CAE082C209",
           "start" : 0.2,
           "text" : "Já si myslím",
           "words" : [
@@ -24184,7 +24184,7 @@
         },
         {
           "end" : 1.8399999999999999,
-          "id" : "06C9E08A-35B7-450F-95DA-FBEF90BD2243",
+          "id" : "6EAE9F08-7EF3-4776-8A82-AEEAB4B6165B",
           "start" : 1.13,
           "text" : "že to je",
           "words" : [
@@ -24207,7 +24207,7 @@
         },
         {
           "end" : 3.18,
-          "id" : "7CC1C456-72F3-4165-B6AF-E7FAB36CDF8A",
+          "id" : "DB7E149C-1982-4187-A25D-609B2A89AA30",
           "start" : 1.88,
           "text" : "v pohodě a že to",
           "words" : [
@@ -24240,7 +24240,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "8E8B1C5B-DE98-4DEB-AAE1-37EF515B8D31",
+          "id" : "DF510185-1D67-4708-81E7-804EE66EE566",
           "start" : 3.22,
           "text" : "zvládneme",
           "words" : [
@@ -24253,7 +24253,7 @@
         },
         {
           "end" : 4.97,
-          "id" : "68F0C988-86B9-4385-A8C5-527F8798DB25",
+          "id" : "7085A0A9-EBCC-458D-B3A3-6E2F48499B2B",
           "start" : 3.785,
           "text" : "s klukama za dvě",
           "words" : [
@@ -24281,7 +24281,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "7E5B90A2-7525-4049-BFFA-59801BDEFF4E",
+          "id" : "55CA85B3-C99E-456A-BFC7-60431B4DB071",
           "start" : 5.01,
           "text" : "hodiny.",
           "words" : [
@@ -24438,7 +24438,7 @@
       "cues" : [
         {
           "end" : 1.8399999999999999,
-          "id" : "A0B886C0-B4A5-4738-B18C-80622E7A3109",
+          "id" : "A9BF1EC3-13F7-4C42-8777-04DA888B6EC6",
           "start" : 0.2,
           "text" : "Já si myslím že to je",
           "words" : [
@@ -24476,7 +24476,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "C30A84E4-C50D-4097-9AD4-2D27D450D1A4",
+          "id" : "CF1712F2-0840-4D51-A4DE-CEBDE82809F6",
           "start" : 1.88,
           "text" : "v pohodě a že to zvládneme",
           "words" : [
@@ -24514,7 +24514,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "9FE7C9F2-238F-4370-A3B0-873763C6BD6A",
+          "id" : "81D55160-45F7-4B2C-87ED-B7B17EC13B34",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny",
           "words" : [
@@ -24691,7 +24691,7 @@
       "cues" : [
         {
           "end" : 1.8399999999999999,
-          "id" : "4DEAC74E-96B0-44CD-97B0-09CE341EAB24",
+          "id" : "659D475B-DE0F-493F-9B6D-EF7537E76358",
           "start" : 0.2,
           "text" : "Já si myslím že to je",
           "words" : [
@@ -24729,7 +24729,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "418D91D3-1227-41A3-8B11-B1A66E05732B",
+          "id" : "42F9881D-EB68-46EE-89CC-A8DAD9F619AF",
           "start" : 1.88,
           "text" : "v pohodě a že to zvládneme",
           "words" : [
@@ -24767,7 +24767,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "EBB46416-839C-4A45-92F3-5CC60FEDE295",
+          "id" : "80C23024-C401-4E79-81E8-72D0BA680708",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny.",
           "words" : [
@@ -24944,7 +24944,7 @@
       "cues" : [
         {
           "end" : 1.8399999999999999,
-          "id" : "5FA157F8-DC7F-42EC-AC95-F0DC896241BD",
+          "id" : "34FA6038-86D7-4CEB-B95A-88C9B005EE42",
           "start" : 0.2,
           "text" : "Já si myslím že to je",
           "words" : [
@@ -24982,7 +24982,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "E87394F9-9267-4661-9387-3C1F0A3A37D2",
+          "id" : "0873E63E-AF9E-4F89-B3D6-09A41D050EF4",
           "start" : 1.88,
           "text" : "v pohodě a že to zvládneme",
           "words" : [
@@ -25020,7 +25020,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "073A58C0-EDF9-40C4-9491-D7007852D1D5",
+          "id" : "BFFAF0DF-A379-413B-86E8-2AEC6B0F8451",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny",
           "words" : [
@@ -25197,7 +25197,7 @@
       "cues" : [
         {
           "end" : 1.8399999999999999,
-          "id" : "FD6ACB26-8375-452C-9AF1-0D4C0C9820BB",
+          "id" : "48EA0060-CD4B-49E5-9AF0-26704CDC41CB",
           "start" : 0.2,
           "text" : "Já si myslím že to je",
           "words" : [
@@ -25235,7 +25235,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "57DADAA4-4E9C-4750-A066-F9C1717117A0",
+          "id" : "4739A05C-0F4B-4F2A-B604-50366F18846C",
           "start" : 1.88,
           "text" : "v pohodě a že to zvládneme",
           "words" : [
@@ -25273,7 +25273,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "98074226-6EF5-47A4-A7D6-FE171E602FDF",
+          "id" : "175217B3-C970-4766-B079-CAC7ED60620C",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny.",
           "words" : [
@@ -25450,7 +25450,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "BE3FF1C8-F9CB-4301-B49F-A4B3EB0F4BA2",
+          "id" : "D0A1A60E-C99D-492B-B4DC-6B3CFB1186DC",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -25498,7 +25498,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "ECED9394-1668-4AEB-91AC-E26113EF9639",
+          "id" : "1276D012-8289-4111-BA34-7A6DC043AE8D",
           "start" : 2.515,
           "text" : "a že to zvládneme",
           "words" : [
@@ -25526,7 +25526,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "583DF407-F15D-42A9-B381-697CE4DBC4AF",
+          "id" : "C1808776-06B9-4E24-907C-99438F51D0F8",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny",
           "words" : [
@@ -25703,7 +25703,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "659D2877-2CC0-41CB-8419-5B8963F96FD0",
+          "id" : "2725624E-FCA1-49E9-B3A0-339CF3E8399E",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -25751,7 +25751,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "0D706582-0C2C-45A6-ADD5-19759B115103",
+          "id" : "71418060-C0D4-4164-A163-DE2FA1DCA2E6",
           "start" : 2.515,
           "text" : "a že to zvládneme",
           "words" : [
@@ -25779,7 +25779,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "F7DBCBAA-82E6-43EF-934C-9B38CE4B3800",
+          "id" : "051F48E8-3CC6-4D7A-80BE-3329E4AF3C7B",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny.",
           "words" : [
@@ -25956,7 +25956,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "8D32AC0D-75D1-4D2C-929A-883D59257141",
+          "id" : "F68BA602-B694-4CEE-833A-1AED1B267DEA",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -26004,7 +26004,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "80806FF0-BC6E-441C-BF8D-B0F646E81B29",
+          "id" : "F362CA41-A37C-4BF4-BDF1-D28B78343344",
           "start" : 2.515,
           "text" : "a že to zvládneme s klukama",
           "words" : [
@@ -26042,7 +26042,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "24B8AFF5-FF48-410B-8BD5-7BA0A5BA6BC3",
+          "id" : "74FD07FA-AEC5-48AB-B7F0-4C225E64BA37",
           "start" : 4.465,
           "text" : "za dvě hodiny",
           "words" : [
@@ -26209,7 +26209,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "63A53778-8A49-4292-8453-ED302F668E70",
+          "id" : "D349E990-F8C1-4117-B33F-4EC199A57CF1",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -26257,7 +26257,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "6B757428-7C39-4A99-A4D3-C914E521FC9B",
+          "id" : "111CA2B6-E3F7-4143-9E59-A1AB86CEA30B",
           "start" : 2.515,
           "text" : "a že to zvládneme s klukama",
           "words" : [
@@ -26295,7 +26295,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "8CACD2DF-995E-4EEA-85DA-FEEF53B242F8",
+          "id" : "7A07E3EB-DBFD-4C5D-BE10-DC761115F4B1",
           "start" : 4.465,
           "text" : "za dvě hodiny.",
           "words" : [
@@ -26462,7 +26462,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "6F805EEE-A992-42F5-8B0F-C42898183B56",
+          "id" : "C2D7B608-22B9-49ED-AC40-4F7D9ED709EC",
           "start" : 0.2,
           "text" : "Já si myslím že\nto je v pohodě",
           "words" : [
@@ -26510,7 +26510,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "05D2B299-0182-4C4D-ADCE-3E2918CC1A3E",
+          "id" : "6CE62A4F-86ED-4FB3-9112-104EEA9BD27A",
           "start" : 2.515,
           "text" : "a že to\nzvládneme",
           "words" : [
@@ -26538,7 +26538,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "81DCE6B5-74A6-4562-94D5-CE2A725EAFA1",
+          "id" : "51EAFAC4-83FD-439A-84BC-AEF4D7B46608",
           "start" : 3.785,
           "text" : "s klukama\nza dvě hodiny",
           "words" : [
@@ -26715,7 +26715,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "423A8441-112F-4FF8-B7AA-45CF3670A86A",
+          "id" : "91A143B0-9929-49A3-87F7-47CFFAF454B9",
           "start" : 0.2,
           "text" : "Já si myslím že\nto je v pohodě",
           "words" : [
@@ -26763,7 +26763,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "E9C240F3-AC83-4C54-A94C-60C2BE4CD47B",
+          "id" : "6653AA77-76D7-4DFF-B7A7-12E710037C8F",
           "start" : 2.515,
           "text" : "a že to\nzvládneme",
           "words" : [
@@ -26791,7 +26791,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "4E808C7C-61F6-4D9D-A3FB-D5B403D46C57",
+          "id" : "D2D9F106-B036-4440-AA46-CEA7E9C9E384",
           "start" : 3.785,
           "text" : "s klukama\nza dvě hodiny.",
           "words" : [
@@ -26968,7 +26968,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "2942947D-900E-4777-8024-7F03CEE513AA",
+          "id" : "BE9CEB6E-204A-4340-B17C-AD92F063D48C",
           "start" : 0.2,
           "text" : "Já si myslím že\nto je v pohodě",
           "words" : [
@@ -27016,7 +27016,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "D429064E-B462-4EB3-8D9B-53A16189D47C",
+          "id" : "D55D3D60-3F88-44A7-A19E-CA94F8A06492",
           "start" : 2.515,
           "text" : "a že to zvládneme\ns klukama",
           "words" : [
@@ -27054,7 +27054,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "EE06453B-A035-41D6-BAED-19D4443C05B0",
+          "id" : "A99A0D5E-0D96-449E-81CE-733871904882",
           "start" : 4.465,
           "text" : "za dvě hodiny",
           "words" : [
@@ -27221,7 +27221,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "75B4B3A0-BB05-4B1C-A960-65B8F1A1E331",
+          "id" : "DA3488E6-93E1-47CC-9C5C-462AB78B1185",
           "start" : 0.2,
           "text" : "Já si myslím že\nto je v pohodě",
           "words" : [
@@ -27269,7 +27269,7 @@
         },
         {
           "end" : 4.425,
-          "id" : "04CA6F1F-527C-47ED-80D5-74C2F358D79D",
+          "id" : "D7FCA625-887E-4D89-9B29-953863C8F075",
           "start" : 2.515,
           "text" : "a že to zvládneme\ns klukama",
           "words" : [
@@ -27307,7 +27307,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "83C4D318-4007-401C-B29E-4919F0C632BC",
+          "id" : "12190C04-2B63-4AEC-9587-4E8084750AD1",
           "start" : 4.465,
           "text" : "za dvě hodiny.",
           "words" : [
@@ -27474,7 +27474,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "48B46ADC-1E17-4A9F-8652-F3AE791C4CB9",
+          "id" : "5C63C00B-CB96-4C87-9857-3A37B92D85AC",
           "start" : 0.2,
           "text" : "Já si myslím\nže to je v pohodě",
           "words" : [
@@ -27522,7 +27522,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "39CDFDB3-995E-4E3D-85B4-E24B62B8CA47",
+          "id" : "47ADF08F-D363-4722-B275-1DF48823037E",
           "start" : 2.515,
           "text" : "a že to zvládneme\ns klukama za dvě hodiny",
           "words" : [
@@ -27719,7 +27719,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "E1556622-E92B-4A42-89FE-415B71CFC842",
+          "id" : "9DF2A533-F4A6-4F75-9B79-19326BBC88FF",
           "start" : 0.2,
           "text" : "Já si myslím\nže to je v pohodě",
           "words" : [
@@ -27767,7 +27767,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "D6D26024-A045-4992-B66B-EA5515A50A93",
+          "id" : "EB793582-3DA2-4CF4-85DB-BAD3212B5FA9",
           "start" : 2.515,
           "text" : "a že to zvládneme\ns klukama za dvě hodiny.",
           "words" : [
@@ -27964,7 +27964,7 @@
       "cues" : [
         {
           "end" : 3.745,
-          "id" : "2C93C9AA-17BD-430F-B127-259B962993E8",
+          "id" : "B787D007-A197-4F76-A7A0-EF164971CC1F",
           "start" : 0.2,
           "text" : "Já si myslím že to je\nv pohodě a že to zvládneme",
           "words" : [
@@ -28032,7 +28032,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "DBDDAA12-51A8-4F28-BE2A-AC0B07CD602E",
+          "id" : "7BFE75D4-E666-4E5C-B93C-6700518B44E8",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny",
           "words" : [
@@ -28209,7 +28209,7 @@
       "cues" : [
         {
           "end" : 3.745,
-          "id" : "09D0C5D5-38AB-4196-B282-E6CA2364DAC3",
+          "id" : "AB4F6F6B-ABB1-4D26-B2C5-C44EDA324FED",
           "start" : 0.2,
           "text" : "Já si myslím že to je\nv pohodě a že to zvládneme",
           "words" : [
@@ -28277,7 +28277,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "A6ED2F31-D0F3-406E-B510-2771AC987680",
+          "id" : "D0FFDD9B-DAEF-4B31-994A-0F809E825991",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny.",
           "words" : [
@@ -28454,7 +28454,7 @@
       "cues" : [
         {
           "end" : 5.595,
-          "id" : "1C03782D-92B9-4242-A6AE-DD9E117D8913",
+          "id" : "5B34A55F-957E-4CE5-AE84-AA26421A5F22",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě a že to\nzvládneme s klukama za dvě hodiny",
           "words" : [
@@ -28691,7 +28691,7 @@
       "cues" : [
         {
           "end" : 5.595,
-          "id" : "05D492A7-A437-4723-A464-8CDD6E82AD78",
+          "id" : "E03B7F0F-6CFC-465A-8864-3187B7BA30D9",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě a že to\nzvládneme s klukama za dvě hodiny.",
           "words" : [
@@ -28928,7 +28928,7 @@
       "cues" : [
         {
           "end" : 5.595,
-          "id" : "A9FCF3A0-815F-4350-9499-ABCDDBBCBB40",
+          "id" : "FFD1D20D-C625-4291-914A-56AB8E582A6C",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě a že to\nzvládneme s klukama za dvě hodiny",
           "words" : [
@@ -29165,7 +29165,7 @@
       "cues" : [
         {
           "end" : 5.595,
-          "id" : "E44826F5-02C2-401B-94B8-A382D8120CFD",
+          "id" : "0E35D112-719E-4DBC-ADBD-1F527E8FDCEB",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě a že to\nzvládneme s klukama za dvě hodiny.",
           "words" : [
@@ -29402,7 +29402,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "A19AA17F-9113-4657-B036-C2C76F6A56B7",
+          "id" : "4D2A020F-A2CA-4147-801E-5CEBE278EE9F",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -29450,7 +29450,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "1903BDDB-0A69-49FE-BA0D-43A8B8E7C75B",
+          "id" : "BCFBDF5C-5F7A-48EB-8722-A38A417109A4",
           "start" : 2.515,
           "text" : "a že to zvládneme\ns klukama za dvě hodiny",
           "words" : [
@@ -29647,7 +29647,7 @@
       "cues" : [
         {
           "end" : 2.475,
-          "id" : "DD8D1E06-57A9-415A-85CA-BEA2B3CC3D05",
+          "id" : "0E07E801-36F8-4CC0-BE25-2F16E5E4442E",
           "start" : 0.2,
           "text" : "Já si myslím že to je v pohodě",
           "words" : [
@@ -29695,7 +29695,7 @@
         },
         {
           "end" : 3.745,
-          "id" : "E59278BF-1948-4780-B91C-0EBF84311C68",
+          "id" : "D59CF09E-4DCD-484D-BF80-72EA99CD9012",
           "start" : 2.515,
           "text" : "a že to zvládneme",
           "words" : [
@@ -29723,7 +29723,7 @@
         },
         {
           "end" : 5.595,
-          "id" : "9CD9AC9A-6820-4FFA-AAF3-5D273B800CA0",
+          "id" : "28DF1DA0-08CF-4B48-A684-3F6DDE7FC827",
           "start" : 3.785,
           "text" : "s klukama za dvě hodiny",
           "words" : [
@@ -29900,7 +29900,7 @@
       "cues" : [
         {
           "end" : 0.6799999999999999,
-          "id" : "26DF1826-14BF-4373-B501-C36D17D6DCB6",
+          "id" : "2470ABEC-C658-49D0-A36E-5817A78FC505",
           "start" : 0.2,
           "text" : "Rychlost",
           "words" : [
@@ -29913,7 +29913,7 @@
         },
         {
           "end" : 1.565,
-          "id" : "9953020E-A782-41A6-8FBF-ADA04D36150E",
+          "id" : "FF6845AB-E863-4F3F-884D-0568B8D9FB1F",
           "start" : 0.72,
           "text" : "2.5 krát je",
           "words" : [
@@ -29936,7 +29936,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "5911A4EA-15B9-4210-B644-E920BB7DFD02",
+          "id" : "1EC55DBA-E44F-48DE-B214-733AC4675DBC",
           "start" : 1.605,
           "text" : "fakt hodně",
           "words" : [
@@ -29954,7 +29954,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "D58B401C-CA96-41C7-BA6D-F0863AD53621",
+          "id" : "099C2F5B-C885-44CC-8454-9BDF32BCD5BB",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -29972,7 +29972,7 @@
         },
         {
           "end" : 4.395,
-          "id" : "B148F48F-7749-4B6A-8DF3-AD17090BBA4F",
+          "id" : "6A173747-FCA4-4B26-B338-616B4F115480",
           "start" : 3.96,
           "text" : "Zkusíme",
           "words" : [
@@ -29985,7 +29985,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "5BA37597-07B0-4250-8DF4-CCD107B6C5D3",
+          "id" : "ECC48A32-9F8C-465D-98D8-1481C86DE54D",
           "start" : 4.435,
           "text" : "to znovu!",
           "words" : [
@@ -30117,7 +30117,7 @@
       "cues" : [
         {
           "end" : 0.6799999999999999,
-          "id" : "59B904ED-294E-4385-B9CD-7DC01070C5DD",
+          "id" : "783582F2-D788-491B-BF05-AE3CD00A7E30",
           "start" : 0.2,
           "text" : "Rychlost",
           "words" : [
@@ -30130,7 +30130,7 @@
         },
         {
           "end" : 1.565,
-          "id" : "C37E97F5-6C18-4CCB-94EA-6EDBFC4B6E34",
+          "id" : "74436BB5-DBBA-4F91-AFE0-CCD991461883",
           "start" : 0.72,
           "text" : "2.5 krát je",
           "words" : [
@@ -30153,7 +30153,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "84B9131E-FBC0-462E-B839-6FED9968C03A",
+          "id" : "428E33D7-A2A3-4F93-8E17-FE1C7687B862",
           "start" : 1.605,
           "text" : "fakt hodně…",
           "words" : [
@@ -30171,7 +30171,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "9802D605-D2E3-4766-B9EA-7F0B38556185",
+          "id" : "E2B88BF0-3FC0-4971-96B4-0C04E4A0829C",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -30189,7 +30189,7 @@
         },
         {
           "end" : 4.395,
-          "id" : "A11FE3C6-47C5-4A6E-AB4A-8C8B9A9D201D",
+          "id" : "ACE3D5C7-151D-43D7-AD9D-4B47FD231551",
           "start" : 3.96,
           "text" : "Zkusíme",
           "words" : [
@@ -30202,7 +30202,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "A0E82C68-1448-4B89-967B-EEA94288F275",
+          "id" : "2F0D093D-200C-4D43-AFDC-DDCDF015F025",
           "start" : 4.435,
           "text" : "to znovu!",
           "words" : [
@@ -30334,7 +30334,7 @@
       "cues" : [
         {
           "end" : 0.9749999999999999,
-          "id" : "D4C75E21-C42A-4EB8-B461-9B133DB22FCD",
+          "id" : "532FF51F-B0D8-4B71-BBFC-598D57EE1393",
           "start" : 0.2,
           "text" : "Rychlost 2.5",
           "words" : [
@@ -30352,7 +30352,7 @@
         },
         {
           "end" : 1.9049999999999998,
-          "id" : "BD48F4F4-E3B7-469C-AE97-4052AF2978E4",
+          "id" : "6F035F1D-3EC9-4441-A790-D271C7836211",
           "start" : 1.015,
           "text" : "krát je fakt",
           "words" : [
@@ -30375,7 +30375,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "F4221D24-0A33-42C5-B8AA-567D0073FFE8",
+          "id" : "C044F734-D80A-4D01-AB6D-39CD1CBD735D",
           "start" : 1.9449999999999998,
           "text" : "hodně",
           "words" : [
@@ -30388,7 +30388,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "4D6A8ECC-0C80-448E-847E-600327AA00EC",
+          "id" : "B7DEF0C5-BE34-446F-89C2-2EFCF3C00CEF",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -30406,7 +30406,7 @@
         },
         {
           "end" : 4.645,
-          "id" : "48F25132-949A-4B51-829E-0CA0ED8362F3",
+          "id" : "4EF1B3D0-80E9-4B65-B4F4-234F781469D3",
           "start" : 3.96,
           "text" : "Zkusíme to",
           "words" : [
@@ -30424,7 +30424,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "2D4F7D70-CDF8-41E0-A2FE-00E49A71AC8E",
+          "id" : "90A624FA-2AB6-42B8-BA59-395B4A03B5FF",
           "start" : 4.685,
           "text" : "znovu!",
           "words" : [
@@ -30551,7 +30551,7 @@
       "cues" : [
         {
           "end" : 0.9749999999999999,
-          "id" : "2C762664-E25A-4947-87D4-5F2A124FD297",
+          "id" : "5CD66406-5D37-49E4-8836-C2F87E1CB75D",
           "start" : 0.2,
           "text" : "Rychlost 2.5",
           "words" : [
@@ -30569,7 +30569,7 @@
         },
         {
           "end" : 1.9049999999999998,
-          "id" : "5AB8C56A-F680-4475-9847-A98AAE8D6403",
+          "id" : "FB77D631-1E10-42AA-93A9-BF81153725B5",
           "start" : 1.015,
           "text" : "krát je fakt",
           "words" : [
@@ -30592,7 +30592,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "E7A3B739-13CD-48A7-8727-6ABFB0A6EA5F",
+          "id" : "6BD1E484-4839-41ED-B9ED-11ECB2586AA8",
           "start" : 1.9449999999999998,
           "text" : "hodně…",
           "words" : [
@@ -30605,7 +30605,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "804D4224-E731-449B-AB24-1ACBA84A04B6",
+          "id" : "0C70CE82-E4F1-47C7-A2B2-B3DAFC350C06",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -30623,7 +30623,7 @@
         },
         {
           "end" : 4.645,
-          "id" : "BC863A66-CDF2-42A6-9E22-93DA727E430A",
+          "id" : "96B59EFB-DACD-4ABC-8A05-06FBA98D288A",
           "start" : 3.96,
           "text" : "Zkusíme to",
           "words" : [
@@ -30641,7 +30641,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "0209377E-AB61-4D15-A380-0192DCE9CECD",
+          "id" : "46E69179-81BE-4A85-9FD3-BF13F151CE68",
           "start" : 4.685,
           "text" : "znovu!",
           "words" : [
@@ -30768,7 +30768,7 @@
       "cues" : [
         {
           "end" : 1.315,
-          "id" : "32115D30-98B5-4088-B672-53C12AF3771B",
+          "id" : "48F02332-C0A5-4538-8133-49D7C5A2B6DC",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát",
           "words" : [
@@ -30791,7 +30791,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "FD5283C4-9BA2-4C6D-9EE6-3020C4F3839D",
+          "id" : "26206A87-7224-4CCC-8984-D823FBD4BABB",
           "start" : 1.355,
           "text" : "je fakt hodně",
           "words" : [
@@ -30814,7 +30814,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "7A2C099A-5025-40AA-B76A-826AAC02DC66",
+          "id" : "FB1897F9-64CF-4C8C-AD25-36F8A9DE0249",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -30832,7 +30832,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "664F930B-F07A-4873-92E3-DD4CC9AE60F8",
+          "id" : "735F76FB-3C67-4F12-ACE8-CFC8E27FBB55",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -30969,7 +30969,7 @@
       "cues" : [
         {
           "end" : 1.315,
-          "id" : "AABB6F62-2A2A-42BA-9370-0B0D28C6E4E0",
+          "id" : "BFB7675B-E2C3-4123-9271-B956CBBA5F0C",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát",
           "words" : [
@@ -30992,7 +30992,7 @@
         },
         {
           "end" : 2.335,
-          "id" : "004756CA-060D-4E6C-A1ED-4981B1918F03",
+          "id" : "CE028760-EBC1-42B5-A61F-0D474A6E9B2D",
           "start" : 1.355,
           "text" : "je fakt hodně…",
           "words" : [
@@ -31015,7 +31015,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "9C6BD88F-9B21-4FD6-8DA8-79F0C721B1BC",
+          "id" : "329F9FC6-E924-4B24-B425-893CE1317E28",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -31033,7 +31033,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "1EBADDEF-038B-4DB7-A4C8-75EE989F898E",
+          "id" : "A2976CC5-6E2A-4A8D-BC42-3E4D491FAEB9",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -31170,7 +31170,7 @@
       "cues" : [
         {
           "end" : 1.9049999999999998,
-          "id" : "9B92D3E8-A1DC-4213-AE97-EE990C9591E2",
+          "id" : "694713C7-80ED-4D34-B8DA-AD1F55C49A13",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt",
           "words" : [
@@ -31203,7 +31203,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "925DD72E-C2EF-48EF-A0CA-29AA129C5521",
+          "id" : "D4844B79-0527-4C6C-8CD4-3E2A04983AA1",
           "start" : 1.9449999999999998,
           "text" : "hodně Co myslíš?",
           "words" : [
@@ -31226,7 +31226,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "FC34D9E1-074D-4357-AC44-356471728DE3",
+          "id" : "748EBA5B-5ADA-49B8-A632-C725429538B7",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -31363,7 +31363,7 @@
       "cues" : [
         {
           "end" : 1.9049999999999998,
-          "id" : "3668E3BA-4921-4168-8451-368DA697A46F",
+          "id" : "D92F8592-9520-44CE-A33D-634B2859AA17",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt",
           "words" : [
@@ -31396,7 +31396,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "124A284B-57AF-47AB-97A1-EAF5C393261A",
+          "id" : "1A17E505-DB07-4324-B9EE-CE2AF2A1D118",
           "start" : 1.9449999999999998,
           "text" : "hodně… Co myslíš?",
           "words" : [
@@ -31419,7 +31419,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "3AAE5413-38EE-40DD-A9FA-5CCA72E6AC77",
+          "id" : "EC2D9A20-D8EC-422A-BFAE-523B0A17878D",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -31556,7 +31556,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "6D09FCCC-08B0-46B8-88AC-A6CB35EBDCCC",
+          "id" : "B53D37BD-B0A9-4322-B165-1C9FBE77BE18",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně",
           "words" : [
@@ -31594,7 +31594,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "E0ABA4E3-AEB9-4B2A-AE62-C40A2AC8676B",
+          "id" : "817F6EE6-2804-406F-8401-BB627000DB55",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -31612,7 +31612,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "827368CF-C748-4526-B1DC-5E3E8053145F",
+          "id" : "794378E5-50DF-4E0C-A264-417D48F189D9",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -31749,7 +31749,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "EADD6890-148C-449D-BB39-DB25B6B0690A",
+          "id" : "55EA6475-B662-4DD6-BBBA-59CBDC4F8C3E",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně…",
           "words" : [
@@ -31787,7 +31787,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "8801608C-98CA-459F-8960-F667A840955C",
+          "id" : "8F1346E6-06FE-4CB7-92EB-87C31B587579",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -31805,7 +31805,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "903694BE-9EFC-4459-8517-29692A203367",
+          "id" : "C913BEC4-1462-4F82-A2DF-FC102BE5544D",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -31942,7 +31942,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "0C58FB1E-7C43-4C80-950F-EC02AF053439",
+          "id" : "7F8BD9ED-70E4-4367-B479-D4A80C0BD88D",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně",
           "words" : [
@@ -31980,7 +31980,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "D5EBBCCB-AD4C-4EE6-AE7A-702051BFADF9",
+          "id" : "AB8ADA41-69E0-41C8-AB70-A5A2E16DB260",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -31998,7 +31998,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "D6DD65CD-F415-4E21-B09C-976EE850FD4F",
+          "id" : "A182B2F2-933E-4DF0-8E7D-C6DC0BD447AA",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -32135,7 +32135,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "FEC401F4-0D3D-4FBF-94B9-14CFF284D9AB",
+          "id" : "1E761DC5-2D26-42AF-9476-287CCC5E12BB",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně…",
           "words" : [
@@ -32173,7 +32173,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "4414B0B6-E5F9-4EFE-AE29-BDBA49EDDDEA",
+          "id" : "7197EE9E-E9A8-4225-977C-E41B1879A862",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -32191,7 +32191,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "FC931DCB-48B1-4AE3-8CB0-CCEE37395E86",
+          "id" : "C3CF68D8-3200-4C73-A4E2-709E35A1D61D",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -32328,7 +32328,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "AECEA35C-8CC6-4784-9695-50442AD32D12",
+          "id" : "CFD491DD-4842-4C9B-831B-5218F5542B98",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně",
           "words" : [
@@ -32366,7 +32366,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "EBBEFD6E-C746-45FD-B482-65C87FC36894",
+          "id" : "82FADB2F-C2C8-4BAF-87C8-0EE6D9AD1488",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -32384,7 +32384,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "954A09A9-1E66-419D-A4B1-6827742D6FBB",
+          "id" : "4407BEDA-3BEF-4E1D-A1AA-4822BBCCBC44",
           "start" : 3.96,
           "text" : "Zkusíme\nto znovu!",
           "words" : [
@@ -32521,7 +32521,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "216281D5-A959-40F8-B87A-F8F596F9EF79",
+          "id" : "7D1E8154-C579-4A87-8647-99EAC6907F1E",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně…",
           "words" : [
@@ -32559,7 +32559,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "304E147B-32A5-4EF4-94DC-87145075D911",
+          "id" : "F726E233-F73A-4D17-9AA8-9F67591D1AAD",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -32577,7 +32577,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "4B8C7F9B-EE61-4E3E-B7D9-59CECB49749E",
+          "id" : "222E6B44-FE15-4418-9569-2A6FECE66997",
           "start" : 3.96,
           "text" : "Zkusíme\nto znovu!",
           "words" : [
@@ -32714,7 +32714,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "6A1E11A1-0F60-4FC9-8E65-1541A7092A87",
+          "id" : "FAEA4357-33A9-405C-B001-C059C1DC83EC",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně",
           "words" : [
@@ -32752,7 +32752,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "C662AAC4-2C3B-4DC3-8EA4-81B6A318BDA7",
+          "id" : "A6FA1500-E11F-4ED4-81E6-5D5B32A3EFC9",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -32770,7 +32770,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "74B144FA-AF12-4398-AF85-85EDA6B916F6",
+          "id" : "6BFA7A70-9175-4AD3-85B8-BCF5943D95DE",
           "start" : 3.96,
           "text" : "Zkusíme\nto znovu!",
           "words" : [
@@ -32907,7 +32907,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "D2C7F30C-45B9-45E3-84C5-55C7D2F28BC7",
+          "id" : "A6B8A1E7-6594-40D2-AF59-1129E4E05978",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně…",
           "words" : [
@@ -32945,7 +32945,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "C3F9FCFF-424E-4260-AB0A-5EF3A3FE721B",
+          "id" : "76BFA96A-8D17-46D2-9392-A52EF54CEC0C",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -32963,7 +32963,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "620A9BDC-505F-40C4-A83E-08E0FFEC4330",
+          "id" : "F23925E2-4674-4B63-88B8-4491D64A3310",
           "start" : 3.96,
           "text" : "Zkusíme\nto znovu!",
           "words" : [
@@ -33100,7 +33100,7 @@
       "cues" : [
         {
           "end" : 3.21,
-          "id" : "C22FD940-C919-4155-AC3F-D7AF0CD0EE38",
+          "id" : "7477ABCE-8274-4BAF-90D6-BB60D1384A16",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je\nfakt hodně Co myslíš?",
           "words" : [
@@ -33148,7 +33148,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "BE093F19-7687-45EB-9E60-378EEBE74B8B",
+          "id" : "5C631D94-B260-404A-98A4-D6D7C3AE3F8B",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -33285,7 +33285,7 @@
       "cues" : [
         {
           "end" : 3.21,
-          "id" : "7111CA00-70B4-4D2F-9DBE-C898FEFA08CF",
+          "id" : "39594B38-A53F-4AA4-8C1D-72CBD981582B",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je\nfakt hodně… Co myslíš?",
           "words" : [
@@ -33333,7 +33333,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "F8A979CA-1A4C-4A62-B735-BC43DB50B1EA",
+          "id" : "3CDCB6DE-B89E-4FFD-8896-CA9DD032A4AD",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -33470,7 +33470,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "28F65B7C-8D4D-4E0D-947A-CA78B9060B78",
+          "id" : "D12CF9A0-0A95-4EF1-8F8F-41A692F8AF99",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně",
           "words" : [
@@ -33508,7 +33508,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "CAB6B890-D1B1-4499-8563-80B77DF37413",
+          "id" : "7E70D183-2D65-4A69-AB5A-EDDB86098460",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -33526,7 +33526,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "BCCD82DE-4F9D-4496-B613-7D2AC65EF2BF",
+          "id" : "3BCA9B49-175B-4BBB-B21F-2555197D0ED9",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -33663,7 +33663,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "CE2275D6-6B68-4379-B58F-8C6F84619570",
+          "id" : "618D2F54-3FDC-4212-A968-CEB2B878C6D0",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát\nje fakt hodně…",
           "words" : [
@@ -33701,7 +33701,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "6B8542F1-C7D0-4203-BE33-A9BC7020A43F",
+          "id" : "FD2AB960-D62E-4E39-B223-1E58D227EFFB",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -33719,7 +33719,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "FE11FB06-06F6-424F-9750-C3A6D70CEB00",
+          "id" : "B9499F32-89DD-4D82-A10D-A9B47BF21D74",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -33856,7 +33856,7 @@
       "cues" : [
         {
           "end" : 3.21,
-          "id" : "A4294A37-741B-4002-BCF4-AE305F039FA2",
+          "id" : "D4F1FC4E-7D1D-44EF-9600-7BCB4A08DFC9",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně Co myslíš?",
           "words" : [
@@ -33904,7 +33904,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "95034787-F3CC-448F-AF26-A2A8ED492D89",
+          "id" : "CD5216EA-CEC2-4748-AF12-3E22C58DE45F",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -34041,7 +34041,7 @@
       "cues" : [
         {
           "end" : 3.21,
-          "id" : "E43C9F8B-E156-44EB-8B04-7612118EC4E9",
+          "id" : "E999CBE9-4955-4AD6-8649-CF241D35168F",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je\nfakt hodně… Co myslíš?",
           "words" : [
@@ -34089,7 +34089,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "00B28670-9B03-43C5-92EF-FCC39C091F3E",
+          "id" : "36267106-2D3F-4C5A-973D-AD0AF50B2DBA",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -34226,7 +34226,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "75F4B6A3-766F-4E76-8C7F-5A1F30C0C9E8",
+          "id" : "2D384348-6C9D-42DC-AF3A-B49D1C2BBC2F",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně",
           "words" : [
@@ -34264,7 +34264,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "7D412CAF-1560-459D-977D-5DA1436ED938",
+          "id" : "4E8186FB-BC3D-42C4-933B-39F2B1DB9952",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -34282,7 +34282,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "91AC51B7-C889-4F78-ADE3-D101F5FB89AC",
+          "id" : "F423D0EB-2205-4C4F-B18D-36E8C61ED879",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -34419,7 +34419,7 @@
       "cues" : [
         {
           "end" : 2.335,
-          "id" : "77E26923-1D67-4590-9ED7-9282F56AD758",
+          "id" : "D9028425-2F81-4DD5-ADF6-554FA91EDC1B",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt hodně…",
           "words" : [
@@ -34457,7 +34457,7 @@
         },
         {
           "end" : 3.375,
-          "id" : "7A04E7AD-65A5-4BD1-9235-8CFF5A9FBE31",
+          "id" : "371F7D6A-08A1-4D8F-89FC-734E5A30DC0F",
           "start" : 2.375,
           "text" : "Co myslíš?",
           "words" : [
@@ -34475,7 +34475,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "FD59A9E9-9742-4C53-8EEF-BB6FC8019470",
+          "id" : "4FAF7374-6783-4398-B566-F0C24552FCFA",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -34612,7 +34612,7 @@
       "cues" : [
         {
           "end" : 1.9049999999999998,
-          "id" : "3D1D11F1-D513-4D1F-B2A6-B6E7D03451D0",
+          "id" : "86D811F8-1807-4FF6-8889-3F3CB3A3B38C",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt",
           "words" : [
@@ -34645,7 +34645,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "0254EC96-FDD4-4B0D-B9F8-99A790B00EA7",
+          "id" : "EE1EF74F-35B1-43DA-AC71-E3C58A29207D",
           "start" : 1.9449999999999998,
           "text" : "hodně Co myslíš?",
           "words" : [
@@ -34668,7 +34668,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "C612B63C-C48A-473E-B531-F83BC5F6A6DA",
+          "id" : "4A7ED502-5D2B-4560-A986-3765D8D7FCFB",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -34805,7 +34805,7 @@
       "cues" : [
         {
           "end" : 1.9049999999999998,
-          "id" : "0227ED0F-C0AD-4595-BD59-D7B36AE43259",
+          "id" : "51F32DC7-BD69-4C4A-9B8D-B2743ABAF158",
           "start" : 0.2,
           "text" : "Rychlost 2.5 krát je fakt",
           "words" : [
@@ -34838,7 +34838,7 @@
         },
         {
           "end" : 3.21,
-          "id" : "76BE7CD9-2D3C-4AFB-B83F-277BB52F0D24",
+          "id" : "C76D1D44-ED50-4AA4-8CBE-130D879D6210",
           "start" : 1.9449999999999998,
           "text" : "hodně Co myslíš?",
           "words" : [
@@ -34861,7 +34861,7 @@
         },
         {
           "end" : 5.225,
-          "id" : "1D896715-67C5-4CF6-9D0B-599A4EC0E534",
+          "id" : "655182ED-4EEF-4C06-8B49-3F510B214BB6",
           "start" : 3.96,
           "text" : "Zkusíme to znovu!",
           "words" : [
@@ -35001,7 +35001,7 @@
         "cues" : [
           {
             "end" : 2.1044444444444443,
-            "id" : "DE74E40E-970F-41ED-911B-64FBBBD5335C",
+            "id" : "E73583DE-3DAD-4A24-86AE-670963690D00",
             "start" : 0.2,
             "text" : "Upravený",
             "words" : [
@@ -35014,7 +35014,7 @@
           },
           {
             "end" : 4.725,
-            "id" : "FAA1EF90-9F86-4F13-AB60-8156DA71D48A",
+            "id" : "4DEF1D6E-F8E7-48A7-8098-741C1F71F556",
             "start" : 2.1444444444444444,
             "text" : "první řádek",
             "words" : [
@@ -35032,7 +35032,7 @@
           },
           {
             "end" : 6.5,
-            "id" : "653E5583-F609-4539-99BD-AC25DC139102",
+            "id" : "F80B1A36-F577-4A53-8A67-748E892C2EBE",
             "start" : 5.325,
             "text" : "Je to backflip",
             "words" : [
@@ -35055,7 +35055,7 @@
           },
           {
             "end" : 7.284999999999999,
-            "id" : "25F2A5FD-ACF0-42AD-9F44-4C21C10DA8C2",
+            "id" : "925E6384-2CE1-486F-81AC-8F6DD1AC4C66",
             "start" : 6.6,
             "text" : "který jsem",
             "words" : [
@@ -35073,7 +35073,7 @@
           },
           {
             "end" : 8.68,
-            "id" : "A648F7C0-11F0-4FEA-8955-45761715735B",
+            "id" : "6E31DC52-35C9-4933-9165-29EC385C3AE9",
             "start" : 7.324999999999999,
             "text" : "trénoval celé léto",
             "words" : [
@@ -35207,7 +35207,7 @@
         "cues" : [
           {
             "end" : 4.575,
-            "id" : "73693E57-3648-4CB7-A5DA-44DA3D8ED208",
+            "id" : "9908EECC-7D14-4684-9BE1-8A43E7611399",
             "start" : 0.2,
             "text" : "Upravený první řádek",
             "words" : [
@@ -35230,7 +35230,7 @@
           },
           {
             "end" : 8.68,
-            "id" : "52DE844D-A88A-458D-9C83-EB96BCBB189F",
+            "id" : "F219A0D9-1CBC-405D-BCE8-147590EA157D",
             "start" : 5.325,
             "text" : "Je to backflip který\njsem trénoval celé léto",
             "words" : [
@@ -35434,7 +35434,7 @@
         "cues" : [
           {
             "end" : 1.4799999999999998,
-            "id" : "4C81CDC2-3DC0-4329-9155-D10CDD73ECC2",
+            "id" : "6C317DC3-B1F0-47EC-929C-0CF11A269CBD",
             "start" : 0.2,
             "text" : "Upravený první řádek",
             "words" : [
@@ -35457,7 +35457,7 @@
           },
           {
             "end" : 3.4800000000000004,
-            "id" : "A92B2048-1BAB-4D29-8EDC-CDD71545488D",
+            "id" : "3D66604D-C7CF-47AB-B3D4-9E6BB144E237",
             "start" : 2.08,
             "text" : "Počasí vypadá dobře",
             "words" : [
@@ -35480,7 +35480,7 @@
           },
           {
             "end" : 4.425000000000001,
-            "id" : "81C96311-6BEE-4B73-9168-C0F9FE43ECDA",
+            "id" : "D9ECFD0A-27C0-4342-8669-C1017489FECD",
             "start" : 3.5800000000000005,
             "text" : "ale vítr je",
             "words" : [
@@ -35503,7 +35503,7 @@
           },
           {
             "end" : 5.57,
-            "id" : "F12F2B26-C722-4FFD-8383-37B2AD688DA1",
+            "id" : "E3EE4C01-C176-4E82-8B7F-83696A81CC33",
             "start" : 4.465000000000001,
             "text" : "trochu silnější",
             "words" : [
@@ -35521,7 +35521,7 @@
           },
           {
             "end" : 6.845,
-            "id" : "55F6C165-C8C8-4AF5-AB75-37783F23DE74",
+            "id" : "6D08A11B-A926-4979-9CCA-10C599B03A14",
             "start" : 5.67,
             "text" : "než jsem čekal",
             "words" : [
@@ -35544,7 +35544,7 @@
           },
           {
             "end" : 7.959999999999999,
-            "id" : "5FE800AC-8A83-4D85-B574-DAEFF892F25E",
+            "id" : "F2E179E0-F7BF-437A-9A15-0177643ACBCD",
             "start" : 6.944999999999999,
             "text" : "takže uvidíme",
             "words" : [
@@ -35698,7 +35698,7 @@
         "cues" : [
           {
             "end" : 1.3299999999999998,
-            "id" : "056ABDE2-55B6-4EBF-8949-25F2E466E384",
+            "id" : "5019D579-3BAF-4B45-A2B9-6C3205E651E3",
             "start" : 0.2,
             "text" : "Upravený první řádek",
             "words" : [
@@ -35721,7 +35721,7 @@
           },
           {
             "end" : 5.57,
-            "id" : "5E34D88C-A2CD-464C-81F7-856FF23EA65E",
+            "id" : "29FA03FA-D1D2-4A25-8F6F-6E0B4F063F9C",
             "start" : 2.08,
             "text" : "Počasí vypadá dobře\nale vítr je trochu silnější",
             "words" : [
@@ -35769,7 +35769,7 @@
           },
           {
             "end" : 7.959999999999999,
-            "id" : "FD92A090-D04E-48F3-A952-98016DC7D912",
+            "id" : "4E41A051-1098-46C8-AE47-EF845ADA2014",
             "start" : 5.67,
             "text" : "než jsem čekal takže uvidíme",
             "words" : [
@@ -35943,7 +35943,7 @@
         "cues" : [
           {
             "end" : 1.8111111111111107,
-            "id" : "1A3F5911-ABEA-4893-BA6F-61E37F90652F",
+            "id" : "89BBD073-5FDD-4724-8171-7705E37151C8",
             "start" : 0.2,
             "text" : "Upravený",
             "words" : [
@@ -35956,7 +35956,7 @@
           },
           {
             "end" : 4.0649999999999995,
-            "id" : "DCA7C0AD-07A1-4166-A0AB-61C4D86B83C7",
+            "id" : "80A3B8D6-23A2-4AA4-B6E5-A7A713FA969C",
             "start" : 1.8511111111111107,
             "text" : "první řádek",
             "words" : [
@@ -35974,7 +35974,7 @@
           },
           {
             "end" : 5.464999999999999,
-            "id" : "F277409F-453E-4D62-B642-2260ADF466CE",
+            "id" : "B7ABD770-B78E-4615-9565-599C1BC35F80",
             "start" : 4.664999999999999,
             "text" : "It took us",
             "words" : [
@@ -35997,7 +35997,7 @@
           },
           {
             "end" : 6.429999999999999,
-            "id" : "2B0E6D22-650B-43F4-B9A3-7FC4AB694C8C",
+            "id" : "D562FF8B-A638-4FA4-B06F-6C818614B3E6",
             "start" : 5.504999999999999,
             "text" : "three weeks",
             "words" : [
@@ -36015,7 +36015,7 @@
           },
           {
             "end" : 8.159999999999998,
-            "id" : "514901F1-14E0-47AB-82A2-A00C96CC6846",
+            "id" : "F14FE6F4-8475-475E-BC1F-FFA03FF7CC1A",
             "start" : 6.5299999999999985,
             "text" : "but it was worth it",
             "words" : [
@@ -36048,7 +36048,7 @@
           },
           {
             "end" : 9.149999999999999,
-            "id" : "5000B2BF-7491-4FF5-A395-AE9DD8D3D6D5",
+            "id" : "8DE85237-DB88-42E5-AA74-9DA2ADE68202",
             "start" : 8.259999999999998,
             "text" : "and the crew",
             "words" : [
@@ -36071,7 +36071,7 @@
           },
           {
             "end" : 10.114999999999998,
-            "id" : "1B429110-7262-4D2D-B590-CA64446C86AB",
+            "id" : "8B0D7783-6ECD-4E2C-9D02-3344659CED4C",
             "start" : 9.189999999999998,
             "text" : "was amazing",
             "words" : [
@@ -36235,7 +36235,7 @@
         "cues" : [
           {
             "end" : 3.9149999999999996,
-            "id" : "7D7742A3-1E47-4D0C-A65D-29ECCA51E014",
+            "id" : "BC83A7A9-4E5E-4553-995A-B6609B1474CE",
             "start" : 0.2,
             "text" : "Upravený první řádek",
             "words" : [
@@ -36258,7 +36258,7 @@
           },
           {
             "end" : 8.159999999999998,
-            "id" : "A721D436-09C3-40F4-9046-06236079FEE1",
+            "id" : "610F39DC-5325-4565-A286-10851AB336AC",
             "start" : 4.664999999999999,
             "text" : "It took us three weeks\nbut it was worth it",
             "words" : [
@@ -36316,7 +36316,7 @@
           },
           {
             "end" : 10.114999999999998,
-            "id" : "623EAD83-672A-4FF5-8C62-C6207D8D23C9",
+            "id" : "9DE67473-76E1-4540-8D05-A811A448E69C",
             "start" : 8.259999999999998,
             "text" : "and the crew was amazing",
             "words" : [
