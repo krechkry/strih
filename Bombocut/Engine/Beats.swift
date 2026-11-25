@@ -288,11 +288,33 @@ final class BeatCache: ObservableObject {
     }
 }
 
+/// The marks for a note value from the found beats (in 4/4: a beat is a 1/4 note, 4 beats a bar).
+enum BeatGrid {
+    /// 1/1, 1/2, 1/4, 1/8, 1/16.
+    static let notes = [1, 2, 4, 8, 16]
+
+    /// Source seconds of every mark and how strong it is (2 = bar, 1 = beat, 0 = between beats).
+    static func marks(_ beats: [Double], note: Int) -> [(s: Double, level: Int)] {
+        var out: [(s: Double, level: Int)] = []
+        let per = max(1, note / 4)            // marks per beat
+        let skip = note >= 4 ? 1 : 4 / max(note, 1)   // beats per mark
+        for (k, b) in beats.enumerated() {
+            if k % skip == 0 { out.append((b, k % 4 == 0 ? 2 : 1)) }
+            guard per > 1, k + 1 < beats.count else { continue }
+            let step = (beats[k + 1] - b) / Double(per)
+            for j in 1..<per { out.append((b + step * Double(j), 0)) }
+        }
+        return out
+    }
+}
+
 extension AudioItem {
-    /// Where this sound's beats are on the timeline (only when Beats is on and they're found).
+    /// Where this sound's beat marks are on the timeline (only when Beats is on and they're found), at its note
+    /// value (every beat unless picked otherwise).
     @MainActor
     var timelineBeats: [Double] {
-        guard beatsOn == true, let b = BeatCache.shared.known(file) else { return [] }
+        guard beatsOn == true, let found = BeatCache.shared.known(file) else { return [] }
+        let b = BeatGrid.marks(found, note: beatNote ?? 4).map(\.s)
         let sp = max(speed, 0.01)
         return b.compactMap { s in
             let t = start + (s - inPoint) / sp

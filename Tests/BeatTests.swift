@@ -75,3 +75,20 @@ private struct SeededNoise: RandomNumberGenerator {
         return z ^ (z >> 31)
     }
 }
+
+/// Which beats are marked (2026-11-25): bars, every other beat, beats, halves, quarters.
+final class BeatGridTests: XCTestCase {
+    private let beats = (0..<9).map { Double($0) * 0.5 }   // 120 BPM, 2 bars and a beat
+
+    func testNoteValues() {
+        XCTAssertEqual(BeatGrid.marks(beats, note: 4).count, 9)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 1).map(\.s), [0, 2, 4])
+        XCTAssertEqual(BeatGrid.marks(beats, note: 2).map(\.s), [0, 1, 2, 3, 4])
+        // halves: a mark between every two beats (not after the last)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 8).count, 17)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 16).count, 33)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 8)[1].s, 0.25, accuracy: 1e-9)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 8)[1].level, 0)
+        XCTAssertEqual(BeatGrid.marks(beats, note: 4)[4].level, 2)   // a bar
+    }
+}

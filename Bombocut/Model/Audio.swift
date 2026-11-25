@@ -22,6 +22,8 @@ struct AudioItem: Codable, Hashable, Identifiable {
     var reverse: AudioReverse?
     /// Beats: markers on the song's beats (found once, see BeatCache); clip edges, texts and sounds snap to them.
     var beatsOn: Bool?
+    /// Which beats are marked: 1 = every bar, 2 = every other beat, 4 = every beat (nil), 8 = halves, 16 = quarters.
+    var beatNote: Int?
 
     var end: Double { start + duration }
     /// The sound as the speech tools see it: always the forward file (the result is turned round for a reversed one).

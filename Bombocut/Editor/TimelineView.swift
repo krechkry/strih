@@ -1937,7 +1937,8 @@ struct AudioLane: View {
             }
             FadeRamp(fadeIn: CGFloat(f.in) * px, fadeOut: CGFloat(f.out) * px)
             if a.beatsOn == true, let b = beatCache.beats(a.file) {
-                BeatTicks(beats: b, from: a.inPoint, speed: a.speed, length: a.duration, px: px).fill(Self.ink)
+                BeatTicks(beats: b, note: a.beatNote ?? 4, from: a.inPoint, speed: a.speed, length: a.duration, px: px)
+                    .fill(Self.ink)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 5))
@@ -2260,9 +2261,11 @@ enum LaneText {
     }
 }
 
-/// Beat markers on a sound block: a small notch hanging from the top at every beat (bigger every 4th).
+/// Beat markers on a sound block: a notch hanging from the top at every mark of the picked note value, biggest
+/// on bars, smaller between beats.
 struct BeatTicks: Shape {
     let beats: [Double]
+    var note = 4
     let from: Double
     let speed: Double
     let length: Double
@@ -2273,13 +2276,16 @@ struct BeatTicks: Shape {
         let sp = max(speed, 0.01)
         // too dense to read when zoomed far out: every 4th beat only
         let gap = beats.count > 1 ? (beats[beats.count - 1] - beats[0]) / Double(beats.count - 1) : 0.5
-        let every = CGFloat(gap / sp) * px < 5 ? 4 : 1
-        for (k, s) in beats.enumerated() where k % every == 0 {
-            let t = (s - from) / sp
+        let beatPx = CGFloat(gap / sp) * px
+        // too dense to read when zoomed far out: fewer marks (beats only, then bars only)
+        let per = CGFloat(max(1, note / 4))
+        let least = beatPx / per >= 5 ? 0 : beatPx >= 5 ? 1 : 2
+        for m in BeatGrid.marks(beats, note: note) where m.level >= least {
+            let t = (m.s - from) / sp
             guard t >= 0, t <= length else { continue }
             let x = CGFloat(t) * px
-            let big = k % 4 == 0
-            let w: CGFloat = big ? 2.5 : 1.5, h: CGFloat = big ? 9 : 6
+            let w: CGFloat = m.level == 2 ? 2.5 : m.level == 1 ? 1.5 : 1
+            let h: CGFloat = m.level == 2 ? 9 : m.level == 1 ? 6 : 4
             p.addRoundedRect(in: CGRect(x: x - w / 2, y: rect.minY, width: w, height: h), cornerSize: CGSize(width: w / 2, height: w / 2))
         }
         return p

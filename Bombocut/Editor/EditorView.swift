@@ -103,6 +103,7 @@ struct EditorView: View {
         case .filters: return 500
         case .overlayTrack: return 330
         case .silence: return 600
+        case .beats: return 250
         // picking a subject: everything below the clip strip, so the strip stays to scrub with
         // (the lanes above the strip fold away while picking, so the strip moves up and the panel gets taller)
         // once the subject is picked, the strip isn't needed: the panel covers the whole bottom (Fast / Precise)
@@ -214,6 +215,7 @@ struct EditorView: View {
         case .filters: FiltersSheet(model: model)
         case .overlayTrack: OverlayTrackSheet(model: model)
         case .silence: SilenceSheet(model: model)
+        case .beats: BeatsSheet(model: model)
         case .trackPick: TrackPickPanel(model: model) {
             let back: EditorSheet? = model.pinPickOverlay != nil ? .overlayTrack : model.stabilizeOnSubject ? .stabilize
                 : model.editedTracking != nil ? .track : nil
@@ -1010,7 +1012,9 @@ struct EditorView: View {
         ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
         ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
         ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
-        ToolButton(icon: "metronome", label: "Beats", tint: a.beatsOn == true ? Theme.accent : .white) { model.toggleBeats() }
+        ToolButton(icon: "metronome", label: "Beats", tint: a.beatsOn == true ? Theme.accent : .white) {
+            model.pause(); model.setBeats(true); sheet = .beats
+        }
         if model.canSlip {
             ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
         }
@@ -1613,7 +1617,7 @@ extension EditorView {
 
 enum EditorSheet: String, Identifiable {
     case export, canvas, volume, speed, adjust, captions, stabilize, track, overlay, mask, motionBlur, animation, layout, guides, audio, speech
-    case easing, autoZoom, crop, trackPick, background, overlayTrack, filters, silence
+    case easing, autoZoom, crop, trackPick, background, overlayTrack, filters, silence, beats
     var id: String { rawValue }
 }
 

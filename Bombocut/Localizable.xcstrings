@@ -11307,6 +11307,36 @@
           }
         }
       }
+    },
+    "Select a sound first.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nejdřív vyber zvuk."
+          }
+        }
+      }
+    },
+    "Beats are off: no marks, nothing snaps to them.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beaty jsou vypnuté: žádné značky, nic se na ně nepřichytí."
+          }
+        }
+      }
+    },
+    "%d BPM. Cuts, texts and sounds snap to the marks.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d BPM. Střihy, texty i zvuky se na značky přichytí."
+          }
+        }
+      }
     }
   }
 }

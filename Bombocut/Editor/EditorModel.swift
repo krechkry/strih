@@ -4580,7 +4580,12 @@ extension EditorModel {
     /// texts and other sounds snap to them. Again: off.
     func toggleBeats() {
         guard let i = selectedAudioIndex else { return }
-        let on = project.audio[i].beatsOn != true
+        setBeats(project.audio[i].beatsOn != true)
+    }
+
+    /// The Beats panel: marks on (found if needed) or off for the selected sound.
+    func setBeats(_ on: Bool) {
+        guard let i = selectedAudioIndex, (project.audio[i].beatsOn == true) != on else { return }
         mutateLook { $0.audio[i].beatsOn = on ? true : nil }
         guard on else { return }
         let file = project.audio[i].file
@@ -4593,6 +4598,16 @@ extension EditorModel {
                 self?.beatsFound(BeatCache.shared.known(file) ?? [], file: file)
             }
         }
+    }
+
+    /// Which beats the selected sound marks (1/1 to 1/16); picking one turns Beats on.
+    func setBeatNote(_ note: Int) {
+        guard let i = selectedAudioIndex else { return }
+        if (project.audio[i].beatNote ?? 4) != note {
+            mutateLook { $0.audio[i].beatNote = note == 4 ? nil : note }
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        setBeats(true)
     }
 
     private func beatsFound(_ beats: [Double], file: String) {
