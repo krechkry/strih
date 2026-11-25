@@ -155,15 +155,13 @@ struct ExportPreset: Identifiable, Equatable {
 
 struct ExportSheet: View {
     let project: Project
-    /// Name the project once it is done (nobody names it while editing).
-    var onRename: (String) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.requestReview) private var requestReview
     /// The App Store rating prompt comes once, on the done screen of the first finished export.
     @AppStorage("review.askedAfterFirstExport") private var askedForReview = false
-    @State private var name = ""
-    @FocusState private var naming: Bool
     @FocusState private var typing: Bool
+    /// Where the mascot sits on the done screen (the confetti comes out of it).
+    @State private var memeFrame: CGRect = .zero
 
     // Size, frame rate and codec start from the first clip every time the page opens.
     @State private var shortSide = 1080          // 0 = custom
@@ -681,6 +679,7 @@ struct ExportSheet: View {
             Text("Keep the app open while exporting.")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Theme.muted)
+            RotatingTip()
             Spacer(minLength: 0)
             Button { cancelExport() } label: {
                 Text("Cancel")
@@ -712,17 +711,12 @@ struct ExportSheet: View {
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.play)) }) { stage.bar = $0 }
     }
 
-    private func saveName() {
-        let n = name.trimmingCharacters(in: .whitespaces)
-        if !n.isEmpty { onRename(n) }
-        naming = false
-    }
-
     private func doneView(_ url: URL, _ saved: Bool, _ note: String?) -> some View {
         VStack(spacing: 14) {
             Spacer(minLength: 0)
             MemeView(meme: doneMeme)
                 .frame(width: 250, height: 250)
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named(Self.done)) }) { memeFrame = $0 }
             Text(verbatim: loc(saved ? "Saved to Photos" : "Export finished"))
                 .font(.title3.weight(.heavy))
             if !saved, let note {
@@ -739,20 +733,6 @@ struct ExportSheet: View {
                     .background(Theme.panel2, in: Capsule())
             }
             Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Project name").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
-                HStack(spacing: 8) {
-                    Image(systemName: "pencil").foregroundStyle(Theme.muted)
-                    TextField(project.name, text: $name)
-                        .font(.body.weight(.semibold))
-                        .focused($naming)
-                        .submitLabel(.done)
-                        .onSubmit { saveName() }
-                }
-                .padding(.horizontal, 14).frame(height: 48)
-                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
-            }
-            .onAppear { if name.isEmpty { name = project.name } }
             HStack(spacing: 12) {
                 Button { phase = .setup } label: {
                     Text("Back")
@@ -761,7 +741,7 @@ struct ExportSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 16))
                 }
-                Button { saveName(); dismiss() } label: {
+                Button { dismiss() } label: {
                     Text("OK")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)
@@ -773,9 +753,13 @@ struct ExportSheet: View {
             .padding(.bottom, 24)
         }
         .padding(.horizontal, 20)
-        .onDisappear { saveName() }
+        .coordinateSpace(.named(Self.done))
+        // the more of the editor went into it, the bigger the party
+        .overlay { MascotConfetti(origin: memeFrame, effort: EditEffort.share(of: project)) }
         .task { await askForReviewOnce() }
     }
+
+    private static let done = "exportDone"
 
     /// Apple's own rating prompt (it decides whether to show it, at most three times a year;
     /// never in TestFlight). A moment after the done screen lands, so the meme gets seen first.

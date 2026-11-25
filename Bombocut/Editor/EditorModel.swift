@@ -16,6 +16,16 @@ struct RollState: Equatable {
     var snapped = false        // the cut sits on the playhead
 }
 
+/// The precise trim popup (a second tap while holding a clip's trim handle): the clip's length typed in.
+struct PreciseTrimState: Equatable {
+    var id: UUID
+    var leading: Bool
+    var startLength: Double    // before the handle was grabbed
+    var length: Double         // when the popup opened
+    var minLength: Double
+    var maxLength: Double
+}
+
 struct TrimState: Equatable {
     var id: UUID
     var leading: Bool          // true = head (left edge), false = tail (right edge)
@@ -156,6 +166,12 @@ final class EditorModel: ObservableObject {
     @Published private(set) var roll: RollState?
     /// A clip edge is being dragged (trim or roll): the strip doesn't scroll by itself meanwhile.
     var edgeEditing: Bool { trim != nil || roll != nil }
+    @Published private(set) var preciseTrim: PreciseTrimState?
+    /// A length typed in the middle of the screen (the speed panel's new length).
+    @Published var lengthPrompt: LengthPrompt?
+    /// The project before the handle was grabbed, and the clip as it was then (Cancel goes back to them).
+    private var preciseSnapshot: Project?
+    private var preciseOriginal: Clip?
     @Published var trimView: TrimView?
     @Published var live: LiveTransform?
     @Published var fullscreen = false
@@ -2860,6 +2876,8 @@ final class EditorModel: ObservableObject {
     }
 
     func trimEnded(_ id: UUID, leading: Bool) {
+        // the precise popup took the trim over (or it already ended): the handle's release does nothing
+        guard let tr = trim, tr.id == id else { return }
         if let s = trimSnapshot, s != project {
             pushUndo(s)
             followFootage(from: s)
@@ -2888,6 +2906,56 @@ final class EditorModel: ObservableObject {
         setSnap(nil)
     }
 
+    // MARK: Precise trim
+
+    /// A second tap anywhere while a clip's trim handle is held: the popup for typing the length. The held
+    /// handle stops trimming from here on (its moves and its release are ignored).
+    func openPreciseTrim() {
+        guard preciseTrim == nil, let tr = trim, let o = trimOriginal, let s = trimSnapshot,
+              let c = project.clips.first(where: { $0.id == tr.id }) else { return }
+        let range = o.trimLengthRange(leading: tr.leading)
+        preciseSnapshot = s
+        preciseOriginal = o
+        preciseTrim = PreciseTrimState(id: tr.id, leading: tr.leading, startLength: o.duration, length: c.duration,
+                                       minLength: range.lowerBound, maxLength: range.upperBound)
+        trimSnapshot = nil
+        trimOriginal = nil
+        trim = nil
+        trimView = nil
+        edgeGrabber.reset()
+        setSnap(nil)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// OK in the precise popup: the clip trimmed on the grabbed side to `length`, one undo step.
+    func applyPreciseTrim(length: Double) {
+        guard let p = preciseTrim, let s = preciseSnapshot, let o = preciseOriginal,
+              let i = s.clips.firstIndex(where: { $0.id == p.id }) else { cancelPreciseTrim(); return }
+        var next = s
+        next.clips[i] = o.trimmed(toLength: min(max(length, p.minLength), p.maxLength), leading: p.leading)
+        project = next
+        if s != project {
+            pushUndo(s)
+            followFootage(from: s)
+        }
+        closePreciseTrim()
+        let start = project.clipStarts[i]
+        currentTime = p.leading ? start : start + project.clips[i].duration - 0.001
+        commit()
+    }
+
+    /// Cancel in the precise popup: back to how it was before the handle was grabbed.
+    func cancelPreciseTrim() {
+        if let s = preciseSnapshot, s != project { project = s }
+        closePreciseTrim()
+    }
+
+    private func closePreciseTrim() {
+        preciseTrim = nil
+        preciseSnapshot = nil
+        preciseOriginal = nil
+    }
+
     // MARK: Roll edit
 
     /// Can the edge of this clip roll (is there a clip on the other side of it)?
@@ -2899,6 +2967,8 @@ final class EditorModel: ObservableObject {
     /// Hold a clip's edge handle still, then drag: the cut between it and its neighbour slides.
     @discardableResult
     func rollBegan(_ id: UUID, leading: Bool) -> Bool {
+        // the held handle belongs to the precise popup now
+        guard preciseTrim == nil else { return false }
         guard let i = project.clips.firstIndex(where: { $0.id == id }) else { return false }
         let l = leading ? i - 1 : i, r = l + 1
         guard l >= 0, r < project.clips.count else { return false }

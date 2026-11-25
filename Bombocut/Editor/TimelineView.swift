@@ -344,6 +344,10 @@ struct TimelineView: View {
         .onChange(of: model.project.clips) { if !model.edgeEditing { follow() } }
         .task(id: reorder != nil) { await autoScroll() }
         .task(id: model.edgeEditing) { await trimScroll() }
+        // the precise trim popup closed: the strip goes to the trimmed edge, like letting go of a handle
+        .onChange(of: model.preciseTrim == nil) { _, closed in
+            if closed { withAnimation(.easeOut(duration: 0.25)) { follow() } }
+        }
         .task(id: model.laneFinger != nil) { await laneScroll() }
         .onChange(of: model.laneFinger == nil) { _, ended in
             // the strip scrolled along with a dragged block: the playhead stays where the view is now
@@ -873,6 +877,9 @@ struct ClipTile: View {
     @State private var lastTranslation: CGFloat = 0
     @State private var lastX: CGFloat = 0
     @State private var holdTimer: Timer?
+    /// True while a finger is on a handle. Resets by itself when the system cancels the touch (onEnded doesn't
+    /// run then), so a trim never stays stuck (the editor locks other touches while one is going).
+    @GestureState private var handleDown = false
     /// How long a handle has to be held still before it rolls instead of trimming.
     static let rollHold: TimeInterval = 0.45
 
@@ -1114,11 +1121,16 @@ struct ClipTile: View {
             .opacity(otherEnd ? 0.3 : 1)
             .contentShape(OutsetX(dx: 12))   // wider sideways, never above or below the clip
             .highPriorityGesture(handleGesture(leading: leading))
+            .onChange(of: handleDown) { _, down in
+                // the touch was cancelled: end what it started, like letting go
+                if !down, dragging == leading { finishHandle(leading: leading, x: lastX) }
+            }
     }
 
     /// Drag a handle to trim. Hold it still first (with a clip on the other side) and the drag rolls the cut.
     private func handleGesture(leading: Bool) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .updating($handleDown) { _, down, _ in down = true }
             .onChanged { v in
                 lastTranslation = v.translation.width
                 lastX = v.location.x
@@ -1143,17 +1155,21 @@ struct ClipTile: View {
                     onTrim(leading, .changed, d, v.location.x)
                 }
             }
-            .onEnded { v in
-                holdTimer?.invalidate()
-                holdTimer = nil
-                dragging = nil
-                if rolling {
-                    rolling = false
-                    onRoll(leading, .ended, 0, v.location.x)
-                } else {
-                    onTrim(leading, .ended, 0, v.location.x)
-                }
-            }
+            .onEnded { v in finishHandle(leading: leading, x: v.location.x) }
+    }
+
+    /// The finger left the handle (or the touch was cancelled): the trim or roll ends, once.
+    private func finishHandle(leading: Bool, x: CGFloat) {
+        guard dragging == leading else { return }
+        holdTimer?.invalidate()
+        holdTimer = nil
+        dragging = nil
+        if rolling {
+            rolling = false
+            onRoll(leading, .ended, 0, x)
+        } else {
+            onTrim(leading, .ended, 0, x)
+        }
     }
 
     private func startHoldTimer(leading: Bool) {

@@ -386,6 +386,45 @@ struct Clip: Identifiable, Codable, Hashable {
         return out
     }
 
+    /// This clip with one edge moved to `edge` (source seconds), the way a ripple trim does it.
+    func withEdge(_ edge: Double, leading: Bool) -> Clip {
+        var c = self
+        if leading { c.inPoint = edge } else { c.outPoint = edge }
+        if hasCurve && sticksCurve { c.speedCurve = c.stuckCurve(from: self) }
+        return c
+    }
+
+    /// Where a trimmed edge can go (source seconds): from the shortest clip (a tenth of a second of footage) to
+    /// all the footage on that side.
+    func trimEdgeRange(leading: Bool) -> ClosedRange<Double> {
+        if leading { return 0...max(0, outPoint - 0.1) }
+        return min(inPoint + 0.1, sourceDuration)...max(sourceDuration, inPoint + 0.1)
+    }
+
+    /// Shortest and longest the clip can get by trimming one edge (timeline seconds).
+    func trimLengthRange(leading: Bool) -> ClosedRange<Double> {
+        let r = trimEdgeRange(leading: leading)
+        let a = withEdge(r.lowerBound, leading: leading).duration
+        let b = withEdge(r.upperBound, leading: leading).duration
+        return min(a, b)...max(a, b)
+    }
+
+    /// Ripple-trimmed on one edge so it lasts `length` timeline seconds (as close as its footage allows).
+    /// Searches the edge, so speed curves, Stick to frames and a Stack's speed all count.
+    func trimmed(toLength length: Double, leading: Bool) -> Clip {
+        let r = trimEdgeRange(leading: leading)
+        // head: a later edge is a shorter clip; tail: a later edge is a longer one
+        var lo = r.lowerBound, hi = r.upperBound
+        for _ in 0..<60 {
+            let mid = (lo + hi) / 2
+            let d = withEdge(mid, leading: leading).duration
+            let tooLong = d > length
+            if leading == tooLong { lo = mid } else { hi = mid }
+            if hi - lo < 1e-7 { break }
+        }
+        return withEdge((lo + hi) / 2, leading: leading)
+    }
+
     /// Part of the curve between normalized positions u0 and u1, renormalized to 0...1 (used by split).
     func subCurve(_ u0: Double, _ u1: Double) -> [SpeedPoint]? {
         guard let pts = speedCurve, pts.count >= 2, u1 - u0 > 1e-6 else { return speedCurve }

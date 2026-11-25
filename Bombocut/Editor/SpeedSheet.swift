@@ -173,17 +173,66 @@ struct SpeedSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// Old length → new length. Tap the new one to type it (the speed follows).
     private func durationLine(newDuration: Double) -> some View {
         HStack(spacing: 6) {
             Text(Fmt.duration(originalDuration))
             Image(systemName: "arrow.right").font(.caption.weight(.bold))
-            Text(Fmt.duration(newDuration)).foregroundStyle(.white)
+            Button { askLength(newDuration) } label: {
+                HStack(spacing: 4) {
+                    Text(Fmt.duration(newDuration))
+                    Image(systemName: "pencil").font(.caption2.weight(.heavy)).foregroundStyle(Theme.muted)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 9).frame(height: 28)
+                .background(Theme.panel2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(loc("Type the clip's length"))
         }
         .font(.subheadline.weight(.semibold).monospacedDigit())
         .foregroundStyle(Theme.muted)
     }
 
     private var originalDuration: Double { clip.map { $0.outPoint - $0.inPoint } ?? 0 }
+    /// A Stack's own speed on top of the clip's.
+    private var outer: Double { max(clip?.outerSpeed ?? 1, 0.01) }
+
+    private func askLength(_ now: Double) {
+        guard clip != nil, now > 0 else { return }
+        let range: ClosedRange<Double>
+        if tab == 0 {
+            range = originalDuration / (100 * outer)...originalDuration / (0.1 * outer)
+        } else {
+            // every point's speed scaled by the same amount, as far as the curve's limits go
+            let lo = points.map(\.v).min() ?? 1, hi = points.map(\.v).max() ?? 1
+            let up = SpeedCurve.maxV / max(hi, 1e-6), down = SpeedCurve.minV / max(lo, 1e-6)
+            range = min(now / up, now)...max(now / down, now)
+        }
+        model.lengthPrompt = LengthPrompt(title: "Clip length", subtitle: "The speed changes to fit it",
+                                          length: now, range: range) { typed in setLength(typed) }
+    }
+
+    /// The typed length: constant speed is worked out from it, a curve is sped up or slowed down as a whole.
+    private func setLength(_ length: Double) {
+        guard length > 0, var c = clip else { return }
+        if tab == 0 {
+            speed = min(max(originalDuration / (length * outer), 0.1), 100)
+            commitSpeed(speed)
+        } else {
+            var pts = points
+            for _ in 0..<6 {
+                c.speedCurve = pts
+                let d = c.duration
+                guard d > 0, abs(d - length) > 1e-4 else { break }
+                let k = d / length
+                pts = pts.map { SpeedPoint(t: $0.t, v: min(max($0.v * k, SpeedCurve.minV), SpeedCurve.maxV)) }
+            }
+            points = pts
+            selected = nil
+            commitCurve()
+        }
+    }
 
     // MARK: Constant
 
@@ -212,7 +261,7 @@ struct SpeedSheet: View {
                     .font(.system(size: 44, weight: .heavy).monospacedDigit())
                     .doubleTapNumberReset { speed = 1; commitSpeed(1) }
                 Spacer()
-                durationLine(newDuration: originalDuration / max(speed, 0.01))
+                durationLine(newDuration: originalDuration / max(speed * outer, 0.01))
             }
             BSlider(value: Binding(
                 get: { Self.position(speed) },

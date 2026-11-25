@@ -284,7 +284,7 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showAbout) { AboutView() }
         .sheet(item: $exporting) { p in
-            ExportSheet(project: p) { store.rename(p, to: $0) }.presentationDetents([.large])
+            ExportSheet(project: p).presentationDetents([.large])
         }
         .sheet(isPresented: $showStorage) {
             StorageView().environmentObject(store)

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Importing a new project: the checklist card, with a line saying to keep BOMBOCUT open. After 10 s the card
-/// moves to the top ("the island") and a little ball game starts below it to pass the time: a lime paddle at the
+/// Importing a new project: the checklist card, with a line saying to keep BOMBOCUT open, and after 5 s a tip
+/// under it (a new one every 8 s). Only after 20 s the card moves to the top ("the island") and a little ball game starts below it to pass the time: a lime paddle at the
 /// bottom keeps a bouncing ball in play, faster with every hit. Once the import is nearly done the card
 /// lights up lime, the next hit shoots the ball into it and the ball disappears inside; then the project gets
 /// its name (`WorkSteps.waitForLanding`). Tapping the lit card does the same.
@@ -15,8 +15,9 @@ struct ImportWaitView: View {
     /// What the card says now: changed only while the ball is well away from the card, so the card never grows
     /// into the ball.
     @State private var shown = CardText(note: loc("Keep BOMBOCUT open until it's done"))
-    /// When the tips take over from "let's play a game" (5 s into the game, give or take 5).
+    /// When the tips start (5 s into the import) and when the game came up (20 s in).
     @State private var tipsFrom: Date?
+    @State private var playingFrom: Date?
     @State private var tips: [ImportTip] = []
 
     private var lit: Bool { work.playing && work.nearEnd && !work.landed }
@@ -25,15 +26,20 @@ struct ImportWaitView: View {
     private func wanted(_ now: Date) -> CardText {
         if work.landed { return CardText(note: loc("Nice one!")) }
         if lit { return CardText(note: loc("Almost done! Shoot the ball in here")) }
-        if work.playing {
-            if let from = tipsFrom, now >= from, !tips.isEmpty {
-                // a new tip every 8 s (the iCloud one first when clips come from iCloud)
-                let list = work.fromCloud ? [ImportTip.cloud] + tips : tips
-                return CardText(tip: list[Int(now.timeIntervalSince(from) / 8) % list.count])
-            }
-            return CardText(note: loc("This is taking pretty long, let's play a game"))
+        var tip: ImportTip?
+        if let from = tipsFrom, now >= from, !tips.isEmpty {
+            // a new tip every 8 s (the iCloud one first when clips come from iCloud)
+            let list = work.fromCloud ? [ImportTip.cloud] + tips : tips
+            tip = list[Int(now.timeIntervalSince(from) / 8) % list.count]
         }
-        return CardText(note: loc("Keep BOMBOCUT open until it's done"))
+        if work.playing {
+            // the game just came up: say so for a few seconds, then only the tips
+            if let p = playingFrom, now.timeIntervalSince(p) < 6 || tip == nil {
+                return CardText(note: loc("This is taking pretty long, let's play a game"))
+            }
+            return CardText(tip: tip)
+        }
+        return CardText(note: loc("Keep BOMBOCUT open until it's done"), tip: tip)
     }
 
     var body: some View {
@@ -72,12 +78,13 @@ struct ImportWaitView: View {
         }
         .task {
             let opened = Date()
+            tipsFrom = opened.addingTimeInterval(WaitTiming.tipsAfter)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(250))
                 let now = Date()
-                if !work.playing, now.timeIntervalSince(opened) >= 10 {
+                if !work.playing, now.timeIntervalSince(opened) >= WaitTiming.gameAfter {
                     work.playing = true
-                    tipsFrom = now.addingTimeInterval(5 + Double.random(in: -5...5))
+                    playingFrom = now
                 }
                 let next = wanted(now)
                 // the card changes size with its text: only while the ball is well below it
@@ -89,6 +96,47 @@ struct ImportWaitView: View {
     }
 
     private static let space = "importWait"
+}
+
+/// When the waiting extras come up: tips from 5 s in (import and export), the import's game only from 20 s
+/// (most imports are done before it).
+enum WaitTiming {
+    static let tipsAfter: TimeInterval = 5
+    static let gameAfter: TimeInterval = 20
+}
+
+/// A tip under the export progress: from 5 s in, a new one every 8 s (the same tips as the import).
+struct RotatingTip: View {
+    var after: TimeInterval = WaitTiming.tipsAfter
+    @State private var tips: [ImportTip] = []
+    @State private var index: Int?
+
+    var body: some View {
+        Group {
+            if let i = index, !tips.isEmpty {
+                let tip = tips[i % tips.count]
+                Label(loc(tip.text), systemImage: tip.icon)
+                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .frame(maxWidth: 340, alignment: .leading)
+                    .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 12))
+                    .id(i)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: index)
+        .task {
+            tips = ImportTip.all.shuffled()
+            try? await Task.sleep(for: .seconds(after))
+            var i = 0
+            while !Task.isCancelled {
+                index = i
+                try? await Task.sleep(for: .seconds(8))
+                i += 1
+            }
+        }
+    }
 }
 
 /// The card's line: a note, or a tip in its own box.

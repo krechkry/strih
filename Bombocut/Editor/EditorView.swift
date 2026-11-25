@@ -423,7 +423,7 @@ struct EditorView: View {
         .onDisappear { model.tearDown() }
         .task { await demoSetup() }
         .sheet(item: exportBinding) { _ in
-            ExportSheet(project: model.project) { model.rename($0) }.presentationDetents([.large])
+            ExportSheet(project: model.project).presentationDetents([.large])
         }
         .overlay(alignment: .bottom) { panelLayer }
         .animation(.spring(duration: 0.32, bounce: 0.08), value: sheet)
@@ -468,10 +468,30 @@ struct EditorView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
+        .overlay { edgeLock }
+        .overlay {
+            if let p = model.preciseTrim {
+                PreciseTrimPopup(model: model, state: p)
+            } else if let p = model.lengthPrompt {
+                LengthPopup(prompt: p) { model.lengthPrompt = nil }.id(p.id)
+            }
+        }
         .alert("Rename project", isPresented: $renaming) {
             TextField("Name", text: $renameText)
             Button("Save") { model.rename(renameText) }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    /// A clip edge held (trim or roll): nothing else on the screen takes touches until it is let go. A second
+    /// tap anywhere while trimming opens the precise trim popup.
+    @ViewBuilder
+    private var edgeLock: some View {
+        if model.edgeEditing {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { model.openPreciseTrim() }
         }
     }
 

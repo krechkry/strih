@@ -10757,6 +10757,126 @@
           }
         }
       }
+    },
+    "From %@ to %@": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Od %@ do %@"
+          }
+        }
+      }
+    },
+    "Precise trim": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesné stříhání"
+          }
+        }
+      }
+    },
+    "Trimming the start of the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stříháš začátek klipu"
+          }
+        }
+      }
+    },
+    "Trimming the end of the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stříháš konec klipu"
+          }
+        }
+      }
+    },
+    "Clip length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Délka klipu"
+          }
+        }
+      }
+    },
+    "Trimmed": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ustřiženo"
+          }
+        }
+      }
+    },
+    "Minus cuts the clip shorter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mínus klip zkrátí"
+          }
+        }
+      }
+    },
+    "Plus brings footage back": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus vrátí záběr zpátky"
+          }
+        }
+      }
+    },
+    "One frame shorter": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O snímek kratší"
+          }
+        }
+      }
+    },
+    "One frame longer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O snímek delší"
+          }
+        }
+      }
+    },
+    "Type the clip's length": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Napiš délku klipu"
+          }
+        }
+      }
+    },
+    "The speed changes to fit it": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rychlost se jí přizpůsobí"
+          }
+        }
+      }
     }
   }
 }
