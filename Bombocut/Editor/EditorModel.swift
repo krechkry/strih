@@ -43,6 +43,7 @@ struct TrimView {
     var right: UIImage?
     var delta: Double = 0      // timeline seconds, + = clip got longer
     var roll = false           // roll edit: both sides of the cut, side by side
+    var precise = false        // the precise trim popup is open (no "tap for precise trim" hint)
 }
 
 enum Guide: Hashable { case centerX, centerY, left, right, top, bottom, angle, scale }
@@ -2949,10 +2950,30 @@ final class EditorModel: ObservableObject {
         trimSnapshot = nil
         trimOriginal = nil
         trim = nil
-        trimView = nil
-        edgeGrabber.reset()
+        // the edge frame stays in the preview: it follows the wheels
+        trimView?.precise = true
         setSnap(nil)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// The popup's wheels moved: the clip (or layer) takes that length right away, underneath, so you see it in
+    /// the timeline and the preview. Nothing is saved or undoable until the check.
+    func previewPreciseTrim(length: Double) {
+        guard let p = preciseTrim else { return }
+        if p.layer { previewPreciseLayer(length: length); return }
+        guard let o = preciseOriginal, let j = project.clips.firstIndex(where: { $0.id == p.id }) else { return }
+        let c = o.trimmed(toLength: min(max(length, p.minLength), p.maxLength), leading: p.leading)
+        project.clips[j] = c
+        trimView?.delta = c.duration - o.duration
+        grabEdge(c, leading: p.leading)
+    }
+
+    private func previewPreciseLayer(length: Double) {
+        guard let p = preciseTrim, p.layer, let s = preciseSnapshot,
+              let o0 = s.overlays.first(where: { $0.id == p.id }) else { return }
+        let l = min(max(length, p.minLength), p.maxLength)
+        overlayTimingSnapshot = s
+        overlayTimingCore(p.id, start: p.leading ? o0.end - l : o0.start, duration: l, done: false)
     }
 
     /// OK in the precise popup: the clip trimmed on the grabbed side to `length`, one undo step.
@@ -2968,6 +2989,8 @@ final class EditorModel: ObservableObject {
             followFootage(from: s)
         }
         closePreciseTrim()
+        trimView = nil
+        edgeGrabber.reset()
         let start = project.clipStarts[i]
         currentTime = p.leading ? start : start + project.clips[i].duration - 0.001
         commit()
@@ -2978,7 +3001,9 @@ final class EditorModel: ObservableObject {
         let layer = preciseTrim?.layer == true
         if let s = preciseSnapshot, s != project { project = s }
         closePreciseTrim()
-        if layer { publishLook() }
+        trimView = nil
+        edgeGrabber.reset()
+        if layer { overlayTimingSnapshot = nil; publishLook() }
     }
 
     // MARK: Layer edges (texts, pictures, videos)

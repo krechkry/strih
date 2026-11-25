@@ -9,7 +9,7 @@ struct DeadpanStage: Equatable {
     var bar: CGRect = .zero
 }
 
-/// The export screen's guy (the one from the end card), there to be played with while the render runs. The first two times
+/// The export screen's Deadpan, there to be played with while the render runs. The first two times
 /// someone tries to move him he only leans and stumbles; the third time he comes loose: a rigid body
 /// with jointed arms and legs that can be grabbed anywhere, swung and thrown, and lands on the percent
 /// text, the progress bar or the screen edges. His face only ever follows the export progress.
@@ -843,9 +843,10 @@ final class DeadpanRagdoll {
     }
 
     private func body(_ context: GraphicsContext, color: Color, blink: Bool) {
-        // blink timing from the old Deadpan drawing, so he blinks as before
+        // the Deadpan himself again (Krystof, 2026-11-25: the old guy was better than the end card one)
+        let layer = MemeCache.shared.layers(.deadpan)[0]
         let t = blink ? Date().timeIntervalSince(started) : 0
-        let shut = MemeCache.shared.layers(.deadpan)[0].state(at: t).blink
+        let shut = layer.state(at: t).blink
         let mood = self.mood
         let g = context
         g.drawLayer { lc in
@@ -853,11 +854,22 @@ final class DeadpanRagdoll {
             c.translateBy(x: bodyT.x, y: bodyT.y)
             c.rotate(by: .radians(Double(bodyAngle)))
             c.scaleBy(x: s, y: s)
-            Self.drawGuy(&c, color: color, mood: mood, shut: shut)
+            // the drawing's own legs stay out: his legs are drawn on the joints
+            c.clip(to: Path(CGRect(x: 0, y: 0, width: 480, height: 320.5)))
+            c.fill(layer.path, with: .color(color), style: FillStyle(eoFill: true))
+            if let m = layer.spec.mouth { MemeView.cutMouth(m, mood: mood, in: c) }
+            if shut > 0 {
+                for eye in layer.spec.eyes {
+                    let hh: CGFloat = 2 * eye.ry * CGFloat(shut)
+                    c.fill(Path(ellipseIn: CGRect(x: eye.x - eye.rx, y: eye.y - hh / 2, width: 2 * eye.rx, height: hh)),
+                           with: .color(color))
+                }
+            }
         }
     }
 
     // MARK: The end card guy (Resources/EndCard.mp4), traced into the rig's 480 x 480 artboard
+    // (not drawn on the export screen any more: the Deadpan is back there; kept in case he returns)
 
     private static let ink = Color.black
     /// The body: a rounded square (superellipse, power 2.6) over the rig's body ellipse, fuller at the eyes.

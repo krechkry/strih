@@ -991,7 +991,11 @@ struct ClipTile: View {
         }
         .overlay(alignment: trim?.leading == true ? .topLeading : .topTrailing) {
             if let tr = trim {
-                Text(verbatim: Fmt.delta(clip.duration - tr.startDuration))
+                // the pencil: a second tap anywhere types the length exactly
+                HStack(spacing: 3) {
+                    Text(verbatim: Fmt.delta(clip.duration - tr.startDuration))
+                    Image(systemName: "pencil").font(.system(size: 9, weight: .heavy))
+                }
                     .font(.system(size: 11, weight: .bold).monospacedDigit())
                     .foregroundStyle(.black)
                     .padding(.horizontal, 6).padding(.vertical, 2)

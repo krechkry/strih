@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A clip length to type in, shown in the middle of the editor (the speed panel's new length).
+/// A clip length to pick, shown in the middle of the editor (the speed panel's new length).
 struct LengthPrompt: Identifiable {
     let id = UUID()
     var title: String
@@ -10,7 +10,7 @@ struct LengthPrompt: Identifiable {
     var apply: (Double) -> Void
 }
 
-/// Seconds as typed on the decimal pad (a comma or a dot) and shown back the same way.
+/// Seconds as text (a comma or a dot) and back.
 enum TypedSeconds {
     static var separator: String { Locale.current.decimalSeparator ?? "." }
 
@@ -27,11 +27,12 @@ enum TypedSeconds {
     }
 }
 
-/// The card in the middle of the screen: the editor dimmed and blurred behind it, Cancel and OK under it.
+/// A small card in the middle of the screen, like the iPhone's alarm editor: X (cancel) on the left, the title in
+/// the middle, the lime check (OK) on the right. No blur: what the card changes shows around it as you go.
+/// Touches outside the card do nothing.
 struct PopupCard<Content: View>: View {
     let title: String
     var subtitle: String?
-    var okEnabled = true
     let cancel: () -> Void
     let ok: () -> Void
     @ViewBuilder let content: Content
@@ -39,219 +40,228 @@ struct PopupCard<Content: View>: View {
 
     var body: some View {
         ZStack {
-            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
-            Color.black.opacity(0.35).ignoresSafeArea()
+            Color.black.opacity(0.001).ignoresSafeArea()
                 .contentShape(Rectangle())
-                .onTapGesture {}   // nothing behind the card can be touched
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(loc(title)).font(.title3.weight(.heavy))
-                    if let subtitle {
-                        Text(loc(subtitle)).font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .onTapGesture {}
+            VStack(spacing: 10) {
+                HStack {
+                    circleButton("xmark", fill: Theme.panel2, ink: .white, label: "Cancel", action: cancel)
+                    Spacer()
+                    VStack(spacing: 1) {
+                        Text(loc(title)).font(.headline.weight(.heavy))
+                        if let subtitle {
+                            Text(loc(subtitle)).font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+                        }
                     }
+                    Spacer()
+                    circleButton("checkmark", fill: Theme.accent, ink: .black, label: "OK", action: ok)
                 }
                 content
-                HStack(spacing: 10) {
-                    Button(action: cancel) {
-                        Text("Cancel")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Theme.panel2, in: Capsule())
-                    }
-                    Button(action: ok) {
-                        Text("OK")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Theme.accent.opacity(okEnabled ? 1 : 0.35), in: Capsule())
-                    }
-                    .disabled(!okEnabled)
-                }
-                .buttonStyle(.plain)
             }
-            .padding(20)
-            .frame(maxWidth: 360)
-            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 26))
-            .overlay(RoundedRectangle(cornerRadius: 26).stroke(Theme.line))
-            .padding(.horizontal, 20)
-            .scaleEffect(shown ? 1 : 0.92)
+            .padding(14)
+            .frame(width: 300)
+            .background(Theme.panel, in: RoundedRectangle(cornerRadius: 24))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Theme.line))
+            .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
+            .scaleEffect(shown ? 1 : 0.94)
             .opacity(shown ? 1 : 0)
         }
-        .onAppear { withAnimation(.spring(duration: 0.28, bounce: 0.15)) { shown = true } }
+        .onAppear { withAnimation(.spring(duration: 0.25, bounce: 0.15)) { shown = true } }
+    }
+
+    private func circleButton(_ icon: String, fill: Color, ink: Color, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundStyle(ink)
+                .frame(width: 36, height: 36)
+                .background(fill, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc(label))
     }
 }
 
-/// A seconds field: big digits on the decimal pad. The first key typed after it gets focus replaces the
-/// whole value (no deleting the old number first).
-struct SecondsField: View {
-    @Binding var text: String
-    var focused: FocusState<Bool>.Binding
-    var big = true
-    @State private var fresh = true
+/// A length on wheels, like the iPhone's timer: minutes (only when the clip can be a minute or longer), seconds and
+/// milliseconds (in steps of 10). The value always stays inside `range`: a wheel turned past it rolls back.
+/// Works in hundredths of a second.
+struct LengthWheels: View {
+    @Binding var hundredths: Int
+    let range: ClosedRange<Int>
+    @State private var m = 0
+    @State private var s = 0
+    @State private var cs = 0
+
+    private var showMinutes: Bool { range.upperBound >= 6000 }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            TextField("0", text: $text)
-                .keyboardType(.decimalPad)
-                .focused(focused)
-                .font(.system(size: big ? 34 : 26, weight: .heavy).monospacedDigit())
-                .multilineTextAlignment(.leading)
-                .onChange(of: text) { old, new in
-                    if fresh, focused.wrappedValue, new.count == old.count + 1, new.hasPrefix(old), let last = new.last {
-                        fresh = false
-                        text = String(last) == TypedSeconds.separator || last == "," || last == "."
-                            ? "0" + TypedSeconds.separator : String(last)
-                    } else if new != old {
-                        fresh = false
-                    }
-                }
-                .onChange(of: focused.wrappedValue) { _, on in if on { fresh = true } }
-            Text(verbatim: "s").font(.title3.weight(.bold)).foregroundStyle(Theme.muted)
+        HStack(spacing: 0) {
+            if showMinutes {
+                wheel($m, Array(0...(range.upperBound / 6000)), unit: "min") { "\($0)" }
+            }
+            wheel($s, Array(0...(showMinutes ? 59 : range.upperBound / 100)), unit: "s") { "\($0)" }
+            wheel($cs, Array(0...99), unit: "ms") { String(format: "%03d", $0 * 10) }
         }
-        .padding(.horizontal, 14).frame(height: big ? 58 : 50)
-        .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(focused.wrappedValue ? Theme.accent : .clear, lineWidth: 2))
-        .contentShape(Rectangle())
-        .onTapGesture { focused.wrappedValue = true }
+        .frame(height: 132)
+        .onAppear { split(hundredths) }
+        .onChange(of: hundredths) { _, v in if v != total { split(v) } }
+        .onChange(of: m) { picked() }
+        .onChange(of: s) { picked() }
+        .onChange(of: cs) { picked() }
+    }
+
+    private var total: Int { m * 6000 + s * 100 + cs }
+
+    private func split(_ v: Int) {
+        m = v / 6000
+        s = (v % 6000) / 100
+        cs = v % 100
+    }
+
+    /// A wheel moved: the length, kept inside the range (the wheels roll back if it went outside).
+    private func picked() {
+        let t = min(max(total, range.lowerBound), range.upperBound)
+        if t != hundredths { hundredths = t }
+        if t != total {
+            DispatchQueue.main.async { withAnimation { split(t) } }
+        }
+    }
+
+    private func wheel(_ value: Binding<Int>, _ values: [Int], unit: String,
+                       _ text: @escaping (Int) -> String) -> some View {
+        HStack(spacing: 2) {
+            Picker("", selection: value) {
+                ForEach(values, id: \.self) { v in
+                    Text(verbatim: text(v)).font(.title2.weight(.semibold).monospacedDigit()).tag(v)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(width: 66)
+            .clipped()
+            .contentShape(Rectangle())
+            Text(loc(unit)).font(.footnote.weight(.bold)).foregroundStyle(Theme.muted)
+                .frame(width: 26, alignment: .leading)
+        }
     }
 }
 
-/// One length to type (the speed panel): OK applies it, kept inside what the clip can do.
+/// How much was trimmed, as a sideways ruler: drag it left or right. The value sits above it the way the timeline
+/// shows it (minus = shorter). Steps of 0.01 s, a tick every 0.05 s, a long one every 0.5 s; past the clip's
+/// limits the ticks fade and the ruler stops.
+struct TrimRuler: View {
+    /// Hundredths of a second, + = longer than before the trim.
+    @Binding var change: Int
+    let range: ClosedRange<Int>
+    @State private var dragBase: Int?
+    private let pt: CGFloat = 3          // points per hundredth
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(verbatim: Fmt.delta(Double(change) / 100))
+                .font(.system(size: 15, weight: .bold).monospacedDigit())
+                .foregroundStyle(.black)
+                .padding(.horizontal, 12).padding(.vertical, 4)
+                .background(Theme.accent, in: Capsule())
+            ruler
+                .frame(height: 34)
+                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 10))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .contentShape(Rectangle())
+                .gesture(drag)
+        }
+    }
+
+    private var ruler: some View {
+        SwiftUI.Canvas { ctx, size in
+            let mid: CGFloat = size.width / 2
+            let reach: Int = Int(mid / pt) + 5
+            var k: Int = (change - reach) / 5 * 5
+            while k <= change + reach {
+                let x: CGFloat = mid + CGFloat(k - change) * pt
+                let long = k % 50 == 0
+                let h: CGFloat = long ? 22 : 12
+                let inside = range.contains(k)
+                let a: Double = inside ? (long ? 0.9 : 0.5) : 0.12
+                ctx.fill(Path(CGRect(x: x - 0.75, y: (size.height - h) / 2, width: 1.5, height: h)),
+                         with: .color(.white.opacity(a)))
+                k += 5
+            }
+            ctx.fill(Path(roundedRect: CGRect(x: mid - 1.5, y: 0, width: 3, height: size.height), cornerRadius: 1.5),
+                     with: .color(Theme.accent))
+        }
+    }
+
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                if dragBase == nil { dragBase = change }
+                let steps = Int((v.translation.width / pt).rounded())
+                let raw = (dragBase ?? change) - steps
+                let next = min(max(raw, range.lowerBound), range.upperBound)
+                if next != change {
+                    if next / 5 != change / 5 { UISelectionFeedbackGenerator().selectionChanged() }
+                    change = next
+                }
+            }
+            .onEnded { _ in dragBase = nil }
+    }
+}
+
+/// One length to pick (the speed panel): the check applies it, kept inside what the clip can do.
 struct LengthPopup: View {
     let prompt: LengthPrompt
     let close: () -> Void
-    @State private var text = ""
-    @FocusState private var focus: Bool
+    @State private var hundredths = 0
 
-    private var value: Double? { TypedSeconds.value(text).flatMap { $0 > 0 ? $0 : nil } }
+    private var range: ClosedRange<Int> {
+        let lo = max(1, Int((prompt.range.lowerBound * 100).rounded(.up)))
+        return lo...max(lo, Int((prompt.range.upperBound * 100).rounded(.down)))
+    }
 
     var body: some View {
-        PopupCard(title: prompt.title, subtitle: prompt.subtitle, okEnabled: value != nil, cancel: close) {
-            if let v = value { prompt.apply(min(max(v, prompt.range.lowerBound), prompt.range.upperBound)) }
+        PopupCard(title: prompt.title, subtitle: prompt.subtitle, cancel: close) {
+            prompt.apply(Double(hundredths) / 100)
             close()
         } content: {
-            VStack(alignment: .leading, spacing: 8) {
-                SecondsField(text: $text, focused: $focus)
-                Text(String.localizedStringWithFormat(loc("From %@ to %@"), TypedSeconds.label(prompt.range.lowerBound),
-                                                      TypedSeconds.label(prompt.range.upperBound)))
-                    .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-            }
+            LengthWheels(hundredths: $hundredths, range: range)
         }
-        .onAppear {
-            text = TypedSeconds.text(prompt.length)
-            focus = true
-        }
+        .onAppear { hundredths = min(max(Int((prompt.length * 100).rounded()), range.lowerBound), range.upperBound) }
     }
 }
 
-/// Second tap while holding a clip's trim handle: type the clip's length or how much is trimmed. OK trims the
-/// grabbed side to it, Cancel puts the clip back as it was before the handle was grabbed.
+/// Second tap while holding a trim handle: the length on wheels and how much is trimmed on a ruler, linked. The
+/// clip changes underneath as you turn them (timeline and preview); the check keeps it (one undo step), the X puts
+/// it back as it was before the handle was grabbed.
 struct PreciseTrimPopup: View {
     @ObservedObject var model: EditorModel
     let state: PreciseTrimState
-    @State private var lengthText = ""
-    @State private var trimmedText = ""
-    /// The trimmed amount's sign, like the label on the timeline: minus = shorter.
-    @State private var shorter = true
-    @FocusState private var lengthFocus: Bool
-    @FocusState private var trimmedFocus: Bool
-    @State private var syncing = false
+    @State private var hundredths = 0
+    @State private var touched = false
 
-    private var length: Double? { TypedSeconds.value(lengthText) }
+    private var start: Int { Int((state.startLength * 100).rounded()) }
+    private var range: ClosedRange<Int> {
+        let lo = max(1, Int((state.minLength * 100).rounded(.up)))
+        return lo...max(lo, Int((state.maxLength * 100).rounded(.down)))
+    }
+    private var subtitle: String {
+        state.layer ? (state.leading ? "Start of the layer" : "End of the layer")
+            : (state.leading ? "Start of the clip" : "End of the clip")
+    }
 
     var body: some View {
-        PopupCard(title: "Precise trim",
-                  subtitle: state.layer ? (state.leading ? "Trimming the start of the layer" : "Trimming the end of the layer")
-                      : (state.leading ? "Trimming the start of the clip" : "Trimming the end of the clip"),
-                  okEnabled: length.map { $0 > 0 } ?? false,
+        PopupCard(title: "Precise trim", subtitle: subtitle,
                   cancel: { model.cancelPreciseTrim() },
-                  ok: { if let l = length { model.applyPreciseTrim(length: l) } }) {
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    label(state.layer ? "Length" : "Clip length")
-                    HStack(spacing: 8) {
-                        SecondsField(text: $lengthText, focused: $lengthFocus)
-                        frameStep(-1)
-                        frameStep(1)
-                    }
-                    Text(String.localizedStringWithFormat(loc("From %@ to %@"), TypedSeconds.label(state.minLength),
-                                                          TypedSeconds.label(state.maxLength)))
-                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    label("Trimmed")
-                    HStack(spacing: 8) {
-                        Button {
-                            shorter.toggle()
-                            trimmedChanged()
-                        } label: {
-                            Text(verbatim: shorter ? "\u{2212}" : "+")
-                                .font(.system(size: 24, weight: .heavy))
-                                .foregroundStyle(.black)
-                                .frame(width: 50, height: 50)
-                                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 14))
-                        }
-                        .buttonStyle(.plain)
-                        SecondsField(text: $trimmedText, focused: $trimmedFocus, big: false)
-                    }
-                    Text(loc(shorter ? "Minus cuts the clip shorter" : "Plus brings footage back"))
-                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
-                }
+                  ok: { model.applyPreciseTrim(length: touched ? Double(hundredths) / 100 : state.length) }) {
+            VStack(spacing: 12) {
+                LengthWheels(hundredths: $hundredths, range: range)
+                TrimRuler(change: Binding(get: { hundredths - start }, set: { hundredths = start + $0 }),
+                          range: (range.lowerBound - start)...(range.upperBound - start))
             }
         }
-        .onAppear {
-            setLength(state.length)
-            lengthFocus = true
+        .onAppear { hundredths = min(max(Int((state.length * 100).rounded()), range.lowerBound), range.upperBound) }
+        // the clip follows underneath
+        .onChange(of: hundredths) { old, new in
+            guard old != 0 else { return }
+            touched = true
+            model.previewPreciseTrim(length: Double(new) / 100)
         }
-        .onChange(of: lengthText) { if !syncing && lengthFocus { lengthChanged() } }
-        .onChange(of: trimmedText) { if !syncing && trimmedFocus { trimmedChanged() } }
-    }
-
-    private func label(_ s: String) -> some View {
-        Text(loc(s)).font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.85))
-    }
-
-    /// One frame shorter or longer (the editor's 30 fps).
-    private func frameStep(_ dir: Int) -> some View {
-        Button {
-            let now = length ?? state.length
-            let frames = (now * EditorModel.fps).rounded() + Double(dir)
-            setLength(min(max(frames / EditorModel.fps, state.minLength), state.maxLength))
-            UISelectionFeedbackGenerator().selectionChanged()
-        } label: {
-            Image(systemName: dir < 0 ? "minus" : "plus")
-                .font(.system(size: 16, weight: .heavy))
-                .frame(width: 44, height: 58)
-                .background(Theme.panel2, in: RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(.plain)
-        .tint(.white)
-        .accessibilityLabel(loc(dir < 0 ? "One frame shorter" : "One frame longer"))
-    }
-
-    private func setLength(_ l: Double) {
-        syncing = true
-        lengthText = TypedSeconds.text(l)
-        let change = l - state.startLength
-        shorter = change <= 0
-        trimmedText = TypedSeconds.text(abs(change))
-        syncing = false
-    }
-
-    private func lengthChanged() {
-        guard let l = length else { return }
-        syncing = true
-        let change = l - state.startLength
-        shorter = change <= 0
-        trimmedText = TypedSeconds.text(abs(change))
-        syncing = false
-    }
-
-    private func trimmedChanged() {
-        guard let t = TypedSeconds.value(trimmedText) else { return }
-        syncing = true
-        lengthText = TypedSeconds.text(max(0, state.startLength + (shorter ? -t : t)))
-        syncing = false
     }
 }

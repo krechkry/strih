@@ -11407,6 +11407,86 @@
           }
         }
       }
+    },
+    "Tap anywhere while holding for precise trim": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ťukni kamkoli, zatímco držíš, a stříhej přesně"
+          }
+        }
+      }
+    },
+    "Start of the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Začátek klipu"
+          }
+        }
+      }
+    },
+    "End of the clip": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konec klipu"
+          }
+        }
+      }
+    },
+    "Start of the layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Začátek vrstvy"
+          }
+        }
+      }
+    },
+    "End of the layer": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konec vrstvy"
+          }
+        }
+      }
+    },
+    "min": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "min"
+          }
+        }
+      }
+    },
+    "ms": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ms"
+          }
+        }
+      }
+    },
+    "s": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "s"
+          }
+        }
+      }
     }
   }
 }

@@ -1504,12 +1504,22 @@ struct SlipTwoUp: View {
                 frame(view.last, "End")
             }
             .padding(6)
-            Text(verbatim: Fmt.delta(view.delta))
-                .font(.system(size: 15, weight: .bold).monospacedDigit())
-                .foregroundStyle(.black)
-                .padding(.horizontal, 12).padding(.vertical, 5)
-                .background(Theme.accent, in: Capsule())
-                .padding(.top, 10)
+            VStack(spacing: 6) {
+                Text(verbatim: Fmt.delta(view.delta))
+                    .font(.system(size: 15, weight: .bold).monospacedDigit())
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 12).padding(.vertical, 5)
+                    .background(Theme.accent, in: Capsule())
+                // trimming (not rolling, popup not open yet): how to get the exact length
+                if !view.roll && !view.precise {
+                    Label(loc("Tap anywhere while holding for precise trim"), systemImage: "pencil")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(.black.opacity(0.55), in: Capsule())
+                }
+            }
+            .padding(.top, 10)
         }
         .allowsHitTesting(false)
     }
