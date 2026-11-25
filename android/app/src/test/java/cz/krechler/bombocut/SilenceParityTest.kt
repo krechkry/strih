@@ -31,6 +31,9 @@ class SilenceParityTest {
     }
 
     private fun near(a: Double, b: Double) = abs(a - b) < 1e-9
+    private fun r9(x: Double) = Math.round(x * 1e9) / 1e9
+    private fun Clip.r() = copy(inPoint = r9(inPoint), outPoint = r9(outPoint), fadeIn = r9(fadeIn), fadeOut = r9(fadeOut),
+                                speedCurve = speedCurve?.map { it.copy(t = r9(it.t), v = r9(it.v)) })
 
     @Test fun findsTheSamePauses() {
         for ((n, c) in fixture.quiet.withIndex()) {
@@ -54,8 +57,8 @@ class SilenceParityTest {
             assertEquals("case $n: count", want.size, got.size)
             assertEquals("case $n: first keeps the id", want[0].id, got[0].id)
             for ((w, g) in want.zip(got)) {
-                // ids of the new pieces are random on both sides
-                assertEquals("case $n", w.copy(id = g.id), g)
+                // ids of the new pieces are random on both sides; the last bit of a double may differ (curve math)
+                assertEquals("case $n", w.copy(id = g.id).r(), g.r())
             }
         }
     }
