@@ -187,8 +187,14 @@ fun TextSheet(model: EditorModel) {
     val o = model.selectedOverlay ?: return
     val k = o.kind as? OverlayKind.Text ?: return
     var text by remember(o.id) { mutableStateOf(k.text) }
+    TypingStep(model, text)
     OutlinedTextField(
-        text, { text = it; model.changeOverlay(o.id) { ov -> ov.copy(kind = OverlayKind.Text(it)) } },
+        text, { t ->
+            text = t
+            // typing is one undo step (it ends a moment after the last key, or when the panel closes)
+            model.laneDragBegan()
+            model.laneDragChanged { p -> p.copy(overlays = p.overlays.map { if (it.id == o.id) it.copy(kind = OverlayKind.Text(t)) else it }) }
+        },
         Modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                                                   focusedBorderColor = Theme.accent, cursorColor = Theme.accent),
@@ -304,8 +310,17 @@ fun CaptionLineSheet(model: EditorModel) {
     val (k, id) = model.selectedCue ?: return
     val cue = model.selectedCueLine ?: return
     var text by remember(id) { mutableStateOf(cue.text) }
+    TypingStep(model, text)
     OutlinedTextField(
-        text, { text = it; model.setCueText(k, id, it) },
+        text, { t ->
+            text = t
+            model.laneDragBegan()
+            model.laneDragChanged { p ->
+                val tracks = p.captionTracks.toMutableList()
+                tracks.getOrNull(k)?.let { caps -> tracks[k] = caps.copy(cues = caps.cues.map { if (it.id == id) it.withText(t) else it }) }
+                p.copy(captionTracks = tracks)
+            }
+        },
         Modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                                                   focusedBorderColor = Theme.accent, cursorColor = Theme.accent),
@@ -419,4 +434,14 @@ fun FontPills(current: cz.krechler.bombocut.model.CaptionFont, pick: (cz.krechle
                      .padding(horizontal = 14.dp, vertical = 8.dp))
         }
     }
+}
+
+/** Ends a typing undo step 0.8 s after the last key, or when the panel goes away. */
+@Composable
+private fun TypingStep(model: EditorModel, text: String) {
+    androidx.compose.runtime.LaunchedEffect(text) {
+        kotlinx.coroutines.delay(800)
+        model.laneDragEnded()
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { model.laneDragEnded() } }
 }
