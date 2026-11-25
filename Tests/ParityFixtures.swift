@@ -299,5 +299,78 @@ final class ParityFixtures: XCTestCase {
         ]
         try write(ColorFixture(input: colors, cases: cases.map { ColorCase(name: $0.0, effects: $0.1, output: render($0.1)) }), "colors.json")
     }
-}
 
+    // MARK: Captions: CaptionCutter (lines from timed words) and restyle after an edit
+
+    struct CutCase: Codable {
+        var name: String
+        var words: [CaptionWord]
+        var style: CaptionStyle
+        var cuts: [Double]
+        var cues: [CaptionCue]
+    }
+    struct RestyleCase: Codable { var name: String; var before: Captions; var lines: Int; var maxChars: Int; var after: Captions }
+    struct CaptionFixture: Codable { var cuts: [CutCase]; var restyles: [RestyleCase]; var wraps: [[String]] }
+
+    /// Words of a few sentences with speech-like timing: longer words take longer, a pause after a full stop.
+    private func timed(_ text: String, from t0: Double = 0.2) -> [CaptionWord] {
+        var t = t0
+        return text.split(separator: " ").map { w in
+            let d = 0.12 + 0.045 * Double(w.count)
+            defer { t += d + (".?!".contains(w.last!) ? 0.9 : ",".contains(w.last!) ? 0.25 : 0.04) }
+            return CaptionWord(text: String(w), start: t, end: t + d)
+        }
+    }
+
+    func testWriteCaptions() throws {
+        let texts = [
+            "Ahoj lidi, dneska jedeme do skateparku a ukážu vám nový trik. Je to backflip, který jsem trénoval celé léto.",
+            "Tak jsme tady. Počasí vypadá dobře, ale vítr je trochu silnější, než jsem čekal, takže uvidíme.",
+            "So this is the spot where we filmed the whole part. It took us three weeks, but it was worth it, and the crew was amazing.",
+            "Já si myslím že to je v pohodě a že to zvládneme s klukama za dvě hodiny.",
+            "Rychlost 2.5 krát je fakt hodně… Co myslíš? Zkusíme to znovu!",
+        ]
+        var cases: [CutCase] = []
+        for (i, text) in texts.enumerated() {
+            let words = timed(text)
+            for lines in [1, 2] {
+                for maxChars in [16, 26, 42] {
+                    for natural in [true, false] {
+                        for punct in [false, true] {
+                            var st = CaptionStyle()
+                            st.lines = lines; st.maxChars = maxChars; st.naturalBreaks = natural; st.punctuation = punct
+                            let name = "t\(i) l\(lines) c\(maxChars) \(natural ? "nat" : "greedy") \(punct ? "punct" : "nopunct")"
+                            cases.append(CutCase(name: name, words: words, style: st, cuts: [],
+                                                 cues: CaptionCutter.cues(from: words, style: st)))
+                        }
+                    }
+                }
+            }
+            // your own split in the middle of the text
+            var st = CaptionStyle()
+            let mid = words[words.count / 2]
+            cases.append(CutCase(name: "t\(i) cut", words: words, style: st, cuts: [mid.start - 0.01],
+                                 cues: CaptionCutter.cues(from: words, style: st, cuts: [mid.start - 0.01])))
+            st.lines = 1
+            cases.append(CutCase(name: "t\(i) cut l1", words: words, style: st, cuts: [mid.start - 0.01],
+                                 cues: CaptionCutter.cues(from: words, style: st, cuts: [mid.start - 0.01])))
+        }
+        // an edited line survives a new cut (absorbEdits), then the lines are cut again
+        var restyles: [RestyleCase] = []
+        for (i, text) in texts.prefix(3).enumerated() {
+            var caps = Captions(language: "cs", words: timed(text), cues: [], style: CaptionStyle())
+            caps.cues = CaptionCutter.cues(from: caps.words, style: caps.style)
+            caps.cues[0].setText("Upravený první řádek")
+            let before = caps
+            caps.restyle { $0.lines = 1; $0.maxChars = 20 }
+            restyles.append(RestyleCase(name: "edit t\(i)", before: before, lines: 1, maxChars: 20, after: caps))
+        }
+        var wraps: [[String]] = []
+        for text in texts {
+            for (mc, l) in [(16, 2), (26, 2), (20, 3), (12, 1)] {
+                wraps.append([text, "\(mc)", "\(l)", CaptionCutter.wrap(text, maxChars: mc, lines: l)])
+            }
+        }
+        try write(CaptionFixture(cuts: cases, restyles: restyles, wraps: wraps), "captions.json")
+    }
+}
