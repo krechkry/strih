@@ -83,6 +83,7 @@ object CompositionBuilder {
         val start = if (h > 0) rt.source(h) else c.inPoint
         val end = if (t > 0) rt.source(rt.outDuration - t) else c.outPoint
         val length = rt.outDuration - h - t
+        android.util.Log.i("Bombocut", "clip ${c.id}: source ${start}..${end}, plays ${length} s (head $h, tail $t)")
         val media = MediaItem.Builder()
             .setUri(Uri.fromFile(Paths.mediaFile(c.mediaFile)))
             .setClippingConfiguration(

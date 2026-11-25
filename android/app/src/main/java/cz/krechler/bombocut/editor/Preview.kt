@@ -70,10 +70,20 @@ fun PreviewView(project: Project, state: PreviewState, modifier: Modifier = Modi
         p.setComposition(comp, (state.time * 1000).toLong())
         p.prepare()
     }
+    val shown = remember { arrayOf<Any?>(null) }
     LaunchedEffect(project.overlays, project.captionTracks) {
         LiveLayers.project = project
-        // paused: show the change right away (the player draws the frame again when it seeks)
-        state.player?.let { if (!it.isPlaying) it.seekTo(it.currentPosition) }
+        val key = project.overlays to project.captionTracks
+        // the first time is the editor opening: the rebuild above takes care of it
+        if (shown[0] == null) { shown[0] = key; return@LaunchedEffect }
+        shown[0] = key
+        // paused: a seek doesn't draw the paused frame again, so the composition is set again once typing pauses
+        val p = state.player ?: return@LaunchedEffect
+        if (p.isPlaying) return@LaunchedEffect
+        delay(250)
+        val comp = CompositionBuilder.build(project, w, h, livePreview = true) ?: return@LaunchedEffect
+        p.setComposition(comp, (state.time * 1000).toLong())
+        p.prepare()
     }
     LaunchedEffect(Unit) {
         while (true) {
