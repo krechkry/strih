@@ -420,4 +420,41 @@ final class ParityFixtures: XCTestCase {
         }
         try write(SilenceFixture(quiet: quiet, pieces: pieces), "silence.json")
     }
+
+    // MARK: Beats: the same synthetic drum loop on both sides (kick on the beat, a hat between), beats and tempo
+
+    struct BeatCase: Codable { var bpm: Double; var offset: Double; var seconds: Double; var tempo: Double?; var beats: [Double] }
+
+    /// A kick on every beat and a hat between them; the hat's noise from a plain LCG so Kotlin makes the same.
+    static func drumLoop(bpm: Double, offset: Double, seconds: Double) -> [Float] {
+        let sr = BeatDetector.sampleRate
+        let n = Int(seconds * sr)
+        let period = 60 / bpm
+        var state: UInt64 = 12345
+        var out = [Float](repeating: 0, count: n)
+        for i in 0..<n {
+            let t = Double(i) / sr
+            state = (state * 1103515245 + 12345) & 0x7fffffff
+            let noise = Double(state) / 2147483648.0 * 2 - 1
+            var v = 0.0
+            if t >= offset {
+                let k = ((t - offset) / period).rounded(.down)
+                let dt = t - offset - k * period
+                v += sin(2 * .pi * 55 * dt) * exp(-dt * 25)
+                let dh = dt - period / 2
+                if dh >= 0 && dh < 0.03 { v += noise * exp(-dh * 150) * 0.3 }
+            }
+            out[i] = Float(v * 0.8)
+        }
+        return out
+    }
+
+    func testWriteBeats() throws {
+        var cases: [BeatCase] = []
+        for (bpm, offset, seconds) in [(120.0, 0.3, 10.0), (128.0, 0.1, 10.0), (90.0, 0.5, 12.0), (140.0, 0.2, 8.0)] {
+            let x = Self.drumLoop(bpm: bpm, offset: offset, seconds: seconds)
+            cases.append(BeatCase(bpm: bpm, offset: offset, seconds: seconds, tempo: BeatDetector.tempo(x), beats: BeatDetector.beats(x)))
+        }
+        try write(cases, "beats.json")
+    }
 }
