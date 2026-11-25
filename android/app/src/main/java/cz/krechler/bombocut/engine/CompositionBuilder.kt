@@ -162,6 +162,14 @@ object CompositionBuilder {
         return (0..1).map { roll ->
             val b = EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
             var t = 0.0
+            if (roll == 1 && project.clips.size > 1) {
+                // Transformer only composites when every roll's first item has video: B can't open with a gap, so
+                // it opens with the first clip again (no sound, hidden under A), up to where its own clip starts
+                val c0 = project.clips[0]
+                val muted = item(c0, width, height, tail = c0.duration - starts[1])
+                b.addItem(muted.buildUpon().setRemoveAudio(true).build())
+                t = starts[1]
+            }
             for (k in project.clips.indices) {
                 if (k % 2 != roll) continue
                 val c = project.clips[k]
