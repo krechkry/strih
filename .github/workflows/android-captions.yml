@@ -95,12 +95,12 @@ jobs:
           [ -d android/ci/out-captions ] || exit 0
           SHA=$(git rev-parse --short HEAD)
           cp -r android/ci/out-captions /tmp/captions
+          # committed from a folder that holds only these files (never the build outputs: the APK is over 100 MB)
+          cd /tmp/captions
+          git init -q -b out
           git config user.name screens-bot; git config user.email screens-bot@users.noreply.github.com
-          git checkout -q --orphan captions-tmp
-          git rm -rfq . > /dev/null
-          cp -r /tmp/captions/* .
           echo "$SHA" > COMMIT
           git add -A
           git commit -qm "captions from $SHA"
-          git push -fq origin captions-tmp:android-captions
+          git push -fq "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" out:android-captions
           { echo "### Captions heard"; cat /tmp/captions/words.txt 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"

@@ -106,12 +106,12 @@ jobs:
           [ -d android/ci/out ] || exit 0
           SHA=$(git rev-parse --short HEAD)
           cp -r android/ci/out /tmp/screens
+          # committed from a folder that holds only these files (never the build outputs: the APK is over 100 MB)
+          cd /tmp/screens
+          git init -q -b out
           git config user.name screens-bot; git config user.email screens-bot@users.noreply.github.com
-          git checkout -q --orphan screens-tmp
-          git rm -rfq . > /dev/null
-          cp -r /tmp/screens/* .
           echo "$SHA" > COMMIT
           git add -A
           git commit -qm "screens from $SHA"
-          git push -fq origin screens-tmp:android-screens
+          git push -fq "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" out:android-screens
 

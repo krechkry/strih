@@ -66,3 +66,5 @@ PY
 cat $OUT/words.txt $OUT/time.txt
 adb logcat -d | grep -iE "Bombocut|sherpa|onnx" | tail -120 > $OUT/log.txt || true
 adb logcat -d -b crash > $OUT/crash.txt || true
+echo "=== app log ==="; grep -vE "Bombocut: clip" $OUT/log.txt | tail -60
+echo "=== crash ==="; head -40 $OUT/crash.txt
