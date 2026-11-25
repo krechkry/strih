@@ -177,8 +177,9 @@ object CompositionBuilder {
                 b.addItem(item(c, width, height))
                 t = starts[k] + c.duration
             }
-            // the primary roll sets the output's length: it covers the whole video
-            if (roll == 0 && total - t > 0.001) b.addGap(us(total - t))
+            // both rolls run to the very end: the primary sets the output's length, and a roll that ended early
+            // made the compositor fail when a last frame of it still came in
+            if (total - t > 0.001) b.addGap(us(total - t))
             b.build()
         }
     }
