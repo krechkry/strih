@@ -1,7 +1,8 @@
 // Text layers and captions over the picture (iOS: OverlayRenderer text + CaptionRenderer in FrameCompositor),
 // as one Media3 BitmapOverlay the size of the canvas, used by the preview and the export alike. The frame is
 // drawn again only when what shows changes (a new line, a layer coming in, a keyframe or an animation moving).
-// Not yet: pictures and video layers, blend modes, pinned (tracked) texts, per-word caption animations.
+// Pictures are drawn too (fit, keyframes, animations). Not yet: video layers, blend modes, crop / mask / effects
+// on pictures, pinned (tracked) layers, per-word caption animations.
 @file:OptIn(androidx.media3.common.util.UnstableApi::class)
 package cz.krechler.bombocut.engine
 
@@ -30,7 +31,9 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
     private val blocks = HashMap<Pair<String, CaptionStyle>, Bitmap?>()
 
     private data class Piece(val key: String, val text: String, val style: CaptionStyle, val wrap: Boolean,
-                             val cx: Float, val cy: Float, val scale: Float, val rotation: Float, val alpha: Float)
+                             val cx: Float, val cy: Float, val scale: Float, val rotation: Float, val alpha: Float,
+                             /** A picture layer: its file and the share of the canvas it fits in at scale 1. */
+                             val file: String? = null, val base: Pair<Double, Double>? = null)
 
     /** What shows at timeline time t, top layer last. */
     private fun pieces(t: Double): List<Piece> {
@@ -62,19 +65,37 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
                           scale.toFloat(), Math.toDegrees(st.rotation).toFloat(), alpha.toFloat()))
         }
         for (o in project.overlays) {
-            val text = (o.kind as? OverlayKind.Text)?.text ?: continue
+            val pic = o.kind as? OverlayKind.Image
+            val text = (o.kind as? OverlayKind.Text)?.text
+            if (text == null && pic == null) continue
             if (t < o.start - 1e-4 || t >= o.end) continue
             val (tr, opacity) = o.pose(t)
             val a = o.anim.pose(t - o.start, o.duration)
             val alpha = opacity * a.opacity
             if (alpha <= 0.004) continue
-            out.add(Piece("o${o.id}", text, o.style, true, (w / 2 + (tr.x + a.dx) * w).toFloat(), (h / 2 + (tr.y + a.dy) * h).toFloat(),
-                          (tr.scale * a.scale).toFloat(), Math.toDegrees(tr.rotation).toFloat(), alpha.toFloat()))
+            out.add(Piece("o${o.id}", text ?: "", o.style, true, (w / 2 + (tr.x + a.dx) * w).toFloat(), (h / 2 + (tr.y + a.dy) * h).toFloat(),
+                          (tr.scale * a.scale).toFloat(), Math.toDegrees(tr.rotation).toFloat(), alpha.toFloat(),
+                          file = pic?.file, base = pic?.let { o.baseFraction(w.toDouble() / h) }))
         }
         return out
     }
 
+    private val pictures = HashMap<String, Bitmap?>()
+
+    /** A picture layer's file, at most 2400 px on its long side (iOS keeps big photos manageable the same way). */
+    private fun picture(file: String): Bitmap? = pictures.getOrPut(file) {
+        runCatching {
+            val f = cz.krechler.bombocut.model.Paths.mediaFile(file)
+            val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(f.path, o)
+            var sample = 1
+            while (maxOf(o.outWidth, o.outHeight) / sample > 2400) sample *= 2
+            android.graphics.BitmapFactory.decodeFile(f.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+        }.getOrNull()
+    }
+
     private fun block(p: Piece): Bitmap? {
+        p.file?.let { return picture(it) }
         // typing makes a new block per letter: keep the cache small
         if (blocks.size > 48) blocks.clear()
         return blocks.getOrPut(p.text to p.style) { TextRenderer.render(p.text, p.style, w, h, p.wrap) }
@@ -92,10 +113,12 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
         for (p in ps) {
             val b = block(p) ?: continue
             paint.alpha = (p.alpha * 255).toInt().coerceIn(0, 255)
+            // a picture fits its share of the canvas (Overlay.baseFraction); text is drawn at the canvas' own size
+            val fit = p.base?.let { (bw, bh) -> minOf(bw * w / b.width, bh * h / b.height).toFloat() } ?: 1f
             c.save()
             c.translate(p.cx, p.cy)
             c.rotate(p.rotation)
-            c.scale(p.scale, p.scale)
+            c.scale(p.scale * fit, p.scale * fit)
             c.drawBitmap(b, -b.width / 2f, -b.height / 2f, paint)
             c.restore()
         }
@@ -105,7 +128,7 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
     companion object {
         /** The layer as an effect, or null when the project has no text and no captions. */
         fun hasAny(project: Project): Boolean =
-            project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind is OverlayKind.Text }
+            project.captionTracks.any { it.cues.isNotEmpty() } || project.overlays.any { it.kind is OverlayKind.Text || it.kind is OverlayKind.Image }
 
         /** `live`: the preview, reading LiveLayers; export takes the project as it is. */
         fun effect(project: Project, w: Int, h: Int, live: Boolean = false): OverlayEffect? {

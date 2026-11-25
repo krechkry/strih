@@ -5,6 +5,7 @@ package cz.krechler.bombocut.editor
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Image
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -71,6 +72,11 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
             if (SoundImport.add(context, uri, model)) sheet = "sound"
         }
     }
+    val picturePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            if (PictureImport.add(context, uri, model)) sheet = "picture"
+        }
+    }
     // while playing the playhead follows the player
     LaunchedEffect(preview.time, preview.playing) { if (preview.playing) model.currentTime = preview.time }
 
@@ -112,7 +118,8 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
         // the free week is over: the project can still be exported as it is, the tools wait for the purchase
         if (exportOnly) Text(loc("Your 7 free days are over"), color = Theme.muted, fontWeight = FontWeight.Bold,
                              modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp))
-        else ToolRow(model, addSound = { preview.player?.pause(); soundPicker.launch("audio/*") }) { preview.player?.pause(); sheet = it }
+        else ToolRow(model, addSound = { preview.player?.pause(); soundPicker.launch("audio/*") },
+                     addPicture = { preview.player?.pause(); picturePicker.launch("image/*") }) { preview.player?.pause(); sheet = it }
         preview.error?.let { Text(it, color = Color(0xFFFF453A), modifier = Modifier.padding(12.dp)) }
     }
     // a panel covers the bottom, the preview stays in view (iOS Panel)
@@ -120,15 +127,17 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
     val fits = when (open) {
         "text" -> model.selectedOverlay?.isText == true
         "sound" -> model.selectedAudio != null
+        "picture" -> model.selectedOverlay?.kind is cz.krechler.bombocut.model.OverlayKind.Image
         null -> false
         else -> model.selectedIndex != null
     }
     if (open != null && fits) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.BottomCenter) {
-            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 440.dp; "sound" -> 460.dp; else -> 380.dp }, close = { sheet = null }) {
+            Panel(when (open) { "speed" -> 560.dp; "adjust" -> 520.dp; "text" -> 440.dp; "sound" -> 460.dp; "picture" -> 320.dp; else -> 380.dp }, close = { sheet = null }) {
                 when (open) {
                     "text" -> TextSheet(model)
                     "sound" -> SoundSheet(model)
+                    "picture" -> PictureSheet(model)
                     "adjust" -> AdjustSheet(model)
                     "speed" -> SpeedSheet(model, ::scrub)
                     "volume" -> VolumeSheet(model)
@@ -141,7 +150,7 @@ fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false,
 }
 
 @Composable
-private fun ToolRow(model: EditorModel, addSound: () -> Unit, open: (String) -> Unit) {
+private fun ToolRow(model: EditorModel, addSound: () -> Unit, addPicture: () -> Unit, open: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().height(72.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -151,6 +160,7 @@ private fun ToolRow(model: EditorModel, addSound: () -> Unit, open: (String) -> 
             // nothing picked: add a text or a sound at the playhead (iOS: the island's + buttons)
             ToolButton(Icons.Filled.TextFields, "Text") { model.addText(); open("text") }
             ToolButton(Icons.Filled.MusicNote, "Audio") { addSound() }
+            ToolButton(Icons.Filled.Image, "Overlay") { addPicture() }
         }
         if (model.selectedIndex != null) {
             ToolButton(Icons.Filled.Tune, "Adjust") { open("adjust") }

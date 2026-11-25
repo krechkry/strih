@@ -81,6 +81,45 @@ fun EditorModel.deleteAudio(id: UUID) {
     selectedAudioID = null
 }
 
+/** A picture at the playhead, fitted inside 70 % of the canvas (Overlay.baseFraction), picked. */
+fun EditorModel.addPicture(file: String, aspect: Double) {
+    val start = minOf(currentTime, maxOf(0.0, duration - 0.5))
+    val o = Overlay(kind = OverlayKind.Image(file), start = start, duration = minOf(Defaults.layerLength, maxOf(0.5, duration - start)),
+                    aspect = aspect)
+    mutate { p -> p.copy(overlays = p.overlays + o) }
+    selectOverlay(o.id)
+}
+
+object PictureImport {
+    /** Copies the picked picture in and adds it at the playhead; false when it can't be read. */
+    suspend fun add(context: Context, uri: Uri, model: EditorModel): Boolean {
+        val f = Media.copyIn(context, uri) ?: return false
+        val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(f.path, o)
+        if (o.outWidth <= 0 || o.outHeight <= 0) { f.delete(); return false }
+        model.addPicture(f.name, o.outWidth.toDouble() / o.outHeight)
+        return true
+    }
+}
+
+@Composable
+fun PictureSheet(model: EditorModel) {
+    val o = model.selectedOverlay ?: return
+    var op by remember(o.id, o.opacity) { mutableStateOf(o.opacity) }
+    Row {
+        Text(loc("Opacity"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(op * 100).toInt()} %", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(op, 0.0..1.0, { op = it }, { model.changeOverlay(o.id) { it.copy(opacity = op) } })
+    var sc by remember(o.id, o.transform.scale) { mutableStateOf(o.transform.scale) }
+    Row {
+        Text(loc("Scale"), color = Theme.muted, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text("${(sc * 100).toInt()} %", color = Color.White, fontWeight = FontWeight.Bold)
+    }
+    BSlider(sc, 0.1..3.0, { sc = it }, { model.changeOverlay(o.id) { it.copy(transform = it.transform.copy(scale = sc)) } })
+    TextButton({ model.deleteOverlay(o.id) }) { Text(loc("Delete"), color = Color(0xFFFF453A), fontWeight = FontWeight.Bold) }
+}
+
 object SoundImport {
     /** The picked file's name without its extension (what the sound lane shows). */
     fun name(context: Context, uri: Uri): String = runCatching {

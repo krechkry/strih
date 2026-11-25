@@ -125,7 +125,7 @@ fun TimelineView(model: EditorModel, tl: TimelineState, scrub: (Double) -> Unit,
                           Theme.panel2, if (o.isText) o.title else loc(o.title), Color.White,
                           selected = model.selectedOverlayID == o.id) {
                     if (model.selectedOverlayID == o.id) model.selectOverlay(null)
-                    else { model.selectOverlay(o.id); if (o.isText) pick("text") }
+                    else { model.selectOverlay(o.id); pick(if (o.isText) "text" else "picture") }
                 }
             }
         }
