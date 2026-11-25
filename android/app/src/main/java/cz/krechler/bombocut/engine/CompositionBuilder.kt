@@ -165,9 +165,9 @@ object CompositionBuilder {
             if (roll == 1 && project.clips.size > 1) {
                 // Transformer only composites when every roll's first item has video: B can't open with a gap, so
                 // it opens with the first clip again (no sound, hidden under A), up to where its own clip starts
-                val c0 = project.clips[0]
-                val muted = item(c0, width, height, tail = c0.duration - starts[1])
-                b.addItem(muted.buildUpon().setRemoveAudio(true).build())
+                // (silent by volume: every item of a roll has to carry the same tracks, so its sound stays in)
+                val c0 = project.clips[0].copy(volume = 0.0)
+                b.addItem(item(c0, width, height, tail = c0.duration - starts[1]))
                 t = starts[1]
             }
             for (k in project.clips.indices) {
