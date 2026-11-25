@@ -15,9 +15,9 @@ import java.util.UUID
 
 class EditorModel(start: Project, private val store: ProjectStore?) {
     var project by mutableStateOf(start)
+        private set
     /** The free week is over and nothing is bought: the project only exports as it is, every edit is ignored. */
     var locked = false
-        private set
     var currentTime by mutableStateOf(0.0)
     var selectedClipID by mutableStateOf<UUID?>(null)
     /** A text / layer or a sound picked in its lane (picking one lets go of the others, like iOS). */
