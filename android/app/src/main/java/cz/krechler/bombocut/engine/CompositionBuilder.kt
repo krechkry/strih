@@ -226,11 +226,11 @@ object CompositionBuilder {
         val b = Composition.Builder(video + soundSequences(project))
         settings?.let { b.setVideoCompositorSettings(it) }
         // over the whole picture: texts and captions; export: the frame rate asked for (the preview plays the footage's own)
-        val video = listOfNotNull(
+        val whole = listOfNotNull(
             TextLayer.effect(project, width, height, livePreview),
             fps?.let { androidx.media3.effect.FrameDropEffect.createDefaultFrameDropEffect(it.toFloat()) },
         )
-        if (video.isNotEmpty()) b.setEffects(Effects(emptyList(), video))
+        if (whole.isNotEmpty()) b.setEffects(Effects(emptyList(), whole))
         return b.build()
     }
 }
