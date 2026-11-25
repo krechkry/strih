@@ -58,7 +58,8 @@ class SilenceParityTest {
             assertEquals("case $n: first keeps the id", want[0].id, got[0].id)
             for ((w, g) in want.zip(got)) {
                 // ids of the new pieces are random on both sides; the last bit of a double may differ (curve math)
-                assertEquals("case $n", w.copy(id = g.id).r(), g.r())
+                // outerSpeed / stackBlur are worked out from the Stack and never saved: the JSON has their defaults
+                assertEquals("case $n", w.copy(id = g.id, outerSpeed = g.outerSpeed, stackBlur = g.stackBlur).r(), g.r())
             }
         }
     }
