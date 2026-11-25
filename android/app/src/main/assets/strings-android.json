@@ -101,6 +101,26 @@
           }
         }
       }
+    },
+    "Saved to the gallery (Movies / BOMBOCUT)": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uloženo do galerie (Filmy / BOMBOCUT)"
+          }
+        }
+      }
+    },
+    "It disappears forever, together with its imported videos. There is no trash bin. Your originals in the gallery stay.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmizí navždy i s importovanými videi. Koš tu není. Tvoje originály v galerii zůstanou."
+          }
+        }
+      }
     }
   }
 }

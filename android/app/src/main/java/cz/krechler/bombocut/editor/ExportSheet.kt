@@ -71,7 +71,7 @@ fun ExportSheet(project: Project, close: () -> Unit) {
                                 when (val r = Exporter.render(context, project, preset) { progress = it }) {
                                     is Exporter.Result.Saved -> {
                                         val ok = Exporter.saveToGallery(context, r.file, project.name.replace("/", "-"))
-                                        done = if (ok) loc("Saved to Photos") else loc("Couldn't save the video.")
+                                        done = if (ok) loc("Saved to the gallery (Movies / BOMBOCUT)") else loc("Couldn't save the video.")
                                     }
                                     is Exporter.Result.Failed -> done = r.message
                                 }

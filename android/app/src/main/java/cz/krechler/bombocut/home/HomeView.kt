@@ -159,7 +159,7 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text(p.name) },
-            text = { Text(loc("It disappears forever, together with its imported videos. There is no trash bin. Your originals in Photos stay.")) },
+            text = { Text(loc("It disappears forever, together with its imported videos. There is no trash bin. Your originals in the gallery stay.")) },
             confirmButton = { TextButton({ store.delete(p); deleting = null }) { Text(loc("Delete forever"), color = Color(0xFFFF453A)) } },
             dismissButton = { TextButton({ deleting = null }) { Text(loc("Cancel")) } },
         )
