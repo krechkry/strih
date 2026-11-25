@@ -383,10 +383,12 @@ private fun CaptionStyleControls(model: EditorModel, k: Int) {
     OnOffRow("Box", isOn = st.box) { on -> model.setCaptionStyle(k) { it.copy(box = on) } }
     OnOffRow("CAPS", isOn = st.caps) { on -> model.setCaptionStyle(k) { it.copy(caps = on) } }
     Text(loc("Animation"), color = Theme.muted, fontWeight = FontWeight.Bold)
-    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-        // the ones Android draws today (Highlight and Word by word need per-word drawing)
+    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
         for ((a, name) in listOf(cz.krechler.bombocut.model.CaptionAnim.none to "None", cz.krechler.bombocut.model.CaptionAnim.fade to "Fade",
-                                 cz.krechler.bombocut.model.CaptionAnim.pop to "Pop", cz.krechler.bombocut.model.CaptionAnim.slide to "Slide up")) {
+                                 cz.krechler.bombocut.model.CaptionAnim.pop to "Pop", cz.krechler.bombocut.model.CaptionAnim.slide to "Slide up",
+                                 cz.krechler.bombocut.model.CaptionAnim.highlight to "Highlight", cz.krechler.bombocut.model.CaptionAnim.words to "Word by word",
+                                 cz.krechler.bombocut.model.CaptionAnim.typewriter to "Typewriter")) {
             val on = st.anim == a
             Text(loc(name), color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold,
                  modifier = Modifier.background(if (on) Theme.accent else Theme.panel2, androidx.compose.foundation.shape.RoundedCornerShape(50))

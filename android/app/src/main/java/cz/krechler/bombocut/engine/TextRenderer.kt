@@ -1,7 +1,8 @@
 // Ported from Bombocut/Engine/CaptionRenderer.swift (iOS ad3827a): the text block of a caption line or a text
 // layer, drawn with Android's Canvas instead of Core Text. Same measures: size from the canvas' short side,
 // 88 % of the width at most, padding, box per line, outline (outside only or centered) and a soft shadow.
-// Not yet: the fonts that come with the app (FontCatalog, fontName), per-word colors (Highlight, Word by word).
+// Per word too: Highlight (the spoken word lit), Word by word, Typewriter. Not yet: the fonts that come with the
+// app (FontCatalog, fontName).
 package cz.krechler.bombocut.engine
 
 import android.graphics.Bitmap
@@ -55,7 +56,8 @@ object TextRenderer {
      * The text block for a canvas of `cw` x `ch` pixels, or null for no text. `wrap`: text layers wrap at spaces
      * (only a word wider than the box shrinks the text); caption lines shrink to fit their widest line.
      */
-    fun render(text: String, style: CaptionStyle, cw: Int, ch: Int, wrap: Boolean): Bitmap? {
+    fun render(text: String, style: CaptionStyle, cw: Int, ch: Int, wrap: Boolean,
+               active: Int? = null, visibleWords: Int? = null, visibleFraction: Double? = null): Bitmap? {
         val short = minOf(cw, ch).toFloat()
         var fontSize = style.size.toFloat() * short
         val maxWidth = cw * 0.88f
@@ -116,15 +118,42 @@ object TextRenderer {
             color = argb(style.stroke)
         }
         val fill = Paint(paint).apply { color = argb(style.text) }
+        val lit = Paint(paint).apply { color = argb(style.highlight) }
+        // per word (iOS: attributed runs): the spoken word in the highlight color, words not spoken yet or letters not
+        // typed yet left out (they keep their place, the box keeps its size)
+        val visibleChars = visibleFraction?.let { (raw.codePointCount(0, raw.length) * it).toInt() }
+        var wordIndex = 0
+        var charIndex = 0
         lines.forEachIndexed { i, line ->
             val w = widths[i]
             val y = margin + i * step
             val x = (bw - w) / 2
             if (style.box) c.drawRoundRect(RectF(x - padX, y, x + w + padX, y + rowH), fontSize * 0.22f, fontSize * 0.22f, box)
             val baseline = y + padY - fm.ascent
-            if (outline > 0 && style.strokeOutside) { stroke.strokeWidth = outline * 2; c.drawText(line, x, baseline, stroke) }
-            c.drawText(line, x, baseline, fill)
-            if (outline > 0 && !style.strokeOutside) { stroke.strokeWidth = outline; c.drawText(line, x, baseline, stroke) }
+            if (active == null && visibleWords == null && visibleChars == null) {
+                if (outline > 0 && style.strokeOutside) { stroke.strokeWidth = outline * 2; c.drawText(line, x, baseline, stroke) }
+                c.drawText(line, x, baseline, fill)
+                if (outline > 0 && !style.strokeOutside) { stroke.strokeWidth = outline; c.drawText(line, x, baseline, stroke) }
+                return@forEachIndexed
+            }
+            var at = 0
+            line.split(" ").forEachIndexed { k, word ->
+                if (k > 0) { at += 1; charIndex += 1 }   // the space before it
+                val wx = x + paint.measureText(line, 0, at)
+                var shown = word.length
+                visibleChars?.let { vc -> shown = (vc - charIndex).coerceIn(0, word.length) }
+                if (visibleWords != null && wordIndex >= visibleWords) shown = 0
+                if (shown > 0) {
+                    val part = word.substring(0, shown)
+                    val p = if (active == wordIndex && style.anim == cz.krechler.bombocut.model.CaptionAnim.highlight) lit else fill
+                    if (outline > 0 && style.strokeOutside) { stroke.strokeWidth = outline * 2; c.drawText(part, wx, baseline, stroke) }
+                    c.drawText(part, wx, baseline, p)
+                    if (outline > 0 && !style.strokeOutside) { stroke.strokeWidth = outline; c.drawText(part, wx, baseline, stroke) }
+                }
+                charIndex += word.length
+                at += word.length
+                if (word.isNotEmpty()) wordIndex++
+            }
         }
         if (!shadowOn) return letters
 

@@ -28,12 +28,14 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
     private val frame: Bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     private var drawn: String? = null
     /** Text blocks by text + style (they don't change while the project is the same). */
-    private val blocks = HashMap<Pair<String, CaptionStyle>, Bitmap?>()
+    private val blocks = HashMap<Triple<String, CaptionStyle, String>, Bitmap?>()
 
     private data class Piece(val key: String, val text: String, val style: CaptionStyle, val wrap: Boolean,
                              val cx: Float, val cy: Float, val scale: Float, val rotation: Float, val alpha: Float,
                              /** A picture layer: its file and the share of the canvas it fits in at scale 1. */
-                             val file: String? = null, val base: Pair<Double, Double>? = null)
+                             val file: String? = null, val base: Pair<Double, Double>? = null,
+                             /** Captions' per-word state: spoken word, words shown, letters typed (iOS CaptionRenderer). */
+                             val active: Int? = null, val visibleWords: Int? = null, val typed: Double? = null)
 
     /** What shows at timeline time t, top layer last. */
     private fun pieces(t: Double): List<Piece> {
@@ -61,8 +63,15 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
                 CaptionAnim.words, CaptionAnim.none -> {}
             }
             if (alpha <= 0.004) return@forEachIndexed
+            val spoken = cue.words.indexOfLast { it.start <= t }
+            val dur = maxOf(cue.end - cue.start, 0.01)
+            val typed = if (st.anim == CaptionAnim.typewriter)
+                Math.round(minOf(1.0, local / maxOf(minOf(dur * 0.7, 1.6), 0.2)) * 40) / 40.0 else null
             out.add(Piece("c$k|${cue.id}", cue.text, st, false, (w / 2 + st.x * w).toFloat(), (h * st.y + dy).toFloat(),
-                          scale.toFloat(), Math.toDegrees(st.rotation).toFloat(), alpha.toFloat()))
+                          scale.toFloat(), Math.toDegrees(st.rotation).toFloat(), alpha.toFloat(),
+                          active = if (st.anim == CaptionAnim.highlight) maxOf(0, spoken) else null,
+                          visibleWords = if (st.anim == CaptionAnim.words) maxOf(1, spoken + 1) else null,
+                          typed = typed))
         }
         for (o in project.overlays) {
             val pic = o.kind as? OverlayKind.Image
@@ -98,13 +107,15 @@ class TextLayer(private val fixed: Project, private val w: Int, private val h: I
         p.file?.let { return picture(it) }
         // typing makes a new block per letter: keep the cache small
         if (blocks.size > 48) blocks.clear()
-        return blocks.getOrPut(p.text to p.style) { TextRenderer.render(p.text, p.style, w, h, p.wrap) }
+        return blocks.getOrPut(Triple(p.text, p.style, "${p.active}|${p.visibleWords}|${p.typed}")) {
+            TextRenderer.render(p.text, p.style, w, h, p.wrap, p.active, p.visibleWords, p.typed)
+        }
     }
 
     override fun getBitmap(presentationTimeUs: Long): Bitmap {
         val ps = pieces(presentationTimeUs / 1_000_000.0)
         // rounded, so a still layer doesn't redraw every frame
-        val sig = ps.joinToString(";") { "${it.key}|${it.text.hashCode()}|${it.style.hashCode()}|${(it.cx * 2).toInt()}|${(it.cy * 2).toInt()}|${(it.scale * 500).toInt()}|${(it.rotation * 10).toInt()}|${(it.alpha * 255).toInt()}" }
+        val sig = ps.joinToString(";") { "${it.key}|${it.text.hashCode()}|${it.style.hashCode()}|${it.active}|${it.visibleWords}|${it.typed}|${(it.cx * 2).toInt()}|${(it.cy * 2).toInt()}|${(it.scale * 500).toInt()}|${(it.rotation * 10).toInt()}|${(it.alpha * 255).toInt()}" }
         if (sig == drawn) return frame
         drawn = sig
         val c = Canvas(frame)

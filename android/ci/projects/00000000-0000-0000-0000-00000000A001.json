@@ -34,12 +34,28 @@
           "id": "00000000-0000-0000-0000-0000000001A1",
           "start": 2.0,
           "text": "Titulky z iPhonu",
-          "words": []
+          "words": [
+            {
+              "text": "Titulky",
+              "start": 2.0,
+              "end": 2.6
+            },
+            {
+              "text": "z",
+              "start": 2.6,
+              "end": 2.8
+            },
+            {
+              "text": "iPhonu",
+              "start": 2.8,
+              "end": 3.6
+            }
+          ]
         }
       ],
       "language": "cs",
       "style": {
-        "anim": "fade",
+        "anim": "highlight",
         "behindSubject": false,
         "box": false,
         "boxColor": {
@@ -52,10 +68,10 @@
         "caps": false,
         "font": "heavy",
         "highlight": {
-          "a": 1,
-          "b": 0.353,
+          "r": 0.894,
           "g": 1,
-          "r": 0.894
+          "b": 0.353,
+          "a": 1
         },
         "lineSpacing": 1,
         "lines": 2,
