@@ -125,6 +125,35 @@ fun EditorModel.splitAudio(): Boolean {
     return true
 }
 
+/** iOS overlayHalves: a layer cut in two at timeline time `cut`; keyframes split with one at the cut on both sides. */
+fun overlayHalves(o: Overlay, cut: Double): Pair<Overlay, Overlay>? {
+    if (cut <= o.start + 0.1 || cut >= o.end - 0.1) return null
+    val local = cut - o.start
+    val (tr, op) = o.pose(cut)
+    var a = o.copy(duration = local)
+    var b = o.copy(id = UUID.randomUUID(), start = cut, duration = o.duration - local)
+    (o.kind as? OverlayKind.Video)?.let { v ->
+        b = b.copy(kind = v.copy(inPoint = if (o.isCurved) o.sourceTime(cut) else v.inPoint + local * o.speed))
+    }
+    if (o.keys.isNotEmpty()) {
+        a = a.copy(keys = o.keys.filter { it.t < local - 0.001 } + cz.krechler.bombocut.model.OverlayKey(t = local, transform = tr, opacity = op))
+        b = b.copy(keys = listOf(cz.krechler.bombocut.model.OverlayKey(t = 0.0, transform = tr, opacity = op)) +
+            o.keys.filter { it.t > local + 0.001 }.map { it.copy(t = it.t - local) })
+    }
+    a = a.copy(anim = a.anim.copy(outAnim = cz.krechler.bombocut.model.MotionAnim.none))
+    b = b.copy(anim = b.anim.copy(inAnim = cz.krechler.bombocut.model.MotionAnim.none))
+    return a to b
+}
+
+fun EditorModel.splitOverlay(): Boolean {
+    val id = selectedOverlayID ?: return false
+    val i = project.overlays.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return false
+    val (a, b) = overlayHalves(project.overlays[i], currentTime) ?: return false
+    mutate { p -> p.copy(overlays = p.overlays.toMutableList().also { it[i] = a; it.add(i + 1, b) }) }
+    selectedOverlayID = b.id
+    return true
+}
+
 fun EditorModel.deleteOverlay(id: UUID) {
     mutate { p -> p.copy(overlays = p.overlays.filter { it.id != id }) }
     selectedOverlayID = null
