@@ -125,6 +125,30 @@ adb exec-out screencap -p > $OUT/15-caption.png
 adb shell input swipe 540 2000 540 1300 400
 sleep 1
 adb exec-out screencap -p > $OUT/15b-caption-style.png
+# a second project: the video layer over one clip. Two video decoders: the emulator's software decoders run out at
+# three ("Released by resource manager"), so the layer in the first project comes out empty there.
+adb shell am force-stop $APP
+adb shell rm -f /sdcard/Movies/BOMBOCUT/*.mp4
+adb shell am start -W -n $APP/.app.MainActivity
+sleep 4
+python3 android/ci/tap.py "Vrstva"
+sleep 4
+python3 android/ci/tap.py "Export"
+sleep 2
+python3 android/ci/tap.py "Full HD · 30 fps"
+for i in $(seq 1 60); do
+  sleep 3
+  if adb shell ls /sdcard/Movies/BOMBOCUT/ 2>/dev/null | grep -q mp4; then break; fi
+done
+sleep 3
+F=$(adb shell ls /sdcard/Movies/BOMBOCUT/ | tr -d '\r' | grep mp4 | head -1)
+if [ -n "$F" ]; then
+  adb pull "/sdcard/Movies/BOMBOCUT/$F" $OUT/layer.mp4
+  for t in 1.2 1.5 1.8 2.2; do ffmpeg -loglevel error -ss $t -i $OUT/layer.mp4 -frames:v 1 $OUT/16-layer-$t.png; done
+  rm $OUT/layer.mp4
+else
+  adb exec-out screencap -p > $OUT/16-layer-export-stuck.png
+fi
 # the paywall (debug builds skip it unless asked): a fresh start shows the free week offer
 adb shell am force-stop $APP
 adb shell run-as $APP rm -f shared_prefs/purchases.xml || true
