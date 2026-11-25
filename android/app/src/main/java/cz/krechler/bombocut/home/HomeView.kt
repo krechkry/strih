@@ -160,7 +160,15 @@ fun HomeView(store: ProjectStore, open: (UUID) -> Unit) {
             }
             if (projects.isNotEmpty()) item { ProjectsHeader(sort) { sort = it } }
             items(sort.sorted(projects), key = { it.id }) { p ->
-                ProjectRow(p, onOpen = { open(p.id) }, onRename = { renaming = p }, onDelete = { deleting = p })
+                ProjectRow(p, onOpen = { open(p.id) }, onRename = { renaming = p }, onDelete = { deleting = p },
+                           onShare = {
+                               scope.launch {
+                                   importing = loc("Packing your project…")
+                                   val f = cz.krechler.bombocut.model.ProjectFile.write(context, p)
+                                   importing = null
+                                   cz.krechler.bombocut.model.ProjectFile.share(context, f)
+                               }
+                           })
             }
             item { Spacer(Modifier.size(24.dp)) }
         }
@@ -233,7 +241,7 @@ private fun ProjectsHeader(sort: ProjectSort, set: (ProjectSort) -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ProjectRow(p: Project, onOpen: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
+private fun ProjectRow(p: Project, onOpen: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     var thumb by remember(p.id) { mutableStateOf<ImageBitmap?>(null) }
     val first = p.clips.firstOrNull()
@@ -263,6 +271,7 @@ private fun ProjectRow(p: Project, onOpen: () -> Unit, onRename: () -> Unit, onD
         }
         DropdownMenu(menu, { menu = false }) {
             DropdownMenuItem(text = { Text(loc("Rename")) }, onClick = { menu = false; onRename() })
+            DropdownMenuItem(text = { Text(loc("Share project")) }, onClick = { menu = false; onShare() })
             DropdownMenuItem(text = { Text(loc("Delete"), color = Color(0xFFFF453A)) }, onClick = { menu = false; onDelete() })
         }
     }

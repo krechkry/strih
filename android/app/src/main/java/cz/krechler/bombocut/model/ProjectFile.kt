@@ -1,6 +1,7 @@
 // Part port of Bombocut/Model/ProjectFile.swift (iOS ad3827a): opening a .bbc project file (a plain zip:
 // bombocut.json, project.json, Media/, Fonts/, LUTs/). The project lands in the list (a copy when it is already
-// there), its videos in the media folder. Not yet: writing .bbc files, fonts and LUTs (they stay out), light files'
+// there), its videos in the media folder; and writing one (everything inside, format 1) to share. Not yet: fonts
+// and LUTs (they stay out), light files'
 // iCloud Photos videos (an iPhone-only path: those clips come in missing).
 package cz.krechler.bombocut.model
 
@@ -25,6 +26,53 @@ object ProjectFile {
         data class Opened(val project: Project, val missing: Int) : Result()
         data object NotAProject : Result()
         data object NewerFormat : Result()
+    }
+
+    @Serializable
+    private data class Manifest(val format: Int, val app: String, val name: String, val made: Double,
+                                val media: List<String>, val fonts: List<String>, val luts: List<String>, val bytes: Long)
+
+    /** The project's name as a file name (iOS fileName). */
+    private fun fileName(name: String): String =
+        name.split('/', '\\', ':', '?', '*', '"', '<', '>', '|').joinToString(" ").trim().ifEmpty { "BOMBOCUT" }
+
+    /**
+     * The project with every video it uses, as a .bbc in the app's share folder (an iPhone opens it in BOMBOCUT).
+     * Videos go in uncompressed (they are compressed already).
+     */
+    suspend fun write(context: Context, p: Project): File = withContext(Dispatchers.IO) {
+        val dir = File(context.cacheDir, "share").apply { deleteRecursively(); mkdirs() }
+        val out = File(dir, fileName(p.name) + ".bbc")
+        val media = p.mediaFiles.filter { Paths.mediaFile(it).exists() }.sorted()
+        val bytes = media.sumOf { Paths.mediaFile(it).length() }
+        val manifest = Manifest(1, "BOMBOCUT Android", p.name, AppleDate.now(), media, emptyList(), emptyList(), bytes)
+        java.util.zip.ZipOutputStream(out.outputStream().buffered()).use { zip ->
+            zip.setLevel(java.util.zip.Deflater.DEFAULT_COMPRESSION)
+            zip.putNextEntry(java.util.zip.ZipEntry("bombocut.json"))
+            zip.write(Json.encodeToString(Manifest.serializer(), manifest).encodeToByteArray())
+            zip.closeEntry()
+            zip.putNextEntry(java.util.zip.ZipEntry("project.json"))
+            zip.write(BomboJson.encodeToString(Project.serializer(), p).encodeToByteArray())
+            zip.closeEntry()
+            zip.setLevel(java.util.zip.Deflater.NO_COMPRESSION)
+            for (m in media) {
+                zip.putNextEntry(java.util.zip.ZipEntry("Media/$m"))
+                Paths.mediaFile(m).inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+        }
+        out
+    }
+
+    /** Hands the file to the share sheet (Nearby Share, Drive, mail, ...). */
+    fun share(context: Context, file: File) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(send, file.name).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     /** Names the zip may put files under: no folders, no tricks. */
