@@ -15,6 +15,8 @@ import java.util.UUID
 
 class EditorModel(start: Project, private val store: ProjectStore?) {
     var project by mutableStateOf(start)
+    /** The free week is over and nothing is bought: the project only exports as it is, every edit is ignored. */
+    var locked = false
         private set
     var currentTime by mutableStateOf(0.0)
     var selectedClipID by mutableStateOf<UUID?>(null)
@@ -38,6 +40,7 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
 
     /** One undo step: the change, then captions / overlays / sounds follow their footage, then commit. */
     fun mutate(change: (Project) -> Project) {
+        if (locked) return
         val before = project
         pushUndo(before)
         project = change(before).followFootage(before)
@@ -132,6 +135,7 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
 
     /** delta = seconds of timeline movement of the dragged edge since the drag began. */
     fun trimChanged(id: UUID, leading: Boolean, delta: Double) {
+        if (locked) return
         val o = trimOriginal ?: return
         val i = project.clips.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: return
         var c = project.clips[i]
@@ -166,6 +170,7 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
 
     /** `change` gets the project as it was when the drag began (so a drag never adds up rounding). */
     fun laneDragChanged(change: (Project) -> Project) {
+        if (locked) return
         val s = laneSnapshot ?: return
         project = change(s)
     }

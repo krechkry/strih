@@ -61,6 +61,7 @@ import cz.krechler.bombocut.model.ProjectStore
 fun EditorView(start: Project, store: ProjectStore, exportOnly: Boolean = false, close: () -> Unit) {
     BackHandler(onBack = close)
     val model = remember(start.id) { EditorModel(start, store) }
+    model.locked = exportOnly
     val preview = remember(start.id) { PreviewState() }
     val tl = remember { TimelineState() }
     var exporting by remember { mutableStateOf(false) }
