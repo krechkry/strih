@@ -350,6 +350,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                                  crop: upright ? nil : (state.crop ?? (editingCrop ? CropRect() : nil)),
                                  cropEditing: !upright && editingCrop,
                                  flip: state.crop.flipScale,
+                                 desqueeze: state.desqueeze,
                                  in: size)
             if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                 let cx = size.width / 2, cy = size.height / 2
@@ -527,6 +528,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                       follow: Follow? = nil,
                       crop: CropRect? = nil, cropEditing: Bool = false,
                       flip: (x: CGFloat, y: CGFloat) = (1, 1),
+                      desqueeze: CGFloat = 1,
                       in size: CGSize) -> CIImage {
         var img = input.oriented(orientation(for: prefTransform))
         let e = img.extent
@@ -543,7 +545,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 : kept
         }
         let p = placement(source: CGSize(width: w, height: h), fill: fill, transform: t, stab: stab, follow: follow,
-                          flip: flip, in: size)
+                          flip: flip, desqueeze: desqueeze, in: size)
         if stab != nil {
             img = img.transformed(by: p.stab).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
         }
@@ -589,6 +591,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                           stab: StabPose?,
                           follow: Follow?,
                           flip: (x: CGFloat, y: CGFloat) = (1, 1),
+                          desqueeze: CGFloat = 1,
                           in size: CGSize) -> (stab: CGAffineTransform, place: CGAffineTransform) {
         let w = source.width, h = source.height
         // stabilization: undo the shake (zoom, turn, shift around the frame's center), then zoom in just
@@ -603,12 +606,14 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 .concatenating(CGAffineTransform(translationX: w / 2, y: h / 2))
         }
 
-        let sx = size.width / max(w, 1e-6), sy = size.height / max(h, 1e-6)
+        // an anamorphic picture is fitted as wide as it really is (its pixels are squeezed `desqueeze` times)
+        let d = max(desqueeze, 0.01)
+        let sx = size.width / max(w * d, 1e-6), sy = size.height / max(h, 1e-6)
         let s = fill ? max(sx, sy) : min(sx, sy)
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
-        let bw: CGFloat = w * s, bh: CGFloat = h * s
+        let bw: CGFloat = w * s * d, bh: CGFloat = h * s
         // stretch, scale and turn go around the anchor (the picture's middle unless it was moved)
-        let m = CGAffineTransform(scaleX: s, y: s)
+        let m = CGAffineTransform(scaleX: s * d, y: s)
             .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
             .concatenating(t.picture(bw, bh, yUp: true))

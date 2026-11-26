@@ -8,32 +8,6 @@ enum TransformTab: String {
     static var last: TransformTab = .transform
 }
 
-/// How the 3D tab turns the picture (an experiment: the losers go once one is picked).
-enum ThreeDControl: String, CaseIterable {
-    case trackball, fingers, dials
-
-    var title: String {
-        switch self {
-        case .trackball: return "Trackball"
-        case .fingers: return "Fingers"
-        case .dials: return "Dials"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .trackball: return "circle.circle"
-        case .fingers: return "hand.draw"
-        case .dials: return "dial.medium"
-        }
-    }
-
-    static let key = "threeDControl"
-    static var current: ThreeDControl {
-        ThreeDControl(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .trackball
-    }
-}
-
 // MARK: The Transform panel's values (clips, Stacks, picture and video layers)
 
 extension EditorModel {
@@ -174,26 +148,16 @@ extension ClipTransform {
         let ay = min(max(Double(q.y / max(bh, 1)), -1), 1)
         return withAnchor(ax, ay, bw, bh, canvas: canvas)
     }
-
-    /// Fingers on the preview in the 3D tab's finger mode (`g` since the touch began): a drag tilts (as if it
-    /// rolled a ball under the picture), a twist rolls, a pinch moves it in depth.
-    func turned(by g: CGAffineTransform, from p0: CGPoint, canvas: CGSize) -> ClipTransform {
-        let p1 = p0.applying(g)
-        let radius = min(canvas.width, canvas.height) / 2
-        var t = Card3D.rolled(self, by: CGSize(width: p1.x - p0.x, height: p1.y - p0.y), radius: radius)
-        t.roll += Double(atan2(g.b, g.a))
-        let k = Double(hypot(g.a, g.b))
-        t.depth = min(max(depth + log(max(k, 0.01)) * 0.6, -3), 0.6)
-        return t
-    }
 }
 
 // MARK: Spin (keyframes) and the Spin-That-Shit trigger
 
 /// A keyframe with a placement: clips' and Stacks' keyframes, layers' keys.
 protocol PoseKey {
+    var id: UUID { get }
     var t: Double { get set }
     var pose: ClipTransform { get set }
+    var ease: Ease { get set }
 }
 
 extension Keyframe: PoseKey {
@@ -210,58 +174,130 @@ extension OverlayKey: PoseKey {
     }
 }
 
-enum SpinKeys {
-    /// Keys from `a` to `b` (their own time) turning `turns` times around `axis`: a key at each end (made from
-    /// the placement there), the keys between them turn by their share, so other moves stay as they were.
-    static func spun<K: PoseKey>(_ keys: [K], from a: Double, to b: Double, axis: SpinAxis, turns: Int,
-                                 make: (Double) -> K) -> [K] {
-        var ks = keys
-        let first = make(a), last = make(b)
-        if !ks.contains(where: { abs($0.t - a) < 1e-3 }) { ks.append(first) }
-        if !ks.contains(where: { abs($0.t - b) < 1e-3 }) { ks.append(last) }
-        ks.sort { $0.t < $1.t }
-        let span = max(b - a, 1e-6)
-        for j in ks.indices where ks[j].t > a + 1e-3 && ks[j].t <= b + 1e-3 {
-            let f = min((ks[j].t - a) / span, 1)
-            var p = ks[j].pose
-            axis.add(Double(turns) * f, to: &p)
-            ks[j].pose = p
+/// Live keyframing from the 3D trackball: playback runs while the ball turns and the turn is written as keyframes.
+struct TurnRecording {
+    var start: Double        // own time (clip: source seconds) where it started
+    var last: Double         // own time of the last key written
+    var ids: Set<UUID> = []  // the keys it wrote (others it passes over are replaced)
+    var snapshot: Project
+}
+
+enum TurnKeys {
+    /// Keys written every this many seconds while recording (in between, the last one follows the ball).
+    static let step = 0.1
+
+    /// The turn `r` (tilt X, tilt Y, Rotate Z) written at own time `t`: keys passed over are replaced, a new key
+    /// every `step`, linear so the motion plays back as it was made.
+    static func record<K: PoseKey>(_ keys: inout [K], at t: Double, turn r: ClipTransform, rec: inout TurnRecording,
+                                   make: (Double) -> K) {
+        keys.removeAll { $0.t > rec.last + 1e-4 && $0.t <= t + 1e-4 && !rec.ids.contains($0.id) }
+        func apply(_ k: inout K) {
+            var p = k.pose
+            p.tiltX = r.tiltX
+            p.tiltY = r.tiltY
+            p.roll = r.roll
+            k.pose = p
+            k.ease = .linear
         }
-        return ks
+        if t - rec.last >= step || rec.ids.isEmpty {
+            var k = make(t)
+            apply(&k)
+            keys.removeAll { abs($0.t - t) < 1e-3 }
+            keys.append(k)
+            keys.sort { $0.t < $1.t }
+            rec.ids.insert(k.id)
+            rec.last = t
+        } else if let j = keys.lastIndex(where: { rec.ids.contains($0.id) }) {
+            apply(&keys[j])
+        }
     }
 }
 
 extension EditorModel {
-    /// Spin: whole turns around one axis over the whole clip, Stack or layer, as keyframes (one undo step).
-    func spinWhole(_ axis: SpinAxis, turns: Int) {
-        pause()
-        if let k = selectedStackIndex, let span = project.stackTime(project.stacks[k]) {
-            let st = project.stacks[k]
-            let len = span.end - span.start
-            let keys = SpinKeys.spun(st.keyframes, from: 0, to: len, axis: axis, turns: turns) { t in
-                Keyframe(t: t, look: st.look(at: t))
-            }
-            mutateLook { $0.stacks[k].keyframes = keys }
-            return
-        }
+    /// The picture's own time at the playhead: clip source seconds, Stack or layer seconds from its start.
+    private var ownTimeNow: Double? {
+        if let k = selectedStackIndex { return stackLocal(k) }
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
-            guard !o.isAdjustment else { return }
-            let keys = SpinKeys.spun(o.keys, from: 0, to: o.duration, axis: axis, turns: turns) { t in
-                let p = o.pose(at: o.start + t)
-                return OverlayKey(t: t, transform: p.transform, opacity: p.opacity)
+            return min(max(currentTime - o.start, 0), o.duration)
+        }
+        return selectedIndex.map { sourceTime($0) }
+    }
+
+    /// The ball was touched with Record on: playback starts (looping what is selected) and keys are written.
+    func beginTurnRecording() {
+        pause()
+        playheadIntoSelected()
+        guard let t = ownTimeNow else { return }
+        turnRecording = TurnRecording(start: t, last: t, snapshot: project)
+        togglePlay()
+    }
+
+    /// The ball turned while recording.
+    func recordTurn(_ r: ClipTransform) {
+        guard var rec = turnRecording, let t = ownTimeNow else { return }
+        // playback looped back to the start of the clip: carry on from there
+        if t < rec.last - 0.05 { rec.last = t - TurnKeys.step }
+        if let k = selectedStackIndex {
+            let st = project.stacks[k]
+            TurnKeys.record(&project.stacks[k].keyframes, at: t, turn: r, rec: &rec) { x in Keyframe(t: x, look: st.look(at: x)) }
+        } else if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            TurnKeys.record(&project.overlays[oi].keys, at: t, turn: r, rec: &rec) { x in
+                let p = o.pose(at: o.start + x)
+                return OverlayKey(t: x, transform: p.transform, opacity: p.opacity)
             }
-            mutateLook { $0.overlays[oi].keys = keys }
+        } else if let i = selectedIndex {
+            let c = project.clips[i]
+            TurnKeys.record(&project.clips[i].keyframes, at: t, turn: r, rec: &rec) { x in Keyframe(t: x, look: c.look(atSource: x)) }
+        }
+        turnRecording = rec
+        publishLook()
+    }
+
+    /// The ball let go: playback stops, the recording is one undo step.
+    func endTurnRecording() {
+        guard let rec = turnRecording else { return }
+        turnRecording = nil
+        pause()
+        if rec.snapshot != project { pushUndo(rec.snapshot) }
+        commitLook()
+    }
+
+    // MARK: Anamorphic de-squeeze
+
+    /// The de-squeeze of the selected clip or picture / video layer (nil: nothing it applies to).
+    var editedDesqueeze: Double? {
+        if selectedStackIndex != nil { return nil }
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            return o.isMedia ? (o.desqueeze ?? 1) : nil
+        }
+        return selectedIndex.map { project.clips[$0].desqueeze ?? 1 }
+    }
+
+    /// Anamorphic footage shown as wide as it was shot: the picture's shape becomes `d` times wider (one undo step).
+    func setDesqueeze(_ d: Double) {
+        let A = project.canvas.aspect
+        let new: Double? = abs(d - 1) < 0.001 ? nil : d
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            guard o.isMedia, o.desqueeze != new else { return }
+            let native = (o.aspect ?? 1) / (o.desqueeze ?? 1)
+            mutateLook { p in
+                p.overlays[oi].desqueeze = new
+                p.overlays[oi].aspect = native * (new ?? 1)
+            }
             return
         }
-        guard let i = selectedIndex else { return }
+        guard selectedStackIndex == nil, let i = selectedIndex else { return }
         let c = project.clips[i]
-        let rt = c.retime
-        let a = rt.source(atLocal: 0), b = rt.source(atLocal: c.duration)
-        let keys = SpinKeys.spun(c.keyframes, from: min(a, b), to: max(a, b), axis: axis, turns: turns) { s in
-            Keyframe(t: s, look: c.look(atSource: s))
+        guard c.desqueeze != new else { return }
+        let native = (c.aspect ?? A) / (c.desqueeze ?? 1)
+        mutateLook { p in
+            p.clips[i].desqueeze = new
+            p.clips[i].aspect = native * (new ?? 1)
         }
-        mutateLook { $0.clips[i].keyframes = keys }
     }
 
     /// The selected thing's Spin-That-Shit trigger (nil: off).
@@ -292,7 +328,7 @@ extension EditorModel {
                 // captions already written: their words are what was said (no listening needed when they have it)
                 var times = SpinPhrase.starts(in: heard.captionTracks.flatMap(\.words))
                 if times.isEmpty {
-                    let words = try await Transcriber.run(project: heard, language: "en", names: "") { [weak self] p in
+                    let words = try await Transcriber.run(project: heard, language: "en", names: "", raw: true) { [weak self] p in
                         switch p {
                         case .downloading(let f): self?.spinListening = f * 0.5
                         case .preparingAudio: self?.spinListening = 0.55

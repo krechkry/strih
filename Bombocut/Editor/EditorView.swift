@@ -183,7 +183,7 @@ struct EditorView: View {
     /// (left, level with undo / redo).
     @ViewBuilder
     private func panelKeys(_ s: EditorSheet) -> some View {
-        if pro, !typing, s == .adjust || s == .overlay, model.keysSelection {
+        if pro, !typing, s == .adjust || s == .overlay || s == .crop, model.keysSelection {
             PanelKeyBar(model: model).offset(y: -52).padding(.leading, 14)
         }
     }

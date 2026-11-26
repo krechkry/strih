@@ -118,9 +118,10 @@ struct Card3D: Equatable {
     static func rolled(_ t: ClipTransform, by d: CGSize, radius: CGFloat) -> ClipTransform {
         let len = hypot(d.width, d.height)
         guard len > 0.01, radius > 1 else { return t }
-        // dragging right turns the near side right: around the vertical axis; dragging down: around the horizontal
+        // the finger rolls the ball's front: dragging right sends the right side away, dragging down brings the
+        // top towards you
         let ax = d.height / len, ay = -d.width / len
-        let angle = len / radius
+        let angle = -len / radius
         let turn = axisAngle(ax, ay, 0, angle)
         let r = mul(turn, rotation(t))
         let a = angles(r)

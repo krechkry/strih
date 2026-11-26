@@ -94,7 +94,8 @@ struct Overlay: Codable, Hashable, Identifiable {
     var crop: CropRect?                // its own picture cropped (soft edge, rounded corners)
     var filter: LookFilter?            // pictures and videos: a look from the Filters gallery, after Adjust
     var key: ChromaKey?                // pictures and videos: chroma key (a green / blue screen made see-through)
-    var spinTrigger: SpinTrigger?      // pictures and videos: Spin-That-Shit trigger (seconds from its start)
+    var spinTrigger: SpinTrigger?      // Spin-That-Shit trigger (seconds from its start)
+    var desqueeze: Double?             // pictures and videos: anamorphic de-squeeze (`aspect` already includes it)
     var autoZoom: AutoZoom?            // a slow zoom over its whole length
     var asset: String?                 // pictures and videos from Photos: the Photos item (light project files leave it out)
     /// Video: a speed curve (from a clip) instead of `speed`. It covers `curveSpan` source seconds from `curveIn`;
@@ -169,7 +170,7 @@ struct Overlay: Codable, Hashable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
         case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan, pin, filter
-        case asset, key, spinTrigger
+        case asset, key, spinTrigger, desqueeze
     }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
@@ -203,6 +204,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
         key = try? c.decodeIfPresent(ChromaKey.self, forKey: .key)
         spinTrigger = try? c.decodeIfPresent(SpinTrigger.self, forKey: .spinTrigger)
+        desqueeze = try? c.decodeIfPresent(Double.self, forKey: .desqueeze)
         autoZoom = try? c.decodeIfPresent(AutoZoom.self, forKey: .autoZoom)
         speedCurve = try? c.decodeIfPresent([SpeedPoint].self, forKey: .speedCurve)
         curveIn = try? c.decodeIfPresent(Double.self, forKey: .curveIn)

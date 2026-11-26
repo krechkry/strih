@@ -262,6 +262,8 @@ struct LookState: Hashable {
     var filter: LookFilter? = nil
     var key: ChromaKey? = nil
     var spin: SpinPlan? = nil
+    /// Anamorphic de-squeeze: the picture is this much wider than its pixels.
+    var desqueeze: CGFloat = 1
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }

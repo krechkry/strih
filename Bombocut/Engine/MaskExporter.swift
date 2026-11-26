@@ -115,7 +115,8 @@ final class MaskExporter: @unchecked Sendable {
                     var out = FrameCompositor.place(img, prefTransform: .identity, fill: state.fill, transform: look.transform,
                                                     stab: state.stab.map { $0.pose(at: srcT) },
                                                     follow: state.track.map { $0.follow(at: srcT) },
-                                                    crop: crop, flip: state.crop.flipScale, in: size)
+                                                    crop: crop, flip: state.crop.flipScale, desqueeze: state.desqueeze,
+                                                    in: size)
                     if let a = anim, abs(a.dx) > 1e-4 || abs(a.dy) > 1e-4 || abs(a.scale - 1) > 1e-4 {
                         let cx = size.width / 2, cy = size.height / 2
                         out = out.transformed(by: CGAffineTransform(translationX: -cx, y: -cy)

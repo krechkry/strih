@@ -2743,8 +2743,8 @@ final class EditorModel: ObservableObject {
     @Published var spinListening: Double?
     @Published var spinNote: String?
     var spinTask: Task<Void, Never>?
-    /// The 3D tab's finger mode: fingers on the preview turn the picture in 3D instead of moving it.
-    var turnsWithFingers: Bool { transformPanelOpen && transformTab == .threeD && ThreeDControl.current == .fingers }
+    /// Live keyframing from the 3D trackball (where it started, the last key written, the keys it wrote).
+    var turnRecording: TurnRecording?
     /// Slip: the selected clip's content slides inside its place on the timeline.
     @Published private(set) var slip: SlipState?
     @Published var slipView: SlipView?
@@ -3967,15 +3967,6 @@ final class EditorModel: ObservableObject {
         guard let s0 = overlayStart, let i = selectedOverlayIndex, canvas.width > 0 else { return }
         let w = canvas.width, h = canvas.height
         let b0 = OverlayRenderer.shared.baseSize(project.overlays[i], canvas: canvas, canvasAspect: project.canvas.aspect)
-        if turnsWithFingers {
-            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
-            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(b0.width, b0.height, canvas: canvas), canvas: canvas)
-            let own = OverlayStore.shared.base(turned, project.overlays[i], at: currentTime)
-            project.overlays[i].changePose(at: currentTime) { tr, _ in tr = own }
-            OverlayStore.shared.update(project)
-            refreshFrame()
-            return
-        }
         // the anchor follows the fingers; scale and turn go around it
         var t = s0.moved(by: g, b0.width, b0.height, canvas: canvas)
         var guides = Set<Guide>()
@@ -4221,19 +4212,6 @@ final class EditorModel: ObservableObject {
         let th: CGFloat = 7
         let A = project.canvas.aspect
         let base = Clip.baseFraction(aspect: l.aspect, fill: l.fill, canvasAspect: A)
-        if turnsWithFingers {
-            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
-            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(base.width * w, base.height * h, canvas: canvas), canvas: canvas)
-            l.t = turned
-            l.guides = []
-            live = l
-            if let i = project.clips.firstIndex(where: { $0.id == l.clipID }), let s = liveSource {
-                Self.applyLook(&project.clips[i], atSource: s) { $0.transform = turned }
-                LookStore.shared.patch(project.clips[i])
-                refreshFrame()
-            }
-            return
-        }
         // the anchor follows the fingers; scale and turn go around it (the picture's middle by default)
         var t = s0.moved(by: g, base.width * w, base.height * h, canvas: canvas)
         var guides = Set<Guide>()
@@ -5459,6 +5437,7 @@ extension EditorModel {
         var o = Overlay(kind: .video(file: c.mediaFile, sourceDuration: c.sourceDuration, inPoint: c.inPoint),
                         start: start, duration: len)
         o.aspect = c.aspect ?? A
+        o.desqueeze = c.desqueeze
         // the same file as the Photos item (not a reversed copy, not a held picture made into video)
         o.asset = c.reversed == nil && !c.still ? c.asset : nil
         o.speed = min(max((c.outPoint - c.inPoint) / len, 0.1), 10)
@@ -5579,14 +5558,6 @@ extension EditorModel {
     fileprivate func stackTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
         guard let s0 = stackStart, let k = selectedStackIndex, canvas.width > 0 else { return }
         let w = canvas.width, h = canvas.height
-        if turnsWithFingers {
-            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
-            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(w, h, canvas: canvas), canvas: canvas)
-            ClipStack.applyLook(&project.stacks[k], at: stackLocal(k)) { $0.transform = turned }
-            StackStore.shared.update(project)
-            refreshFrame()
-            return
-        }
         var t = s0.moved(by: g, w, h, canvas: canvas)
         var guides = Set<Guide>()
         let quarter = Double.pi / 2

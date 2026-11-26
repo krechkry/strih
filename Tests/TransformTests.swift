@@ -153,20 +153,37 @@ final class TransformTests: XCTestCase {
         XCTAssertEqual(SpinPlan.turns(trig.seed, 0).x, SpinPlan.turns(trig.seed, 0).x, "the same every time")
     }
 
-    func testPhraseIsFound() {
-        func w(_ s: String, _ t: Double) -> CaptionWord { CaptionWord(text: s, start: t, end: t + 0.2) }
-        let words = [w("okay", 0), w("Spin", 1), w("that", 1.2), w("shit!", 1.4), w("and", 3), w("spin", 5),
-                     w("dat", 5.2), w("sh*t", 5.4), w("spin", 8), w("around", 8.2)]
-        XCTAssertEqual(SpinPhrase.starts(in: words), [1.4, 5.4])
+    /// What the speech model really wrote for Krystof saying it (bench, 2026-11-26), and a clean voice.
+    func testPhraseIsFoundBySound() {
+        func ws(_ list: [(String, Double)]) -> [CaptionWord] { list.map { CaptionWord(text: $0.0, start: $0.1, end: $0.1 + 0.2) } }
+        XCTAssertEqual(SpinPhrase.starts(in: ws([("Spind", 1.12), ("Dead", 1.68), ("Shield.", 2.08)])), [2.08])
+        XCTAssertEqual(SpinPhrase.starts(in: ws([("dělat", 7.8), ("tohle.", 8.2), ("Spin", 9.2), ("dechit.", 9.68)])), [9.68])
+        XCTAssertEqual(SpinPhrase.starts(in: ws([("spin", 0.72), ("get", 1.1), ("z", 1.4), ("hit.", 1.6)])), [1.6])
+        XCTAssertEqual(SpinPhrase.starts(in: ws([("Okay,", 0), ("spin", 0.5), ("that", 0.7), ("shit.", 0.9)])), [0.9])
+        XCTAssertEqual(SpinPhrase.starts(in: ws([("spend", 0), ("the", 0.2), ("day", 0.4), ("speed", 3), ("test", 3.2)])), [])
     }
 
-    /// Spin keys: a key at each end, the end one turned the whole way.
-    func testSpinKeys() {
-        let keys = SpinKeys.spun([Keyframe](), from: 0, to: 4, axis: .y, turns: 2) { t in
-            Keyframe(t: t, look: Look())
+    /// Anamorphic: a 2x de-squeezed picture is placed twice as wide as its pixels.
+    func testDesqueezeWidensThePicture() {
+        let src = CGSize(width: 1000, height: 1000), canvas = CGSize(width: 2000, height: 1000)
+        let p = FrameCompositor.placement(source: src, fill: false, transform: ClipTransform(), stab: nil, follow: nil,
+                                          desqueeze: 2, in: canvas)
+        XCTAssertEqual(CGPoint(x: 0, y: 500).applying(p.place).x, 0, accuracy: 0.01)
+        XCTAssertEqual(CGPoint(x: 1000, y: 500).applying(p.place).x, 2000, accuracy: 0.01)
+    }
+
+    /// Recorded turns: a key every step, keys passed over replaced, linear.
+    func testTurnRecording() {
+        var keys = [Keyframe(t: 0.5, look: Look()), Keyframe(t: 2, look: Look())]
+        var rec = TurnRecording(start: 0.4, last: 0.4, snapshot: Project(name: "t"))
+        var r = ClipTransform()
+        for i in 0..<10 {
+            r.tiltY = Double(i) * 0.1
+            TurnKeys.record(&keys, at: 0.4 + Double(i) * 0.05, turn: r, rec: &rec) { t in Keyframe(t: t, look: Look()) }
         }
-        XCTAssertEqual(keys.count, 2)
-        XCTAssertEqual(keys[0].look.transform.tiltY, 0)
-        XCTAssertEqual(keys[1].look.transform.tiltY, 4 * .pi, accuracy: 1e-9)
+        XCTAssertFalse(keys.contains { abs($0.t - 0.5) < 1e-6 }, "the key it passed over is gone")
+        XCTAssertTrue(keys.contains { abs($0.t - 2) < 1e-6 }, "keys ahead stay")
+        XCTAssertTrue(keys.filter { rec.ids.contains($0.id) }.allSatisfy { $0.ease == .linear })
+        XCTAssertGreaterThanOrEqual(keys.filter { rec.ids.contains($0.id) }.count, 3)
     }
 }

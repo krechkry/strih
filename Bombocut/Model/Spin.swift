@@ -1,28 +1,5 @@
 import Foundation
 
-/// The axis of a Spin (the 3D tab's quick option).
-enum SpinAxis: String, CaseIterable, Codable {
-    case x, y, z
-
-    var title: String {
-        switch self {
-        case .x: return "Tilt X"
-        case .y: return "Tilt Y"
-        case .z: return "Rotate Z"
-        }
-    }
-
-    /// Adds `turns` whole turns around this axis.
-    func add(_ turns: Double, to t: inout ClipTransform) {
-        let a = turns * 2 * .pi
-        switch self {
-        case .x: t.tiltX += a
-        case .y: t.tiltY += a
-        case .z: t.roll += a
-        }
-    }
-}
-
 /// The Spin-That-Shit trigger of a clip, Stack or picture / video layer: wherever the timeline's sound says
 /// "spin that shit", the picture spins for a second on all three axes, a random number of whole turns each way,
 /// so it ends exactly where it was. The spins are worked out while drawing (no keyframes are added), so turning
@@ -87,36 +64,36 @@ struct SplitMix {
     }
 }
 
-/// Finds "spin that shit" in timed words (the word "shit" starts each spin; spellings the speech model may
-/// write for it count too).
+/// Finds "spin that shit" in timed words by how it sounds, not how it is spelled: the speech model writes it
+/// in many ways for a Czech speaker ("Spind Dead Shield", "Spin dechit", "spin get z hit"). Each run of 1 to 4
+/// words starting with a "spin"-like word is boiled down to its consonant sounds (d/t, s/sh/ch/z, g/k fold together,
+/// vowels and h drop out, doubles merge) and compared with "spin that shit" = s p n t s t. The spin starts on
+/// the last word of the run (the "shit").
 enum SpinPhrase {
+    static let target = "spntst"
+
     static func starts(in words: [CaptionWord]) -> [Double] {
-        let clean = words.map { w -> (String, Double) in
-            (w.text.lowercased().filter { $0.isLetter || $0 == "*" }, w.start)
-        }.filter { !$0.0.isEmpty }
+        let keyed = words.map { (key: sound($0.text), start: $0.start) }.filter { !$0.key.isEmpty }
         var out: [Double] = []
         var i = 0
-        while i < clean.count {
-            let w = clean[i].0
-            // "spinthatshit" heard as one word
-            if w.hasPrefix("spinthat") || w.hasPrefix("spindat") {
-                out.append(clean[i].1)
+        while i < keyed.count {
+            guard keyed[i].key.hasPrefix("spn") else { i += 1; continue }   // a "spin"-like word first
+            var best: (end: Int, d: Int)?
+            var joined = ""
+            for j in i..<min(i + 4, keyed.count) {
+                joined = merge(joined + keyed[j].key)
+                let d = distance(joined, target)
+                // a near miss only counts when it really ends on a "...st" (the "shit")
+                let ok = d == 0 || (d == 1 && joined.count >= 5 && joined.hasSuffix("t"))
+                if ok && d < (best?.d ?? Int.max) { best = (j, d) }
+                if joined.count > target.count + 2 { break }
+            }
+            if let b = best {
+                out.append(keyed[b.end].start)
+                i = b.end + 1
+            } else {
                 i += 1
-                continue
             }
-            if isSpin(w), i + 2 < clean.count, isThat(clean[i + 1].0), isShit(clean[i + 2].0) {
-                out.append(clean[i + 2].1)
-                i += 3
-                continue
-            }
-            // "spin that" + "shit" glued, or "spin" + "thatshit"
-            if isSpin(w), i + 1 < clean.count, clean[i + 1].0.hasPrefix("that") || clean[i + 1].0.hasPrefix("dat"),
-               clean[i + 1].0.count > 4, isShit(String(clean[i + 1].0.dropFirst(clean[i + 1].0.hasPrefix("that") ? 4 : 3))) {
-                out.append(clean[i + 1].1)
-                i += 2
-                continue
-            }
-            i += 1
         }
         // two hits closer than one spin are one
         var kept: [Double] = []
@@ -124,9 +101,44 @@ enum SpinPhrase {
         return kept
     }
 
-    private static func isSpin(_ w: String) -> Bool { w.hasPrefix("spin") || w == "spim" || w == "spen" }
-    private static func isThat(_ w: String) -> Bool { ["that", "dat", "this", "the", "da", "tha", "thats"].contains(w) }
-    private static func isShit(_ w: String) -> Bool {
-        w.hasPrefix("shit") || w.hasPrefix("sh*t") || w.hasPrefix("s**t") || w == "shi" || w == "shet" || w == "sheet"
+    /// The consonant sounds of a word, folded so look-alike sounds match.
+    static func sound(_ word: String) -> String {
+        let w = word.lowercased().folding(options: .diacriticInsensitive, locale: nil).filter { $0.isLetter || $0 == "*" }
+        var out = ""
+        for ch in w {
+            switch ch {
+            case "a", "e", "i", "o", "u", "y", "h", "*", "'": continue
+            case "d", "t": out.append("t")
+            case "s", "z", "c", "x", "j": out.append("s")
+            case "g", "k", "q": out.append("k")
+            case "b", "p": out.append("p")
+            case "v", "w", "f": out.append("f")
+            case "m", "n": out.append("n")
+            default: out.append(ch)
+            }
+        }
+        return merge(out)
+    }
+
+    /// Doubled sounds merged ("tt" -> "t").
+    static func merge(_ s: String) -> String {
+        var out = ""
+        for ch in s where out.last != ch { out.append(ch) }
+        return out
+    }
+
+    static func distance(_ a: String, _ b: String) -> Int {
+        let x = Array(a), y = Array(b)
+        if x.isEmpty { return y.count }
+        if y.isEmpty { return x.count }
+        var prev = Array(0...y.count)
+        for i in 1...x.count {
+            var cur = [i] + Array(repeating: 0, count: y.count)
+            for j in 1...y.count {
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x[i - 1] == y[j - 1] ? 0 : 1))
+            }
+            prev = cur
+        }
+        return prev[y.count]
     }
 }

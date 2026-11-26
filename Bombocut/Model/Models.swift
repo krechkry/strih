@@ -378,6 +378,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var filter: LookFilter?        // a look from the Filters gallery, after Adjust
     var key: ChromaKey?            // chroma key: a green / blue screen made see-through
     var spinTrigger: SpinTrigger?  // Spin-That-Shit trigger: spins where the phrase is said (source seconds)
+    var desqueeze: Double?         // anamorphic de-squeeze (1.33, 1.5, 2...): `aspect` already includes it
     var fadeIn = 0.0               // seconds its sound rises from silence at the start
     var fadeOut = 0.0              // seconds its sound sinks to silence at the end
     /// The sound fades as they play (each at most half the clip).
@@ -405,7 +406,7 @@ struct Clip: Identifiable, Codable, Hashable {
                   stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
                   motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom, crop: crop,
                   filter: filter, key: key,
-                  spin: spinPlan)
+                  spin: spinPlan, desqueeze: CGFloat(desqueeze ?? 1))
     }
 
     /// The Spin-That-Shit spins in seconds from the clip's start (they are kept in source seconds).
@@ -459,7 +460,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case curveSticks
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
-        case fadeIn, fadeOut, filter, key, spinTrigger
+        case fadeIn, fadeOut, filter, key, spinTrigger, desqueeze
     }
 
     init(from d: Decoder) throws {
@@ -499,6 +500,7 @@ struct Clip: Identifiable, Codable, Hashable {
         filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
         key = try? c.decodeIfPresent(ChromaKey.self, forKey: .key)
         spinTrigger = try? c.decodeIfPresent(SpinTrigger.self, forKey: .spinTrigger)
+        desqueeze = try? c.decodeIfPresent(Double.self, forKey: .desqueeze)
         fadeIn = (try? c.decodeIfPresent(Double.self, forKey: .fadeIn)) ?? 0
         fadeOut = (try? c.decodeIfPresent(Double.self, forKey: .fadeOut)) ?? 0
         // older projects kept motion blur among the Adjust effects

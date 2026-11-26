@@ -137,8 +137,10 @@ struct TransformTyping: Identifiable {
 }
 
 extension View {
-    /// The alert with a number field that a tapped value bubble opens.
-    func transformTyping(_ typing: Binding<TransformTyping?>, draft: Binding<String>) -> some View {
+    /// The alert with a number field that a tapped value bubble opens. While it is up the editor treats the
+    /// keyboard like a menu's (`textMenuOpen`): the panel keeps its size and content, so the alert isn't torn down
+    /// the moment the keyboard shows.
+    func transformTyping(_ typing: Binding<TransformTyping?>, draft: Binding<String>, model: EditorModel) -> some View {
         alert(typing.wrappedValue.map { loc($0.title) } ?? "",
               isPresented: Binding(get: { typing.wrappedValue != nil }, set: { if !$0 { typing.wrappedValue = nil } })) {
             TextField("", text: draft).keyboardType(.numbersAndPunctuation)
@@ -150,6 +152,7 @@ extension View {
         } message: {
             if let t = typing.wrappedValue, !t.unit.isEmpty { Text(verbatim: t.unit) }
         }
+        .onChange(of: typing.wrappedValue == nil) { _, closed in if closed { model.textMenuOpen = false } }
     }
 }
 
@@ -176,15 +179,17 @@ struct TransformTabView: View {
             stretchRows(t, keyed)
             row("Rotation", t.rotation * 180 / .pi, "°", -180...180, keyed) { v, tr in tr.rotation = v * .pi / 180 }
             anchorRows(t, keyed)
+            if let d = model.editedDesqueeze { desqueezeRow(d) }
             Text(loc("Drag the crosshair on the preview to move the anchor point. Scale, rotation and the 3D turns go around it."))
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .transformTyping($typing, draft: $draft)
+        .transformTyping($typing, draft: $draft, model: model)
     }
 
     private func ask(_ title: String, _ unit: String, _ value: Double, _ commit: @escaping (Double) -> Void) {
         draft = TransformTyping.text(value)
+        model.textMenuOpen = true
         typing = TransformTyping(title: title, unit: unit, value: value, commit: commit)
     }
 
@@ -270,6 +275,25 @@ struct TransformTabView: View {
                      began: { model.lookEditBegan() }, ended: { model.lookEditEnded() },
                      type: { ask("Anchor point", "%", t.anchorY * 100) { v in anchor(nil, v / 100) } },
                      reset: { anchor(nil, 0) })
+    }
+
+    /// Anamorphic footage (squeezed in camera by the lens) shown as wide as it was shot.
+    private func desqueezeRow(_ d: Double) -> some View {
+        let factors: [Double] = [1, 1.33, 1.5, 1.55, 1.8, 2]
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(loc("Anamorphic de-squeeze")).font(.subheadline.weight(.heavy))
+            HStack(spacing: 6) {
+                ForEach(factors.prefix(3), id: \.self) { f in desqueezeChip(f, d) }
+            }
+            HStack(spacing: 6) {
+                ForEach(factors.suffix(3), id: \.self) { f in desqueezeChip(f, d) }
+            }
+        }
+    }
+
+    private func desqueezeChip(_ f: Double, _ d: Double) -> some View {
+        let title = f == 1 ? loc("Off") : String(format: "%g×", f)
+        return TransformChip(title: title, on: abs(d - f) < 0.001) { model.setDesqueeze(f) }
     }
 
     /// One undo step: the anchor moves, the picture stays.

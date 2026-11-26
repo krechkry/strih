@@ -146,8 +146,9 @@ enum Transcriber {
     @MainActor
     /// `range`: listen to just this stretch of the timeline (one caption line heard again); word times stay
     /// timeline seconds.
+    /// `raw`: the words as the model wrote them (no name or spelling fixes), for matching sounds.
     static func run(project: Project, language: String, names: String, accurate: Bool = false,
-                    range: ClosedRange<Double>? = nil,
+                    range: ClosedRange<Double>? = nil, raw: Bool = false,
                     phase: @escaping @MainActor (Phase) -> Void) async throws -> [CaptionWord] {
         let model = SpeechModel.parakeet
         let models = SpeechModels.shared
@@ -181,6 +182,7 @@ enum Transcriber {
         if let range {
             words = words.map { w in var q = w; q.start += range.lowerBound; q.end += range.lowerBound; return q }
         }
+        if raw { return words }
         let typed = names.split(whereSeparator: { " ,;\n".contains($0) }).map(String.init)
         words = SpellCheck.applyNames(words, typed)
         // Polish / Slovak spellings back to Czech first, then the usual second look at unsure words

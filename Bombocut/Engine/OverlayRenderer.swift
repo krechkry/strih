@@ -239,12 +239,14 @@ final class OverlayRenderer: @unchecked Sendable {
         let mo = o.kind.isVideo ? OverlayStore.shared.motion(o.id) : nil
         let stab = mo?.stab?.pose(at: srcT)
         let follow = mo?.track.map { $0.follow(at: srcT) }
+        // an anamorphic picture is drawn `desqueeze` times wider than its pixels (its aspect already says so)
+        let d: CGFloat = natural ? 1 : CGFloat(max(o.desqueeze ?? 1, 0.01))
         let s: CGFloat
         if natural {
             s = 1
         } else {
             let base = o.baseFraction(canvasAspect: A)
-            s = min(base.width * size.width / w, base.height * size.height / h)
+            s = min(base.width * size.width / (w * d), base.height * size.height / h)
         }
         var tr = OverlayStore.shared.shown(o, at: t)
         if let z = o.autoZoom, o.duration > 0.01 { tr = z.apply(tr, at: (t - o.start) / o.duration) }
@@ -254,8 +256,8 @@ final class OverlayRenderer: @unchecked Sendable {
         tr.scale *= a.scale
         if let trig = o.spinTrigger { tr = SpinPlan(trigger: trig).apply(tr, at: t - o.start) }
         let flip = o.crop.flipScale   // only pictures and videos have a crop
-        let bw: CGFloat = w * s, bh: CGFloat = h * s
-        var m = CGAffineTransform(scaleX: s, y: s)
+        let bw: CGFloat = w * s * d, bh: CGFloat = h * s
+        var m = CGAffineTransform(scaleX: s * d, y: s)
             .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
             .concatenating(tr.picture(bw, bh, yUp: true))                  // stretch, scale, turn around the anchor
