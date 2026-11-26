@@ -377,6 +377,7 @@ struct Clip: Identifiable, Codable, Hashable {
     var stack: [Clip]?             // a Stack: the clips it was made of (rendered into `mediaFile`), back on Unstack
     var filter: LookFilter?        // a look from the Filters gallery, after Adjust
     var key: ChromaKey?            // chroma key: a green / blue screen made see-through
+    var spinTrigger: SpinTrigger?  // Spin-That-Shit trigger: spins where the phrase is said (source seconds)
     var fadeIn = 0.0               // seconds its sound rises from silence at the start
     var fadeOut = 0.0              // seconds its sound sinks to silence at the end
     /// The sound fades as they play (each at most half the clip).
@@ -403,7 +404,15 @@ struct Clip: Identifiable, Codable, Hashable {
         LookState(fill: fill, look: staticLook, keyframes: keyframes,
                   stab: stabilization?.curve(aspect: aspect ?? 16.0 / 9), track: tracking?.curve(), mask: mask,
                   motionBlur: blurAmount, blurDirection: blurDirection, anim: anim, autoZoom: autoZoom, crop: crop,
-                  filter: filter, key: key)
+                  filter: filter, key: key,
+                  spin: spinPlan)
+    }
+
+    /// The Spin-That-Shit spins in seconds from the clip's start (they are kept in source seconds).
+    var spinPlan: SpinPlan? {
+        guard let trig = spinTrigger else { return nil }
+        let rt = retime
+        return SpinPlan(trigger: trig, local: { s in rt.local(atSource: s) })
     }
 
     /// Files this clip needs: its own, the original of a reversed clip, and everything inside a Stack.
@@ -450,7 +459,7 @@ struct Clip: Identifiable, Codable, Hashable {
         case curveSticks
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
-        case fadeIn, fadeOut, filter, key
+        case fadeIn, fadeOut, filter, key, spinTrigger
     }
 
     init(from d: Decoder) throws {
@@ -489,6 +498,7 @@ struct Clip: Identifiable, Codable, Hashable {
         crop = try? c.decodeIfPresent(CropRect.self, forKey: .crop)
         filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
         key = try? c.decodeIfPresent(ChromaKey.self, forKey: .key)
+        spinTrigger = try? c.decodeIfPresent(SpinTrigger.self, forKey: .spinTrigger)
         fadeIn = (try? c.decodeIfPresent(Double.self, forKey: .fadeIn)) ?? 0
         fadeOut = (try? c.decodeIfPresent(Double.self, forKey: .fadeOut)) ?? 0
         // older projects kept motion blur among the Adjust effects

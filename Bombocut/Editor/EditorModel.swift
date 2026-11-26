@@ -2739,6 +2739,10 @@ final class EditorModel: ObservableObject {
             cropPanelOpen = transformPanelOpen && transformTab == .crop
         }
     }
+    /// The Spin-That-Shit trigger is listening to the timeline (how far, 0...1), and what it found last.
+    @Published var spinListening: Double?
+    @Published var spinNote: String?
+    var spinTask: Task<Void, Never>?
     /// The 3D tab's finger mode: fingers on the preview turn the picture in 3D instead of moving it.
     var turnsWithFingers: Bool { transformPanelOpen && transformTab == .threeD && ThreeDControl.current == .fingers }
     /// Slip: the selected clip's content slides inside its place on the timeline.

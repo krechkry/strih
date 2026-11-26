@@ -10,6 +10,8 @@ struct ThreeDTabView: View {
     @AppStorage(ThreeDControl.key) private var control = ThreeDControl.trackball.rawValue
     @State private var typing: TransformTyping?
     @State private var draft = ""
+    @State private var spinAxis = SpinAxis.y
+    @State private var spinTurns = 1
 
     private var mode: ThreeDControl { ThreeDControl(rawValue: control) ?? .trackball }
 
@@ -30,6 +32,8 @@ struct ThreeDTabView: View {
             percentRow("Depth", t.depth * 100, -200...50, 0, keyed) { v, tr in tr.depth = v / 100 }
             OnOffRow(title: "Back side", subtitle: "Past a quarter turn the back shows, mirrored like a card.",
                      isOn: !t.hideBack) { on in model.setTransform { $0.hideBack = !on } }
+            spinRow
+            SpinTriggerPill(model: model)
         }
         .transformTyping($typing, draft: $draft)
     }
@@ -97,6 +101,38 @@ struct ThreeDTabView: View {
                      began: { model.lookEditBegan() }, ended: { model.lookEditEnded() },
                      type: { ask(title, "%", v) { n in model.setTransform { set(min(max(n, range.lowerBound), range.upperBound), &$0) } } },
                      reset: { model.setTransform { set(neutral, &$0) } })
+    }
+
+    /// Spin: whole turns around one axis over the whole clip, as two keyframes (the "Microwave" look in one tap).
+    private var spinRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc("Spin")).font(.subheadline.weight(.heavy))
+            HStack(spacing: 6) {
+                ForEach(SpinAxis.allCases, id: \.self) { a in
+                    TransformChip(title: a.title, on: spinAxis == a) { spinAxis = a }
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach([1, 2, 3, 5], id: \.self) { n in
+                    TransformChip(title: "\(n)×", on: spinTurns == n) { spinTurns = n }
+                }
+            }
+            Button {
+                model.spinWhole(spinAxis, turns: spinTurns)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "rotate.3d").font(.system(size: 14, weight: .bold))
+                    Text(loc("Spin it")).font(.subheadline.weight(.heavy))
+                }
+                .foregroundStyle(.black)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            hint("Adds a keyframe at the start and the end: the picture turns that many times over the whole clip.")
+        }
     }
 }
 

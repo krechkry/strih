@@ -261,6 +261,7 @@ struct LookState: Hashable {
     var crop: CropRect? = nil
     var filter: LookFilter? = nil
     var key: ChromaKey? = nil
+    var spin: SpinPlan? = nil
 
     func look(atSource s: Double) -> Look {
         guard let first = keyframes.first else { return look }

@@ -252,6 +252,7 @@ final class OverlayRenderer: @unchecked Sendable {
         tr.x += a.dx
         tr.y += a.dy
         tr.scale *= a.scale
+        if let trig = o.spinTrigger { tr = SpinPlan(trigger: trig).apply(tr, at: t - o.start) }
         let flip = o.crop.flipScale   // only pictures and videos have a crop
         let bw: CGFloat = w * s, bh: CGFloat = h * s
         var m = CGAffineTransform(scaleX: s, y: s)

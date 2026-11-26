@@ -250,6 +250,16 @@
         }
       }
     },
+    "%lld spins": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztočení: %lld"
+          }
+        }
+      }
+    },
     "1 day of your trial left.": {
       "localizations": {
         "cs": {
@@ -266,6 +276,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 řádek"
+          }
+        }
+      }
+    },
+    "1 spin": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 roztočení"
           }
         }
       }
@@ -566,6 +586,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Přidávám projekt…"
+          }
+        }
+      }
+    },
+    "Adds a keyframe at the start and the end: the picture turns that many times over the whole clip.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidá keyframe na začátek a na konec: obraz se za celý klip tolikrát otočí."
           }
         }
       }
@@ -2306,6 +2336,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Objekt se nepodařilo sledovat."
+          }
+        }
+      }
+    },
+    "Could not listen to the sound.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zvuk se nepodařilo poslechnout."
           }
         }
       }
@@ -5438,6 +5478,16 @@
         }
       }
     },
+    "Listening to the timeline…": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslouchám zvuk na časové ose…"
+          }
+        }
+      }
+    },
     "Listens to this clip only. Captions on the other clips stay as they are.": {
       "localizations": {
         "cs": {
@@ -6124,6 +6174,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "V souboru není video."
+          }
+        }
+      }
+    },
+    "Nobody says “spin that shit” here.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tady nikdo neříká „spin that shit“."
           }
         }
       }
@@ -7858,6 +7918,16 @@
         }
       }
     },
+    "Say “spin that shit” in the video: the picture spins for a second on every axis and lands where it was.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Řekni ve videu „spin that shit“: obraz se na vteřinu roztočí ve všech osách a skončí tam, kde byl."
+          }
+        }
+      }
+    },
     "Scale": {
       "localizations": {
         "cs": {
@@ -8544,6 +8614,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Odstranit přesvit"
+          }
+        }
+      }
+    },
+    "Spin": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztočit"
+          }
+        }
+      }
+    },
+    "Spin it": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztoč to"
+          }
+        }
+      }
+    },
+    "Spin-That-Shit trigger": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spouštěč Spin-That-Shit"
           }
         }
       }

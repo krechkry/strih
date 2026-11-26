@@ -30,6 +30,7 @@ struct ClipStack: Codable, Hashable, Identifiable {
     var fadeIn = 0.0               // seconds its sound rises from silence at its start
     var fadeOut = 0.0              // seconds its sound sinks to silence at its end
     var key: ChromaKey?            // chroma key on the Stack's whole picture
+    var spinTrigger: SpinTrigger?  // Spin-That-Shit trigger (Stack seconds)
 
     init(clipIDs: [UUID]) { self.clipIDs = clipIDs }
 
@@ -50,12 +51,12 @@ struct ClipStack: Codable, Hashable, Identifiable {
     var hasLayer: Bool {
         !transform.isIdentity || opacity < 0.999 || effects.hasColor || effects.hasCanvasFX
             || !(crop?.isEmpty ?? true) || autoZoom != nil || filter != nil || !keyframes.isEmpty || !anim.isNone
-            || mask != nil || key != nil || blurAmount > 0.001 || stabilization != nil || (tracking.map { $0.mode != .off } ?? false)
+            || mask != nil || key != nil || spinTrigger != nil || blurAmount > 0.001 || stabilization != nil || (tracking.map { $0.mode != .off } ?? false)
     }
 
     enum CodingKeys: String, CodingKey {
         case id, clipIDs, open, transform, opacity, effects, keyframes, crop, autoZoom, volume, filter, anim, speed, mask
-        case motionBlur, motionBlurOn, blurDirection, stabilization, tracking, fadeIn, fadeOut, key
+        case motionBlur, motionBlurOn, blurDirection, stabilization, tracking, fadeIn, fadeOut, key, spinTrigger
     }
 
     init(from d: Decoder) throws {
@@ -72,6 +73,7 @@ struct ClipStack: Codable, Hashable, Identifiable {
         volume = try c.decodeIfPresent(Double.self, forKey: .volume) ?? 1
         filter = try? c.decodeIfPresent(LookFilter.self, forKey: .filter)
         key = try? c.decodeIfPresent(ChromaKey.self, forKey: .key)
+        spinTrigger = try? c.decodeIfPresent(SpinTrigger.self, forKey: .spinTrigger)
         anim = (try? c.decodeIfPresent(AnimPair.self, forKey: .anim)) ?? AnimPair()
         speed = min(max((try? c.decodeIfPresent(Double.self, forKey: .speed)) ?? 1, 0.05), 15)
         mask = try? c.decodeIfPresent(SubjectMask.self, forKey: .mask)

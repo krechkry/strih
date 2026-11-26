@@ -187,3 +187,218 @@ extension ClipTransform {
         return t
     }
 }
+
+// MARK: Spin (keyframes) and the Spin-That-Shit trigger
+
+/// A keyframe with a placement: clips' and Stacks' keyframes, layers' keys.
+protocol PoseKey {
+    var t: Double { get set }
+    var pose: ClipTransform { get set }
+}
+
+extension Keyframe: PoseKey {
+    var pose: ClipTransform {
+        get { look.transform }
+        set { look.transform = newValue }
+    }
+}
+
+extension OverlayKey: PoseKey {
+    var pose: ClipTransform {
+        get { transform }
+        set { transform = newValue }
+    }
+}
+
+enum SpinKeys {
+    /// Keys from `a` to `b` (their own time) turning `turns` times around `axis`: a key at each end (made from
+    /// the placement there), the keys between them turn by their share, so other moves stay as they were.
+    static func spun<K: PoseKey>(_ keys: [K], from a: Double, to b: Double, axis: SpinAxis, turns: Int,
+                                 make: (Double) -> K) -> [K] {
+        var ks = keys
+        let first = make(a), last = make(b)
+        if !ks.contains(where: { abs($0.t - a) < 1e-3 }) { ks.append(first) }
+        if !ks.contains(where: { abs($0.t - b) < 1e-3 }) { ks.append(last) }
+        ks.sort { $0.t < $1.t }
+        let span = max(b - a, 1e-6)
+        for j in ks.indices where ks[j].t > a + 1e-3 && ks[j].t <= b + 1e-3 {
+            let f = min((ks[j].t - a) / span, 1)
+            var p = ks[j].pose
+            axis.add(Double(turns) * f, to: &p)
+            ks[j].pose = p
+        }
+        return ks
+    }
+}
+
+extension EditorModel {
+    /// Spin: whole turns around one axis over the whole clip, Stack or layer, as keyframes (one undo step).
+    func spinWhole(_ axis: SpinAxis, turns: Int) {
+        pause()
+        if let k = selectedStackIndex, let span = project.stackTime(project.stacks[k]) {
+            let st = project.stacks[k]
+            let len = span.end - span.start
+            let keys = SpinKeys.spun(st.keyframes, from: 0, to: len, axis: axis, turns: turns) { t in
+                Keyframe(t: t, look: st.look(at: t))
+            }
+            mutateLook { $0.stacks[k].keyframes = keys }
+            return
+        }
+        if let oi = selectedOverlayIndex {
+            let o = project.overlays[oi]
+            guard o.isMedia else { return }
+            let keys = SpinKeys.spun(o.keys, from: 0, to: o.duration, axis: axis, turns: turns) { t in
+                let p = o.pose(at: o.start + t)
+                return OverlayKey(t: t, transform: p.transform, opacity: p.opacity)
+            }
+            mutateLook { $0.overlays[oi].keys = keys }
+            return
+        }
+        guard let i = selectedIndex else { return }
+        let c = project.clips[i]
+        let rt = c.retime
+        let a = rt.source(atLocal: 0), b = rt.source(atLocal: c.duration)
+        let keys = SpinKeys.spun(c.keyframes, from: min(a, b), to: max(a, b), axis: axis, turns: turns) { s in
+            Keyframe(t: s, look: c.look(atSource: s))
+        }
+        mutateLook { $0.clips[i].keyframes = keys }
+    }
+
+    /// The selected thing's Spin-That-Shit trigger (nil: off).
+    var spinTrigger: SpinTrigger? {
+        if let k = selectedStackIndex { return project.stacks[k].spinTrigger }
+        if let oi = selectedOverlayIndex { return project.overlays[oi].spinTrigger }
+        return selectedIndex.flatMap { project.clips[$0].spinTrigger }
+    }
+
+    /// The pill switched: on listens to the timeline's sound and spins wherever "spin that shit" is said
+    /// (within what is selected); off takes the spins away.
+    func setSpinTrigger(_ on: Bool) {
+        spinTask?.cancel()
+        spinTask = nil
+        spinListening = nil
+        spinNote = nil
+        guard on else {
+            storeSpinTrigger(nil)
+            return
+        }
+        // what is selected right now gets the spins, even if the selection changes while listening
+        let target = spinTarget
+        guard target != nil else { return }
+        spinListening = 0
+        let heard = project
+        spinTask = Task { @MainActor in
+            do {
+                // captions already written: their words are what was said (no listening needed when they have it)
+                var times = SpinPhrase.starts(in: heard.captionTracks.flatMap(\.words))
+                if times.isEmpty {
+                    let words = try await Transcriber.run(project: heard, language: "en", names: "") { [weak self] p in
+                        switch p {
+                        case .downloading(let f): self?.spinListening = f * 0.5
+                        case .preparingAudio: self?.spinListening = 0.55
+                        case .loadingModel: self?.spinListening = 0.65
+                        case .listening(let f): self?.spinListening = 0.7 + f * 0.3
+                        }
+                    }
+                    times = SpinPhrase.starts(in: words)
+                }
+                if Task.isCancelled { return }
+                spinListening = nil
+                let own = ownTimes(times, target, heard)
+                guard !own.isEmpty else {
+                    spinNote = loc("Nobody says “spin that shit” here.")
+                    return
+                }
+                var trig = SpinTrigger()
+                trig.times = own
+                storeSpinTrigger(trig, target: target)
+                spinNote = own.count == 1 ? loc("1 spin") : String(format: loc("%lld spins"), own.count)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } catch {
+                if Task.isCancelled { return }
+                spinListening = nil
+                spinNote = loc("Could not listen to the sound.")
+            }
+        }
+    }
+
+    enum SpinTarget: Equatable { case clip(UUID), stack(UUID), layer(UUID) }
+
+    private var spinTarget: SpinTarget? {
+        if let k = selectedStackIndex { return .stack(project.stacks[k].id) }
+        if let oi = selectedOverlayIndex, project.overlays[oi].isMedia { return .layer(project.overlays[oi].id) }
+        if let i = selectedIndex { return .clip(project.clips[i].id) }
+        return nil
+    }
+
+    /// Timeline times of the phrase that fall on the target, in its own time (clips: source seconds).
+    private func ownTimes(_ times: [Double], _ target: SpinTarget?, _ p: Project) -> [Double] {
+        switch target {
+        case .clip(let id):
+            guard let i = p.clips.firstIndex(where: { $0.id == id }) else { return [] }
+            let c = p.clips[i], start = p.clipStarts[i]
+            return times.filter { $0 >= start - 0.01 && $0 < start + c.duration }
+                .map { c.retime.source(atLocal: $0 - start) }
+        case .stack(let id):
+            guard let st = p.stacks.first(where: { $0.id == id }), let span = p.stackTime(st) else { return [] }
+            return times.filter { $0 >= span.start - 0.01 && $0 < span.end }.map { $0 - span.start }
+        case .layer(let id):
+            guard let o = p.overlays.first(where: { $0.id == id }) else { return [] }
+            return times.filter { $0 >= o.start - 0.01 && $0 < o.end }.map { $0 - o.start }
+        case nil:
+            return []
+        }
+    }
+
+    private func storeSpinTrigger(_ v: SpinTrigger?, target: SpinTarget? = nil) {
+        switch target ?? spinTarget {
+        case .clip(let id):
+            guard let i = project.clips.firstIndex(where: { $0.id == id }), project.clips[i].spinTrigger != v else { return }
+            mutateLook { $0.clips[i].spinTrigger = v }
+        case .stack(let id):
+            guard let k = project.stacks.firstIndex(where: { $0.id == id }), project.stacks[k].spinTrigger != v else { return }
+            mutateLook { $0.stacks[k].spinTrigger = v }
+        case .layer(let id):
+            guard let oi = project.overlays.firstIndex(where: { $0.id == id }), project.overlays[oi].spinTrigger != v else { return }
+            mutateLook { $0.overlays[oi].spinTrigger = v }
+        case nil:
+            break
+        }
+    }
+}
+
+/// The Spin-That-Shit trigger pill in the 3D tab: on / off, and what it heard.
+struct SpinTriggerPill: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        let on = model.spinTrigger != nil || model.spinListening != nil
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                model.setSpinTrigger(!on)
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: on ? "tornado" : "tornado").font(.system(size: 15, weight: .heavy))
+                    Text(loc("Spin-That-Shit trigger")).font(.subheadline.weight(.heavy))
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Spacer(minLength: 4)
+                    if let f = model.spinListening {
+                        ProgressView(value: f).progressViewStyle(.linear).tint(.black).frame(width: 54)
+                    } else {
+                        Text(loc(on ? "On" : "Off")).font(.footnote.weight(.heavy))
+                    }
+                }
+                .foregroundStyle(on ? .black : .white)
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Text(verbatim: model.spinListening != nil ? loc("Listening to the timeline…")
+                 : (model.spinNote ?? loc("Say “spin that shit” in the video: the picture spins for a second on every axis and lands where it was.")))
+                .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}

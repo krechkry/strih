@@ -337,6 +337,8 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         if let z = state.autoZoom, info.duration > 0.01, !(info.preview && LookStore.shared.framingClip == info.clipID) {
             look.transform = z.apply(look.transform, at: min(max(local / length, 0), 1))
         }
+        // Spin-That-Shit: a second of whole turns where the phrase was heard
+        if let sp = state.spin { look.transform = sp.apply(look.transform, at: local) }
         // where the picture goes: placement, then the clip's own in / out animation (a custom mask goes the same way)
         let anim = state.anim.isNone ? nil : state.anim.pose(local: local, length: length)
         let editingCrop = info.preview && LookStore.shared.cropEditClip == info.clipID
@@ -421,6 +423,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         func transform(at x: Double) -> ClipTransform {
             var tr = x == local ? look.transform : s.look(at: x).transform
             if let z = s.autoZoom, !framing { tr = z.apply(tr, at: min(max(x / length, 0), 1)) }
+            if let trig = s.spinTrigger { tr = SpinPlan(trigger: trig).apply(tr, at: x) }
             return tr
         }
         let tr = transform(at: local)
