@@ -26,8 +26,8 @@ struct SpinPlan: Hashable {
     /// The placement at `local` seconds with any spin that is going on then.
     func apply(_ t: ClipTransform, at local: Double) -> ClipTransform {
         let len = SpinTrigger.length
-        guard let hit = starts.enumerated().last(where: { $0.element <= local }) else { return t }
-        let i = hit.offset, s = hit.element
+        guard let i = starts.indices.last(where: { starts[$0] <= local }) else { return t }
+        let s = starts[i]
         guard local < s + len else { return t }
         let f = (local - s) / len
         let e = f * f * (3 - 2 * f)

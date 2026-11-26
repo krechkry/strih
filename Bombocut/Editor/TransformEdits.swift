@@ -179,7 +179,6 @@ struct TurnRecording {
     var start: Double        // own time (clip: source seconds) where it started
     var last: Double         // own time of the last key written
     var ids: Set<UUID> = []  // the keys it wrote (others it passes over are replaced)
-    var snapshot: Project
 }
 
 enum TurnKeys {
@@ -226,10 +225,10 @@ extension EditorModel {
 
     /// The ball was touched with Record on: playback starts (looping what is selected) and keys are written.
     func beginTurnRecording() {
-        pause()
+        lookEditBegan()
         playheadIntoSelected()
         guard let t = ownTimeNow else { return }
-        turnRecording = TurnRecording(start: t, last: t, snapshot: project)
+        turnRecording = TurnRecording(start: t, last: t)
         togglePlay()
     }
 
@@ -257,11 +256,10 @@ extension EditorModel {
 
     /// The ball let go: playback stops, the recording is one undo step.
     func endTurnRecording() {
-        guard let rec = turnRecording else { return }
+        guard turnRecording != nil else { return }
         turnRecording = nil
         pause()
-        if rec.snapshot != project { pushUndo(rec.snapshot) }
-        commitLook()
+        lookEditEnded()
     }
 
     // MARK: Anamorphic de-squeeze

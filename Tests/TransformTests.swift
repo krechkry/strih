@@ -175,7 +175,7 @@ final class TransformTests: XCTestCase {
     /// Recorded turns: a key every step, keys passed over replaced, linear.
     func testTurnRecording() {
         var keys = [Keyframe(t: 0.5, look: Look()), Keyframe(t: 2, look: Look())]
-        var rec = TurnRecording(start: 0.4, last: 0.4, snapshot: Project(name: "t"))
+        var rec = TurnRecording(start: 0.4, last: 0.4)
         var r = ClipTransform()
         for i in 0..<10 {
             r.tiltY = Double(i) * 0.1
