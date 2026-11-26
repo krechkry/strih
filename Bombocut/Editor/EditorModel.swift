@@ -2743,8 +2743,6 @@ final class EditorModel: ObservableObject {
     @Published var spinListening: Double?
     @Published var spinNote: String?
     var spinTask: Task<Void, Never>?
-    /// Live keyframing from the 3D trackball (where it started, the last key written, the keys it wrote).
-    var turnRecording: TurnRecording?
     /// Slip: the selected clip's content slides inside its place on the timeline.
     @Published private(set) var slip: SlipState?
     @Published var slipView: SlipView?

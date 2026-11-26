@@ -171,19 +171,4 @@ final class TransformTests: XCTestCase {
         XCTAssertEqual(CGPoint(x: 0, y: 500).applying(p.place).x, 0, accuracy: 0.01)
         XCTAssertEqual(CGPoint(x: 1000, y: 500).applying(p.place).x, 2000, accuracy: 0.01)
     }
-
-    /// Recorded turns: a key every step, keys passed over replaced, linear.
-    func testTurnRecording() {
-        var keys = [Keyframe(t: 0.5, look: Look()), Keyframe(t: 2, look: Look())]
-        var rec = TurnRecording(start: 0.4, last: 0.4)
-        var r = ClipTransform()
-        for i in 0..<10 {
-            r.tiltY = Double(i) * 0.1
-            TurnKeys.record(&keys, at: 0.4 + Double(i) * 0.05, turn: r, rec: &rec) { t in Keyframe(t: t, look: Look()) }
-        }
-        XCTAssertFalse(keys.contains { abs($0.t - 0.5) < 1e-6 }, "the key it passed over is gone")
-        XCTAssertTrue(keys.contains { abs($0.t - 2) < 1e-6 }, "keys ahead stay")
-        XCTAssertTrue(keys.filter { rec.ids.contains($0.id) }.allSatisfy { $0.ease == .linear })
-        XCTAssertGreaterThanOrEqual(keys.filter { rec.ids.contains($0.id) }.count, 3)
-    }
 }

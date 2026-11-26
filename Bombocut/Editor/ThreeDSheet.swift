@@ -5,10 +5,9 @@ import UIKit
 
 /// The whole picture turned in 3D as a card: tilt (X / Y), Rotate Z, perspective and depth, all keyframable.
 /// The trackball turns it (one finger rolls, two fingers twist), locking to an axis and clicking into straight
-/// angles; with Record on, playback runs while the ball turns and the turn is written as keyframes.
+/// angles.
 struct ThreeDTabView: View {
     @ObservedObject var model: EditorModel
-    @AppStorage("turnRecord") private var record = false
     @State private var typing: TransformTyping?
     @State private var draft = ""
 
@@ -33,37 +32,12 @@ struct ThreeDTabView: View {
     private func ball(_ t: ClipTransform) -> some View {
         HStack {
             Spacer()
-            TrackballView(transform: t, began: {
-                if record { model.beginTurnRecording() } else { model.lookEditBegan() }
-            }, changed: { r in
-                if record {
-                    model.recordTurn(r)
-                } else {
-                    model.editTransform { $0.tiltX = r.tiltX; $0.tiltY = r.tiltY; $0.roll = r.roll }
-                }
-            }, ended: {
-                if record { model.endTurnRecording() } else { model.lookEditEnded() }
-            })
+            TrackballView(transform: t, began: { model.lookEditBegan() }, changed: { r in
+                model.editTransform { $0.tiltX = r.tiltX; $0.tiltY = r.tiltY; $0.roll = r.roll }
+            }, ended: { model.lookEditEnded() })
             Spacer()
         }
-        HStack(spacing: 8) {
-            Button {
-                record.toggle()
-                UISelectionFeedbackGenerator().selectionChanged()
-            } label: {
-                HStack(spacing: 6) {
-                    Circle().fill(record ? Color.red : Color.white.opacity(0.5)).frame(width: 10, height: 10)
-                    Text(loc("Record keyframes")).font(.footnote.weight(.heavy)).lineLimit(1).minimumScaleFactor(0.7)
-                }
-                .foregroundStyle(record ? .black : .white)
-                .padding(.horizontal, 12).frame(height: 32)
-                .background(record ? Theme.accent : Theme.panel2, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            Spacer(minLength: 0)
-        }
-        hint(record ? "Hold the ball: the video plays and every turn you make is keyframed. Let go to stop."
-                    : "One finger rolls the ball, two fingers twist it around Z. It locks to an axis when you move straight.")
+        hint("One finger rolls the ball, two fingers twist it around Z. It locks to an axis when you move straight.")
     }
 
     private func hint(_ s: String) -> some View {
