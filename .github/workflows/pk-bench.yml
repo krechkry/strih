@@ -25,6 +25,14 @@ jobs:
             say -v "$V" -r 170 -o tts.aiff "$T"
             afconvert -f WAVE -d LEI16@16000 -c 1 tts.aiff tts_cs.wav
           fi
+      - name: Spin test speech (macOS voices)
+        working-directory: bench/audio
+        run: |
+          rm -f kry_cs*.wav
+          say -v Samantha -o s1.aiff "okay, spin that shit"
+          afconvert -f WAVE -d LEI16@16000 -c 1 s1.aiff tts_spin_en.wav
+          V=$(say -v '?' | grep -i "cs_CZ" | head -1 | awk '{print $1}')
+          [ -n "$V" ] && say -v "$V" -o s2.aiff "tak a teď, spin that shit" && afconvert -f WAVE -d LEI16@16000 -c 1 s2.aiff tts_spin_cs.wav || true
       - name: Build and run
         working-directory: bench/parakeet
         run: |
@@ -38,7 +46,7 @@ jobs:
       - name: Publish result
         if: always()
         run: |
-          B="bench-parakeet"
+          B="bench-parakeet-spin"
           cp bench/result.md /tmp/result.md || echo "no result" > /tmp/result.md
           git config user.name bench; git config user.email bench@users.noreply.github.com
           git checkout --orphan "$B"
