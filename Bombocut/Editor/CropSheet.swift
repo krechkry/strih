@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Crop of the selected clip, Stack or picture / video layer, in tabs: Rectangle (drag the lime edges on the
-/// preview; softness, rounded corners), Ellipse (drag it, its handles or pinch on the preview) and Curve (tap the
-/// video to add points, drag them). Ellipse and Curve have a soft edge and can keep the outside instead. It works
-/// on the picture itself (before stabilization, tracking and masks). Mirror (left to right, upside down) sits on
-/// top: it is stored with the crop and flips the picture as it is placed, so the crop stays on the same footage.
+/// The Transform panel of the selected clip, Stack or picture / video layer, in three tabs:
+/// Transform (position, scale, stretch, rotation, anchor point, mirror; the same values the fingers on the preview
+/// change), Crop (Rectangle: drag the lime edges on the preview, softness, rounded corners; Ellipse: drag it, its
+/// handles or pinch; Curve: tap the video to add points, drag them; Ellipse and Curve have a soft edge and can keep
+/// the outside instead; the crop works on the picture itself, before stabilization, tracking and masks) and 3D
+/// (the whole picture turned as a card, after crop and the flat placement). Mirror is stored with the crop and
+/// flips the picture as it is placed, so the crop stays on the same footage.
 struct CropSheet: View {
     @ObservedObject var model: EditorModel
 
@@ -12,9 +14,11 @@ struct CropSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             if model.editsCrop {
                 let c = model.editedCrop ?? CropRect()
-                HStack {
-                    Text("Crop").font(.title3.weight(.heavy))
-                    Spacer()
+                HStack(spacing: 6) {
+                    panelTab("Transform", .transform)
+                    panelTab("Crop", .crop)
+                    panelTab("3D", .threeD)
+                    Spacer(minLength: 4)
                     Button { reset(c) } label: {
                         Image(systemName: "arrow.counterclockwise").font(.subheadline.weight(.bold))
                             .foregroundStyle(.white.opacity(0.8))
@@ -22,64 +26,56 @@ struct CropSheet: View {
                             .background(Theme.panel2, in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(loc("Reset"))
+                    .accessibilityLabel(loc("Reset this tab"))
                 }
-                mirrorRow(c)
-                tabs(c)
-                switch c.kind {
-                case .rect:
-                    hint("Drag the lime edges on the preview, or inside the frame to move it.")
-                    slider("Softness", c.softness) { v in model.editCrop { $0.softness = v } }
-                    slider("Rounded corners", c.radius) { v in model.editCrop { $0.radius = v } }
-                case .ellipse:
-                    hint("Drag the ellipse to move it, its lime handles or two fingers to size it.")
-                    shapeControls(c)
-                case .curve:
-                    hint(c.points.count < 3 ? "Tap the video to add points around what you want to keep."
-                                            : "Tap to add points, drag them to adjust, double tap one to remove it. Drag inside to move it all.")
-                    shapeControls(c)
+                switch model.transformTab {
+                case .transform:
+                    TransformTabView(model: model)
+                case .crop:
+                    cropTab(c)
+                case .threeD:
+                    ThreeDTabView(model: model)
                 }
-                if model.selectedStackIndex == nil && model.selectedOverlayIndex == nil { ApplyRow(model: model, kind: .crop) }
             }
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// Mirror the picture left to right or upside down (each a switch; both = turned half way round).
-    private func mirrorRow(_ c: CropRect) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc("Mirror")).font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted)
-            HStack(spacing: 6) {
-                mirrorChip("Horizontal", "arrow.left.and.right.righttriangle.left.righttriangle.right", on: c.flipX) {
-                    var n = c
-                    n.flipX.toggle()
-                    model.setCropShape(n)
-                }
-                mirrorChip("Vertical", "arrow.up.and.down.righttriangle.up.righttriangle.down", on: c.flipY) {
-                    var n = c
-                    n.flipY.toggle()
-                    model.setCropShape(n)
-                }
-            }
-        }
-    }
-
-    private func mirrorChip(_ title: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
-        Button {
+    /// Transform | Crop | 3D, the app's tab capsules (lime and bold when picked).
+    private func panelTab(_ title: String, _ tab: TransformTab) -> some View {
+        let on = model.transformTab == tab
+        return Button {
+            guard !on else { return }
             UISelectionFeedbackGenerator().selectionChanged()
-            action()
+            model.transformTab = tab
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 13, weight: .bold))
-                Text(loc(title)).font(.subheadline.weight(.bold))
-            }
-            .foregroundStyle(on ? .black : .white)
-            .lineLimit(1).minimumScaleFactor(0.7)
-            .frame(maxWidth: .infinity, minHeight: 36)
-            .background(on ? Theme.accent : Theme.panel2, in: Capsule())
+            Text(loc(title)).font(.subheadline.weight(on ? .heavy : .bold))
+                .foregroundStyle(on ? .black : .white)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .padding(.horizontal, 13).frame(height: 36)
+                .background(on ? Theme.accent : Theme.panel2, in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func cropTab(_ c: CropRect) -> some View {
+        tabs(c)
+        switch c.kind {
+        case .rect:
+            hint("Drag the lime edges on the preview, or inside the frame to move it.")
+            slider("Softness", c.softness) { v in model.editCrop { $0.softness = v } }
+            slider("Rounded corners", c.radius) { v in model.editCrop { $0.radius = v } }
+        case .ellipse:
+            hint("Drag the ellipse to move it, its lime handles or two fingers to size it.")
+            shapeControls(c)
+        case .curve:
+            hint(c.points.count < 3 ? "Tap the video to add points around what you want to keep."
+                                    : "Tap to add points, drag them to adjust, double tap one to remove it. Drag inside to move it all.")
+            shapeControls(c)
+        }
+        if model.selectedStackIndex == nil && model.selectedOverlayIndex == nil { ApplyRow(model: model, kind: .crop) }
     }
 
     private func tabs(_ c: CropRect) -> some View {
@@ -120,8 +116,26 @@ struct CropSheet: View {
         }
     }
 
-    /// Reset: the shape being edited starts over (the others stay as they are).
+    /// Reset: what the tab shows goes back (Transform: the flat placement, 3D: the turn, Crop: the shape being
+    /// edited starts over, the others stay as they are). The mirror stays.
     private func reset(_ c: CropRect) {
+        switch model.transformTab {
+        case .transform:
+            model.setTransform { t in
+                let keep = t
+                t = ClipTransform()
+                t.tiltX = keep.tiltX; t.tiltY = keep.tiltY; t.roll = keep.roll
+                t.perspective = keep.perspective; t.depth = keep.depth; t.hideBack = keep.hideBack
+            }
+            return
+        case .threeD:
+            model.setTransform { t in
+                t.tiltX = 0; t.tiltY = 0; t.roll = 0; t.perspective = 0.5; t.depth = 0; t.hideBack = false
+            }
+            return
+        case .crop:
+            break
+        }
         var n = c
         switch c.kind {
         case .rect:

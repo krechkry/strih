@@ -388,7 +388,7 @@ struct EditorView: View {
         model.pinPanelOpen = s == .overlayTrack
         model.maskPanelOpen = s == .mask
         model.autoZoomPanelOpen = s == .autoZoom
-        model.cropPanelOpen = s == .crop
+        model.transformPanelOpen = s == .crop
         // the picking panel swiped away: picking ends
         if s != .trackPick && model.trackPick { model.cancelTrackPick() }
         if s != .mask && model.maskPaint { model.finishPaint() }

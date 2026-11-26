@@ -21,6 +21,7 @@ struct PreviewArea: View {
 
     // Looking closer while a panel is open: pinch to zoom the view (not the edit), drag to move around.
     @State private var viewZoom: CGFloat = 1
+    @State private var anchorDragging = false
     @State private var zoomBase: CGFloat = 1
     @State private var viewOffset: CGSize = .zero
     @State private var panBase: CGSize = .zero
@@ -158,6 +159,10 @@ struct PreviewArea: View {
         if model.trackPick { layer(canvas) { pickOverlay(canvas) } }
         if model.maskPaint && model.analysis == nil { layer(canvas) { paintOverlay(canvas) } }
         if model.cropPanelOpen && !model.isPlaying && model.analysis == nil { cropLayer(canvas) }
+        if model.transformPanelOpen && model.transformTab == .transform && !model.isPlaying && model.analysis == nil
+            && model.transformOnScreen {
+            layer(canvas) { anchorCross(canvas) }
+        }
         if model.autoZoomPanelOpen && !model.isPlaying && model.analysis == nil { autoZoomLayer(canvas) }
         if let a = model.analysis {
             layer(canvas) {
@@ -200,6 +205,44 @@ struct PreviewArea: View {
         case .ellipse: ellipseFrame(canvas, toCanvas: toCanvas, crop: c)
         case .curve: curveFrame(canvas, toCanvas: toCanvas, crop: c)
         }
+    }
+
+    /// The anchor point of what the Transform tab edits, a small crosshair that can be dragged: the pivot moves,
+    /// the picture stays.
+    @ViewBuilder
+    private func anchorCross(_ canvas: CGSize) -> some View {
+        if let a = model.anchorOnPreview(canvas: canvas) {
+            let W = canvas.width, H = canvas.height
+            let p = CGPoint(x: (a.x - W / 2) * viewZoom + W / 2 + viewOffset.width,
+                            y: (a.y - H / 2) * viewZoom + H / 2 + viewOffset.height)
+            ZStack {
+                Circle().stroke(Color.black.opacity(0.55), lineWidth: 4).frame(width: 22, height: 22)
+                Circle().stroke(Theme.accent, lineWidth: 2).frame(width: 22, height: 22)
+                Rectangle().fill(Theme.accent).frame(width: 2, height: 34)
+                Rectangle().fill(Theme.accent).frame(width: 34, height: 2)
+            }
+            .frame(width: 48, height: 48)
+            .contentShape(Rectangle())
+            .position(p)
+            .gesture(anchorDrag(canvas))
+            .accessibilityLabel(loc("Anchor point"))
+        }
+    }
+
+    private func anchorDrag(_ canvas: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { v in
+                if !anchorDragging {
+                    anchorDragging = true
+                    model.lookEditBegan()
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+                model.dragAnchor(to: contentPoint(v.location, canvas), canvas: canvas)
+            }
+            .onEnded { _ in
+                anchorDragging = false
+                model.lookEditEnded()
+            }
     }
 
     /// The selected media overlay, when the playhead is over it (Crop works on it then).
@@ -456,13 +499,8 @@ struct PreviewArea: View {
             let c = model.project.clips[i]
             let t = model.shownTransform(c)
             let base = c.baseFraction(canvasAspect: model.project.canvas.aspect)
-            let bw = base.width * canvas.width * t.scale, bh = base.height * canvas.height * t.scale
-            let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+            let pts = t.corners(base.width * canvas.width, base.height * canvas.height, canvas: canvas)
             Path { p in
-                let m = CGAffineTransform(rotationAngle: t.rotation)
-                    .concatenating(CGAffineTransform(translationX: cx, y: cy))
-                let pts = [CGPoint(x: -bw / 2, y: -bh / 2), CGPoint(x: bw / 2, y: -bh / 2),
-                           CGPoint(x: bw / 2, y: bh / 2), CGPoint(x: -bw / 2, y: bh / 2)].map { $0.applying(m) }
                 p.addLines(pts)
                 p.closeSubpath()
             }
@@ -479,12 +517,9 @@ struct PreviewArea: View {
             if model.currentTime >= o.start - 0.01 && model.currentTime < o.end + 0.01 && !o.isAdjustment {
                 let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
                 let t = OverlayStore.shared.shown(o, at: model.currentTime)
-                let bw = base.width * t.scale, bh = base.height * t.scale
-                let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+                let pts = t.corners(base.width, base.height, canvas: canvas)
                 Path { p in
-                    let m = CGAffineTransform(rotationAngle: t.rotation).concatenating(CGAffineTransform(translationX: cx, y: cy))
-                    p.addLines([CGPoint(x: -bw / 2, y: -bh / 2), CGPoint(x: bw / 2, y: -bh / 2),
-                                CGPoint(x: bw / 2, y: bh / 2), CGPoint(x: -bw / 2, y: bh / 2)].map { $0.applying(m) })
+                    p.addLines(pts)
                     p.closeSubpath()
                 }
                 .stroke(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
@@ -497,14 +532,12 @@ struct PreviewArea: View {
     private func overlayMap(_ o: Overlay, _ canvas: CGSize) -> CGAffineTransform {
         let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: model.project.canvas.aspect)
         let t = OverlayStore.shared.shown(o, at: model.currentTime)
-        let bw = base.width * t.scale, bh = base.height * t.scale
-        let cx = canvas.width / 2 + t.x * canvas.width, cy = canvas.height / 2 + t.y * canvas.height
+        let bw = base.width, bh = base.height
         let flip = o.crop.flipScale
         return CGAffineTransform(scaleX: bw, y: bh)
             .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))
-            .concatenating(CGAffineTransform(rotationAngle: t.rotation))
-            .concatenating(CGAffineTransform(translationX: cx, y: cy))
+            .concatenating(t.onCanvas(bw, bh, canvas: canvas))
     }
 
     /// The tracked subject, shown while the clip is selected and paused.
@@ -691,18 +724,16 @@ struct PreviewArea: View {
         return CGAffineTransform(scaleX: W, y: H)
             .concatenating(CGAffineTransform(translationX: -W / 2, y: -H / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))
-            .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
-            .concatenating(CGAffineTransform(rotationAngle: t.rotation))
-            .concatenating(CGAffineTransform(translationX: W / 2 + t.x * W, y: H / 2 + t.y * H))
+            .concatenating(t.onCanvas(W, H, canvas: canvas))
     }
 
     /// The selected Stack's outline while it is on screen.
     @ViewBuilder
     private func stackBox(_ canvas: CGSize) -> some View {
         if let st = model.selectedStack, !model.isPlaying, model.playheadInSelectedStack, !model.cropPanelOpen {
-            let m = Self.stackMap(model.stackTransformNow(st), canvas)
+            let pts = model.stackTransformNow(st).corners(canvas.width, canvas.height, canvas: canvas)
             Path { p in
-                p.addLines([CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0), CGPoint(x: 1, y: 1), CGPoint(x: 0, y: 1)].map { $0.applying(m) })
+                p.addLines(pts)
                 p.closeSubpath()
             }
             .stroke(Theme.accent, style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
@@ -1472,19 +1503,42 @@ struct LiveFrame: View {
 
     var body: some View {
         let base = Clip.baseFraction(aspect: live.aspect, fill: live.fill, canvasAspect: canvasAspect)
+        let bw: CGFloat = base.width * canvas.width, bh: CGFloat = base.height * canvas.height
+        let t = live.t
+        let card = t.card(bw, bh, canvas: canvas)
         ZStack {
             Color.black
-            Image(uiImage: image)
-                .resizable()
-                .frame(width: base.width * canvas.width, height: base.height * canvas.height)
-                .scaleEffect(x: live.flip.x, y: live.flip.y)
-                .scaleEffect(live.t.scale)
-                .rotationEffect(.radians(live.t.rotation))
-                .offset(x: live.t.x * canvas.width, y: live.t.y * canvas.height)
+            placed(bw, bh)
+                .projectionEffect(Self.projection(card))
+                .opacity(card.map { !$0.front && t.hideBack } == true ? 0 : 1)
         }
         .frame(width: canvas.width, height: canvas.height)
         .clipped()
         .allowsHitTesting(false)
+    }
+
+    /// The flat placement: the picture at the canvas' top left, moved by the same matrix the compositor uses.
+    private func placed(_ bw: CGFloat, _ bh: CGFloat) -> some View {
+        let m = CGAffineTransform(translationX: -bw / 2, y: -bh / 2)
+            .concatenating(live.t.onCanvas(bw, bh, canvas: canvas))
+        return ZStack(alignment: .topLeading) {
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: bw, height: bh)
+                .scaleEffect(x: live.flip.x, y: live.flip.y)
+                .transformEffect(m)
+        }
+        .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
+    }
+
+    /// The 3D turn as SwiftUI's projection (identity when flat).
+    static func projection(_ c: Card3D?) -> ProjectionTransform {
+        var p = ProjectionTransform()
+        guard let c else { return p }
+        p.m11 = c.m11; p.m12 = c.m12; p.m13 = c.m13
+        p.m21 = c.m21; p.m22 = c.m22; p.m23 = c.m23
+        p.m31 = c.m31; p.m32 = c.m32; p.m33 = c.m33
+        return p
     }
 }
 

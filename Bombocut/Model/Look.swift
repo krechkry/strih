@@ -143,12 +143,7 @@ struct Look: Codable, Hashable {
 
     static func lerp(_ a: Look, _ b: Look, _ f: Double) -> Look {
         var l = Look()
-        l.transform.x = a.transform.x + (b.transform.x - a.transform.x) * f
-        l.transform.y = a.transform.y + (b.transform.y - a.transform.y) * f
-        l.transform.rotation = a.transform.rotation + (b.transform.rotation - a.transform.rotation) * f
-        // zoom feels even when interpolated in log space
-        let s0 = max(a.transform.scale, 0.001), s1 = max(b.transform.scale, 0.001)
-        l.transform.scale = exp(log(s0) + (log(s1) - log(s0)) * f)
+        l.transform = ClipTransform.lerp(a.transform, b.transform, f)
         l.opacity = a.opacity + (b.opacity - a.opacity) * f
         l.effects = Effects.lerp(a.effects, b.effects, f)
         return l

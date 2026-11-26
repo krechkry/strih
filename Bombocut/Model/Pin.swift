@@ -212,9 +212,13 @@ struct PinPath {
                                           follow: state.track.map { $0.follow(at: s) },
                                           flip: state.crop.flipScale,
                                           in: canvas)
+        // a 3D turn of the clip: the point goes through it too
+        let a = FrameCompositor.anchorInSource(src, tr, flip: state.crop.flipScale).applying(m.place)
+        let card = Card3D(tr, anchor: CGPoint(x: a.x, y: canvas.height - a.y), canvas: canvas)
         func onCanvas(_ u: Double, _ v: Double) -> CGPoint {
             let q = CGPoint(x: u * src.width, y: (1 - v) * src.height).applying(m.stab).applying(m.place)
-            return CGPoint(x: q.x, y: canvas.height - q.y)
+            let flat = CGPoint(x: q.x, y: canvas.height - q.y)
+            return card.map { $0.apply(flat) } ?? flat
         }
         let len = 0.05 * exp(p.z)
         let head = onCanvas(p.x + cos(p.a) * len / srcAspect, p.y + sin(p.a) * len)

@@ -300,6 +300,16 @@
         }
       }
     },
+    "3D": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3D"
+          }
+        }
+      }
+    },
     "4K, 10-bit (S-Log) and ProRes clips play from a light HD copy while you edit, made once in the background. Exports always use your originals.": {
       "localizations": {
         "cs": {
@@ -780,6 +790,16 @@
         }
       }
     },
+    "Anchor point": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kotevní bod"
+          }
+        }
+      }
+    },
     "Animation": {
       "localizations": {
         "cs": {
@@ -1186,6 +1206,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "O sekundu zpět"
+          }
+        }
+      }
+    },
+    "Back side": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadní strana"
           }
         }
       }
@@ -2415,7 +2445,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ořez"
+            "value": "Oříznout"
           }
         }
       }
@@ -2884,6 +2914,16 @@
         }
       }
     },
+    "Depth": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hloubka"
+          }
+        }
+      }
+    },
     "Deselect": {
       "localizations": {
         "cs": {
@@ -2900,6 +2940,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Úhlopříčky"
+          }
+        }
+      }
+    },
+    "Dials": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kolečka"
           }
         }
       }
@@ -3174,6 +3224,16 @@
         }
       }
     },
+    "Drag the ball to turn the picture around it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhni kouli a obraz se otočí s ní."
+          }
+        }
+      }
+    },
     "Drag the box to fix it, then Track": {
       "localizations": {
         "cs": {
@@ -3190,6 +3250,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posuň klip a vyber, která část se přehraje"
+          }
+        }
+      }
+    },
+    "Drag the crosshair on the preview to move the anchor point. Scale, rotation and the 3D turns go around it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posuň křížek v náhledu a přesuneš kotevní bod. Měřítko, otočení i 3D otáčení se točí kolem něj."
           }
         }
       }
@@ -3240,6 +3310,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Táhni zvuk a vyber část, která hraje"
+          }
+        }
+      }
+    },
+    "Drag the video to tilt it, twist two fingers to rotate it, pinch to move it closer or further.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táhni video a nakloníš ho, otočením dvou prstů ho otočíš, roztažením nebo stažením ho přiblížíš nebo oddálíš."
           }
         }
       }
@@ -4000,6 +4080,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Najde lidi nebo hlavní objekt v celé skupině, nad tím, co dělají její klipy. Pak můžeš všechno ostatní rozmazat, ztmavit nebo odbarvit, nebo dát text za objekt."
+          }
+        }
+      }
+    },
+    "Fingers": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prsty"
           }
         }
       }
@@ -5308,6 +5398,16 @@
         }
       }
     },
+    "Link X and Y": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Propojit X a Y"
+          }
+        }
+      }
+    },
     "Listen to": {
       "localizations": {
         "cs": {
@@ -6528,6 +6628,16 @@
         }
       }
     },
+    "Past a quarter turn the back shows, mirrored like a card.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Po čtvrt otáčce je vidět zadní strana, zrcadlově jako u kartičky."
+          }
+        }
+      }
+    },
     "Paste": {
       "localizations": {
         "cs": {
@@ -6574,6 +6684,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lidé"
+          }
+        }
+      }
+    },
+    "Perspective": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perspektiva"
           }
         }
       }
@@ -7484,6 +7604,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jezdi s námi"
+          }
+        }
+      }
+    },
+    "Rotate Z": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otočení Z"
           }
         }
       }
@@ -8578,6 +8708,36 @@
         }
       }
     },
+    "Stretch": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztáhnout"
+          }
+        }
+      }
+    },
+    "Stretch X": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztáhnout X"
+          }
+        }
+      }
+    },
+    "Stretch Y": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Roztáhnout Y"
+          }
+        }
+      }
+    },
     "Studio": {
       "localizations": {
         "cs": {
@@ -9618,6 +9778,26 @@
         }
       }
     },
+    "Tilt X": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naklonění X"
+          }
+        }
+      }
+    },
+    "Tilt Y": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naklonění Y"
+          }
+        }
+      }
+    },
     "Tint": {
       "localizations": {
         "cs": {
@@ -9878,6 +10058,16 @@
         }
       }
     },
+    "Trackball": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koule"
+          }
+        }
+      }
+    },
     "Tracking": {
       "localizations": {
         "cs": {
@@ -10044,6 +10234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyzkoušej si všechno 7 dní zdarma."
+          }
+        }
+      }
+    },
+    "Turn a dial around its middle.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otáčej kolečkem kolem jeho středu."
           }
         }
       }

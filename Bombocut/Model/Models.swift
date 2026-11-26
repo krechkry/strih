@@ -1,15 +1,162 @@
 import Foundation
 import CoreGraphics
 
-/// Move / scale / rotate applied to a clip on the canvas (after fit or fill).
+/// Move / scale / rotate applied to a clip on the canvas (after fit or fill), and since 1.3.1 also stretch,
+/// the anchor point (the pivot for scale and turns) and the 3D turn of the whole picture as a card.
+/// Every value is keyframable (`lerp`). Old projects decode with the new values at their defaults.
 struct ClipTransform: Codable, Hashable {
     var x: Double = 0          // offset as a fraction of canvas width, + = right
     var y: Double = 0          // offset as a fraction of canvas height, + = down
     var scale: Double = 1
     var rotation: Double = 0   // radians, + = clockwise
+    var stretchX: Double = 1   // extra squeeze / stretch across (on top of scale)
+    var stretchY: Double = 1   // extra squeeze / stretch up and down
+    var anchorX: Double = 0    // pivot as a fraction of the picture's width from its middle, + = right
+    var anchorY: Double = 0    // pivot as a fraction of the picture's height from its middle, + = down
+    var tiltX: Double = 0      // 3D: radians around the horizontal axis, + = the top goes away
+    var tiltY: Double = 0      // 3D: radians around the vertical axis, + = the right side goes away
+    var roll: Double = 0       // 3D: radians around the view axis, + = clockwise
+    var perspective: Double = 0.5 // 3D: 0 = almost flat, 1 = a wide lens close up
+    var depth: Double = 0      // 3D: towards the viewer (+) or away (-), as a fraction of the canvas' long side
+    var hideBack = false       // 3D: the back of the card is not drawn (default: the mirrored picture shows)
+
+    init(x: Double = 0, y: Double = 0, scale: Double = 1, rotation: Double = 0) {
+        self.x = x
+        self.y = y
+        self.scale = scale
+        self.rotation = rotation
+    }
 
     var isIdentity: Bool {
-        abs(x) < 1e-4 && abs(y) < 1e-4 && abs(scale - 1) < 1e-4 && abs(rotation) < 1e-4
+        abs(x) < 1e-4 && abs(y) < 1e-4 && abs(scale - 1) < 1e-4 && abs(rotation) < 1e-4 && !hasExtras
+    }
+
+    /// Stretch, anchor or a 3D turn are set (the 1.3.1 values).
+    var hasExtras: Bool { stretched || anchored || has3D }
+    var stretched: Bool { abs(stretchX - 1) > 1e-4 || abs(stretchY - 1) > 1e-4 }
+    var anchored: Bool { abs(anchorX) > 1e-4 || abs(anchorY) > 1e-4 }
+    /// The picture is turned in 3D or moved in depth (a perspective alone changes nothing).
+    var has3D: Bool { abs(tiltX) > 1e-4 || abs(tiltY) > 1e-4 || abs(roll) > 1e-4 || abs(depth) > 1e-4 }
+
+    /// Only the flat placement (the 3D values back at their defaults).
+    var flat: ClipTransform {
+        var t = self
+        t.tiltX = 0; t.tiltY = 0; t.roll = 0; t.depth = 0
+        return t
+    }
+
+    /// The anchor on screen, from the picture's middle, for a picture `bw` x `bh` points before scale (y down).
+    func anchorPoint(_ bw: CGFloat, _ bh: CGFloat) -> CGPoint {
+        CGPoint(x: CGFloat(anchorX) * bw, y: CGFloat(anchorY) * bh)
+    }
+
+    /// Stretch, scale and rotation around the anchor, for a picture `bw` x `bh` that is centered on 0, 0
+    /// (fitted, before scale). `yUp`: Core Image coordinates (a clockwise turn is a negative angle there).
+    func picture(_ bw: CGFloat, _ bh: CGFloat, yUp: Bool) -> CGAffineTransform {
+        let a = anchorPoint(bw, bh)
+        let ay: CGFloat = yUp ? -a.y : a.y
+        let angle: CGFloat = CGFloat(yUp ? -rotation : rotation)
+        let sx = CGFloat(scale * stretchX), sy = CGFloat(scale * stretchY)
+        return CGAffineTransform(translationX: -a.x, y: -ay)
+            .concatenating(CGAffineTransform(scaleX: sx, y: sy))
+            .concatenating(CGAffineTransform(rotationAngle: angle))
+            .concatenating(CGAffineTransform(translationX: a.x, y: ay))
+    }
+
+    /// The whole flat placement in screen points (y down): a picture `bw` x `bh` centered on 0, 0
+    /// to the canvas (stretch, scale, turn around the anchor, then moved by x / y from the canvas middle).
+    func onCanvas(_ bw: CGFloat, _ bh: CGFloat, canvas: CGSize) -> CGAffineTransform {
+        picture(bw, bh, yUp: false)
+            .concatenating(CGAffineTransform(translationX: canvas.width / 2 + CGFloat(x) * canvas.width,
+                                             y: canvas.height / 2 + CGFloat(y) * canvas.height))
+    }
+
+    /// Where the anchor sits on the canvas (screen points, y down) for a picture `bw` x `bh` before scale.
+    func anchorOnCanvas(_ bw: CGFloat, _ bh: CGFloat, canvas: CGSize) -> CGPoint {
+        let a = anchorPoint(bw, bh)
+        return CGPoint(x: canvas.width / 2 + CGFloat(x) * canvas.width + a.x,
+                       y: canvas.height / 2 + CGFloat(y) * canvas.height + a.y)
+    }
+
+    /// Fingers moved the picture by `g` (screen points): the new placement. The anchor's point on screen
+    /// follows `g`, scale and angle take its scale and angle (stretch and the 3D values stay).
+    func moved(by g: CGAffineTransform, _ bw: CGFloat, _ bh: CGFloat, canvas: CGSize) -> ClipTransform {
+        let w = canvas.width, h = canvas.height
+        let a = anchorPoint(bw, bh)
+        let p0 = anchorOnCanvas(bw, bh, canvas: canvas)
+        let p1 = p0.applying(g)
+        var t = self
+        t.x = Double((p1.x - a.x - w / 2) / max(w, 1))
+        t.y = Double((p1.y - a.y - h / 2) / max(h, 1))
+        t.scale = min(max(scale * Double(hypot(g.a, g.b)), 0.05), 20)
+        t.rotation = rotation + Double(atan2(g.b, g.a))
+        return t
+    }
+
+    static func lerp(_ a: ClipTransform, _ b: ClipTransform, _ f: Double) -> ClipTransform {
+        func m(_ p: Double, _ q: Double) -> Double { p + (q - p) * f }
+        // zoom and stretch feel even when interpolated in log space
+        func lg(_ p: Double, _ q: Double) -> Double {
+            let p0 = max(p, 0.001), q0 = max(q, 0.001)
+            return exp(log(p0) + (log(q0) - log(p0)) * f)
+        }
+        var t = ClipTransform()
+        t.x = m(a.x, b.x)
+        t.y = m(a.y, b.y)
+        t.rotation = m(a.rotation, b.rotation)
+        t.scale = lg(a.scale, b.scale)
+        t.stretchX = lg(a.stretchX, b.stretchX)
+        t.stretchY = lg(a.stretchY, b.stretchY)
+        t.anchorX = m(a.anchorX, b.anchorX)
+        t.anchorY = m(a.anchorY, b.anchorY)
+        t.tiltX = m(a.tiltX, b.tiltX)
+        t.tiltY = m(a.tiltY, b.tiltY)
+        t.roll = m(a.roll, b.roll)
+        t.perspective = m(a.perspective, b.perspective)
+        t.depth = m(a.depth, b.depth)
+        t.hideBack = f < 0.5 ? a.hideBack : b.hideBack
+        return t
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case x, y, scale, rotation, stretchX, stretchY, anchorX, anchorY, tiltX, tiltY, roll, perspective, depth, hideBack
+    }
+}
+
+extension ClipTransform {
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        func v(_ k: CodingKeys, _ def: Double) -> Double { (try? c.decodeIfPresent(Double.self, forKey: k)) ?? def }
+        self.init(x: v(.x, 0), y: v(.y, 0), scale: v(.scale, 1), rotation: v(.rotation, 0))
+        stretchX = v(.stretchX, 1)
+        stretchY = v(.stretchY, 1)
+        anchorX = v(.anchorX, 0)
+        anchorY = v(.anchorY, 0)
+        tiltX = v(.tiltX, 0)
+        tiltY = v(.tiltY, 0)
+        roll = v(.roll, 0)
+        perspective = v(.perspective, 0.5)
+        depth = v(.depth, 0)
+        hideBack = (try? c.decodeIfPresent(Bool.self, forKey: .hideBack)) ?? false
+    }
+
+    /// Old projects stay small: the 1.3.1 values are written only when they are set.
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(x, forKey: .x)
+        try c.encode(y, forKey: .y)
+        try c.encode(scale, forKey: .scale)
+        try c.encode(rotation, forKey: .rotation)
+        if stretchX != 1 { try c.encode(stretchX, forKey: .stretchX) }
+        if stretchY != 1 { try c.encode(stretchY, forKey: .stretchY) }
+        if anchorX != 0 { try c.encode(anchorX, forKey: .anchorX) }
+        if anchorY != 0 { try c.encode(anchorY, forKey: .anchorY) }
+        if tiltX != 0 { try c.encode(tiltX, forKey: .tiltX) }
+        if tiltY != 0 { try c.encode(tiltY, forKey: .tiltY) }
+        if roll != 0 { try c.encode(roll, forKey: .roll) }
+        if perspective != 0.5 { try c.encode(perspective, forKey: .perspective) }
+        if depth != 0 { try c.encode(depth, forKey: .depth) }
+        if hideBack { try c.encode(hideBack, forKey: .hideBack) }
     }
 }
 

@@ -2728,7 +2728,19 @@ final class EditorModel: ObservableObject {
     }
     var stackStart: ClipTransform?
     /// The Crop panel is open: the selected clip shows whole in the preview, with its crop frame to drag.
+    /// The crop is being edited on the preview: the Transform panel is open on its Crop tab.
     @Published var cropPanelOpen = false { didSet { if cropPanelOpen != oldValue { updateFraming() } } }
+    /// The Transform panel (Transform | Crop | 3D) is open.
+    @Published var transformPanelOpen = false { didSet { cropPanelOpen = transformPanelOpen && transformTab == .crop } }
+    /// The Transform panel's tab (kept while the app runs: the panel opens where it was left).
+    @Published var transformTab: TransformTab = TransformTab.last {
+        didSet {
+            TransformTab.last = transformTab
+            cropPanelOpen = transformPanelOpen && transformTab == .crop
+        }
+    }
+    /// The 3D tab's finger mode: fingers on the preview turn the picture in 3D instead of moving it.
+    var turnsWithFingers: Bool { transformPanelOpen && transformTab == .threeD && ThreeDControl.current == .fingers }
     /// Slip: the selected clip's content slides inside its place on the timeline.
     @Published private(set) var slip: SlipState?
     @Published var slipView: SlipView?
@@ -3950,13 +3962,18 @@ final class EditorModel: ObservableObject {
     private func overlayTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
         guard let s0 = overlayStart, let i = selectedOverlayIndex, canvas.width > 0 else { return }
         let w = canvas.width, h = canvas.height
-        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
-        let c1 = c0.applying(g)
-        var t = s0
-        t.x = (c1.x - w / 2) / w
-        t.y = (c1.y - h / 2) / h
-        t.scale = min(max(s0.scale * Double(hypot(g.a, g.b)), 0.05), 20)
-        t.rotation = s0.rotation + Double(atan2(g.b, g.a))
+        let b0 = OverlayRenderer.shared.baseSize(project.overlays[i], canvas: canvas, canvasAspect: project.canvas.aspect)
+        if turnsWithFingers {
+            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
+            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(b0.width, b0.height, canvas: canvas), canvas: canvas)
+            let own = OverlayStore.shared.base(turned, project.overlays[i], at: currentTime)
+            project.overlays[i].changePose(at: currentTime) { tr, _ in tr = own }
+            OverlayStore.shared.update(project)
+            refreshFrame()
+            return
+        }
+        // the anchor follows the fingers; scale and turn go around it
+        var t = s0.moved(by: g, b0.width, b0.height, canvas: canvas)
         var guides = Set<Guide>()
         let quarter = Double.pi / 2
         let turns = (t.rotation / quarter).rounded()
@@ -4003,9 +4020,8 @@ final class EditorModel: ObservableObject {
         guard canvas.width > 0, !project.clips.isEmpty else { return nil }
         for o in project.overlays.reversed() where currentTime >= o.start - 0.01 && currentTime < o.end + 0.01 && !o.isAdjustment {
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
-            let c = CGPoint(x: canvas.width / 2 + o.transform.x * canvas.width, y: canvas.height / 2 + o.transform.y * canvas.height)
-            if Self.inside(p, center: c, size: CGSize(width: base.width * o.transform.scale, height: base.height * o.transform.scale),
-                           rotation: o.transform.rotation) { return .overlay(o.id) }
+            let t = OverlayStore.shared.shown(o, at: currentTime)
+            if ClipTransform.inside(p, t.corners(base.width, base.height, canvas: canvas), pad: 14) { return .overlay(o.id) }
         }
         if let b = captionBox(canvas: canvas), Self.inside(p, center: b.center, size: b.size, rotation: b.rotation) { return .captions }
         return nil
@@ -4050,9 +4066,7 @@ final class EditorModel: ObservableObject {
             guard pose.opacity > 0.02 else { continue }
             let t = OverlayStore.shared.shown(o, at: currentTime)
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
-            let c = CGPoint(x: canvas.width / 2 + t.x * canvas.width, y: canvas.height / 2 + t.y * canvas.height)
-            if Self.inside(p, center: c, size: CGSize(width: base.width * t.scale, height: base.height * t.scale),
-                           rotation: t.rotation) { return o.id }
+            if ClipTransform.inside(p, t.corners(base.width, base.height, canvas: canvas), pad: 14) { return o.id }
         }
         return nil
     }
@@ -4201,15 +4215,23 @@ final class EditorModel: ObservableObject {
         guard var l = live, l.active, let s0 = liveStart, canvas.width > 0, canvas.height > 0 else { return }
         let w = canvas.width, h = canvas.height
         let th: CGFloat = 7
-        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
-        let c1 = c0.applying(g)
-        let k = Double(hypot(g.a, g.b))
-        let turn = Double(atan2(g.b, g.a))
-        var t = s0
-        t.x = (c1.x - w / 2) / w
-        t.y = (c1.y - h / 2) / h
-        t.scale = min(max(s0.scale * k, 0.05), 20)
-        t.rotation = s0.rotation + turn
+        let A = project.canvas.aspect
+        let base = Clip.baseFraction(aspect: l.aspect, fill: l.fill, canvasAspect: A)
+        if turnsWithFingers {
+            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
+            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(base.width * w, base.height * h, canvas: canvas), canvas: canvas)
+            l.t = turned
+            l.guides = []
+            live = l
+            if let i = project.clips.firstIndex(where: { $0.id == l.clipID }), let s = liveSource {
+                Self.applyLook(&project.clips[i], atSource: s) { $0.transform = turned }
+                LookStore.shared.patch(project.clips[i])
+                refreshFrame()
+            }
+            return
+        }
+        // the anchor follows the fingers; scale and turn go around it (the picture's middle by default)
+        var t = s0.moved(by: g, base.width * w, base.height * h, canvas: canvas)
         var guides = Set<Guide>()
 
         // Rotation snaps to straight angles.
@@ -4221,8 +4243,6 @@ final class EditorModel: ObservableObject {
         }
 
         // Scale snaps to 100% and to the size where the clip exactly fills / fits the canvas.
-        let A = project.canvas.aspect
-        let base = Clip.baseFraction(aspect: l.aspect, fill: l.fill, canvasAspect: A)
         let other = Clip.baseFraction(aspect: l.aspect, fill: !l.fill, canvasAspect: A)
         let otherScale = other.width / max(base.width, 1e-6)
         for target in [1.0, otherScale] where abs(t.scale - target) < 0.035 * target {
@@ -4233,8 +4253,8 @@ final class EditorModel: ObservableObject {
         // Position snaps: canvas center, and canvas edges when the clip is upright.
         if abs(t.x * w) < th { t.x = 0; guides.insert(.centerX) }
         if abs(t.y * h) < th { t.y = 0; guides.insert(.centerY) }
-        if guides.contains(.angle) {
-            var bw = base.width * w * t.scale, bh = base.height * h * t.scale
+        if guides.contains(.angle) && !t.anchored {
+            var bw = base.width * w * t.scale * t.stretchX, bh = base.height * h * t.scale * t.stretchY
             if Int(turns) % 2 != 0 { swap(&bw, &bh) }
             if !guides.contains(.centerX) {
                 let left = w / 2 + t.x * w - bw / 2
@@ -4440,13 +4460,11 @@ extension EditorModel {
             let o = project.overlays[oi]
             let base = OverlayRenderer.shared.baseSize(o, canvas: canvas, canvasAspect: project.canvas.aspect)
             let t = OverlayStore.shared.shown(o, at: currentTime)
-            let bw = base.width * t.scale, bh = base.height * t.scale
-            guard bw > 1, bh > 1 else { return nil }
+            let bw = base.width, bh = base.height
+            guard bw * t.scale > 1, bh * t.scale > 1 else { return nil }
             return CGAffineTransform(translationX: -0.5, y: -0.5)
                 .concatenating(CGAffineTransform(scaleX: bw, y: bh))
-                .concatenating(CGAffineTransform(rotationAngle: t.rotation))
-                .concatenating(CGAffineTransform(translationX: canvas.width / 2 + t.x * canvas.width,
-                                                 y: canvas.height / 2 + t.y * canvas.height))
+                .concatenating(t.onCanvas(bw, bh, canvas: canvas))
         }
         guard let i = selectedIndex else { return nil }
         return sourceToCanvas(i, canvas: canvas)
@@ -5557,13 +5575,15 @@ extension EditorModel {
     fileprivate func stackTransformChanged(_ g: CGAffineTransform, canvas: CGSize) {
         guard let s0 = stackStart, let k = selectedStackIndex, canvas.width > 0 else { return }
         let w = canvas.width, h = canvas.height
-        let c0 = CGPoint(x: w / 2 + s0.x * w, y: h / 2 + s0.y * h)
-        let c1 = c0.applying(g)
-        var t = s0
-        t.x = (c1.x - w / 2) / w
-        t.y = (c1.y - h / 2) / h
-        t.scale = min(max(s0.scale * Double(hypot(g.a, g.b)), 0.05), 20)
-        t.rotation = s0.rotation + Double(atan2(g.b, g.a))
+        if turnsWithFingers {
+            // the 3D tab's finger mode: drag tilts, twist rolls, pinch moves in depth
+            let turned = s0.turned(by: g, from: s0.anchorOnCanvas(w, h, canvas: canvas), canvas: canvas)
+            ClipStack.applyLook(&project.stacks[k], at: stackLocal(k)) { $0.transform = turned }
+            StackStore.shared.update(project)
+            refreshFrame()
+            return
+        }
+        var t = s0.moved(by: g, w, h, canvas: canvas)
         var guides = Set<Guide>()
         let quarter = Double.pi / 2
         let turns = (t.rotation / quarter).rounded()

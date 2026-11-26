@@ -341,7 +341,8 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let anim = state.anim.isNone ? nil : state.anim.pose(local: local, length: length)
         let editingCrop = info.preview && LookStore.shared.cropEditClip == info.clipID
         func geometry(_ img: CIImage, upright: Bool) -> CIImage {
-            var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill, transform: look.transform,
+            var out = Self.place(img, prefTransform: upright ? .identity : info.transform, fill: state.fill,
+                                 transform: editingCrop ? look.transform.flat : look.transform,
                                  stab: state.stab.map { $0.pose(at: srcT) },
                                  follow: state.track.map { $0.follow(at: srcT) },
                                  crop: upright ? nil : (state.crop ?? (editingCrop ? CropRect() : nil)),
@@ -425,7 +426,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let tr = transform(at: local)
         let anim = s.anim.isNone ? nil : s.anim.pose(local: local, length: length)
         func geometry(_ src: CIImage) -> CIImage {
-            var out = Self.place(src, prefTransform: .identity, fill: false, transform: tr,
+            var out = Self.place(src, prefTransform: .identity, fill: false, transform: editingCrop ? tr.flat : tr,
                                  stab: l.stab.map { $0.pose(at: local) },
                                  follow: l.track.map { $0.follow(at: local) },
                                  crop: s.crop ?? (editingCrop ? CropRect() : nil), cropEditing: editingCrop,
@@ -543,6 +544,9 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         if stab != nil {
             img = img.transformed(by: p.stab).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
         }
+        if t.has3D {
+            return turned(img, place: p.place, t, anchor: anchorInSource(CGSize(width: w, height: h), t, flip: flip), in: size)
+        }
         return img.transformed(by: p.place)
     }
 
@@ -599,14 +603,42 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         let sx = size.width / max(w, 1e-6), sy = size.height / max(h, 1e-6)
         let s = fill ? max(sx, sy) : min(sx, sy)
         // Core Image is y-up, so a clockwise turn on screen is a negative angle here.
+        let bw: CGFloat = w * s, bh: CGFloat = h * s
+        // stretch, scale and turn go around the anchor (the picture's middle unless it was moved)
         let m = CGAffineTransform(scaleX: s, y: s)
-            .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
+            .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
-            .concatenating(CGAffineTransform(scaleX: t.scale, y: t.scale))
-            .concatenating(CGAffineTransform(rotationAngle: -t.rotation))
+            .concatenating(t.picture(bw, bh, yUp: true))
             .concatenating(CGAffineTransform(translationX: size.width / 2 + t.x * size.width,
                                              y: size.height / 2 - t.y * size.height))
         return (stabT, following(m, stabT: stabT, source: source, follow: follow, in: size))
+    }
+
+    /// The anchor of a picture `source` (upright pixels) in its own pixels (y up), mirrored with the picture.
+    static func anchorInSource(_ source: CGSize, _ t: ClipTransform, flip: (x: CGFloat, y: CGFloat)) -> CGPoint {
+        CGPoint(x: source.width / 2 + CGFloat(t.anchorX) * source.width * flip.x,
+                y: source.height / 2 - CGFloat(t.anchorY) * source.height * flip.y)
+    }
+
+    /// A picture placed by `place` (its pixels -> canvas, Core Image y up), then turned in 3D around the anchor
+    /// (`Card3D`). The whole extent goes through one perspective map, so crops, masks and soft edges turn with it.
+    /// The back of the card shows mirrored unless `hideBack`; a card reaching behind the camera is not drawn.
+    static func turned(_ img: CIImage, place: CGAffineTransform, _ t: ClipTransform, anchor: CGPoint,
+                       in size: CGSize) -> CIImage {
+        let H = size.height
+        func down(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x, y: H - p.y) }
+        let a = down(anchor.applying(place))
+        guard let card = Card3D(t, anchor: a, canvas: size) else { return img.transformed(by: place) }
+        if !card.front && t.hideBack { return CIImage.empty() }
+        let e = img.extent
+        guard e.width.isFinite, e.height.isFinite, e.width > 0, e.height > 0 else { return img.transformed(by: place) }
+        let corners = [CGPoint(x: e.minX, y: e.maxY), CGPoint(x: e.maxX, y: e.maxY),
+                       CGPoint(x: e.maxX, y: e.minY), CGPoint(x: e.minX, y: e.minY)].map { down($0.applying(place)) }
+        guard card.visible(corners) else { return CIImage.empty() }
+        let q = corners.map { down(card.apply($0)) }
+        return img.applyingFilter("CIPerspectiveTransform", parameters: [
+            "inputTopLeft": CIVector(cgPoint: q[0]), "inputTopRight": CIVector(cgPoint: q[1]),
+            "inputBottomRight": CIVector(cgPoint: q[2]), "inputBottomLeft": CIVector(cgPoint: q[3])])
     }
 
     /// Stabilization and tracking on top of a placement `m` (source pixels -> canvas), for a video overlay

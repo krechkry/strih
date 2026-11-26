@@ -253,11 +253,11 @@ final class OverlayRenderer: @unchecked Sendable {
         tr.y += a.dy
         tr.scale *= a.scale
         let flip = o.crop.flipScale   // only pictures and videos have a crop
+        let bw: CGFloat = w * s, bh: CGFloat = h * s
         var m = CGAffineTransform(scaleX: s, y: s)
-            .concatenating(CGAffineTransform(translationX: -w * s / 2, y: -h * s / 2))
+            .concatenating(CGAffineTransform(translationX: -bw / 2, y: -bh / 2))
             .concatenating(CGAffineTransform(scaleX: flip.x, y: flip.y))   // mirror around the picture's middle
-            .concatenating(CGAffineTransform(scaleX: tr.scale, y: tr.scale))
-            .concatenating(CGAffineTransform(rotationAngle: -tr.rotation))
+            .concatenating(tr.picture(bw, bh, yUp: true))                  // stretch, scale, turn around the anchor
             .concatenating(CGAffineTransform(translationX: size.width / 2 + tr.x * size.width,
                                              y: size.height / 2 - tr.y * size.height))
         if stab != nil || follow != nil {
@@ -267,6 +267,10 @@ final class OverlayRenderer: @unchecked Sendable {
                 img = img.transformed(by: p.stab).cropped(to: CGRect(origin: .zero, size: src))
             }
             m = p.place
+        }
+        // the 3D turn last (not while its crop is being edited: the crop is drawn flat then)
+        if tr.has3D && !editingCrop {
+            return FrameCompositor.turned(img, place: m, tr, anchor: FrameCompositor.anchorInSource(src, tr, flip: flip), in: size)
         }
         return img.transformed(by: m)
     }
