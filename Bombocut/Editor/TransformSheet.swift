@@ -167,7 +167,8 @@ struct TransformTabView: View {
         let t = model.editedTransform ?? ClipTransform()
         let keyed = model.transformKeyed
         VStack(alignment: .leading, spacing: 14) {
-            mirrorRow
+            // the mirror lives with the crop: pictures, videos, clips and Stacks (not texts)
+            if model.editsCrop { mirrorRow }
             Text(loc("Position")).font(.subheadline.weight(.heavy))
             row("X", t.x * 100, "%", -100...100, keyed) { v, tr in tr.x = v / 100 }
             row("Y", t.y * 100, "%", -100...100, keyed) { v, tr in tr.y = v / 100 }

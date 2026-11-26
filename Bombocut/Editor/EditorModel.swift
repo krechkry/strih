@@ -5616,6 +5616,11 @@ extension EditorModel {
     var editsStackOrClip: Bool { selectedStackIndex != nil || selectedIndex != nil }
 
     /// What the Crop panel works on: the selected Stack, clip, or picture / video overlay.
+    /// What the Transform panel works on: everything with a Crop panel, and text layers (Transform and 3D only).
+    var editsTransform: Bool {
+        editsCrop || selectedOverlayIndex.map { project.overlays[$0].isText } == true
+    }
+
     var editsCrop: Bool {
         editsStackOrClip || selectedOverlayIndex.map { project.overlays[$0].isMedia } == true
     }

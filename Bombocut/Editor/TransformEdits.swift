@@ -43,7 +43,7 @@ extension EditorModel {
         if let k = selectedStackIndex { return project.stacks[k].look(at: stackLocal(k)).transform }
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
-            guard o.isMedia else { return nil }
+            guard !o.isAdjustment else { return nil }
             return o.pose(at: currentTime).transform
         }
         guard let i = selectedIndex else { return nil }
@@ -86,7 +86,7 @@ extension EditorModel {
             return
         }
         if let oi = selectedOverlayIndex {
-            guard project.overlays[oi].isMedia else { return }
+            guard !project.overlays[oi].isAdjustment else { return }
             project.overlays[oi].changePose(at: currentTime) { tr, _ in change(&tr) }
             publishLook()
             return
@@ -246,7 +246,7 @@ extension EditorModel {
         }
         if let oi = selectedOverlayIndex {
             let o = project.overlays[oi]
-            guard o.isMedia else { return }
+            guard !o.isAdjustment else { return }
             let keys = SpinKeys.spun(o.keys, from: 0, to: o.duration, axis: axis, turns: turns) { t in
                 let p = o.pose(at: o.start + t)
                 return OverlayKey(t: t, transform: p.transform, opacity: p.opacity)
@@ -326,7 +326,7 @@ extension EditorModel {
 
     private var spinTarget: SpinTarget? {
         if let k = selectedStackIndex { return .stack(project.stacks[k].id) }
-        if let oi = selectedOverlayIndex, project.overlays[oi].isMedia { return .layer(project.overlays[oi].id) }
+        if let oi = selectedOverlayIndex, !project.overlays[oi].isAdjustment { return .layer(project.overlays[oi].id) }
         if let i = selectedIndex { return .clip(project.clips[i].id) }
         return nil
     }

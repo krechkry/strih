@@ -876,7 +876,7 @@ struct EditorView: View {
                     if o.isMedia {
                         ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
                     }
-                    if o.isMedia {
+                    if !o.isAdjustment {
                         ToolButton(icon: "arrow.up.and.down.and.arrow.left.and.right", label: "Transform") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     }
                     if pro && o.isMedia {

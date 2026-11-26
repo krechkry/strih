@@ -12,14 +12,17 @@ struct CropSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            if model.editsCrop {
+            if model.editsTransform {
                 let c = model.editedCrop ?? CropRect()
+                // text layers have no picture to crop: Transform and 3D only
+                let crops = model.editsCrop
+                let tab: TransformTab = !crops && model.transformTab == .crop ? .transform : model.transformTab
                 HStack(spacing: 6) {
-                    panelTab("Transform", .transform)
-                    panelTab("Crop", .crop)
-                    panelTab("3D", .threeD)
+                    panelTab("Transform", .transform, shown: tab)
+                    if crops { panelTab("Crop", .crop, shown: tab) }
+                    panelTab("3D", .threeD, shown: tab)
                     Spacer(minLength: 4)
-                    Button { reset(c) } label: {
+                    Button { reset(c, tab) } label: {
                         Image(systemName: "arrow.counterclockwise").font(.subheadline.weight(.bold))
                             .foregroundStyle(.white.opacity(0.8))
                             .frame(width: 36, height: 36)
@@ -28,7 +31,7 @@ struct CropSheet: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(loc("Reset this tab"))
                 }
-                switch model.transformTab {
+                switch tab {
                 case .transform:
                     TransformTabView(model: model)
                 case .crop:
@@ -40,11 +43,13 @@ struct CropSheet: View {
         }
         .padding(20)
         .frame(maxHeight: .infinity, alignment: .top)
+        // a text layer opened while the Crop tab was the last one: it starts on Transform (texts have no crop)
+        .onAppear { if !model.editsCrop && model.transformTab == .crop { model.transformTab = .transform } }
     }
 
     /// Transform | Crop | 3D, the app's tab capsules (lime and bold when picked).
-    private func panelTab(_ title: String, _ tab: TransformTab) -> some View {
-        let on = model.transformTab == tab
+    private func panelTab(_ title: String, _ tab: TransformTab, shown: TransformTab) -> some View {
+        let on = shown == tab
         return Button {
             guard !on else { return }
             UISelectionFeedbackGenerator().selectionChanged()
@@ -118,8 +123,8 @@ struct CropSheet: View {
 
     /// Reset: what the tab shows goes back (Transform: the flat placement, 3D: the turn, Crop: the shape being
     /// edited starts over, the others stay as they are). The mirror stays.
-    private func reset(_ c: CropRect) {
-        switch model.transformTab {
+    private func reset(_ c: CropRect, _ tab: TransformTab) {
+        switch tab {
         case .transform:
             model.setTransform { t in
                 let keep = t
