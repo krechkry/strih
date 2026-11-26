@@ -877,7 +877,7 @@ struct EditorView: View {
                         ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
                     }
                     if o.isMedia {
-                        ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
+                        ToolButton(icon: "arrow.up.and.down.and.arrow.left.and.right", label: "Transform") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     }
                     if pro && o.isMedia {
                         ToolButton(icon: "person.crop.rectangle", label: "Mask") { model.pause(); sheet = .mask }
@@ -922,7 +922,7 @@ struct EditorView: View {
                     if model.canSlip {
                         ToolButton(icon: "arrow.left.and.line.vertical.and.arrow.right", label: "Slip") { sheet = nil; model.startSlip() }
                     }
-                    ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
+                    ToolButton(icon: "arrow.up.and.down.and.arrow.left.and.right", label: "Transform") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
                     if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
                     if !clip.still {
                         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
@@ -1050,7 +1050,7 @@ struct EditorView: View {
         if pro { ToolButton(icon: "slider.horizontal.3", label: "Adjust") { model.pause(); sheet = .adjust } }
         ToolButton(icon: "camera.filters", label: "Filters") { model.pause(); sheet = .filters }
         ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .speed }
-        ToolButton(icon: "crop", label: "Crop") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
+        ToolButton(icon: "arrow.up.and.down.and.arrow.left.and.right", label: "Transform") { model.pause(); model.playheadIntoSelected(); sheet = .crop }
         if pro { ToolButton(icon: "plus.magnifyingglass", label: "AutoZoom") { model.pause(); sheet = .autoZoom } }
         ToolButton(icon: "captions.bubble", label: "Captions") { model.openClipCaptions() }
         if pro {

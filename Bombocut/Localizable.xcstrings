@@ -9888,6 +9888,16 @@
         }
       }
     },
+    "Transform": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transformace"
+          }
+        }
+      }
+    },
     "Transition": {
       "localizations": {
         "cs": {
