@@ -261,6 +261,8 @@ struct TimelineView: View {
                         // a lane drag whose block went away mid-touch (a caption's trim edge disappearing as the
                         // captions let go) never ended and kept the timeline from scrolling: a tap here ends it
                         if model.laneFinger != nil { model.laneDragEnded() }
+                        // the same for a clip move that lost its finger
+                        if let r = reorder { reorderEvent(r.id, .ended, 0, 0) }
                     }
                     // slipping: a finger anywhere on the timeline slides the footage (not just on the clip itself)
                     .highPriorityGesture(slipGesture, including: model.slip != nil ? .all : .subviews)
@@ -627,15 +629,16 @@ struct TimelineView: View {
             r.to = to
             reorder = r
         case .ended:
-            guard let r = reorder, r.id == id else { return }
+            // any tile's end finishes the move (the held tile may have been rebuilt under the finger)
+            guard let r = reorder else { return }
             reorder = nil
             model.pxPerSec = r.savedPx
             zoomBase = r.savedPx
-            let stack = r.ids.count > 1 ? model.project.stack(of: id) : nil
+            let stack = r.ids.count > 1 ? model.project.stack(of: r.id) : nil
             if r.to != r.from {
                 model.moveClips(r.ids, to: r.to)
             } else if stack == nil {
-                model.selectedClipID = id
+                model.selectedClipID = r.id
             }
             if let stack { model.selectStack(stack.id) }
             // land on the moved block: the playhead on its start, once the strip has its normal zoom again
@@ -1051,8 +1054,11 @@ struct ClipTile: View {
                     onReorder(.ended, 0, 0)
                 }
             },
-            // only a selected clip (or Stack) moves: a slow drag along the timeline must never pick one up
-            enabled: selected)
+            // only a selected clip (or Stack) moves: a slow drag along the timeline must never pick one up.
+            // `selected` turns false as soon as the move starts (no handles while moving), so the hold keeps itself
+            // on while it is going: switching it off mid-hold cancelled it without an end, and the move stayed stuck
+            // (tester, 1.3: the clip went white, wouldn't move, and the editor froze until the project was reopened)
+            enabled: selected || holding)
     }
 
     /// The clip's sound fades as ramps at its ends (none on a muted clip).
