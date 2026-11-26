@@ -1,7 +1,7 @@
 // Ported from Bombocut/Editor/CaptionsSheet.swift (iOS a28b16c), the generate page: the language, the speech model
 // note (downloaded once), Generate captions / New captions track, what the run is doing, what went wrong.
 // The model download is the app's one SpeechDownload: Pause / Resume here, asked first on mobile data (iOS alert).
-// Regenerate one line is in the line's own panel (CaptionLineSheet). Not yet: picking clips, typed names, translation.
+// Regenerate one line is in the line's own panel (CaptionLineSheet). Typed names (SpellCheck.applyNames). Not yet: picking clips, translation.
 package cz.krechler.bombocut.editor
 
 import androidx.compose.foundation.background
@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +46,8 @@ fun CaptionsSheet(model: EditorModel) {
             ?: java.util.Locale.getDefault().language.takeIf { CaptionLanguage.item(it) != null } ?: "cs")
     }
     var more by remember { mutableStateOf(false) }
+    // iOS: @AppStorage("captionNames"), names and slang that win over sound-alikes (SpellCheck.applyNames)
+    var names by remember { mutableStateOf(prefs.string("captionNames") ?: "") }
     // generating again replaces your text edits: the first tap asks (iOS confirmation dialog)
     var confirm by remember { mutableStateOf(false) }
     // iOS: "Download on mobile data?" once per panel; the next tap is the answer
@@ -71,6 +74,17 @@ fun CaptionsSheet(model: EditorModel) {
                         modifier = Modifier.background(Theme.panel2, RoundedCornerShape(50)).clickable { more = true }
                             .padding(horizontal = 14.dp, vertical = 8.dp))
     }
+
+    OutlinedTextField(
+        value = names,
+        onValueChange = { names = it; prefs.set("captionNames", it) },
+        enabled = !running,
+        singleLine = true,
+        placeholder = { Text(loc("Names & slang, comma separated"), color = Theme.muted) },
+        modifier = Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                                  focusedBorderColor = Theme.accent, cursorColor = Theme.accent),
+    )
 
     when {
         job?.error != null -> Text(job.error, color = Color(0xFFFF453A), fontWeight = FontWeight.SemiBold)
@@ -127,7 +141,7 @@ fun CaptionsSheet(model: EditorModel) {
             if (hasTracks && !confirm) { confirm = true; return@TextButton }
             if (!cellularOK()) return@TextButton
             confirm = false
-            model.startCaptions(context, language, newTrack = false)
+            model.startCaptions(context, language, newTrack = false, names = names)
         },
                    modifier = Modifier.fillMaxWidth().background(Theme.accent, RoundedCornerShape(14.dp))) {
             Text(loc(when {
@@ -140,7 +154,7 @@ fun CaptionsSheet(model: EditorModel) {
                                             modifier = Modifier.fillMaxWidth().background(Theme.panel2, RoundedCornerShape(14.dp))) {
             Text(loc("Cancel"), color = Color.White, fontWeight = FontWeight.Bold)
         }
-        if (hasTracks && askCellular != true) TextButton({ if (!cellularOK()) return@TextButton; confirm = false; model.startCaptions(context, language, newTrack = true) },
+        if (hasTracks && askCellular != true) TextButton({ if (!cellularOK()) return@TextButton; confirm = false; model.startCaptions(context, language, newTrack = true, names = names) },
                                   modifier = Modifier.fillMaxWidth().background(Theme.panel2, RoundedCornerShape(14.dp))) {
             Text(loc("New captions track"), color = Color.White, fontWeight = FontWeight.Bold)
         }

@@ -59,7 +59,7 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
      * with a look no other track uses. The editor stays usable meanwhile: if the timeline changed, the captions
      * are moved onto it as it is now. One undo step.
      */
-    fun startCaptions(context: android.content.Context, language: String, newTrack: Boolean) {
+    fun startCaptions(context: android.content.Context, language: String, newTrack: Boolean, names: String = "") {
         if (locked || captionJob?.error == null && captionJob != null) return
         captionTask?.cancel()
         captionsReady = false
@@ -77,7 +77,7 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         val tid = old?.templateID ?: fresh?.id
         captionTask = scope.launch {
             try {
-                val words = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot) { captionJob = CaptionJob(it) }
+                val words = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot, language = language, names = names) { captionJob = CaptionJob(it) }
                 if (words.isEmpty()) { captionJob = CaptionJob(cz.krechler.bombocut.engine.Transcriber.Phase.PreparingAudio, loc("No speech found.")); return@launch }
                 var caps = Captions(language, words, CaptionCutter.cues(words, style), style, tid)
                 // you kept editing meanwhile: the captions go onto the timeline as it is now
@@ -128,7 +128,9 @@ class EditorModel(start: Project, private val store: ProjectStore?) {
         val hi = minOf(maxOf(snapshot.duration, cue.end), cue.end + 0.6)
         scope.launch {
             try {
-                val heard = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot, lo..hi) {}
+                // the typed names (Captions panel) and the track's language, like a whole run
+                val names = cz.krechler.bombocut.app.PrefsSettings(context).string("captionNames") ?: ""
+                val heard = cz.krechler.bombocut.engine.Transcriber.run(context, snapshot, lo..hi, language = caps.language, names = names) {}
                 // the timeline moved meanwhile: the times would be off, leave the line alone
                 if (project.timingKey != snapshot.timingKey) return@launch
                 val now = project.captionTracks.getOrNull(track) ?: return@launch

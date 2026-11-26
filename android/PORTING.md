@@ -15,6 +15,7 @@ stub = placeholder. - = not started.
 | Model/Languages.swift (AppLanguage) | app/AppLanguage.kt | ad3827a | rework (reads the xcstrings asset) |
 | Model/Languages.swift (CaptionLanguage) | model/Languages.kt | a28b16c | 1:1 (the 25 languages) |
 | Engine/Speech.swift (Transcriber, SpeechEngine) | engine/Transcriber.kt | a28b16c | `words` 1:1; rework: Transformer 16 kHz mono export, sherpa-onnx (Parakeet Ultra int8), ~20 s pieces cut at quiet spots; Regenerate one line (CaptionLineSheet, Captions.replacingWords); not yet: SpellCheck, typed names |
+| Engine/Speech.swift (SpellCheck) | model/SpellCheck.kt + engine/CzechWords.kt | a28b16c | applyNames, czech 1:1 (Czech dictionary = bundled word list, 49,756 words); `fix` not ported: needs per-word confidence, which sherpa-onnx's Android API doesn't give (measured harmful without it, strih/android-captions-real-test.md) |
 | Engine/ModelDownload.swift + SpeechModels | engine/SpeechModel.kt + engine/SpeechDownload.kt | a28b16c | rework: HTTPS Range resume, size + SHA-256 per file, own GitHub release first (Hugging Face fallback); one app-wide download with pause / resume / delete, mobile-data question |
 | Editor/CaptionsSheet.swift (generate page) | editor/CaptionsSheet.kt | a28b16c | rework: language, Generate / Generate again / New captions track, phases, cancel; not yet: pick clips, names, translation |
 | Home/HomeView.swift | home/HomeView.kt | ad3827a | partly: list, sort, new project, rename, delete (not yet: share / .bbc, iCloud rows, trial pill, import game) |

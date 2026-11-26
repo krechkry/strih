@@ -25,6 +25,7 @@ import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
 import cz.krechler.bombocut.model.CaptionWord
 import cz.krechler.bombocut.model.Project
+import cz.krechler.bombocut.model.SpellCheck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -55,7 +56,7 @@ object Transcriber {
      * `phase` is called on the calling (main) thread's dispatcher.
      */
     suspend fun run(context: Context, project: Project, range: ClosedFloatingPointRange<Double>? = null,
-                    phase: (Phase) -> Unit): List<CaptionWord> {
+                    language: String = "", names: String = "", phase: (Phase) -> Unit): List<CaptionWord> {
         if (!SpeechModel.isReady) {
             // the app's one download (the Storage screen shows the same); paused, this keeps waiting
             SpeechDownload.await { st ->
@@ -85,7 +86,21 @@ object Transcriber {
             out
         }
         phase(Phase.Listening(1.0))
-        return words(tokens, duration = hi.toDouble() / RATE)
+        return tidy(context, words(tokens, duration = hi.toDouble() / RATE), language, names)
+    }
+
+    /**
+     * After the model, like iOS: the names you typed win over sound-alikes, then for Czech the Polish / Slovak
+     * spellings go Czech. (iOS's third step, unsure words to the dictionary, needs the model's confidence: see SpellCheck.)
+     */
+    suspend fun tidy(context: Context, heard: List<CaptionWord>, language: String, names: String): List<CaptionWord> {
+        val typed = SpellCheck.splitNames(names)
+        var words = SpellCheck.applyNames(heard, typed)
+        if (language == "cs") {
+            val known = withContext(Dispatchers.IO) { CzechWords.load(context) }
+            words = SpellCheck.czech(words, typed.map { it.lowercase() }.toSet()) { it in known }
+        }
+        return words
     }
 
     /** The timeline's sound as a 16 kHz mono .m4a in the cache (Transformer, the same mix as the export). */
