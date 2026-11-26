@@ -81,6 +81,8 @@ enum SpinPhrase {
             var best: (end: Int, d: Int)?
             var joined = ""
             for j in i..<min(i + 4, keyed.count) {
+                // the phrase takes about a second: words further on belong to something else
+                if keyed[j].start - keyed[i].start > 1.6 { break }
                 joined = merge(joined + keyed[j].key)
                 let d = distance(joined, target)
                 // a near miss only counts when it really ends on a "...st" (the "shit")
