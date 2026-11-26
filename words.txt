@@ -1,0 +1,17 @@
+Ahoj lidi. Tohle jsou automatické titulky z Androidu. Tombo psup posloucha a píše, co slyší.
+0.00-0.32 Ahoj
+0.48-0.80 lidi.
+1.12-1.68 Tohle
+1.68-2.00 jsou
+2.00-2.72 automatické
+2.88-3.52 titulky
+3.52-3.68 z
+3.68-4.40 Androidu.
+4.72-5.04 Tombo
+5.12-5.36 psup
+5.52-6.16 posloucha
+6.40-6.64 a
+6.64-7.12 píše,
+7.36-7.60 co
+7.60-8.16 slyší.
+lines: ['Ahoj lidi Tohle jsou\nautomatické titulky z Androidu', 'Tombo psup posloucha\na píše co slyší']
