@@ -204,7 +204,11 @@ enum CompositionBuilder {
                 aux ? ln.neighbourTracks() : (nil, nil)
             // cleaned-up speech, once made, plays instead of the video's own sound (same timing)
             let soundAsset: AVAsset = SpeechCleanup.readyURL(clip).map { AVURLAsset(url: $0) } ?? asset
-            let srcAudio = await AudioPick.track(soundAsset)
+            // a muted clip (or one in a muted Stack) puts no sound in at all, like muted layers and sounds: a volume
+            // of 0 in the mix alone sometimes still let it play (retimed tracks, live edits)
+            let heard = clip.volume * (stackVolume[clip.id] ?? 1) > 0.001
+            var srcAudio: AVAssetTrack? = nil
+            if heard { srcAudio = await AudioPick.track(soundAsset) }
             let audioRange = try await srcAudio?.load(.timeRange)
             let audioOut = srcAudio != nil ? ln.audio(keepPitch: clip.pitchCorrect) : nil
             var cursor = start

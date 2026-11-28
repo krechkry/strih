@@ -123,4 +123,38 @@ final class SlowMoAudioTests: XCTestCase {
         // 1x to 2.0, then source 3.0 is 1 s into the slowed part: 2.0 + 2.0
         assertBeeps(try await beeps(p), [1, 4], "1x, then 0.5x")
     }
+
+    // MARK: Muted clips stay silent (1.3.2: a muted clip's sound still played sometimes)
+
+    func testMutedSecondPart() async throws {
+        let f = try media()
+        var p = Project(name: "muted second")
+        var b = part(f, 2, 4)
+        b.volume = 0
+        p.clips = [part(f, 0, 2), b]
+        assertBeeps(try await beeps(p), [1], "second part muted")
+    }
+
+    func testMutedSpedUpThenNormal() async throws {
+        let f = try media()
+        var p = Project(name: "muted fast then normal")
+        var a = part(f, 0, 2, speed: 2)
+        a.volume = 0
+        p.clips = [a, part(f, 2, 4)]
+        // the muted 2x part takes 1 s, the second part's beep (source 3.0) lands at 2.0
+        assertBeeps(try await beeps(p), [2], "muted 2x part, then 1x")
+    }
+
+    func testMutedCurveBetweenNormal() async throws {
+        let f = try media()
+        var p = Project(name: "normal muted-curve normal")
+        let half = [SpeedPoint(t: 0, v: 0.5), SpeedPoint(t: 1, v: 0.5)]
+        var b = part(f, 0.5, 1.5, curve: half)
+        b.volume = 0
+        var c = part(f, 2.5, 4)
+        c.fadeIn = 0.1
+        p.clips = [part(f, 0, 0.5), b, c]
+        // 0.5 s, then the muted curve part (2 s, holding the 1.0 beep), then source 3.0 is 0.5 s into the last part
+        assertBeeps(try await beeps(p), [3], "muted curve part in the middle")
+    }
 }
