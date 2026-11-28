@@ -658,7 +658,7 @@ struct SidewaysPan: UIGestureRecognizerRepresentable {
 }
 
 
-/// Holding an item in the gallery: the photo bigger, or the video playing (silent, on a loop).
+/// Holding an item in the gallery: the photo bigger, or the video playing with its sound, on a loop.
 private struct AssetPreview: View {
     let asset: PHAsset
     @State private var image: UIImage?
@@ -698,8 +698,9 @@ private struct AssetPreview: View {
         PHImageManager.default().requestPlayerItem(forVideo: asset, options: vo) { item, _ in
             guard let item else { return }
             DispatchQueue.main.async {
+                // with its sound, the same way the editor plays (the app's playback audio session)
+                AudioMix.apply()
                 let q = AVQueuePlayer()
-                q.isMuted = true
                 looper = AVPlayerLooper(player: q, templateItem: item)
                 player = q
                 q.play()
