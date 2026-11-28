@@ -152,6 +152,7 @@ final class OverlayRenderer: @unchecked Sendable {
         let hide = preview ? OverlayStore.shared.hidden : nil
         for o in list where t >= o.start && t < o.end {
             if let b = behindOnly, o.behindSubject != b { continue }
+            if o.isOff { continue }
             if o.id == hide { continue }
             if o.isAdjustment {
                 // no picture of its own: it changes everything drawn so far (the clips and the rows under it)

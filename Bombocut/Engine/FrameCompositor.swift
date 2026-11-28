@@ -112,6 +112,8 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         // the frame engine works at (about) the output size, not the source's 4K: much faster, same look
         let work = SmoothFrames.workSize(source: CGSize(width: CVPixelBufferGetWidth(src), height: CVPixelBufferGetHeight(src)),
                                          render: request.renderContext.size, preview: info.preview)
+        // disabled: drawn as the background anyway, no frame engine work
+        if info.off { ready(CIImage(video: src)); return }
         let blurPrev = state.blurDirection == .forward ? nil : prev
         let blurNext = state.blurDirection == .backward ? nil : next
 
@@ -236,7 +238,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             }
             RenderProbe.shared.mark("captions")
             // (captions behind the subject were already drawn under it, when this frame has a subject mask)
-            for caps in CaptionStore.shared.all where !bare && !(masked && caps.style.behindSubject) {
+            for caps in CaptionStore.shared.all where !bare && !caps.isOff && !(masked && caps.style.behindSubject) {
                 if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                     image = text.composited(over: image).cropped(to: frame)
                 }
@@ -334,6 +336,8 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                            withStack: Bool = true) -> CIImage {
         let frame = CGRect(origin: .zero, size: size)
         let info = p.layer.info, state = p.state, srcT = p.srcT
+        // disabled: its place on the timeline shows the background, nothing of the clip
+        if info.off { return CIImage(color: StackStore.shared.background).cropped(to: frame) }
         var look = p.look
         if info.preview && LookStore.shared.bypassEffects { look.effects = Effects() }
         // AutoZoom: from the clip's first frame to its last, on top of its own placement
@@ -391,7 +395,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, preview: info.preview, video: video)
             }
             // captions set to go behind the subject: on the background, so the subject covers them
-            for caps in CaptionStore.shared.all where caps.style.behindSubject {
+            for caps in CaptionStore.shared.all where caps.style.behindSubject && !caps.isOff {
                 if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                     back = text.composited(over: back).cropped(to: frame)
                 }
@@ -474,7 +478,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             if hasOverlays {
                 back = OverlayRenderer.shared.draw(on: back, at: t, size: size, behindOnly: true, preview: preview, video: video)
             }
-            for caps in CaptionStore.shared.all where caps.style.behindSubject {
+            for caps in CaptionStore.shared.all where caps.style.behindSubject && !caps.isOff {
                 if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                     back = text.composited(over: back).cropped(to: frame)
                 }

@@ -345,6 +345,8 @@ struct Clip: Identifiable, Codable, Hashable {
     var inPoint: Double            // seconds in source
     var outPoint: Double           // seconds in source
     var volume: Double = 1         // 0...1
+    /// Disabled: keeps its place on the timeline, but shows nothing (the background) and plays no sound.
+    var disabled: Bool?
     var fill: Bool = false         // false = fit inside canvas, true = fill (crop)
     var speed: Double = 1          // constant speed, used when there is no curve
     var speedCurve: [SpeedPoint]?  // custom curve, overrides constant speed
@@ -460,12 +462,15 @@ struct Clip: Identifiable, Codable, Hashable {
         case curveSticks
         case speedCurve, pitchCorrect, transform, aspect, opacity, effects, keyframes, stabilization, tracking, smoothSlowMo, mask
         case motionBlur, motionBlurOn, blurDirection, anim, cut, speech, still, reversed, asset, autoZoom, stack, crop
-        case fadeIn, fadeOut, filter, key, spinTrigger, desqueeze
+        case fadeIn, fadeOut, filter, key, spinTrigger, desqueeze, disabled
     }
+
+    var isOff: Bool { disabled == true }
 
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        disabled = try? c.decodeIfPresent(Bool.self, forKey: .disabled)
         mediaFile = try c.decode(String.self, forKey: .mediaFile)
         sourceDuration = try c.decode(Double.self, forKey: .sourceDuration)
         inPoint = try c.decodeIfPresent(Double.self, forKey: .inPoint) ?? 0

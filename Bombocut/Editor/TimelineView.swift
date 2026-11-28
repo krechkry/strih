@@ -106,7 +106,7 @@ struct TimelineView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: LaneLayout.gap) {
-                    let lanes = LaneLayout(model.project, pro: UIMode.isPro)
+                    let lanes = LaneLayout(model.project, pro: UIMode.isPro, newCaption: model.captionGhostLane)
                     // desktop order, top to bottom: captions, layers (texts, pictures, videos), clips, sound.
                     // While clips are reordered the other lanes only fade, so the strip stays where it is.
                     if !model.project.captionTracks.isEmpty {
@@ -116,6 +116,11 @@ struct TimelineView: View {
                                 CaptionLane(model: model, track: k, layersHeight: lanes.captionToLayers(k))
                                     .frame(height: CaptionLane.height, alignment: .top)
                                     .zIndex(model.captionsSelected && model.project.activeCaption == k ? 1 : 0)
+                            }
+                            // picking where captions go: the new track, where it will be
+                            if model.captionGhostLane, let r = model.captionTrackPickRange {
+                                CaptionPickMark(range: r, px: model.pxPerSec, label: loc("New track"))
+                                    .frame(height: CaptionLane.height, alignment: .topLeading)
                             }
                         }
                         // picking a subject: the lanes above the strip fold away, the strip moves up
@@ -297,7 +302,7 @@ struct TimelineView: View {
                               unstack: stacked ? { model.quickMenuClipID = nil; model.unstackSelected() } : nil,
                               perform: { model.performQuick($0) },
                               off: { $0 == .slip && !model.canSlip })
-                        .position(x: cx, y: LaneLayout.top + LaneLayout(model.project, pro: UIMode.isPro).aboveStrip - 8 - QuickMenu.height / 2)
+                        .position(x: cx, y: LaneLayout.top + LaneLayout(model.project, pro: UIMode.isPro, newCaption: model.captionGhostLane).aboveStrip - 8 - QuickMenu.height / 2)
                         .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
                         .zIndex(5)
                 }
@@ -1010,6 +1015,7 @@ struct ClipTile: View {
         .overlay {
             if lifted { RoundedRectangle(cornerRadius: 6).strokeBorder(.white, lineWidth: 2) }
         }
+        .disabledLook(clip.isOff)
         .scaleEffect(lifted ? 1.06 : 1)
         .shadow(color: .black.opacity(lifted ? 0.7 : 0), radius: 8, y: 4)
     }
@@ -1221,7 +1227,12 @@ struct CaptionLane: View {
         ZStack(alignment: .topLeading) {
             Color.clear.frame(width: CGFloat(total) * px, height: Self.height)
             ForEach(cues) { cue in block(cue, px: px) }
+            // picking where captions go: this track, over the part they will cover
+            if model.captionTrackPick?.choice == track, model.captionTrackPick != nil, let r = model.captionTrackPickRange {
+                CaptionPickMark(range: r, px: px)
+            }
         }
+        .opacity(captions?.isOff == true ? 0.35 : 1)
         .onChange(of: model.laneAuto) { apply() }
         // the captions let go while a line's edge or the line was held: end that drag (its view went away and never
         // told us, which froze the timeline's scrolling)
@@ -1727,6 +1738,7 @@ struct OverlayLane: View {
                 if was != nil, was != target(dy, from: row, rows: rows) { UISelectionFeedbackGenerator().selectionChanged() }
             },
             enabled: model.pick == nil))
+        .disabledLook(o.isOff)
         .offset(x: CGFloat(o.start) * px, y: lift?.id == o.id ? lift!.dy : 0)
         .shadow(color: .black.opacity(lift?.id == o.id ? 0.5 : 0), radius: 6, y: 3)
         .zIndex(selected ? 1 : 0)
@@ -1928,6 +1940,7 @@ struct AudioLane: View {
             },
             onEnded: { finish(a.id) },
             enabled: model.pick == nil))
+        .disabledLook(a.isOff)
         .offset(x: CGFloat(a.start) * px)
         .zIndex(selected ? 1 : 0)
     }
@@ -2054,13 +2067,14 @@ struct LaneLayout {
     /// Basic mode has no picture / video overlays (unless the project already has some): no + for them.
     let showOverlay: Bool
 
-    init(_ p: Project, pro: Bool) {
+    /// `newCaption`: a dashed lane for a captions track about to be made (picking where captions go).
+    init(_ p: Project, pro: Bool, newCaption: Bool = false) {
         showOverlay = pro || p.overlays.contains { !$0.isText }
         // room for the island's two + (text, picture) next to the layers
         let least = showOverlay ? Self.empty * 2 + Self.gap : Self.empty
         layers = max(least, OverlayLane.height(p.overlays))
         music = p.audio.isEmpty ? Self.empty : AudioLane.height(p.audio)
-        let n = CGFloat(p.captionTracks.count)
+        let n = CGFloat(p.captionTracks.count + (newCaption && !p.captionTracks.isEmpty ? 1 : 0))
         captions = n == 0 ? 0 : n * CaptionLane.height + (n - 1) * 3
     }
 
@@ -2300,4 +2314,27 @@ struct BeatTicks: Shape {
         }
         return p
     }
+}
+
+/// A disabled clip, layer or sound on the timeline: faded, with a crossed-out eye, still in its place.
+private struct DisabledLook: ViewModifier {
+    let off: Bool
+    func body(content: Content) -> some View {
+        content
+            .opacity(off ? 0.35 : 1)
+            .overlay(alignment: .topTrailing) {
+                if off {
+                    Image(systemName: "eye.slash.fill")
+                        .font(.system(size: 8, weight: .heavy)).foregroundStyle(.white)
+                        .padding(3)
+                        .background(.black.opacity(0.7), in: Circle())
+                        .padding(2)
+                        .allowsHitTesting(false)
+                }
+            }
+    }
+}
+
+extension View {
+    func disabledLook(_ off: Bool) -> some View { modifier(DisabledLook(off: off)) }
 }

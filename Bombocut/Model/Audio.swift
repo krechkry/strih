@@ -12,6 +12,9 @@ struct AudioItem: Codable, Hashable, Identifiable {
     var duration: Double           // timeline seconds
     var speed = 1.0                // > 1 plays faster (taken from a sped-up clip); pitch is kept
     var volume = 1.0
+    /// Disabled: keeps its place on the timeline, but plays nothing.
+    var disabled: Bool?
+    var isOff: Bool { disabled == true }
     /// Seconds the sound rises from silence at its start / sinks to silence at its end (nil: none).
     var fadeIn: Double?
     var fadeOut: Double?

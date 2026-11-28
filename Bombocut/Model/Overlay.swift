@@ -81,6 +81,8 @@ struct Overlay: Codable, Hashable, Identifiable {
     var behindSubject = false          // drawn behind the masked subject (when the clip has a mask)
     var keys: [OverlayKey] = []        // keyframes for move / scale / rotate / opacity (sorted by time)
     var volume = 1.0                   // video overlays: their sound (0 = muted)
+    /// Disabled: keeps its place on the timeline, but isn't drawn and plays no sound.
+    var disabled: Bool?
     var anim = AnimPair()              // in / out animation
     /// Row in its lane (texts and pictures / videos each have their own rows), 0 = top row.
     /// The rows stack like they look: a higher row is drawn on top, and texts sit above pictures and videos.
@@ -170,8 +172,10 @@ struct Overlay: Codable, Hashable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, kind, start, duration, transform, opacity, blend, style, aspect, behindSubject, keys, volume, anim, track
         case effects, speed, mask, stabilization, tracking, crop, autoZoom, speedCurve, curveIn, curveSpan, pin, filter
-        case asset, key, spinTrigger, desqueeze
+        case asset, key, spinTrigger, desqueeze, disabled
     }
+
+    var isOff: Bool { disabled == true }
 
     init(kind: OverlayKind, start: Double, duration: Double) {
         self.kind = kind
@@ -183,6 +187,7 @@ struct Overlay: Codable, Hashable, Identifiable {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         kind = try c.decode(OverlayKind.self, forKey: .kind)
+        disabled = try? c.decodeIfPresent(Bool.self, forKey: .disabled)
         start = try c.decodeIfPresent(Double.self, forKey: .start) ?? 0
         duration = try c.decodeIfPresent(Double.self, forKey: .duration) ?? 3
         transform = try c.decodeIfPresent(ClipTransform.self, forKey: .transform) ?? ClipTransform()

@@ -225,6 +225,9 @@ struct Captions: Codable, Hashable {
     var templateID: UUID?
     /// Where you split lines by hand (timeline seconds): a new cut keeps them.
     var cuts: [Double]? = nil
+    /// Disabled: the track keeps its lines and place, but nothing of it shows in the video.
+    var disabled: Bool? = nil
+    var isOff: Bool { disabled == true }
 
     func cue(at t: Double) -> CaptionCue? {
         var lo = 0, hi = cues.count - 1

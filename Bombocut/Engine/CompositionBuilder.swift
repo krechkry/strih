@@ -16,6 +16,7 @@ struct ClipRenderInfo {
     var trail: Double = 0              // handle played after the clip's own end (a transition out of it)
     var light = false                  // simple frame blending instead of Apple's frame engine (less memory)
     var bare = false                   // just the clips: no Stack layer, overlays or captions (analysing a Stack)
+    var off = false                    // disabled: drawn as the background, no effects, no sound
 }
 
 /// One clip drawn in a frame: its footage track and, for motion blur / smooth slow motion, the same
@@ -210,7 +211,7 @@ enum CompositionBuilder {
             let soundAsset: AVAsset = SpeechCleanup.readyURL(clip).map { AVURLAsset(url: $0) } ?? asset
             // a muted clip (or one in a muted Stack) puts no sound in at all, like muted layers and sounds: a volume
             // of 0 in the mix alone sometimes still let it play (retimed tracks, live edits)
-            let heard = clip.volume * (stackVolume[clip.id] ?? 1) > 0.001
+            let heard = !clip.isOff && clip.volume * (stackVolume[clip.id] ?? 1) > 0.001
             var srcAudio: AVAssetTrack? = nil
             if heard { srcAudio = await AudioPick.track(soundAsset) }
             let audioRange = try await srcAudio?.load(.timeRange)
@@ -271,7 +272,7 @@ enum CompositionBuilder {
                                       retime: clip.retime, state: clip.lookState, srcFps: fps,
                                       smoothSlowMo: clip.smoothSlowMo, preview: preview,
                                       duration: (cursor - start).seconds, lead: lead, trail: trail, light: light,
-                                      bare: bare)
+                                      bare: bare, off: clip.isOff)
             let layer = ClipLayer(trackID: vTrack.trackID, info: info,
                                   prevTrackID: aux ? neighbours.prev?.trackID : nil,
                                   nextTrackID: aux ? neighbours.next?.trackID : nil)
@@ -355,7 +356,7 @@ enum CompositionBuilder {
         var overlayTracks: [UUID: OverlayTrack] = [:]
         var overlayAudio: [AVAudioMixInputParameters] = []
         for o in project.overlays {
-            guard case .video(let file, _, let inPoint) = o.kind, o.start < contentEnd.seconds else { continue }
+            guard case .video(let file, _, let inPoint) = o.kind, !o.isOff, o.start < contentEnd.seconds else { continue }
             let asset = AVURLAsset(url: Paths.mediaURL(file))
             let videoAsset = preview ? (Proxies.ready(file).map { AVURLAsset(url: $0) } ?? asset) : asset
             guard let src = try? await videoAsset.loadTracks(withMediaType: .video).first,
@@ -457,7 +458,7 @@ enum CompositionBuilder {
         }
 
         // Sound on the audio lane: one track each (own volume), cut at the end of the video.
-        for a in project.audio where a.start < contentEnd.seconds - 0.02 && a.volume > 0.001 {
+        for a in project.audio where !a.isOff && a.start < contentEnd.seconds - 0.02 && a.volume > 0.001 {
             // cleaned speech (same timing as the file) when the sound has it and it's made
             let asset = AVURLAsset(url: SpeechCleanup.readyURL(a) ?? Paths.mediaURL(a.file))
             guard let src = await AudioPick.track(asset),

@@ -1352,6 +1352,42 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    /// Whether what's selected is disabled (a layer, a sound, the captions track, a Stack, a clip); nil: nothing to disable.
+    var selectionOff: Bool? {
+        if let o = selectedOverlayIndex { return project.overlays[o].isOff }
+        if let a = selectedAudioIndex { return project.audio[a].isOff }
+        if captionsSelected, project.captionTracks.indices.contains(project.activeCaption) {
+            return project.captionTracks[project.activeCaption].isOff
+        }
+        if let k = selectedStackIndex {
+            let ids = Set(project.stacks[k].clipIDs)
+            return project.clips.filter { ids.contains($0.id) }.allSatisfy(\.isOff)
+        }
+        if let i = selectedIndex { return project.clips[i].isOff }
+        return nil
+    }
+
+    /// Disable / Enable: the selection keeps its place on the timeline (nothing moves, snaps or ripples) but shows
+    /// nothing and plays nothing. A Stack does it to all its clips. One undo step.
+    func toggleDisabled() {
+        guard let now = selectionOff else { return }
+        let v: Bool? = now ? nil : true
+        if let o = selectedOverlayIndex {
+            mutate { $0.overlays[o].disabled = v }
+        } else if let a = selectedAudioIndex {
+            mutate { $0.audio[a].disabled = v }
+        } else if captionsSelected, project.captionTracks.indices.contains(project.activeCaption) {
+            let k = project.activeCaption
+            mutateLook { $0.captionTracks[k].disabled = v }
+        } else if let k = selectedStackIndex {
+            let ids = Set(project.stacks[k].clipIDs)
+            mutate { p in for i in p.clips.indices where ids.contains(p.clips[i].id) { p.clips[i].disabled = v } }
+        } else if let i = selectedIndex {
+            mutate { $0.clips[i].disabled = v }
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
     /// Volume slider: remember the value before dragging so undo restores it.
     private var volumeSnapshot: Project?
     func volumeEditing(_ editing: Bool) {
@@ -1409,8 +1445,74 @@ final class EditorModel: ObservableObject {
     /// (the style still belongs to the whole track). Lines belong to the clip they sit on.
     @Published var captionScope: UUID?
 
-    /// The Captions button with captions already made: asks "Edit existing track" or "Create new track" first.
-    @Published var askCaptionsTrack = false
+    /// Picking where captions go, with captions already made: the Captions button (edit a track or make a new one),
+    /// or Captions on a clip with no lines yet (generate into a track or a new one). The picked track's lane lights
+    /// up on the timeline, a new track shows as a dashed lane, so you see where the captions will land.
+    struct CaptionTrackPick: Equatable {
+        /// The clip (or Stack) the captions are for; nil = the Captions button.
+        var clip: UUID?
+        /// The track picked; nil = a new track.
+        var choice: Int?
+    }
+    @Published var captionTrackPick: CaptionTrackPick?
+    /// Picking a new captions track: the timeline shows a dashed lane for it.
+    var captionGhostLane: Bool { captionTrackPick != nil && captionTrackPick?.choice == nil }
+
+    /// The Captions button with captions already made: pick a track or a new one first.
+    func startCaptionTrackPick() {
+        pause()
+        captionTrackPick = CaptionTrackPick(clip: nil, choice: project.activeCaption)
+    }
+
+    /// Timeline seconds the picked captions would cover: the clip's (or Stack's) range, else the whole video.
+    var captionTrackPickRange: ClosedRange<Double>? {
+        guard let p = captionTrackPick else { return nil }
+        if let id = p.clip { return clipRange(id) }
+        return 0...max(duration, 0.1)
+    }
+
+    /// The pick would replace lines already on that track (a clip with lines on the picked track).
+    var captionTrackPickReplaces: Bool {
+        guard let p = captionTrackPick, let k = p.choice, p.clip != nil, let r = captionTrackPickRange,
+              project.captionTracks.indices.contains(k) else { return false }
+        return project.captionTracks[k].cues.contains { r.contains(($0.start + $0.end) / 2) }
+    }
+
+    func confirmCaptionTrackPick() {
+        guard let p = captionTrackPick else { return }
+        captionTrackPick = nil
+        guard let id = p.clip else {
+            if let k = p.choice { openCaptionTrack(k) } else { newCaptionTrack() }
+            return
+        }
+        let ids = project.stacks.first { $0.id == id }?.clipIDs ?? [id]
+        if let k = p.choice, project.captionTracks.indices.contains(k) {
+            if project.activeCaption != k {
+                project.activeCaption = k
+                store.save(project)
+            }
+            captionsNewTrack = false
+        } else {
+            captionsNewTrack = true
+        }
+        captionScope = id
+        captionClips = Set(ids)
+        captionsGenerator = true
+        captionTab = 0
+        openCaptions = true
+    }
+
+    /// Generating now would replace lines already made: the active track (not a new one) has lines on the clips it
+    /// listens to. Nothing there yet: no "Generate again", no warning.
+    var captionsGenerateReplaces: Bool {
+        guard !captionsNewTrack, let caps = project.captions, !caps.cues.isEmpty else { return false }
+        guard let only = captionClipsLive else { return true }
+        let ranges = only.compactMap { clipRange($0) }
+        return caps.cues.contains { c in
+            let m = (c.start + c.end) / 2
+            return ranges.contains { $0.contains(m) }
+        }
+    }
 
     /// Edit text: the line tapped, else the one under the playhead.
     var captionLineForEditing: UUID? { tappedCue ?? project.captions?.cue(at: currentTime)?.id }
@@ -1419,6 +1521,12 @@ final class EditorModel: ObservableObject {
     /// everywhere, on the track those lines are on. Without: the generate page for this clip only.
     func openClipCaptions() {
         let id = selectedStack?.id ?? selectedClipID
+        // no lines on it yet, but captions elsewhere: pick the track they go onto (or a new one) first
+        if let id, captionTrack(of: id) == nil, !project.captionTracks.isEmpty {
+            pause()
+            captionTrackPick = CaptionTrackPick(clip: id, choice: project.activeCaption)
+            return
+        }
         if let id, captionTrack(of: id) != nil {
             pause()
             showTrack(of: id)

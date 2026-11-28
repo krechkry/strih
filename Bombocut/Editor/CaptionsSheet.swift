@@ -79,7 +79,7 @@ struct CaptionsSheet: View {
             if !compact {
             HStack {
                 Text(newTrack ? "New captions track" : model.captionScope != nil ? "Captions for this clip"
-                     : model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Captions")
+                     : model.captionsGenerator && model.captionsGenerateReplaces ? "Generate again" : "Captions")
                     .font(.title2.weight(.heavy))
                 Spacer()
                 if model.project.captions != nil && model.captionsGenerator && phase == nil {
@@ -150,7 +150,7 @@ struct CaptionsSheet: View {
                     Text("Goes onto a captions track of its own, with its own style. The other captions stay as they are.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if model.project.captions != nil && model.captionsGenerator {
+                } else if model.captionsGenerator && model.captionsGenerateReplaces {
                     Text(model.captionClipsLive == nil ? "Replaces the captions and your text edits. Undo brings them back."
                          : "Replaces the captions on the picked clips. Undo brings them back.")
                         .font(.footnote.weight(.semibold)).foregroundStyle(.orange)
@@ -158,7 +158,7 @@ struct CaptionsSheet: View {
                 }
                 Button { generate() } label: {
                     Label(newTrack ? "Generate the new track"
-                          : model.project.captions != nil && model.captionsGenerator ? "Generate again" : "Generate captions",
+                          : model.captionsGenerator && model.captionsGenerateReplaces ? "Generate again" : "Generate captions",
                           systemImage: "captions.bubble.fill")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.black)

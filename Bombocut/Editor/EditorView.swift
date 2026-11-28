@@ -251,22 +251,11 @@ struct EditorView: View {
         .overlay {
             if let p = model.preciseTrim {
                 PreciseTrimPopup(model: model, state: p)
+            } else if model.captionTrackPick != nil {
+                CaptionTrackPicker(model: model)
             } else if let p = model.lengthPrompt {
                 LengthPopup(prompt: p) { model.lengthPrompt = nil }.id(p.id)
             }
-        }
-        // Captions with captions already made: edit a track or make a new one
-        .confirmationDialog("Captions", isPresented: $model.askCaptionsTrack, titleVisibility: .visible) {
-            let n = model.project.captionTracks.count
-            if n == 1 {
-                Button("Edit existing track") { model.openCaptionTrack(0) }
-            } else {
-                ForEach(0..<n, id: \.self) { k in
-                    Button(String(format: loc("Edit track %lld"), k + 1)) { model.openCaptionTrack(k) }
-                }
-            }
-            Button("Create new track") { model.newCaptionTrack() }
-            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -416,7 +405,7 @@ struct EditorView: View {
                     transport
                         .opacity(model.trackPick ? 0.2 : 1)
                         .allowsHitTesting(!model.trackPick)
-                    let lanes = LaneLayout(model.project, pro: pro)
+                    let lanes = LaneLayout(model.project, pro: pro, newCaption: model.captionGhostLane)
                     TimelineView(model: model)
                         .frame(height: lanes.total)
                         .overlay(alignment: .topLeading) {
@@ -886,6 +875,7 @@ struct EditorView: View {
                         ToolButton(icon: "scope", label: "Track") { model.pause(); sheet = .overlayTrack }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
+                    disableButton
                 } else if model.captionsSelected, model.project.captions != nil {
                     ToolButton(icon: "scissors", label: "Split") { model.splitCaption() }
                         .disabled(!model.canSplitCaption)
@@ -901,6 +891,7 @@ struct EditorView: View {
                     ToolButton(icon: "arrow.clockwise", label: "Regenerate") {
                         model.pause(); model.captionsGenerator = true; sheet = .captions
                     }
+                    disableButton
                     if model.captionsMoved {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetCaptionPlacement() }
                     }
@@ -952,6 +943,7 @@ struct EditorView: View {
                         ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetTransform() }
                     }
                     ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateSelected() }
+                    disableButton
                     if pro {
                         ToolButton(icon: "square.on.square.dashed", label: "Copy as overlay") { model.copyClipAsOverlay() }
                     }
@@ -990,7 +982,7 @@ struct EditorView: View {
                     }
                     ToolButton(icon: "captions.bubble", label: "Captions") {
                         model.pause()
-                        if model.project.captions == nil { sheet = .captions } else { model.askCaptionsTrack = true }
+                        if model.project.captions == nil { sheet = .captions } else { model.startCaptionTrackPick() }
                     }
                     if !model.project.clips.isEmpty {
                         ToolButton(icon: "waveform.path.badge.minus", label: "Remove silence") { model.pause(); sheet = .silence }
@@ -1022,6 +1014,7 @@ struct EditorView: View {
                    label: a.reverse == nil ? "Reverse" : "Forward") { model.reverseAudio() }
             .opacity(model.reversingAudio ? 0.4 : 1)
         ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateAudio() }
+        disableButton
     }
 
     /// A selected adjustment layer: what it does to everything under it, and the layer itself.
@@ -1033,6 +1026,16 @@ struct EditorView: View {
         ToolButton(icon: "arrow.left.and.right.square", label: "Transition") { openOverlay(.animation) }
         ToolButton(icon: "circle.lefthalf.filled", label: "Opacity") { openOverlay(.blend) }
         ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateOverlay() }
+        disableButton
+    }
+
+    /// Disable / Enable what's selected: it keeps its place on the timeline but shows nothing and plays nothing.
+    @ViewBuilder
+    private var disableButton: some View {
+        if let off = model.selectionOff {
+            ToolButton(icon: off ? "eye" : "eye.slash", label: off ? "Enable" : "Disable",
+                       tint: off ? Theme.accent : .white) { model.toggleDisabled() }
+        }
     }
 
     /// What the bottom bar is showing tools for.
@@ -1071,6 +1074,7 @@ struct EditorView: View {
             ToolButton(icon: "arrow.counterclockwise", label: "Reset") { model.resetStackTransform() }
         }
         ToolButton(icon: "plus.square.on.square", label: "Duplicate") { model.duplicateStack() }
+        disableButton
         if pro {
             ToolButton(icon: "waveform.badge.plus", label: "Sound from video") {
                 model.pause()

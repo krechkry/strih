@@ -600,6 +600,16 @@
         }
       }
     },
+    "Adds this clip's captions to this track, in its style.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidá titulky tohohle klipu do téhle stopy, v jejím stylu."
+          }
+        }
+      }
+    },
     "Adjust": {
       "localizations": {
         "cs": {
@@ -3034,6 +3044,16 @@
         }
       }
     },
+    "Disable": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vypnout"
+          }
+        }
+      }
+    },
     "Doesn't know %@.": {
       "localizations": {
         "cs": {
@@ -3540,6 +3560,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elipsa"
+          }
+        }
+      }
+    },
+    "Enable": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zapnout"
           }
         }
       }
@@ -5668,6 +5698,26 @@
         }
       }
     },
+    "Makes a new captions track with its own style, for this clip only.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvoří novou stopu titulků s vlastním stylem, jen pro tenhle klip."
+          }
+        }
+      }
+    },
+    "Makes a new captions track with its own style. The other captions stay as they are.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvoří novou stopu titulků s vlastním stylem. Ostatní titulky zůstanou, jak jsou."
+          }
+        }
+      }
+    },
     "Makes the voice model load fast. Deleting means the next load takes minutes again.": {
       "localizations": {
         "cs": {
@@ -6528,6 +6578,16 @@
         }
       }
     },
+    "Opens this track to edit it.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevře tuhle stopu, ať ji můžeš upravit."
+          }
+        }
+      }
+    },
     "Or translate now with Apple's translator": {
       "localizations": {
         "cs": {
@@ -6824,6 +6884,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vybrat"
+          }
+        }
+      }
+    },
+    "Pick a captions track or make a new one": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber stopu titulků, nebo vytvoř novou"
           }
         }
       }
@@ -7564,6 +7634,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nahradí titulky na vybraných klipech. Dá se to vrátit."
+          }
+        }
+      }
+    },
+    "Replaces this clip's lines on this track. Undo brings them back.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahradí řádky tohohle klipu v téhle stopě. Dá se to vrátit."
           }
         }
       }
