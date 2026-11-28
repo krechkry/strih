@@ -1,0 +1,300 @@
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:   group [ id=2:1
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:     [X] Track:0, id=2:2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=2:0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und, supported=YES
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:   group [ id=2:0
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:     [X] Track:0, id=2:1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und, supported=YES
+11-28 19:04:18.379  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:18.380  4597  4597 D CompositionPlayer-1:   group [ id=1:
+11-28 19:04:18.380  4597  4597 D CompositionPlayer-1:     [ ] Track:0, id=1:, mimeType=composition_player_blank_frames, supported=YES
+11-28 19:04:18.380  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1:   Metadata [
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1:     Mp4AlternateGroup: 1
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1:     TSSE: description=null: values=[Lavf62.3.100]
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1:     Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:18.381  4597  4597 D CompositionPlayer-1: ]
+11-28 19:04:18.386  4597  4597 D CompositionPlayer-2: loading [eventTime=0.47, mediaPos=2.56, window=0, period=1, false]
+11-28 19:04:18.388  4597  4597 D CompositionPlayer-2: loading [eventTime=0.47, mediaPos=2.56, window=0, period=1, true]
+11-28 19:04:18.393  4597  4597 D CompositionPlayer-3: downstreamFormat [eventTime=0.47, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:18.520  4597  4597 D CompositionPlayer-3: audioDecoderInitialized [eventTime=0.60, mediaPos=2.56, window=0, period=1, c2.android.aac.decoder]
+11-28 19:04:18.521  4597  4597 D CompositionPlayer-3: audioInputFormat [eventTime=0.60, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:18.540  4597  4597 D CompositionPlayer-0: downstreamFormat [eventTime=0.65, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:18.635  4597  4597 D CompositionPlayer-0: audioDecoderInitialized [eventTime=0.75, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:18.636  4597  4597 D CompositionPlayer-0: audioInputFormat [eventTime=0.75, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:18.636  4597  4597 D CompositionPlayer-0: downstreamFormat [eventTime=0.75, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:18.663  4597  4597 D CompositionPlayer-0: videoDecoderInitialized [eventTime=0.77, mediaPos=2.56, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:18.664  4597  4597 D CompositionPlayer-0: videoInputFormat [eventTime=0.77, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:18.670  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=0.77, mediaPos=3.00, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:18.773  4597  4597 D CompositionPlayer-1: audioDecoderInitialized [eventTime=0.87, mediaPos=3.00, window=0, period=1, c2.android.aac.decoder]
+11-28 19:04:18.773  4597  4597 D CompositionPlayer-1: audioInputFormat [eventTime=0.87, mediaPos=3.00, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:18.774  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=0.87, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:18.805  4597  4597 D CompositionPlayer-1: videoDecoderInitialized [eventTime=0.91, mediaPos=3.00, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:18.806  4597  4597 D CompositionPlayer-1: videoInputFormat [eventTime=0.91, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:18.813  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=0.91, mediaPos=3.00, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:18.834  4597  4597 D CompositionPlayer-2: loading [eventTime=0.92, mediaPos=2.56, window=0, period=1, false]
+11-28 19:04:18.834  4597  4597 D CompositionPlayer-1: loading [eventTime=0.94, mediaPos=3.00, window=0, period=1, false]
+11-28 19:04:18.839  4597  4597 D CompositionPlayer-1: loading [eventTime=0.94, mediaPos=3.00, window=0, period=1, true]
+11-28 19:04:18.841  4597  4597 D CompositionPlayer: videoEnabled [eventTime=45.97, mediaPos=3.00, window=0]
+11-28 19:04:18.841  4597  4597 D CompositionPlayer-2: videoEnabled [eventTime=0.93, mediaPos=2.56, window=0, period=1]
+11-28 19:04:18.843  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=0.93, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=96074, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=29.670332, language=und]
+11-28 19:04:19.200  4597  4597 D CompositionPlayer-2: videoDecoderInitialized [eventTime=1.28, mediaPos=2.56, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:19.218  4597  4597 D CompositionPlayer-2: videoInputFormat [eventTime=1.30, mediaPos=2.56, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=96074, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=29.670332, language=und]
+11-28 19:04:19.225  4597  4597 D CompositionPlayer-0: rendererReady [eventTime=1.34, mediaPos=2.56, window=0, period=2, rendererIndex=0, audio, true]
+11-28 19:04:19.228  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=1.31, mediaPos=2.56, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:19.233  4597  4597 D CompositionPlayer-3: rendererReady [eventTime=1.31, mediaPos=2.56, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:19.241  4597  4597 D CompositionPlayer-3: state [eventTime=1.32, mediaPos=2.56, window=0, period=1, READY]
+11-28 19:04:19.324  4597  4597 D CompositionPlayer-1: loading [eventTime=1.38, mediaPos=3.00, window=0, period=1, false]
+11-28 19:04:19.325  4597  4597 D CompositionPlayer: videoEnabled [eventTime=46.45, mediaPos=3.00, window=0]
+11-28 19:04:19.325  4597  4597 D CompositionPlayer-1: videoEnabled [eventTime=1.43, mediaPos=3.00, window=0, period=1]
+11-28 19:04:19.326  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=1.43, mediaPos=3.00, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:19.586   519   574 I AppsFilter: interaction: PackageSetting{965e9fe cz.krechler.bombocut/10192} -> PackageSetting{2a79e86 com.google.android.contacts/10156} BLOCKED
+11-28 19:04:20.153  4597  4597 D CompositionPlayer-1: videoDecoderInitialized [eventTime=2.25, mediaPos=3.00, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:20.153  4597  4597 D CompositionPlayer-1: videoInputFormat [eventTime=2.25, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:20.349  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=2.44, mediaPos=2.56, window=0, period=1, rendererIndex=1, video, true]
+11-28 19:04:20.363  4597  4597 D CompositionPlayer-2: state [eventTime=2.45, mediaPos=2.56, window=0, period=1, READY]
+11-28 19:04:23.223  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=5.32, mediaPos=3.00, window=0, period=1, rendererIndex=1, video, true]
+11-28 19:04:23.239  4597  4597 D CompositionPlayer-1: state [eventTime=5.34, mediaPos=3.00, window=0, period=1, READY]
+11-28 19:04:23.252  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=5.35, mediaPos=3.00, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:23.259  4597  4597 D CompositionPlayer-1: audioDecoderReleased [eventTime=5.36, mediaPos=3.00, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:23.466  4597  4597 D CompositionPlayer-1: audioDecoderInitialized [eventTime=5.57, mediaPos=3.00, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:23.482  4597  4597 D CompositionPlayer-1: audioInputFormat [eventTime=5.57, mediaPos=3.00, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:23.588  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=5.67, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69689, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:23.589  4597  4597 D CompositionPlayer-2: audioInputFormat [eventTime=5.68, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=69689, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:23.768  4597  4990 I Bombocut: blend input 1 at 2966666 us: alpha 0.07432550173562524
+11-28 19:04:24.245  4597  4597 D CompositionPlayer-2: audioDecoderReleased [eventTime=6.33, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:24.268  4597  4597 D CompositionPlayer-2: audioDecoderInitialized [eventTime=6.35, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:24.655  4597  4605 I echler.bombocut: NativeAlloc concurrent copying GC freed 156170(5960KB) AllocSpace objects, 47(2796KB) LOS objects, 49% free, 10MB/20MB, paused 257us,21us total 106.579ms
+11-28 19:04:29.742   519   574 I AppsFilter: interaction: PackageSetting{965e9fe cz.krechler.bombocut/10192} -> PackageSetting{31cd121 com.google.android.contacts/10156} BLOCKED
+11-28 19:04:38.859  4597  4597 I Bombocut: clip 00000000-0000-0000-0000-00000000b001: source 0.0..2.556349217891693, plays 2.556349217891693 s (head 0.0, tail 0.0)
+11-28 19:04:38.884  4597  4597 I Bombocut: clip 1e38e31f-15a4-466e-be2b-b631cd7ee93b: source 2.556349217891693..3.0, plays 0.4436507821083069 s (head 0.0, tail 0.0)
+11-28 19:04:38.885  4597  4597 I Bombocut: clip 00000000-0000-0000-0000-00000000b002: source 0.5..3.0, plays 1.25 s (head 0.0, tail 0.0)
+11-28 19:04:38.914  4597  4597 I ExoPlayerImpl: Release b89cd63 [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor, media3.effect]
+11-28 19:04:38.985  4597  4597 I ExoPlayerImpl: Release b9e12de [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor, media3.effect]
+11-28 19:04:39.033  4597  4597 I ExoPlayerImpl: Release a0886d5 [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor, media3.effect]
+11-28 19:04:39.112  4597  4597 I ExoPlayerImpl: Release f4185db [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor, media3.effect]
+11-28 19:04:39.121  4597  4597 I ExoPlayerImpl: Init 11f9353 [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0: timeline [eventTime=0.00, mediaPos=2.56, window=0, periodCount=3, windowCount=1, reason=PLAYLIST_CHANGED
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0:   period [?]
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0:   period [?]
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0:   period [?]
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0:   window [4.05, seekable=true, dynamic=true]
+11-28 19:04:39.126  4597  4597 D CompositionPlayer-0: ]
+11-28 19:04:39.127  4597  4597 D CompositionPlayer-0: mediaItem [eventTime=0.00, mediaPos=2.56, window=0, reason=PLAYLIST_CHANGED]
+11-28 19:04:39.127  4597  4597 I ExoPlayerImpl: Init 20f458e [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
+11-28 19:04:39.135  4597  4597 D CompositionPlayer-1: timeline [eventTime=0.00, mediaPos=2.56, window=0, periodCount=3, windowCount=1, reason=PLAYLIST_CHANGED
+11-28 19:04:39.135  4597  4597 D CompositionPlayer-1:   period [?]
+11-28 19:04:39.135  4597  4597 D CompositionPlayer-1:   period [?]
+11-28 19:04:39.135  4597  4597 D CompositionPlayer-1:   period [?]
+11-28 19:04:39.135  4597  4597 D CompositionPlayer-1:   window [4.05, seekable=true, dynamic=true]
+11-28 19:04:39.136  4597  4597 D CompositionPlayer-1: ]
+11-28 19:04:39.136  4597  4597 D CompositionPlayer-1: mediaItem [eventTime=0.00, mediaPos=2.56, window=0, reason=PLAYLIST_CHANGED]
+11-28 19:04:39.136  4597  4597 I ExoPlayerImpl: Init 93a9d45 [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2: timeline [eventTime=0.00, mediaPos=2.56, window=0, periodCount=3, windowCount=1, reason=PLAYLIST_CHANGED
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2:   period [?]
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2:   period [?]
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2:   period [?]
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2:   window [4.05, seekable=true, dynamic=true]
+11-28 19:04:39.139  4597  4597 D CompositionPlayer-2: ]
+11-28 19:04:39.141  4597  4597 D CompositionPlayer-2: mediaItem [eventTime=0.00, mediaPos=2.56, window=0, reason=PLAYLIST_CHANGED]
+11-28 19:04:39.142  4597  4597 I ExoPlayerImpl: Init f2c19cb [AndroidXMedia3/1.11.1] [emu64xa, sdk_gphone64_x86_64, Google, 34]
+11-28 19:04:39.146  4597  4597 D CompositionPlayer-3: timeline [eventTime=0.00, mediaPos=2.56, window=0, periodCount=2, windowCount=1, reason=PLAYLIST_CHANGED
+11-28 19:04:39.147  4597  4597 D CompositionPlayer-3:   period [?]
+11-28 19:04:39.147  4597  4597 D CompositionPlayer-3:   period [?]
+11-28 19:04:39.147  4597  4597 D CompositionPlayer-3:   window [3.50, seekable=true, dynamic=true]
+11-28 19:04:39.147  4597  4597 D CompositionPlayer-3: ]
+11-28 19:04:39.148  4597  4597 D CompositionPlayer-3: mediaItem [eventTime=0.00, mediaPos=2.56, window=0, reason=PLAYLIST_CHANGED]
+11-28 19:04:39.152  4597  4597 D CompositionPlayer-0: state [eventTime=0.03, mediaPos=2.56, window=0, BUFFERING]
+11-28 19:04:39.153  4597  4597 D CompositionPlayer-1: state [eventTime=0.02, mediaPos=2.56, window=0, BUFFERING]
+11-28 19:04:39.154  4597  4597 D CompositionPlayer-2: state [eventTime=0.02, mediaPos=2.56, window=0, BUFFERING]
+11-28 19:04:39.155  4597  4597 D CompositionPlayer-3: state [eventTime=0.01, mediaPos=2.56, window=0, BUFFERING]
+11-28 19:04:39.180  4597  4597 D CompositionPlayer-0: audioDisabled [eventTime=21.29, mediaPos=2.56, window=0, period=2]
+11-28 19:04:39.180  4597  4597 D CompositionPlayer-0: rendererReady [eventTime=21.29, mediaPos=2.56, window=0, period=2, rendererIndex=0, audio, false]
+11-28 19:04:39.181  4597  4597 D CompositionPlayer-0: videoDisabled [eventTime=21.29, mediaPos=2.56, window=0, period=2]
+11-28 19:04:39.182  4597  4597 D CompositionPlayer-0: audioDecoderReleased [eventTime=21.29, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:39.219  4597  4597 D CompositionPlayer-0: videoDecoderReleased [eventTime=21.30, mediaPos=2.56, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.221  4597  4597 D CompositionPlayer-1: audioDisabled [eventTime=21.32, mediaPos=3.00, window=0, period=1]
+11-28 19:04:39.221  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=21.32, mediaPos=3.00, window=0, period=2, rendererIndex=0, audio, false]
+11-28 19:04:39.222  4597  4597 D CompositionPlayer-1: videoDisabled [eventTime=21.32, mediaPos=3.00, window=0, period=1]
+11-28 19:04:39.223  4597  4597 D CompositionPlayer-1: videoDisabled [eventTime=21.32, mediaPos=3.00, window=0, period=1]
+11-28 19:04:39.223  4597  4597 D CompositionPlayer-1: videoDecoderReleased [eventTime=21.32, mediaPos=3.00, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.224  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=21.32, mediaPos=3.00, window=0, period=2, rendererIndex=1, video, false]
+11-28 19:04:39.225  4597  4597 D CompositionPlayer-1: audioDecoderReleased [eventTime=21.33, mediaPos=3.00, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:39.225  4597  4597 D CompositionPlayer-1: videoDecoderReleased [eventTime=21.33, mediaPos=3.00, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.226  4597  4597 D CompositionPlayer-2: audioDisabled [eventTime=21.31, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.227  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=21.31, mediaPos=2.56, window=0, period=2, rendererIndex=0, audio, false]
+11-28 19:04:39.227  4597  4597 D CompositionPlayer-2: videoDisabled [eventTime=21.31, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.228  4597  4597 D CompositionPlayer-2: videoDisabled [eventTime=21.32, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.229  4597  4597 D CompositionPlayer-2: videoDecoderReleased [eventTime=21.32, mediaPos=2.56, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.230  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=21.32, mediaPos=2.56, window=0, period=2, rendererIndex=1, video, false]
+11-28 19:04:39.230  4597  4597 D CompositionPlayer-2: audioDecoderReleased [eventTime=21.32, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:39.231  4597  4597 D CompositionPlayer-2: videoDecoderReleased [eventTime=21.32, mediaPos=2.56, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.232  4597  4597 D CompositionPlayer-3: audioDisabled [eventTime=21.31, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.232  4597  4597 D CompositionPlayer-3: rendererReady [eventTime=21.31, mediaPos=2.56, window=0, period=1, rendererIndex=0, audio, false]
+11-28 19:04:39.233  4597  4597 D CompositionPlayer-3: audioDecoderReleased [eventTime=21.31, mediaPos=2.56, window=0, period=1, c2.android.aac.decoder]
+11-28 19:04:39.234  4597  4597 D CompositionPlayer-0: audioSessionId [eventTime=0.11, mediaPos=2.56, window=0, 281]
+11-28 19:04:39.235  4597  4597 D CompositionPlayer-1: audioSessionId [eventTime=0.10, mediaPos=2.56, window=0, 289]
+11-28 19:04:39.236  4597  4597 D CompositionPlayer-2: audioSessionId [eventTime=0.10, mediaPos=2.56, window=0, 297]
+11-28 19:04:39.237  4597  4597 D CompositionPlayer-3: audioSessionId [eventTime=0.09, mediaPos=2.56, window=0, 305]
+11-28 19:04:39.239  4597  4597 D CompositionPlayer-0: loading [eventTime=0.12, mediaPos=2.56, window=0, period=2, true]
+11-28 19:04:39.241  4597  4597 D CompositionPlayer-1: loading [eventTime=0.11, mediaPos=2.56, window=0, period=1, true]
+11-28 19:04:39.241  4597  4597 D CompositionPlayer-2: loading [eventTime=0.10, mediaPos=2.56, window=0, period=1, true]
+11-28 19:04:39.242  4597  4597 D CompositionPlayer-3: loading [eventTime=0.10, mediaPos=2.56, window=0, period=1, true]
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0: timeline [eventTime=0.12, mediaPos=2.56, window=0, period=2, periodCount=3, windowCount=1, reason=SOURCE_UPDATE
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0:   period [1.00]
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0:   period [1.40]
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0:   period [1.65]
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0:   window [4.05, seekable=true, dynamic=false]
+11-28 19:04:39.244  4597  4597 D CompositionPlayer-0: ]
+11-28 19:04:39.245  4597  4597 D CompositionPlayer-1: timeline [eventTime=0.11, mediaPos=2.56, window=0, period=1, periodCount=3, windowCount=1, reason=SOURCE_UPDATE
+11-28 19:04:39.245  4597  4597 D CompositionPlayer-1:   period [2.56]
+11-28 19:04:39.246  4597  4597 D CompositionPlayer-1:   period [0.44]
+11-28 19:04:39.246  4597  4597 D CompositionPlayer-1:   period [1.05]
+11-28 19:04:39.246  4597  4597 D CompositionPlayer-1:   window [4.05, seekable=true, dynamic=false]
+11-28 19:04:39.246  4597  4597 D CompositionPlayer-1: ]
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2: timeline [eventTime=0.11, mediaPos=2.56, window=0, period=1, periodCount=3, windowCount=1, reason=SOURCE_UPDATE
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2:   period [2.00]
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2:   period [0.80]
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2:   period [1.25]
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2:   window [4.05, seekable=true, dynamic=false]
+11-28 19:04:39.247  4597  4597 D CompositionPlayer-2: ]
+11-28 19:04:39.249  4597  4597 D CompositionPlayer-3: timeline [eventTime=0.10, mediaPos=2.56, window=0, period=1, periodCount=2, windowCount=1, reason=SOURCE_UPDATE
+11-28 19:04:39.249  4597  4597 D CompositionPlayer-3:   period [1.00]
+11-28 19:04:39.249  4597  4597 D CompositionPlayer-3:   period [2.50]
+11-28 19:04:39.249  4597  4597 D CompositionPlayer-3:   window [3.50, seekable=true, dynamic=false]
+11-28 19:04:39.249  4597  4597 D CompositionPlayer-3: ]
+11-28 19:04:39.285  4597  4597 D CompositionPlayer-2: audioEnabled [eventTime=0.15, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.286  4597  4597 D CompositionPlayer: videoEnabled [eventTime=66.41, mediaPos=2.56, window=0]
+11-28 19:04:39.286  4597  4597 D CompositionPlayer-2: videoEnabled [eventTime=0.15, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.304  4597  4597 D CompositionPlayer-2: tracks [eventTime=0.17, mediaPos=2.56, window=0, period=1
+11-28 19:04:39.304  4597  4597 D CompositionPlayer-2:   group [ id=0:
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     [ ] Track:0, id=0:, mimeType=audio/raw, channels=2, sample_rate=44100, supported=NO
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   ]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   group [ id=2:1
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     [X] Track:0, id=2:2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=2:0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und, supported=YES
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   ]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   group [ id=2:0
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     [X] Track:0, id=2:1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und, supported=YES
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   ]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   group [ id=1:
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     [ ] Track:0, id=1:, mimeType=composition_player_blank_frames, supported=YES
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   ]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   Metadata [
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     Mp4AlternateGroup: 1
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     TSSE: description=null: values=[Lavf60.16.100]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:     Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2:   ]
+11-28 19:04:39.305  4597  4597 D CompositionPlayer-2: ]
+11-28 19:04:39.317  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=0.18, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:39.347  4597  4597 D CompositionPlayer-2: audioDecoderInitialized [eventTime=0.21, mediaPos=2.56, window=0, period=1, c2.android.aac.decoder]
+11-28 19:04:39.347  4597  4597 D CompositionPlayer-2: audioInputFormat [eventTime=0.21, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:39.348  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=0.21, mediaPos=2.56, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.376  4597  4597 D CompositionPlayer-2: videoDecoderInitialized [eventTime=0.24, mediaPos=2.56, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:39.377  4597  4597 D CompositionPlayer-2: videoInputFormat [eventTime=0.24, mediaPos=2.56, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.387  4597  4597 D CompositionPlayer-1: audioEnabled [eventTime=0.25, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.387  4597  4597 D CompositionPlayer: videoEnabled [eventTime=66.52, mediaPos=2.56, window=0]
+11-28 19:04:39.387  4597  4597 D CompositionPlayer-1: videoEnabled [eventTime=0.25, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.390  4597  4597 D CompositionPlayer-1: tracks [eventTime=0.26, mediaPos=3.00, window=0, period=1
+11-28 19:04:39.390  4597  4597 D CompositionPlayer-1:   group [ id=0:
+11-28 19:04:39.391  4597  4597 D CompositionPlayer-1:     [ ] Track:0, id=0:, mimeType=audio/raw, channels=2, sample_rate=44100, supported=NO
+11-28 19:04:39.391  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:39.391  4597  4597 D CompositionPlayer-1:   group [ id=2:1
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     [X] Track:0, id=2:2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=2:0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und, supported=YES
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   group [ id=2:0
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     [X] Track:0, id=2:1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und, supported=YES
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   group [ id=1:
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     [ ] Track:0, id=1:, mimeType=composition_player_blank_frames, supported=YES
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   Metadata [
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     Mp4AlternateGroup: 1
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     TSSE: description=null: values=[Lavf62.3.100]
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:     Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1:   ]
+11-28 19:04:39.397  4597  4597 D CompositionPlayer-1: ]
+11-28 19:04:39.398  4597  4597 D CompositionPlayer-1: loading [eventTime=0.26, mediaPos=3.00, window=0, period=1, false]
+11-28 19:04:39.403  4597  4597 D CompositionPlayer-3: audioEnabled [eventTime=0.26, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3: tracks [eventTime=0.26, mediaPos=2.56, window=0, period=1
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   group [ id=0:
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:     [ ] Track:0, id=0:, mimeType=audio/raw, channels=2, sample_rate=44100, supported=NO
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   ]
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   group [ id=1:1
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:     [X] Track:0, id=1:2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=1:0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und, supported=YES
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   ]
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   Metadata [
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:     Mp4AlternateGroup: 1
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:     TSSE: description=null: values=[Lavf62.3.100]
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:     Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3:   ]
+11-28 19:04:39.404  4597  4597 D CompositionPlayer-3: ]
+11-28 19:04:39.408  4597  4597 D CompositionPlayer-3: loading [eventTime=0.26, mediaPos=2.56, window=0, period=1, false]
+11-28 19:04:39.416  4597  4597 D CompositionPlayer-0: audioEnabled [eventTime=0.29, mediaPos=2.56, window=0, period=2]
+11-28 19:04:39.416  4597  4597 D CompositionPlayer: videoEnabled [eventTime=66.54, mediaPos=3.00, window=0]
+11-28 19:04:39.417  4597  4597 D CompositionPlayer-0: videoEnabled [eventTime=0.29, mediaPos=2.56, window=0, period=2]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0: tracks [eventTime=0.30, mediaPos=2.56, window=0, period=2
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   group [ id=0:
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     [ ] Track:0, id=0:, mimeType=audio/raw, channels=2, sample_rate=44100, supported=NO
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   ]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   group [ id=2:1
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     [X] Track:0, id=2:2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=2:0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und, supported=YES
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   ]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   group [ id=2:0
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     [X] Track:0, id=2:1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und, supported=YES
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   ]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   group [ id=1:
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     [ ] Track:0, id=1:, mimeType=composition_player_blank_frames, supported=YES
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   ]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   Metadata [
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     Mp4AlternateGroup: 1
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     TSSE: description=null: values=[Lavf60.16.100]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:     Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0:   ]
+11-28 19:04:39.421  4597  4597 D CompositionPlayer-0: ]
+11-28 19:04:39.422  4597  4597 D CompositionPlayer-0: loading [eventTime=0.30, mediaPos=2.56, window=0, period=2, false]
+11-28 19:04:39.423  4597  4597 D CompositionPlayer-2: loading [eventTime=0.28, mediaPos=2.56, window=0, period=1, false]
+11-28 19:04:39.433  4597  4597 D CompositionPlayer-2: loading [eventTime=0.30, mediaPos=2.56, window=0, period=1, true]
+11-28 19:04:39.448  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=0.31, mediaPos=3.00, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:39.451  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=0.32, mediaPos=3.00, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:39.451  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=0.32, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.587  4597  4597 D CompositionPlayer-1: videoDecoderInitialized [eventTime=0.45, mediaPos=3.00, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:39.588  4597  4597 D CompositionPlayer-1: videoInputFormat [eventTime=0.45, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=833370, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.588  4597  4597 D CompositionPlayer-1: loading [eventTime=0.46, mediaPos=3.00, window=0, period=1, true]
+11-28 19:04:39.589  4597  4597 D CompositionPlayer-3: downstreamFormat [eventTime=0.45, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:39.618  4597  4597 D CompositionPlayer-3: audioDecoderInitialized [eventTime=0.47, mediaPos=2.56, window=0, period=1, c2.android.aac.decoder]
+11-28 19:04:39.618  4597  4597 D CompositionPlayer-3: audioInputFormat [eventTime=0.47, mediaPos=2.56, window=0, period=1, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=69594, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:39.624  4597  4597 D CompositionPlayer-0: downstreamFormat [eventTime=0.50, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:39.650  4597  4597 D CompositionPlayer-0: audioDecoderInitialized [eventTime=0.53, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:39.650  4597  4597 D CompositionPlayer-0: audioInputFormat [eventTime=0.53, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:39.651  4597  4597 D CompositionPlayer-0: downstreamFormat [eventTime=0.53, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.680  4597  4597 D CompositionPlayer-0: videoDecoderInitialized [eventTime=0.56, mediaPos=2.56, window=0, period=2, c2.goldfish.h264.decoder]
+11-28 19:04:39.685  4597  4597 D CompositionPlayer-0: videoInputFormat [eventTime=0.56, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:39.797  4597  4597 D CompositionPlayer-2: loading [eventTime=0.66, mediaPos=2.56, window=0, period=1, false]
+11-28 19:04:39.856  4597  4597 D CompositionPlayer-1: loading [eventTime=0.72, mediaPos=3.00, window=0, period=1, false]
+11-28 19:04:39.858  4597  4597 D CompositionPlayer: videoEnabled [eventTime=66.99, mediaPos=3.00, window=0]
+11-28 19:04:39.858  4597  4597 D CompositionPlayer-2: videoEnabled [eventTime=0.72, mediaPos=2.56, window=0, period=1]
+11-28 19:04:39.858  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=0.72, mediaPos=2.56, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=96074, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=29.670332, language=und]
+11-28 19:04:40.332  4597  4597 D CompositionPlayer-2: videoDecoderInitialized [eventTime=1.20, mediaPos=2.56, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:40.333  4597  4597 D CompositionPlayer-2: videoInputFormat [eventTime=1.20, mediaPos=2.56, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=96074, codecs=avc1.64001E, res=360x640, color=NA/NA/NA/8/8, fps=29.670332, language=und]
+11-28 19:04:40.333  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=1.20, mediaPos=2.56, window=0, period=1, rendererIndex=1, video, true]
+11-28 19:04:40.442  4597  4597 D CompositionPlayer-0: rendererReady [eventTime=1.32, mediaPos=2.56, window=0, period=2, rendererIndex=0, audio, true]
+11-28 19:04:40.443  4597  4597 D CompositionPlayer-2: rendererReady [eventTime=1.31, mediaPos=2.56, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:40.444  4597  4597 D CompositionPlayer-2: state [eventTime=1.31, mediaPos=2.56, window=0, period=1, READY]
+11-28 19:04:40.445  4597  4597 D CompositionPlayer: videoEnabled [eventTime=67.57, mediaPos=3.00, window=0]
+11-28 19:04:40.445  4597  4597 D CompositionPlayer-1: videoEnabled [eventTime=1.31, mediaPos=3.00, window=0, period=1]
+11-28 19:04:40.446  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=1.31, mediaPos=3.00, window=0, period=2, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:40.622  4597  4597 D CompositionPlayer-1: videoDecoderInitialized [eventTime=1.49, mediaPos=3.00, window=0, period=1, c2.goldfish.h264.decoder]
+11-28 19:04:40.622  4597  4597 D CompositionPlayer-1: videoInputFormat [eventTime=1.49, mediaPos=3.00, window=0, period=1, id=1, mimeType=video/avc, container=video/mp4, bitrate=6564, codecs=avc1.64000A, res=64x64, color=NA/NA/NA/8/8, fps=30.0, language=und]
+11-28 19:04:40.625  4597  4597 D CompositionPlayer-3: rendererReady [eventTime=1.48, mediaPos=2.56, window=0, period=1, rendererIndex=0, audio, true]
+11-28 19:04:40.630  4597  4597 D CompositionPlayer-3: state [eventTime=1.48, mediaPos=2.56, window=0, period=1, READY]
+11-28 19:04:43.706  4597  4597 D CompositionPlayer-1: rendererReady [eventTime=4.57, mediaPos=3.00, window=0, period=1, rendererIndex=1, video, true]
+11-28 19:04:43.711  4597  4597 D CompositionPlayer-1: state [eventTime=4.58, mediaPos=3.00, window=0, period=1, READY]
+11-28 19:04:43.724  4597  4597 D CompositionPlayer-1: downstreamFormat [eventTime=4.58, mediaPos=3.00, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:43.743  4597  4597 D CompositionPlayer-1: audioDecoderInitialized [eventTime=4.61, mediaPos=3.00, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:43.744  4597  4597 D CompositionPlayer-1: audioInputFormat [eventTime=4.61, mediaPos=3.00, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=16000, codecs=mp4a.40.2, channels=2, sample_rate=44100, language=und]
+11-28 19:04:43.804  4597  4597 D CompositionPlayer-2: downstreamFormat [eventTime=4.66, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, primaryGroupId=0, bitrate=69689, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:43.808  4597  4597 D CompositionPlayer-2: audioInputFormat [eventTime=4.67, mediaPos=2.56, window=0, period=2, id=2, mimeType=audio/mp4a-latm, container=video/mp4, bitrate=69689, codecs=mp4a.40.2, channels=1, sample_rate=44100, language=und]
+11-28 19:04:44.078  4597  4990 I Bombocut: blend input 1 at 2966666 us: alpha 0.07432550173562524
+11-28 19:04:44.781  4597  4597 D CompositionPlayer-2: audioDecoderReleased [eventTime=5.64, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:44.807  4597  4597 D CompositionPlayer-2: audioDecoderInitialized [eventTime=5.67, mediaPos=2.56, window=0, period=2, c2.android.aac.decoder]
+11-28 19:04:45.485  4597  4605 I echler.bombocut: Background young concurrent copying GC freed 216363(6532KB) AllocSpace objects, 19(832KB) LOS objects, 34% free, 13MB/20MB, paused 61us,27us total 217.485ms
