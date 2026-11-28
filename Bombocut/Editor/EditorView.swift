@@ -1002,6 +1002,8 @@ struct EditorView: View {
     private func soundTools(_ a: AudioItem) -> some View {
         ToolButton(icon: "scissors", label: "Split") { model.splitAudio() }
         ToolButton(icon: "speaker.wave.2", label: "Volume") { model.pause(); sheet = .audio }
+        ToolButton(icon: "waveform.path", label: "Fades",
+                   tint: (a.fadeIn ?? 0) > 0 || (a.fadeOut ?? 0) > 0 ? Theme.accent : .white) { model.pause(); sheet = .audio }
         ToolButton(icon: "speedometer", label: "Speed") { model.pause(); sheet = .audio }
         ToolButton(icon: "person.wave.2", label: "Speech") { model.pause(); sheet = .speech }
         ToolButton(icon: "metronome", label: "Beats", tint: a.beatsOn == true ? Theme.accent : .white) {

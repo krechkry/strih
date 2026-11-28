@@ -292,6 +292,7 @@ struct AudioSheet: View {
                     FadeSliders(fadeIn: a.fadeIn ?? 0, fadeOut: a.fadeOut ?? 0, length: a.duration,
                                 set: { fin, fout in model.setAudioFade(in: fin, out: fout, done: false) },
                                 done: { model.setAudioFade(done: true) })
+                    ApplyRow(model: model, kind: .soundFade)
                     PanelBreak()
                     speedRow(a)
                     Text("Hold and slide the sound on the timeline to move it; drag its edges to trim.")

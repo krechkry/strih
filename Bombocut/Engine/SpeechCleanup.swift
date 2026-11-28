@@ -107,7 +107,7 @@ final class SpeechCleanup: ObservableObject {
         guard let src else { return nil }
         let fx = src.fx
         let restore = fx.restoreRuns ? fx.restore : 0
-        var s = String(format: "%@|%.2f|%@|%.2f|%.2f|%@|v3", src.file, fx.denoise, fx.mix?.rawValue ?? "-",
+        var s = String(format: "%@|%.2f|%@|%.2f|%.2f|%@|v4", src.file, fx.denoise, fx.mix?.rawValue ?? "-",
                        fx.mixIntensity, restore, restore > 0 ? VoiceRestore.version : "-")
         if src.reversed { s += "|rev" }
         let h = SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -322,7 +322,26 @@ final class SpeechCleanup: ObservableObject {
         return (l, r)
     }
 
+    /// Soft ends: a few milliseconds in at the start, and out where the sound really ends. The cleaned sound can come
+    /// out shorter than the source and is padded with silence, so it used to drop from speech to nothing in one sample:
+    /// a pop at the end of every cleaned clip.
+    nonisolated static func softEnds(_ x: inout [Float], rate: Double) {
+        guard !x.isEmpty else { return }
+        let fadeIn = min(x.count, Int(rate * 0.005)), fadeOut = Int(rate * 0.025)
+        for i in 0..<fadeIn { x[i] *= Float(i) / Float(max(fadeIn, 1)) }
+        // the last sample that isn't padding (the silence appended to an output shorter than its source)
+        var end = x.count
+        while end > 0 && abs(x[end - 1]) < 1e-5 { end -= 1 }
+        guard end > 0 else { return }
+        let from = max(0, end - fadeOut)
+        let n = end - from
+        for i in from..<end { x[i] *= Float(end - i) / Float(max(n, 1)) }
+    }
+
     nonisolated static func write(_ l: [Float], _ r: [Float], to out: URL) throws {
+        var l = l, r = r
+        softEnds(&l, rate: sampleRate)
+        softEnds(&r, rate: sampleRate)
         let tmp = out.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".wav")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,

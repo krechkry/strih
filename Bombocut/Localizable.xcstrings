@@ -3954,6 +3954,16 @@
         }
       }
     },
+    "Fades": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nástup a doznění"
+          }
+        }
+      }
+    },
     "Fast": {
       "localizations": {
         "cs": {

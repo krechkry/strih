@@ -3601,8 +3601,8 @@ final class EditorModel: ObservableObject {
         case overlayTransform, textFont
         /// Texts only: the whole text look (font, colors, outline, shadow, box, size), not where it sits.
         case textStyle
-        /// Sounds: Remove noise / Enhance voice.
-        case soundSpeech
+        /// Sounds: Remove noise / Enhance voice; their fade in and fade out.
+        case soundSpeech, soundFade
 
         var title: String {
             switch self {
@@ -3626,6 +3626,7 @@ final class EditorModel: ObservableObject {
             case .textFont: return "Font"
             case .textStyle: return "Style"
             case .soundSpeech: return "Speech"
+            case .soundFade: return "Fades"
             }
         }
         /// Copies between overlays instead of clips.
@@ -3633,7 +3634,7 @@ final class EditorModel: ObservableObject {
             [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .overlayTransform, .textFont, .textStyle].contains(self)
         }
         /// Copies between sounds instead of clips.
-        var forSounds: Bool { self == .soundSpeech }
+        var forSounds: Bool { self == .soundSpeech || self == .soundFade }
         /// Copies between clips (the timeline's clip strip).
         var forClips: Bool { !forOverlays && !forSounds }
         /// Only texts take it (from a text).
@@ -3685,7 +3686,7 @@ final class EditorModel: ObservableObject {
         case .filter:
             c.filter = s.filter
         case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .captions, .stack,
-             .overlayTransform, .textFont, .textStyle, .soundSpeech:
+             .overlayTransform, .textFont, .textStyle, .soundSpeech, .soundFade:
             break
         }
     }
@@ -3783,7 +3784,14 @@ final class EditorModel: ObservableObject {
         guard let s = project.audio.first(where: { $0.id == id }) else { return }
         mutate { p in
             for j in p.audio.indices where ids.contains(p.audio[j].id) && p.audio[j].id != id {
-                p.audio[j].speech = s.speech
+                switch kind {
+                case .soundFade:
+                    // the same seconds (a short sound gets at most half its length each, as always)
+                    p.audio[j].fadeIn = s.fadeIn
+                    p.audio[j].fadeOut = s.fadeOut
+                default:
+                    p.audio[j].speech = s.speech
+                }
             }
         }
     }
