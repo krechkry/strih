@@ -127,6 +127,9 @@ final class OverlayStore: @unchecked Sendable {
 struct OverlayTrack {
     var trackID: CMPersistentTrackID
     var prefTransform: CGAffineTransform
+    /// Timeline seconds the layer shows (a part of the timeline only waits for the layers on it).
+    var start = 0.0
+    var end = Double.infinity
 }
 
 /// Turns overlays into placed Core Image layers and blends them onto the frame.

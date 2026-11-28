@@ -68,6 +68,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             return
         }
         let t = request.compositionTime.seconds
+        RenderProbe.shared.mark(t, instr.layers.count > 1 ? "transition" : "clip")
         prepare(first, request, t) { a in
             if instr.layers.count > 1 {
                 self.prepare(instr.layers[1], request, t) { b in
@@ -125,6 +126,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                     ready(img)
                     return
                 }
+                RenderProbe.shared.mark("smooth slow motion")
                 SmoothFrames.shared.interpolate(cur: src, next: next, phase: phase, time: srcTime, work: work,
                                                 preview: info.preview) { img in
                     var image = img
@@ -143,6 +145,7 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
                 ready(SmoothFrames.average(src, blurPrev, blurNext, state.motionBlur))
                 return
             }
+            RenderProbe.shared.mark("motion blur")
             SmoothFrames.shared.motionBlur(cur: src, prev: blurPrev, next: blurNext, strength: state.motionBlur,
                                            time: srcTime, work: work, preview: info.preview) { img in ready(img) }
             return
@@ -227,16 +230,20 @@ class FrameCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
             let frame = CGRect(origin: .zero, size: size)
             var image = base
             if hasOverlays {
+                RenderProbe.shared.mark("layers")
                 image = OverlayRenderer.shared.draw(on: image, at: t, size: size, behindOnly: masked ? false : nil,
                                                     preview: preview, video: video)
             }
+            RenderProbe.shared.mark("captions")
             // (captions behind the subject were already drawn under it, when this frame has a subject mask)
             for caps in CaptionStore.shared.all where !bare && !(masked && caps.style.behindSubject) {
                 if let text = CaptionRenderer.shared.overlay(caps, at: t, canvas: size) {
                     image = text.composited(over: image).cropped(to: frame)
                 }
             }
+            RenderProbe.shared.mark("drawing")
             context.render(image, to: out, bounds: frame, colorSpace: outSpace)
+            RenderProbe.shared.mark("waiting for the next frame")
             request.finish(withComposedVideoFrame: out)
         }
     }
@@ -811,4 +818,24 @@ extension CIImage {
 /// The compositor of an HDR export.
 final class HDRFrameCompositor: FrameCompositor, @unchecked Sendable {
     override class var hdr: Bool { true }
+}
+
+/// What the renderer did last (timeline time and step), so a stuck export can say where it stopped.
+final class RenderProbe: @unchecked Sendable {
+    static let shared = RenderProbe()
+    private let lock = NSLock()
+    private var time = 0.0
+    private var step = "start"
+
+    var last: (time: Double, step: String) { lock.lock(); defer { lock.unlock() }; return (time, step) }
+
+    func reset() { mark(0, "start") }
+
+    func mark(_ t: Double, _ s: String) {
+        lock.lock(); time = t; step = s; lock.unlock()
+    }
+
+    func mark(_ s: String) {
+        lock.lock(); step = s; lock.unlock()
+    }
 }

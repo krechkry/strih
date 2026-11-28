@@ -9398,6 +9398,16 @@
         }
       }
     },
+    "The export got stuck at %@ and was stopped. Try again, and if it stops at the same spot, send this message to bombocut.support@gmail.com.": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export se zasekl v %@ a byl zastaven. Zkus to znovu, a pokud se zastaví na stejném místě, pošli tuhle zprávu na bombocut.support@gmail.com."
+          }
+        }
+      }
+    },
     "The filter goes from your filters. Clips that use it keep their look.": {
       "localizations": {
         "cs": {

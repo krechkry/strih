@@ -631,6 +631,10 @@ struct ExportSheet: View {
                 CloudBackup.shared.exported()
             } catch is CancellationError {
                 if !Task.isCancelled { phase = .setup }
+            } catch let e as Exporter.Stuck {
+                // stopped by its own stall guard (it counts as cancelled, so it must come before the general catch)
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                phase = .failed(e.localizedDescription)
             } catch is Exporter.LowMemory {
                 UINotificationFeedbackGenerator().notificationOccurred(.warning)
                 phase = .tooHeavy

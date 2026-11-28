@@ -51,6 +51,10 @@ final class ClipInstruction: NSObject, AVVideoCompositionInstructionProtocol, @u
         self.timeRange = timeRange
         self.layers = layers
         self.cut = cut
+        // only the video layers on screen in this part: a layer's track has no frames outside its own time, and
+        // asking for them anyway could leave the export waiting forever (1.3.1: stuck on a cut where a layer ended)
+        let a = timeRange.start.seconds, b = timeRange.end.seconds
+        let overlayTracks = overlayTracks.filter { $0.value.end > a && $0.value.start < b }
         self.overlayTracks = overlayTracks
         var ids: [NSNumber] = []
         for l in layers {
@@ -403,7 +407,7 @@ enum CompositionBuilder {
                     }
                 }
                 if any {
-                    overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
+                    overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref, start: o.start, end: o.end)
                 } else {
                     comp.removeTrack(track)
                 }
@@ -427,7 +431,7 @@ enum CompositionBuilder {
             let outLen = time(r.duration.seconds / speed)
             if (try? track.insertTimeRange(r, of: src, at: time(o.start))) != nil {
                 if abs(speed - 1) > 0.001 { track.scaleTimeRange(CMTimeRange(start: time(o.start), duration: r.duration), toDuration: outLen) }
-                overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref)
+                overlayTracks[o.id] = OverlayTrack(trackID: track.trackID, prefTransform: pref, start: o.start, end: o.end)
             } else {
                 comp.removeTrack(track)
                 continue

@@ -1,4 +1,5 @@
 import AVFoundation
+import QuartzCore
 import VideoToolbox
 import Photos
 import os
@@ -13,6 +14,9 @@ final class Exporter: @unchecked Sendable {
 
     private var _lowMemory = false
     private var _lowSpace = false
+    /// When the last video frame came out (CACurrentMediaTime), and where the export got stuck if it did.
+    private var _lastFrame = 0.0
+    private var _stuck: String?
     /// Ends the wait for the frame pumps; cancel calls it too, because a cancelled writer stops asking for
     /// frames and the pumps would never report back (the export screen stayed stuck after Cancel).
     private var finishWait: (() -> Void)?
@@ -31,6 +35,38 @@ final class Exporter: @unchecked Sendable {
 
     private var stoppedForMemory: Bool { lock.lock(); defer { lock.unlock() }; return _lowMemory }
     private var stoppedForSpace: Bool { lock.lock(); defer { lock.unlock() }; return _lowSpace }
+    private var stuckAt: String? { lock.lock(); defer { lock.unlock() }; return _stuck }
+
+    /// No new frame for this long: the export is stuck (a frame that never finishes drawing), not slow. The frame
+    /// engine gives up on a frame after 2 s, so even the heaviest frames come out well within it.
+    static let stallLimit = 45.0
+
+    /// The export stopped itself because no frame came out for `stallLimit` seconds (it used to hang forever).
+    struct Stuck: LocalizedError {
+        var at: String
+        var errorDescription: String? {
+            String(format: loc("The export got stuck at %@ and was stopped. Try again, and if it stops at the same spot, send this message to bombocut.support@gmail.com."), at)
+        }
+    }
+
+    private func frameCame() {
+        let now = CACurrentMediaTime()
+        lock.lock(); _lastFrame = now; lock.unlock()
+    }
+
+    private var sinceLastFrame: Double {
+        lock.lock(); defer { lock.unlock() }
+        return CACurrentMediaTime() - _lastFrame
+    }
+
+    /// Stops a stuck export and remembers where: the timeline time and what the renderer was doing.
+    private func stopForStall() {
+        let probe = RenderProbe.shared.last
+        let m = Int(probe.time) / 60, sec = probe.time - Double(m * 60)
+        let at = String(format: "%d:%04.1f, %@", m, sec, probe.step)
+        lock.lock(); _stuck = at; lock.unlock()
+        cancel()
+    }
 
     /// Not enough free space for the video (checked before it starts, and while it's written): the export stops
     /// cleanly. Writing on with a full disk made the writer fail and the app crash (1.1.1 crash report).
@@ -236,6 +272,9 @@ final class Exporter: @unchecked Sendable {
         if cancelled { throw stoppedForMemory ? LowMemory() as Error : CancellationError() }
         self.reader = reader
         self.writer = writer
+        RenderProbe.shared.reset()
+        lock.lock(); _stuck = nil; lock.unlock()
+        frameCame()
         guard reader.startReading() else { throw reader.error ?? CompositionBuilder.err("Could not read.") }
         guard writer.startWriting() else {
             if Self.isDiskFull(writer.error) { throw NoSpace(need: need) }
@@ -258,6 +297,10 @@ final class Exporter: @unchecked Sendable {
                     self?.stopForSpace()
                     return
                 }
+                if let me = self, me.sinceLastFrame > Self.stallLimit {
+                    me.stopForStall()
+                    return
+                }
             }
         }
         defer { watchdog.cancel() }
@@ -268,7 +311,10 @@ final class Exporter: @unchecked Sendable {
             if cancelled { once.fire() }
             let group = DispatchGroup()
             pump(input: vIn, output: vOut, reader: reader, writer: writer, group: group,
-                 queue: DispatchQueue(label: "bombocut.export.video")) { t in progress(min(1, t / duration)) }
+                 queue: DispatchQueue(label: "bombocut.export.video")) { [weak self] t in
+                self?.frameCame()
+                progress(min(1, t / duration))
+            }
             if let aIn, let aOut {
                 pump(input: aIn, output: aOut, reader: reader, writer: writer, group: group,
                      queue: DispatchQueue(label: "bombocut.export.audio"), onTime: nil)
@@ -276,6 +322,8 @@ final class Exporter: @unchecked Sendable {
             group.notify(queue: .global()) { once.fire() }
         }
         setFinishWait(nil)
+        // every frame is out: finishing the file and saving it are not frames, the stall guard stops watching
+        lock.lock(); _lastFrame = .greatestFiniteMagnitude; lock.unlock()
 
         // a writer that failed (full disk above all) can't be finished or cancelled: AVFoundation throws an
         // Objective-C exception for that, which ends the app
@@ -285,6 +333,7 @@ final class Exporter: @unchecked Sendable {
             try? FileManager.default.removeItem(at: out)
             if stoppedForSpace || Self.isDiskFull(failed) { throw NoSpace(need: need) }
             if stoppedForMemory { throw LowMemory() }
+            if let at = stuckAt { throw Stuck(at: at) }
             if cancelled { throw CancellationError() }
             throw failed ?? CompositionBuilder.err("Writing failed.")
         }
