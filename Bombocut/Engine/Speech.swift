@@ -187,7 +187,9 @@ enum Transcriber {
         words = SpellCheck.applyNames(words, typed)
         // Polish / Slovak spellings back to Czech first, then the usual second look at unsure words
         if language == "cs" { words = SpellCheck.czech(words, keep: Set(typed.map { $0.lowercased() })) }
-        words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() }))
+        // Czech: no dictionary swap, it turned spoken Czech into the written kind ("takovej" -> "takový");
+        // captions keep the words the way they were said
+        if language != "cs" { words = SpellCheck.fix(words, language: language, keep: Set(typed.map { $0.lowercased() })) }
         return words
     }
 
@@ -213,11 +215,19 @@ enum Transcriber {
         var out: [CaptionWord] = []
         var conf: [Double] = []
         let limit = duration > 0 ? duration : .greatestFiniteMagnitude
+        // a space can come as a piece of its own (the model does it before numbers): the next piece starts a word
+        var spaced = false
         for t in tokens {
             var piece = t.token.replacingOccurrences(of: "▁", with: " ")
-            let startsWord = piece.hasPrefix(" ") || out.isEmpty
+            var startsWord = piece.hasPrefix(" ") || out.isEmpty || spaced
             piece = piece.trimmingCharacters(in: .whitespaces)
-            if piece.isEmpty { continue }
+            if piece.isEmpty { spaced = spaced || !t.token.isEmpty; continue }
+            spaced = false
+            // a number right after a word is its own word ("necelých 10", never "necelých10"); "MP3" stays whole
+            if !startsWord, piece.first?.isNumber == true, let prev = out.last?.text,
+               prev.count >= 3, prev.last?.isLowercase == true {
+                startsWord = true
+            }
             let s = min(max(t.startTime, 0), limit), e = min(max(t.endTime, t.startTime), limit)
             let punct = piece.allSatisfy { ".,!?…;:\"'«»„“”()-–".contains($0) }
             if startsWord && !(punct && !out.isEmpty) {
