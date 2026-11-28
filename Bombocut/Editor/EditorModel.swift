@@ -1866,6 +1866,11 @@ final class EditorModel: ObservableObject {
 
     private func playOnce(from a: Double, to b: Double, back: Double) {
         pause()
+        // An In / Out animation was usually just picked: the frames the player already drew around here still show
+        // the old look (refreshFrame skips itself once playing starts), so the fade in would play from them. Drop them.
+        if let item = player.currentItem, let vc = item.videoComposition?.mutableCopy() as? AVVideoComposition {
+            item.videoComposition = vc
+        }
         scrub(to: a)
         stopAt = b
         returnTo = min(max(back, a), b)
