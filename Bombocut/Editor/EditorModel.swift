@@ -3597,6 +3597,12 @@ final class EditorModel: ObservableObject {
         case filter, overlayFilter
         /// Not a copy: picks the clips the captions listen to.
         case captions
+        /// Layers: their placement (move, scale, rotation, 3D) and its keyframes. Texts only: the font.
+        case overlayTransform, textFont
+        /// Texts only: the whole text look (font, colors, outline, shadow, box, size), not where it sits.
+        case textStyle
+        /// Sounds: Remove noise / Enhance voice.
+        case soundSpeech
 
         var title: String {
             switch self {
@@ -3616,10 +3622,22 @@ final class EditorModel: ObservableObject {
             case .stack: return "Stack settings"
             case .crop: return "Crop"
             case .filter, .overlayFilter: return "Filters"
+            case .overlayTransform: return "Transform"
+            case .textFont: return "Font"
+            case .textStyle: return "Style"
+            case .soundSpeech: return "Speech"
             }
         }
         /// Copies between overlays instead of clips.
-        var forOverlays: Bool { [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter].contains(self) }
+        var forOverlays: Bool {
+            [.overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .overlayTransform, .textFont, .textStyle].contains(self)
+        }
+        /// Copies between sounds instead of clips.
+        var forSounds: Bool { self == .soundSpeech }
+        /// Copies between clips (the timeline's clip strip).
+        var forClips: Bool { !forOverlays && !forSounds }
+        /// Only texts take it (from a text).
+        var textsOnly: Bool { self == .textFont || self == .textStyle }
         /// Changes clip lengths (captions and overlays follow, the video rebuilds).
         var retimes: Bool { self == .speed || self == .speech }
     }
@@ -3666,7 +3684,8 @@ final class EditorModel: ObservableObject {
             c.crop = s.crop
         case .filter:
             c.filter = s.filter
-        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .captions, .stack:
+        case .overlayStyle, .overlayAdjust, .overlayMask, .overlaySpeed, .overlayFilter, .captions, .stack,
+             .overlayTransform, .textFont, .textStyle, .soundSpeech:
             break
         }
     }
@@ -3692,6 +3711,42 @@ final class EditorModel: ObservableObject {
             guard o.kind.isVideo else { return }
             Self.setSpeed(&o, s.speed, timeline: timeline)
             return
+        case .textStyle:
+            guard o.isText, s.isText else { return }
+            var st = s.style
+            st.x = o.style.x
+            st.y = o.style.y
+            st.rotation = o.style.rotation
+            o.style = st
+            return
+        case .textFont:
+            guard o.isText, s.isText else { return }
+            o.style.font = s.style.font
+            o.style.fontName = s.style.fontName
+            o.style.fontWeight = s.style.fontWeight
+            return
+        case .overlayTransform:
+            guard !o.isAdjustment else { return }
+            // the placement as it is at the playhead; keyframed moves come along (same times from the layer's start),
+            // each keeping the target's own opacity
+            let now = s.pose(at: overlaySourceTime(s)).transform
+            o.transform = now
+            if s.keys.isEmpty {
+                for k in o.keys.indices { o.keys[k].transform = now }
+            } else {
+                let target = o
+                o.keys = s.keys.map { key in
+                    var k = key
+                    k.opacity = target.pose(at: target.start + key.t).opacity
+                    return k
+                }
+            }
+            if s.isText, o.isText {
+                o.style.x = s.style.x
+                o.style.y = s.style.y
+                o.style.rotation = s.style.rotation
+            }
+            return
         default:
             break
         }
@@ -3707,6 +3762,30 @@ final class EditorModel: ObservableObject {
         for k in o.keys.indices { o.keys[k].opacity = s.opacity }
         if !o.isAdjustment { o.behindSubject = s.behindSubject }
         o.anim = o.isAdjustment ? s.anim.fadesOnly : s.anim
+    }
+
+    /// Timeline time to read a source layer's placement at: the playhead when it's on the layer, else its start.
+    private func overlaySourceTime(_ o: Overlay) -> Double {
+        currentTime >= o.start && currentTime < o.end ? currentTime : o.start
+    }
+
+    /// Who can take settings of this kind: clips, layers (texts only for the font) or sounds.
+    private func pickable(_ kind: ApplyKind) -> [UUID] {
+        if kind.forSounds { return project.audio.map(\.id) }
+        if kind.forOverlays {
+            return project.overlays.filter { kind.textsOnly ? $0.isText : !(kind == .overlayTransform && $0.isAdjustment) }.map(\.id)
+        }
+        return project.clips.map(\.id)
+    }
+
+    /// One sound's settings to others (Remove noise / Enhance voice: the cleaned sound is made for each, then played).
+    private func applySounds(_ kind: ApplyKind, from id: UUID, to ids: Set<UUID>) {
+        guard let s = project.audio.first(where: { $0.id == id }) else { return }
+        mutate { p in
+            for j in p.audio.indices where ids.contains(p.audio[j].id) && p.audio[j].id != id {
+                p.audio[j].speech = s.speech
+            }
+        }
     }
 
     private func applyOverlays(_ kind: ApplyKind, from id: UUID, to ids: Set<UUID>) {
@@ -3741,9 +3820,15 @@ final class EditorModel: ObservableObject {
     }
 
     func applyToAll(_ kind: ApplyKind) {
+        if kind.forSounds {
+            guard let id = selectedAudioID else { return }
+            applySounds(kind, from: id, to: Set(pickable(kind)))
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            return
+        }
         if kind.forOverlays {
             guard let id = selectedOverlayID else { return }
-            applyOverlays(kind, from: id, to: Set(project.overlays.map(\.id)))
+            applyOverlays(kind, from: id, to: Set(pickable(kind)))
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
         }
@@ -3754,15 +3839,13 @@ final class EditorModel: ObservableObject {
 
     /// Close the panel and pick clips in the timeline.
     func startPick(_ kind: ApplyKind) {
-        guard let id = kind.forOverlays ? selectedOverlayID : selectedClipID else { return }
+        guard let id = kind.forSounds ? selectedAudioID : kind.forOverlays ? selectedOverlayID : selectedClipID else { return }
         pause()
         pick = PickSession(kind: kind, source: id, picked: [])
     }
 
     func togglePick(_ id: UUID) {
-        guard var p = pick, id != p.source else { return }
-        let isOverlay = project.overlays.contains { $0.id == id }
-        guard isOverlay == p.kind.forOverlays else { return }
+        guard var p = pick, id != p.source, pickable(p.kind).contains(id) else { return }
         if p.picked.contains(id) { p.picked.remove(id) } else { p.picked.insert(id) }
         pick = p
         UISelectionFeedbackGenerator().selectionChanged()
@@ -3777,7 +3860,7 @@ final class EditorModel: ObservableObject {
 
     func pickAll() {
         guard var p = pick else { return }
-        p.picked = Set(p.kind.forOverlays ? project.overlays.map(\.id) : project.clips.map(\.id)).subtracting([p.source])
+        p.picked = Set(pickable(p.kind)).subtracting([p.source])
         pick = p
     }
 
@@ -3794,7 +3877,9 @@ final class EditorModel: ObservableObject {
             return
         }
         guard ok, !p.picked.isEmpty else { return }
-        if p.kind.forOverlays {
+        if p.kind.forSounds {
+            applySounds(p.kind, from: p.source, to: p.picked)
+        } else if p.kind.forOverlays {
             applyOverlays(p.kind, from: p.source, to: p.picked)
         } else {
             guard let i = project.clips.firstIndex(where: { $0.id == p.source }) else { return }

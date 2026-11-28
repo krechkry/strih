@@ -60,20 +60,30 @@ struct ApplyRow: View {
     @Environment(\.closePanel) private var close
 
     var body: some View {
-        if (kind.forOverlays ? model.project.overlays.count : model.project.clips.count) > 1 {
+        if count > 1 {
             VStack(alignment: .leading, spacing: 8) {
                 if title {
                     Text("Apply to").font(.footnote.weight(.semibold)).textCase(.uppercase).foregroundStyle(Theme.muted)
                 }
                 HStack(spacing: 8) {
-                    button(kind.forOverlays ? "All overlays" : "All clips", "square.stack.3d.up.fill") { model.applyToAll(kind) }
-                    button(kind.forOverlays ? "Pick overlays" : "Pick clips", "hand.tap.fill") {
+                    button(kind.forSounds ? "All sounds" : kind.textsOnly ? "All texts" : kind.forOverlays ? "All overlays" : "All clips",
+                           "square.stack.3d.up.fill") { model.applyToAll(kind) }
+                    button(kind.forSounds ? "Pick sounds" : kind.textsOnly ? "Pick texts" : kind.forOverlays ? "Pick overlays" : "Pick clips",
+                           "hand.tap.fill") {
                         model.startPick(kind)
                         close()
                     }
                 }
             }
         }
+    }
+
+    /// How many could take it (the selected one included).
+    private var count: Int {
+        if kind.forSounds { return model.project.audio.count }
+        if kind.textsOnly { return model.project.overlays.filter(\.isText).count }
+        if kind.forOverlays { return model.project.overlays.count }
+        return model.project.clips.count
     }
 
     private func button(_ title: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
@@ -439,7 +449,7 @@ struct SpeechSheet: View {
                         .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     if forSound {
-                        // a sound: nothing to copy to
+                        ApplyRow(model: model, kind: .soundSpeech)
                     } else if model.selectedStackIndex == nil {
                         ApplyRow(model: model, kind: .speech)
                     } else {

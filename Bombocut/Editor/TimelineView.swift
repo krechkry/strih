@@ -167,7 +167,7 @@ struct TimelineView: View {
                                      onRoll: { leading, phase, delta, x in roll(clip.id, leading, phase, delta, x) },
                                      onReorder: { phase, x, fx in reorderEvent(clip.id, phase, x, fx) },
                                      showFrames: onScreen.map { k < $0.count && $0[k] } ?? true)
-                                .overlay { if let pk = model.pick, !pk.kind.forOverlays { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
+                                .overlay { if let pk = model.pick, pk.kind.forClips { PickMark(source: pk.source == clip.id, picked: pk.picked.contains(clip.id)) } }
                                 .overlay(alignment: .topTrailing) {
                                     // a Stack: several clips in one
                                     if clip.stack != nil && width(clip) > 30 {
@@ -222,10 +222,10 @@ struct TimelineView: View {
                         if model.pick == nil && model.slip == nil { stackFrames(shown) }
                     }
                     .animation(reorder == nil ? nil : .easeOut(duration: 0.18), value: reorder?.to)
-                    .paintSelect(enabled: model.pick != nil && model.pick?.kind.forOverlays == false, ids: shown.map(\.id),
+                    .paintSelect(enabled: model.pick != nil && model.pick?.kind.forClips == true, ids: shown.map(\.id),
                                  selection: Binding(get: { model.pick?.picked ?? [] }, set: { model.setPicked($0) }),
                                  painting: $paintingPick, axis: .horizontal,
-                                 canSelect: { id in model.pick.map { !$0.kind.forOverlays && $0.source != id } ?? false }) { pt in
+                                 canSelect: { id in model.pick.map { $0.kind.forClips && $0.source != id } ?? false }) { pt in
                         // which clip is under x
                         var x: CGFloat = 0
                         for (k, c) in shown.enumerated() {
@@ -1694,7 +1694,7 @@ struct OverlayLane: View {
                 .offset(x: -LaneEdge.width)
             }
         }
-        .overlay { if let pk = model.pick, pk.kind.forOverlays { PickMark(source: pk.source == o.id, picked: pk.picked.contains(o.id)) } }
+        .overlay { if let pk = model.pick, pk.kind.forOverlays, !pk.kind.textsOnly || o.isText { PickMark(source: pk.source == o.id, picked: pk.picked.contains(o.id)) } }
         .overlay {
             // a clip being swiped up: the overlay it will become, dashed until the finger lets go
             if model.clipLift?.overlayID == o.id {
@@ -1919,8 +1919,10 @@ struct AudioLane: View {
                 .offset(x: -LaneEdge.width)
             }
         }
+        .overlay { if let pk = model.pick, pk.kind.forSounds { PickMark(source: pk.source == a.id, picked: pk.picked.contains(a.id)) } }
         .contentShape(OutsetX(dx: selected ? LaneEdge.width + 8 : 0))
         .onTapGesture {
+            if model.pick != nil { model.togglePick(a.id); return }
             // tap 1 selects, tap 2 deselects
             if selected { model.selectAudio(nil) } else { model.selectAudio(a.id) }
         }

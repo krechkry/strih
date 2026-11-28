@@ -98,7 +98,9 @@ struct OverlaySheet: View {
                             case .text: textLook(o.style)
                             case .font: fontTab(o)
                             case .style: styleTab(o.style)
-                            case .presets: TextPresetsTab(model: model, style: o.style)
+                            case .presets:
+                                TextPresetsTab(model: model, style: o.style)
+                                ApplyRow(model: model, kind: .textStyle)
                             case .animation: animationTab(o)
                             case .blend: blendTab(o)
                             case .speed: speedTab(o)
@@ -179,6 +181,7 @@ struct OverlaySheet: View {
                      began: { model.liveEditBegan() },
                      live: { c in model.editOverlay { c.apply(&$0.style) } },
                      ended: { model.liveEditEnded() })
+            ApplyRow(model: model, kind: .textFont)
         }
     }
 
@@ -207,6 +210,7 @@ struct OverlaySheet: View {
             slider("Box opacity", value: s.boxOpacity, def: Overlay.defaultTextStyle.boxOpacity, in: 0.1...1) { v in model.editOverlay { $0.style.boxOpacity = v } }
         }
         OnOffRow(title: "Capital letters", isOn: s.caps) { v in model.setOverlay { $0.style.caps = v } }
+        ApplyRow(model: model, kind: .textStyle)
     }
 
     // MARK: Animation

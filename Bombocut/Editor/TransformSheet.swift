@@ -183,6 +183,8 @@ struct TransformTabView: View {
             Text(loc("Drag the crosshair on the preview to move the anchor point. Scale, rotation and the 3D turns go around it."))
                 .font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
+            // texts and layers: the same placement on others (all, or picked in the timeline)
+            if model.selectedOverlayIndex != nil { ApplyRow(model: model, kind: .overlayTransform) }
         }
         .transformTyping($typing, draft: $draft, model: model)
     }

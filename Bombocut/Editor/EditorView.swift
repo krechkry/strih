@@ -1209,6 +1209,8 @@ struct EditorView: View {
                 Text(loc(pk.kind.title)).font(.subheadline.weight(.heavy))
                 Text(pk.kind == .captions ? "Tap the clips to listen to"
                      : pk.kind == .stack ? "Tap the clips to put together"
+                     : pk.kind.forSounds ? "Tap the sounds to apply it to"
+                     : pk.kind.textsOnly ? "Tap the texts to apply it to"
                      : pk.kind.forOverlays ? "Tap the overlays to apply it to" : "Tap the clips to apply it to")
                     .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
             }

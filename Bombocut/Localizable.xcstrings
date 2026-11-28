@@ -710,6 +710,26 @@
         }
       }
     },
+    "All sounds": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny zvuky"
+          }
+        }
+      }
+    },
+    "All texts": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Všechny texty"
+          }
+        }
+      }
+    },
     "All updates included": {
       "localizations": {
         "cs": {
@@ -6958,6 +6978,26 @@
         }
       }
     },
+    "Pick sounds": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat zvuky"
+          }
+        }
+      }
+    },
+    "Pick texts": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat texty"
+          }
+        }
+      }
+    },
     "Pick the languages you speak in your videos. It's only a preference: they come first when you make captions, and you can still use any of the 25. One speech model covers them all, offline on your iPhone.": {
       "localizations": {
         "cs": {
@@ -9274,6 +9314,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vyber překrytí, na která to chceš dát"
+          }
+        }
+      }
+    },
+    "Tap the sounds to apply it to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber zvuky, na které to chceš dát"
+          }
+        }
+      }
+    },
+    "Tap the texts to apply it to": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyber texty, na které to chceš dát"
           }
         }
       }
